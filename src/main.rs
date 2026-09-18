@@ -10,7 +10,7 @@ mod model;
 mod purl;
 
 use std::io::IsTerminal;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use miette::{Context, IntoDiagnostic, Result};
@@ -24,25 +24,39 @@ fn main() -> Result<()> {
 
     let cwd = std::env::current_dir().into_diagnostic()?;
     let lockfile = discover::resolve_lockfile(args.lockfile.as_deref(), &cwd)?;
-    let output = discover::resolve_output(args.output.as_deref(), &lockfile, args.format);
-    tracing::debug!(lockfile = %lockfile.display(), output = %output.display(), format = ?args.format, "resolved paths");
-
+    let lock = lock::load(&lockfile)?;
     let root = manifest::root_for_lockfile(&lockfile);
-    let selection = lock::Selection {
-        environment: &args.environment,
-        platform: args.platform.as_deref(),
-    };
-    let sbom = lock::build_sbom(&lockfile, selection, root)?;
 
-    write_output(&output, args.format, &sbom)?;
-    tracing::info!(
-        output = %output.display(),
-        format = ?args.format,
-        packages = sbom.packages.len(),
-        environment = %sbom.environment,
-        platform = %sbom.platform,
-        "wrote SBOM"
-    );
+    let targets: Vec<(String, PathBuf)> = if args.all_environments {
+        lock::environment_names(&lock)
+            .into_iter()
+            .map(|env| {
+                let output = discover::resolve_environment_output(args.output.as_deref(), &lockfile, args.format, &env);
+                (env, output)
+            })
+            .collect()
+    } else {
+        let output = discover::resolve_output(args.output.as_deref(), &lockfile, args.format);
+        vec![(args.environment.clone(), output)]
+    };
+    tracing::debug!(lockfile = %lockfile.display(), ?targets, format = ?args.format, "resolved targets");
+
+    for (environment, output) in &targets {
+        let selection = lock::Selection {
+            environment,
+            platform: args.platform.as_deref(),
+        };
+        let sbom = lock::sbom_from_lock(&lock, selection, root.clone(), &lockfile.display().to_string())?;
+        write_output(output, args.format, &sbom)?;
+        tracing::info!(
+            output = %output.display(),
+            format = ?args.format,
+            packages = sbom.packages.len(),
+            environment = %sbom.environment,
+            platform = %sbom.platform,
+            "wrote SBOM"
+        );
+    }
     Ok(())
 }
 

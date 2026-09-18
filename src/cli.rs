@@ -15,12 +15,22 @@ pub enum Format {
 }
 
 impl Format {
-    /// Default file name used when `--output` is not given.
-    pub fn default_file_name(self) -> &'static str {
+    /// File extension for this format, including the leading dot.
+    pub fn extension(self) -> &'static str {
         match self {
-            Format::Cyclonedx => "sbom.cdx.json",
-            Format::Spdx => "sbom.spdx.json",
+            Format::Cyclonedx => ".cdx.json",
+            Format::Spdx => ".spdx.json",
         }
+    }
+
+    /// Default file name used when `--output` is not given.
+    pub fn default_file_name(self) -> String {
+        format!("sbom{}", self.extension())
+    }
+
+    /// File name used for one environment when `--all-environments` is given.
+    pub fn environment_file_name(self, environment: &str) -> String {
+        format!("sbom-{environment}{}", self.extension())
     }
 }
 
@@ -36,13 +46,18 @@ pub struct Args {
     #[arg(long, value_enum, default_value_t = Format::Cyclonedx)]
     pub format: Format,
 
-    /// Where to write the SBOM. Defaults to the lockfile's directory.
+    /// Where to write the SBOM. Defaults to the lockfile's directory. With --all-environments
+    /// this is a directory that receives one sbom-<environment> file per environment.
     #[arg(long, value_name = "PATH")]
     pub output: Option<PathBuf>,
 
     /// Lock environment to describe.
-    #[arg(short, long, default_value = "default")]
+    #[arg(short, long, default_value = "default", conflicts_with = "all_environments")]
     pub environment: String,
+
+    /// Generate one SBOM per environment in the lockfile instead of a single environment.
+    #[arg(long)]
+    pub all_environments: bool,
 
     /// Platform within the environment (e.g. linux-64). Defaults to the current platform.
     #[arg(short, long, value_name = "PLATFORM")]

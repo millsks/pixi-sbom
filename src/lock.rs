@@ -78,12 +78,25 @@ pub struct Selection<'a> {
     pub platform: Option<&'a str>,
 }
 
-/// Parse `path` and build the SBOM model for the selected environment/platform.
-pub fn build_sbom(path: &Path, selection: Selection<'_>, root: Root) -> Result<Sbom, LockError> {
-    let lock = LockFile::from_path(path).map_err(|source| LockError::Parse {
+/// Parse the lockfile at `path`.
+pub fn load(path: &Path) -> Result<LockFile, LockError> {
+    LockFile::from_path(path).map_err(|source| LockError::Parse {
         path: path.display().to_string(),
         source: Box::new(source),
-    })?;
+    })
+}
+
+/// Names of every environment in the lockfile: `default` first, the rest alphabetical.
+pub fn environment_names(lock: &LockFile) -> Vec<String> {
+    let mut names: Vec<String> = lock.environments().map(|(name, _)| name.to_string()).collect();
+    names.sort_by_key(|name| (name != "default", name.clone()));
+    names
+}
+
+/// Parse `path` and build the SBOM model for the selected environment/platform.
+#[cfg(test)]
+pub fn build_sbom(path: &Path, selection: Selection<'_>, root: Root) -> Result<Sbom, LockError> {
+    let lock = load(path)?;
     sbom_from_lock(&lock, selection, root, &path.display().to_string())
 }
 
@@ -548,6 +561,16 @@ mod tests {
         assert_eq!(keys, sorted);
         let ids: BTreeSet<_> = sbom.packages.iter().map(|p| &p.id).collect();
         assert_eq!(ids.len(), sbom.packages.len(), "ids are unique");
+    }
+
+    #[test]
+    fn environment_names_put_default_first_then_alphabetical() {
+        let lock = load(&fixture("with-pypi")).unwrap();
+        assert_eq!(environment_names(&lock), ["default", "web"]);
+        let lock = load(&fixture("multi-env")).unwrap();
+        assert_eq!(environment_names(&lock), ["default", "alpha", "zeta"]);
+        let lock = load(&fixture("conda-only")).unwrap();
+        assert_eq!(environment_names(&lock), ["default"]);
     }
 
     #[test]

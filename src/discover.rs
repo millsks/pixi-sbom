@@ -59,12 +59,26 @@ fn find_upward(start: &Path) -> Option<PathBuf> {
 pub fn resolve_output(explicit: Option<&Path>, lockfile: &Path, format: Format) -> PathBuf {
     match explicit {
         Some(path) => path.to_path_buf(),
-        None => lockfile
-            .parent()
-            .map(Path::to_path_buf)
-            .unwrap_or_default()
-            .join(format.default_file_name()),
+        None => lockfile_dir(lockfile).join(format.default_file_name()),
     }
+}
+
+/// Resolve the per-environment output file for `--all-environments`: `sbom-<environment>`
+/// inside the explicit output directory if given, otherwise next to the lockfile.
+pub fn resolve_environment_output(
+    explicit_dir: Option<&Path>,
+    lockfile: &Path,
+    format: Format,
+    environment: &str,
+) -> PathBuf {
+    explicit_dir
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| lockfile_dir(lockfile))
+        .join(format.environment_file_name(environment))
+}
+
+fn lockfile_dir(lockfile: &Path) -> PathBuf {
+    lockfile.parent().map(Path::to_path_buf).unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -122,6 +136,31 @@ mod tests {
         assert_eq!(
             resolve_output(None, lock, Format::Spdx),
             Path::new("/work/proj/sbom.spdx.json")
+        );
+    }
+
+    #[test]
+    fn environment_output_defaults_next_to_lockfile() {
+        let lock = Path::new("/work/proj/pixi.lock");
+
+        assert_eq!(
+            resolve_environment_output(None, lock, Format::Cyclonedx, "prod"),
+            Path::new("/work/proj/sbom-prod.cdx.json")
+        );
+        assert_eq!(
+            resolve_environment_output(None, lock, Format::Spdx, "default"),
+            Path::new("/work/proj/sbom-default.spdx.json")
+        );
+    }
+
+    #[test]
+    fn environment_output_uses_explicit_directory() {
+        let lock = Path::new("/work/proj/pixi.lock");
+        let dir = Path::new("/reports");
+
+        assert_eq!(
+            resolve_environment_output(Some(dir), lock, Format::Cyclonedx, "web"),
+            Path::new("/reports/sbom-web.cdx.json")
         );
     }
 

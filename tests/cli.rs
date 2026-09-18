@@ -274,6 +274,76 @@ fn source_packages_produce_valid_documents_in_both_formats() {
 }
 
 #[test]
+fn all_environments_writes_one_file_per_environment_next_to_lockfile() {
+    let dir = workspace("multi-env");
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--all-environments", "-p", "linux-64"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("environment=default"))
+        .stderr(predicate::str::contains("environment=alpha"))
+        .stderr(predicate::str::contains("environment=zeta"));
+
+    let validator = cyclonedx_validator();
+    for (env, expected_packages) in [("default", 1), ("alpha", 2), ("zeta", 2)] {
+        let doc = read_json(&dir.path().join(format!("sbom-{env}.cdx.json")));
+        assert_valid(&validator, &doc);
+        assert_eq!(doc["components"].as_array().unwrap().len(), expected_packages, "{env}");
+        let props = doc["metadata"]["properties"].as_array().unwrap();
+        assert!(
+            props
+                .iter()
+                .any(|p| p["name"] == "pixi:environment" && p["value"] == env)
+        );
+    }
+    assert!(
+        !dir.path().join("sbom.cdx.json").exists(),
+        "single-environment default name is not used"
+    );
+}
+
+#[test]
+fn all_environments_with_output_directory_and_spdx() {
+    let dir = workspace("with-pypi");
+    let out = dir.path().join("reports").join("nested");
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args([
+            "--all-environments",
+            "--format",
+            "spdx",
+            "-p",
+            "linux-64",
+            "--output",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+    let validator = spdx_validator();
+    for env in ["default", "web"] {
+        let doc = read_json(&out.join(format!("sbom-{env}.spdx.json")));
+        assert_valid(&validator, &doc);
+        assert_eq!(doc["name"], format!("with-pypi-{env}-linux-64"));
+    }
+}
+
+#[test]
+fn all_environments_conflicts_with_environment() {
+    let dir = workspace("with-pypi");
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--all-environments", "-e", "web"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be used with"));
+}
+
+#[test]
 fn unknown_environment_is_reported() {
     let dir = workspace("with-pypi");
 
