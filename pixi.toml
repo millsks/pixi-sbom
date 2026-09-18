@@ -1,0 +1,46 @@
+[workspace]
+authors = ["Kevin Mills <millsks@gmail.com>"]
+channels = ["conda-forge"]
+name = "pixi-sbom"
+platforms = ["osx-arm64", "osx-64", "linux-64", "linux-aarch64", "win-64"]
+version = "0.1.0"
+exclude-newer = "7d"
+
+[dependencies]
+rust = "==1.98.1"
+
+[target.linux.dependencies]
+compilers = ">=1.7.0"
+
+[tasks]
+fmt = "cargo fmt"
+lint = "cargo clippy --all-targets -- -D warnings"
+check = "cargo check --all-targets"
+test = "cargo test"
+test-integration = "cargo test --test '*'"
+build = "cargo build --release"
+changelog = "git cliff --config cliff.toml -o CHANGELOG.md"
+
+[feature.lint.dependencies]
+pre-commit = "*"
+pre-commit-hooks = "*"
+taplo = "*"
+typos = "*"
+git-cliff = "*"
+
+[feature.lint.tasks]
+bootstrap = "pre-commit install --hook-type pre-commit --hook-type commit-msg"
+pre-commit-run = "pre-commit run --all-files"
+
+[feature.cov.dependencies]
+cargo-llvm-cov = "*"
+
+[feature.cov.tasks]
+cov = "cargo llvm-cov --all-targets --fail-under-lines 90"
+
+[feature.dev.tasks]
+ci = { depends-on = ["pre-commit-run", "build", "check", "lint", "cov"] }
+
+[environments]
+default = ["lint", "cov", "dev"]
+lint = { features = ["lint"], no-default-feature = true }

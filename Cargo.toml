@@ -1,0 +1,42 @@
+[package]
+name = "pixi-sbom"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Generate a CycloneDX or SPDX SBOM from a pixi.lock file"
+license = "Apache-2.0"
+repository = "https://github.com/millsks/pixi-sbom"
+readme = "README.md"
+keywords = ["pixi", "sbom", "cyclonedx", "spdx", "conda"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "pixi-sbom"
+path = "src/main.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+
+[dependencies]
+chrono = { version = "0.4.45", features = ["serde"] }
+clap = { version = "4.6.7", features = ["derive", "string"] }
+clap-verbosity-flag = { version = "3.0.4", features = ["tracing"] }
+miette = { version = "7.6.0", features = ["fancy"] }
+packageurl = "0.7.0"
+rattler_lock = { version = "0.33.0", default-features = false }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+spdx = "0.13.5"
+thiserror = "2.0.20"
+toml = "1.1.6"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+
+[dev-dependencies]
+assert_cmd = "2.2.2"
+insta = { version = "1.48.0", features = ["json", "redactions"] }
+jsonschema = { version = "0.56.0", default-features = false }
+predicates = "3.1.4"
+tempfile = "3.27.0"
