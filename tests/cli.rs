@@ -234,6 +234,46 @@ fn pypi_environment_produces_valid_spdx() {
 }
 
 #[test]
+fn source_packages_produce_valid_documents_in_both_formats() {
+    let dir = workspace("source-packages");
+    let cdx = dir.path().join("out.cdx.json");
+    let spdx = dir.path().join("out.spdx.json");
+
+    for (format, out) in [("cyclonedx", &cdx), ("spdx", &spdx)] {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .args(["--format", format, "-p", "linux-64", "--output", out.to_str().unwrap()])
+            .assert()
+            .success();
+    }
+
+    let cdx_doc = read_json(&cdx);
+    assert_valid(&cyclonedx_validator(), &cdx_doc);
+    let components = cdx_doc["components"].as_array().unwrap();
+    let git = components.iter().find(|c| c["name"] == "pixi-tag-package").unwrap();
+    assert_eq!(git["externalReferences"][0]["type"], "vcs");
+    assert_eq!(
+        git["externalReferences"][0]["url"],
+        "git+https://github.com/example/pixi-package.git@def456789012345"
+    );
+    let partial = components.iter().find(|c| c["name"] == "my-partial-pkg").unwrap();
+    assert!(partial.get("version").is_none());
+    assert_eq!(partial["purl"], "pkg:conda/my-partial-pkg");
+
+    let spdx_doc = read_json(&spdx);
+    assert_valid(&spdx_validator(), &spdx_doc);
+    let packages = spdx_doc["packages"].as_array().unwrap();
+    let local = packages.iter().find(|p| p["name"] == "local-package").unwrap();
+    assert_eq!(local["downloadLocation"], "NOASSERTION");
+    assert_eq!(local["sourceInfo"], "built from source at ../local-package");
+    let git = packages.iter().find(|p| p["name"] == "pixi-tag-package").unwrap();
+    assert_eq!(
+        git["downloadLocation"],
+        "git+https://github.com/example/pixi-package.git@def456789012345"
+    );
+}
+
+#[test]
 fn unknown_environment_is_reported() {
     let dir = workspace("with-pypi");
 

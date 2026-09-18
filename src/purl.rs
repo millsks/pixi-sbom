@@ -9,11 +9,10 @@ use thiserror::Error;
 
 /// Failure to build a purl; only happens on names the purl spec rejects.
 #[derive(Debug, Error, Diagnostic)]
-#[error("cannot build a package URL for {name}@{version}: {source}")]
+#[error("cannot build a package URL for {name}: {source}")]
 #[diagnostic(code(pixi_sbom::purl::invalid))]
 pub struct PurlError {
     name: String,
-    version: String,
     #[source]
     source: packageurl::Error,
 }
@@ -23,8 +22,8 @@ pub struct PurlError {
 pub struct CondaPurl<'a> {
     /// Package name.
     pub name: &'a str,
-    /// Package version.
-    pub version: &'a str,
+    /// Package version, if known.
+    pub version: Option<&'a str>,
     /// Build string, if known.
     pub build: Option<&'a str>,
     /// Channel name (e.g. `conda-forge`), if known.
@@ -39,11 +38,12 @@ pub struct CondaPurl<'a> {
 pub fn conda(input: CondaPurl<'_>) -> Result<String, PurlError> {
     let wrap = |source| PurlError {
         name: input.name.to_string(),
-        version: input.version.to_string(),
         source,
     };
     let mut purl = PackageUrl::new("conda", input.name).map_err(wrap)?;
-    purl.with_version(input.version).map_err(wrap)?;
+    if let Some(version) = input.version {
+        purl.with_version(version).map_err(wrap)?;
+    }
     for (key, value) in [
         ("build", input.build),
         ("channel", input.channel),
@@ -62,7 +62,6 @@ pub fn conda(input: CondaPurl<'_>) -> Result<String, PurlError> {
 pub fn pypi(name: &str, version: &str) -> Result<String, PurlError> {
     let wrap = |source| PurlError {
         name: name.to_string(),
-        version: version.to_string(),
         source,
     };
     let normalized = normalize_pypi_name(name);
@@ -118,7 +117,7 @@ mod tests {
     fn conda_purl_includes_all_qualifiers() {
         let purl = conda(CondaPurl {
             name: "zlib",
-            version: "1.3.2",
+            version: Some("1.3.2"),
             build: Some("h25fd6f3_3"),
             channel: Some("conda-forge"),
             subdir: Some("linux-64"),
@@ -135,7 +134,7 @@ mod tests {
     fn conda_purl_omits_unknown_qualifiers() {
         let purl = conda(CondaPurl {
             name: "mypkg",
-            version: "0.1.0",
+            version: Some("0.1.0"),
             build: None,
             channel: None,
             subdir: None,
@@ -143,6 +142,20 @@ mod tests {
         })
         .unwrap();
         assert_eq!(purl, "pkg:conda/mypkg@0.1.0");
+    }
+
+    #[test]
+    fn conda_purl_without_version() {
+        let purl = conda(CondaPurl {
+            name: "partial",
+            version: None,
+            build: None,
+            channel: None,
+            subdir: None,
+            archive_type: None,
+        })
+        .unwrap();
+        assert_eq!(purl, "pkg:conda/partial");
     }
 
     #[test]

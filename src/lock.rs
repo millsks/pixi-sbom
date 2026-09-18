@@ -5,7 +5,10 @@ use std::path::Path;
 
 use miette::Diagnostic;
 use rattler_conda_types::{PackageName, PackageRecord};
-use rattler_lock::{CondaPackageData, LockFile, LockedPackage, PackageHashes, PypiPackageData, UrlOrPath};
+use rattler_lock::{
+    CondaPackageData, GitShallowSpec, LockFile, LockedPackage, PackageBuildSource, PackageHashes, PypiPackageData,
+    UrlOrPath,
+};
 use thiserror::Error;
 
 use crate::model::{Package, PackageKind, Root, Sbom};
@@ -153,10 +156,16 @@ fn convert_package(package: &LockedPackage) -> Result<Package, LockError> {
 
 fn convert_conda(conda: &CondaPackageData) -> Result<Package, LockError> {
     let name = conda.name().as_source().to_string();
-    let location = location_string(conda.location());
+    let mut location = location_string(conda.location());
     let record = conda.record();
     let version = record.map(|record| record.version.as_str().into_owned());
     let mut properties = BTreeMap::new();
+    let mut sha256 = record.and_then(|r| r.sha256.as_ref()).map(hex);
+    let mut license = record.and_then(|r| r.license.clone());
+    let mut extra_purls: Vec<String> = record
+        .and_then(|record| record.purls.as_ref())
+        .map(|purls| purls.iter().map(ToString::to_string).collect())
+        .unwrap_or_default();
 
     let (kind, channel, subdir, archive_type, build) = match conda {
         CondaPackageData::Binary(binary) => {
@@ -183,6 +192,19 @@ fn convert_conda(conda: &CondaPackageData) -> Result<Package, LockError> {
             if let Some(hash) = &source.identifier_hash {
                 properties.insert("pixi:identifier-hash".into(), hash.clone());
             }
+            if let Some(partial) = source.metadata.as_partial() {
+                license = partial.license.clone();
+                extra_purls = partial
+                    .purls
+                    .as_ref()
+                    .map(|purls| purls.iter().map(ToString::to_string).collect())
+                    .unwrap_or_default();
+            }
+            if let Some(build_source) = &source.package_build_source {
+                let resolved = describe_build_source(build_source, &mut properties);
+                location = resolved.location;
+                sha256 = resolved.sha256.or(sha256);
+            }
             (
                 PackageKind::CondaSource,
                 None,
@@ -208,16 +230,12 @@ fn convert_conda(conda: &CondaPackageData) -> Result<Package, LockError> {
 
     let purl = purl::conda(CondaPurl {
         name: &name,
-        version: version.as_deref().unwrap_or("0"),
+        version: version.as_deref(),
         build: build.as_deref(),
         channel: channel.as_deref(),
         subdir: subdir.as_deref(),
         archive_type: archive_type.as_deref(),
     })?;
-    let extra_purls = record
-        .and_then(|record| record.purls.as_ref())
-        .map(|purls| purls.iter().map(ToString::to_string).collect())
-        .unwrap_or_default();
 
     Ok(Package {
         id: purl.clone(),
@@ -227,12 +245,63 @@ fn convert_conda(conda: &CondaPackageData) -> Result<Package, LockError> {
         purl,
         extra_purls,
         location,
-        sha256: record.and_then(|r| r.sha256.as_ref()).map(hex),
+        sha256,
         md5: record.and_then(|r| r.md5.as_ref()).map(hex),
-        license: record.and_then(|r| r.license.clone()),
+        license,
         properties,
         dependencies: Vec::new(),
     })
+}
+
+struct BuildSourceInfo {
+    location: String,
+    sha256: Option<String>,
+}
+
+/// Turn a pixi-build source spec into a download location (VCS form for git) and
+/// `pixi:source-*` properties.
+fn describe_build_source(source: &PackageBuildSource, properties: &mut BTreeMap<String, String>) -> BuildSourceInfo {
+    match source {
+        PackageBuildSource::Git { url, spec, rev, subdir } => {
+            properties.insert("pixi:source-git".into(), url.to_string());
+            properties.insert("pixi:source-rev".into(), rev.clone());
+            match spec {
+                Some(GitShallowSpec::Branch(branch)) => {
+                    properties.insert("pixi:source-branch".into(), branch.clone());
+                }
+                Some(GitShallowSpec::Tag(tag)) => {
+                    properties.insert("pixi:source-tag".into(), tag.clone());
+                }
+                Some(GitShallowSpec::Rev) | None => {}
+            }
+            if let Some(subdir) = subdir {
+                properties.insert("pixi:source-subdirectory".into(), subdir.to_string());
+            }
+            let scheme = if url.as_str().starts_with("git+") { "" } else { "git+" };
+            let subpath = subdir.as_ref().map(|s| format!("#{s}")).unwrap_or_default();
+            BuildSourceInfo {
+                location: format!("{scheme}{url}@{rev}{subpath}"),
+                sha256: None,
+            }
+        }
+        PackageBuildSource::Url { url, sha256, subdir } => {
+            properties.insert("pixi:source-url".into(), url.to_string());
+            if let Some(subdir) = subdir {
+                properties.insert("pixi:source-subdirectory".into(), subdir.to_string());
+            }
+            BuildSourceInfo {
+                location: url.to_string(),
+                sha256: Some(hex(sha256)),
+            }
+        }
+        PackageBuildSource::Path { path } => {
+            properties.insert("pixi:source-path".into(), path.to_string());
+            BuildSourceInfo {
+                location: path.to_string(),
+                sha256: None,
+            }
+        }
+    }
 }
 
 fn add_record_properties(record: &PackageRecord, properties: &mut BTreeMap<String, String>) {
@@ -509,6 +578,87 @@ mod tests {
 
         let err = build_sbom(&path, select("default", "linux-64"), root()).unwrap_err();
         assert!(matches!(err, LockError::Parse { .. }));
+    }
+
+    #[test]
+    fn source_packages_use_build_source_for_location() {
+        let sbom = build_sbom(&fixture("source-packages"), select("default", "linux-64"), root()).unwrap();
+        let find = |name: &str| sbom.packages.iter().find(|p| p.name == name).unwrap();
+
+        let git = find("pixi-tag-package");
+        assert_eq!(git.kind, PackageKind::CondaSource);
+        assert_eq!(git.version.as_deref(), Some("1.2.0"));
+        assert_eq!(
+            git.location,
+            "git+https://github.com/example/pixi-package.git@def456789012345"
+        );
+        assert_eq!(
+            git.purl,
+            "pkg:conda/pixi-tag-package@1.2.0?build=pyhbf21a9e_0&subdir=noarch"
+        );
+        assert_eq!(git.properties["pixi:source-tag"], "v1.2.0");
+        assert_eq!(git.properties["pixi:source-rev"], "def456789012345");
+        assert_eq!(git.properties["pixi:identifier-hash"], "8a76ea86");
+        assert_eq!(git.license.as_deref(), Some("MIT"));
+        assert_eq!(git.dependencies, vec![find("libzlib").id.clone()]);
+
+        let archive = find("archive-package");
+        assert_eq!(archive.location, "https://example.com/archive-package-2.0.0.tar.gz");
+        assert_eq!(archive.sha256.as_deref().map(str::len), Some(64));
+        assert_eq!(
+            archive.properties["pixi:source-url"],
+            "https://example.com/archive-package-2.0.0.tar.gz"
+        );
+
+        let local = find("local-package");
+        assert_eq!(local.location, "../local-package");
+        assert_eq!(local.properties["pixi:source-path"], "../local-package");
+        assert_eq!(
+            local.dependencies,
+            vec![git.id.clone()],
+            "virtual __unix dropped, source dep kept"
+        );
+    }
+
+    #[test]
+    fn partial_source_package_has_no_version_but_keeps_purls() {
+        let sbom = build_sbom(&fixture("source-packages"), select("default", "linux-64"), root()).unwrap();
+        let partial = sbom.packages.iter().find(|p| p.name == "my-partial-pkg").unwrap();
+
+        assert_eq!(partial.version, None);
+        assert_eq!(partial.purl, "pkg:conda/my-partial-pkg");
+        assert_eq!(partial.extra_purls, vec!["pkg:pypi/my-partial-pkg@1.0"]);
+        assert_eq!(partial.license, None);
+        assert!(partial.dependencies.is_empty(), "python is not in this environment");
+    }
+
+    #[test]
+    fn describe_build_source_covers_git_branch_and_subdir() {
+        let mut properties = BTreeMap::new();
+        let source = PackageBuildSource::Git {
+            url: "https://example.com/repo.git".parse().unwrap(),
+            spec: Some(GitShallowSpec::Branch("main".into())),
+            rev: "abc".into(),
+            subdir: Some("sub/dir".into()),
+        };
+        let info = describe_build_source(&source, &mut properties);
+        assert_eq!(info.location, "git+https://example.com/repo.git@abc#sub/dir");
+        assert_eq!(properties["pixi:source-branch"], "main");
+        assert_eq!(properties["pixi:source-subdirectory"], "sub/dir");
+
+        let mut properties = BTreeMap::new();
+        let source = PackageBuildSource::Git {
+            url: "git+ssh://git@example.com/repo.git".parse().unwrap(),
+            spec: Some(GitShallowSpec::Rev),
+            rev: "abc".into(),
+            subdir: None,
+        };
+        let info = describe_build_source(&source, &mut properties);
+        assert_eq!(
+            info.location, "git+ssh://git@example.com/repo.git@abc",
+            "existing git+ prefix kept"
+        );
+        assert!(!properties.contains_key("pixi:source-branch"));
     }
 
     #[test]

@@ -200,7 +200,11 @@ fn component(package: &Package) -> Component {
             .flatten()
             .collect(),
         external_references: vec![ExternalReference {
-            kind: "distribution",
+            kind: if package.location.starts_with("git+") {
+                "vcs"
+            } else {
+                "distribution"
+            },
             url: package.location.clone(),
         }],
         properties,
@@ -298,6 +302,20 @@ mod tests {
             .find(|d| d["ref"].as_str().unwrap().contains("/zlib@"))
             .unwrap();
         assert!(zlib["dependsOn"][0].as_str().unwrap().contains("libzlib"));
+    }
+
+    #[test]
+    fn git_locations_are_vcs_references() {
+        let mut sbom = sample_sbom();
+        sbom.packages[2].location = "git+https://example.com/repo.git@abc".into();
+        let doc = serde_json::to_value(document(&sbom, &fixed_context())).unwrap();
+        let mylib = doc["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == "mylib")
+            .unwrap();
+        assert_eq!(mylib["externalReferences"][0]["type"], "vcs");
     }
 
     #[test]
