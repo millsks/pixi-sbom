@@ -17,7 +17,7 @@ jobs:
         include:
           - { os: ubuntu-latest, target: linux-64, ext: "" }
           - { os: ubuntu-24.04-arm, target: linux-aarch64, ext: "" }
-          - { os: macos-13, target: osx-64, ext: "" }
+          - { os: macos-15-intel, target: osx-64, ext: "" }
           - { os: macos-latest, target: osx-arm64, ext: "" }
           - { os: windows-latest, target: win-64, ext: ".exe" }
     steps:
