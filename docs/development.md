@@ -134,11 +134,14 @@ real document; the fixtures are small by design.
 | Job | Runs on | Does |
 |---|---|---|
 | Lint | ubuntu | `pixi run pre-commit-run`, `cargo fmt --check`, `lint`, `check` |
-| Test | ubuntu x64/arm64, macOS x64/arm64, Windows | `pixi run test` |
+| Test | `ubuntu-latest`, `macos-latest`, `windows-latest` | `pixi run test` |
 | Coverage gate | ubuntu | `pixi run cov` |
-| Build | same five platforms | `pixi run build` and `--version` smoke test |
+| Build | same three | `pixi run build` and `--version` smoke test |
 
-All jobs use `prefix-dev/setup-pixi` with caching, so they run the same pinned toolchain as local development.
+All jobs use `prefix-dev/setup-pixi` with caching, so they run the same pinned toolchain as local development. CI
+sticks to the `-latest` labels (x64 Linux and Windows, arm64 macOS); the code has no platform-specific paths, so the
+remaining architectures are only exercised by the release build, which must produce a native binary for each of the
+five pixi platforms and therefore uses `ubuntu-24.04-arm` and `macos-15-intel` for linux-aarch64 and osx-64.
 
 ## Releasing
 
