@@ -1,0 +1,167 @@
+---
+source: src/format/spdx.rs
+expression: json()
+---
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "demo-default-linux-64",
+  "documentNamespace": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555",
+  "creationInfo": {
+    "created": "2026-09-18T12:00:00Z",
+    "creators": [
+      "Tool: pixi-sbom-0.0.0-test"
+    ]
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Package-root",
+      "name": "demo",
+      "versionInfo": "2.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "APPLICATION",
+      "sourceInfo": "pixi workspace; lockfile /work/demo/pixi.lock; environment default; platform linux-64"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-conda-libzlib-1.3.1",
+      "name": "libzlib",
+      "versionInfo": "1.3.1",
+      "downloadLocation": "https://conda.anaconda.org/conda-forge/linux-64/libzlib-1.3.1-h1.conda",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "Zlib",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "algorithm": "MD5",
+          "checksumValue": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:conda/libzlib@1.3.1?build=h1&channel=conda-forge&subdir=linux-64&type=conda"
+        }
+      ],
+      "comment": "pixi:channel=conda-forge\npixi:subdir=linux-64"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-conda-zlib-1.3.1",
+      "name": "zlib",
+      "versionInfo": "1.3.1",
+      "downloadLocation": "https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-h1.conda",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:conda/zlib@1.3.1?build=h1&channel=conda-forge&subdir=linux-64&type=conda"
+        },
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:pypi/zlib@1.3.1"
+        }
+      ],
+      "comment": "pixi:channel=conda-forge"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-conda-source-mylib",
+      "name": "mylib",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "LicenseRef-pixi-Proprietary",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:conda/mylib@0.1.0"
+        }
+      ],
+      "sourceInfo": "built from source at ./packages/mylib"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypi-six-1.17.0",
+      "name": "six",
+      "versionInfo": "1.17.0",
+      "downloadLocation": "https://files.pythonhosted.org/packages/six-1.17.0-py2.py3-none-any.whl",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:pypi/six@1.17.0"
+        }
+      ],
+      "comment": "pixi:requires-python=>=2.7"
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-Package-root"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-root",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-conda-source-mylib"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-root",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-pypi-six-1.17.0"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-conda-zlib-1.3.1",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-conda-libzlib-1.3.1"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-conda-source-mylib",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-conda-zlib-1.3.1"
+    }
+  ],
+  "hasExtractedLicensingInfos": [
+    {
+      "licenseId": "LicenseRef-pixi-Proprietary",
+      "extractedText": "Proprietary",
+      "name": "Proprietary"
+    }
+  ]
+}

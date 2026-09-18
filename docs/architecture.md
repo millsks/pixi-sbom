@@ -1,0 +1,116 @@
+# Architecture
+
+`pixi-sbom` is a single Rust binary (~3k lines including tests) organized as a short pipeline. Each stage has one
+job and one module, and the stages meet at a format-agnostic model so that lockfile interpretation happens exactly
+once no matter how many output formats exist.
+
+```
+ pixi.lock ──▶ lock.rs ──▶ model::Sbom ──▶ format/cyclonedx.rs ──▶ sbom.cdx.json
+                 ▲             ▲       └──▶ format/spdx.rs      ──▶ sbom.spdx.json
+   purl.rs ──────┘             │
+   manifest.rs ────────────────┘   (workspace name/version)
+   license.rs ◀── used by both writers
+   discover.rs ── finds the lockfile, decides output paths
+   cli.rs ──────── clap definitions
+   main.rs ─────── wires it together, logging, error reporting
+```
+
+## Modules
+
+| Module | Owns | Depends on |
+|---|---|---|
+| `cli.rs` | The `Args` struct (clap derive) and the `Format` enum with its file-name helpers. Nothing else knows about clap. | clap |
+| `discover.rs` | Locating `pixi.lock` (explicit path or upward search) and resolving output paths for single- and all-environment runs. Pure path logic; the only I/O is `is_file()`. | — |
+| `manifest.rs` | Reading workspace name/version from `pixi.toml` or `pyproject.toml` into `model::Root`. Never fails: problems are logged and the directory name is used. | toml, serde |
+| `lock.rs` | Parsing the lockfile with `rattler_lock`, selecting an environment and platform, converting each locked package into `model::Package`, and resolving the dependency graph. All lockfile-shape knowledge lives here. | rattler_lock, rattler_conda_types, purl.rs |
+| `purl.rs` | Building `pkg:conda` and `pkg:pypi` purls, PEP 503 name normalization, channel-name and archive-type helpers. | packageurl |
+| `model.rs` | `Sbom`, `Root`, `Package`, `PackageKind`: plain data with no serde and no knowledge of any SBOM spec. | — |
+| `license.rs` | Turning a declared license string into either an SPDX expression or free text. | spdx |
+| `format/mod.rs` | `WriteContext` (timestamp, UUID, tool version), `write()` / `to_value()` entry points, the shared graph-root helper, and the hand-built sample model used by writer tests. | serde_json, chrono, uuid |
+| `format/cyclonedx.rs` | Serde structs mirroring the parts of CycloneDX 1.6 that are used, and the `Sbom` → `Bom` mapping. | serde |
+| `format/spdx.rs` | Same for SPDX 2.3, including `SPDXRef` id assignment and `LicenseRef` extraction. | serde |
+| `main.rs` | Argument parsing, tracing setup, miette report handler, the environment loop, and file output. | miette, tracing |
+
+Errors are `thiserror` enums per module (`DiscoverError`, `LockError`, `PurlError`, `WriteError`) that also derive
+`miette::Diagnostic`, giving each variant a stable code (`pixi_sbom::lock::platform`) and, where useful, a `help`
+line. `main` returns `miette::Result`, so any of them prints as a formatted report and exits 1. Line wrapping in the
+report handler is disabled so lists of environment or platform names stay intact and greppable.
+
+Logging uses `tracing` with a `tracing_subscriber` fmt layer on stderr; ANSI color is enabled only when stderr is a
+terminal. `-v`/`-q` set the default level and `RUST_LOG` overrides it. Stdout is never written to, so the command is
+safe to use in pipelines.
+
+## The intermediate model
+
+`model::Sbom` holds the root (workspace), the environment and platform names, the lockfile path, and a sorted list of
+`Package`s. A `Package` carries an `id` (currently the purl, unique within the document), name, optional version,
+kind, purl, extra purls, download location, optional SHA-256/MD5, optional raw license string, a `BTreeMap` of
+`pixi:*` properties, and the sorted list of ids it depends on.
+
+Two consequences of this design are worth knowing:
+
+- Everything a writer might want is computed in `lock.rs` and stored as plain strings. Writers never touch
+  `rattler_lock` types, which keeps them small and lets them be tested against a hand-built model with no lockfile.
+- Sorting happens once, in `lock.rs`, by `(kind, name, version)`. Writers preserve order, so output is byte-for-byte
+  reproducible apart from the timestamp and UUID.
+
+## How a run proceeds
+
+1. `main` parses arguments and initializes logging and error reporting.
+2. `discover::resolve_lockfile` finds the lockfile. `lock::load` parses it once.
+3. `manifest::root_for_lockfile` reads the workspace name/version from the manifest next to the lockfile.
+4. The list of `(environment, output path)` targets is built: a single pair, or one per environment with
+   `--all-environments` (`default` first, then alphabetical).
+5. For each target, `lock::sbom_from_lock` selects the environment and platform (host platform via
+   `rattler_conda_types::Platform::current()` when `-p` is absent), converts every locked package, resolves
+   dependencies, and sorts.
+6. `format::write` serializes with a fresh `WriteContext` and `main::write_output` writes the file, creating parent
+   directories as needed.
+
+## Design decisions
+
+These were settled at the start of the project and are recorded here so they are not relitigated by accident.
+
+**Rust, matching the other pixi extensions.** `pixi-diff`, `pixi-pack` and friends are Rust binaries built with a
+`pixi.toml` that pulls the toolchain from conda-forge. Following that pattern makes the project familiar to the pixi
+community, produces a dependency-free binary, and allows reuse of pixi's own crates.
+
+**`rattler_lock` for parsing.** It is the crate pixi itself uses to read and write `pixi.lock`, so lockfile-version
+changes are handled upstream and the parse is authoritative. The alternative, hand-rolled YAML parsing, would have
+been smaller but would drift from pixi. Only `rattler_lock` and `rattler_conda_types` are used; the heavier pixi
+workspace crates (`pixi_manifest` etc.) are deliberately not depended on, since they are git dependencies that need
+`[patch]` overrides and would bring in most of pixi.
+
+**Own serde models for both formats.** The `cyclonedx-bom` crate stops at CycloneDX 1.5 and there is no maintained
+SPDX 2.3 writer crate. Writing the small subset of each schema that is actually used (about 150 lines per format)
+gives current spec versions, keeps the dependency tree small, and makes the two writers symmetrical. Correctness is
+guarded by validating output against the vendored official JSON schemas in tests rather than by a library.
+
+**One document per environment and platform.** A lockfile is many things at once; an SBOM describes one deliverable.
+Merging would force consumers to filter by property, and most tooling does not. `--all-environments` is a loop over
+the same single-document path, not a different document shape.
+
+**Workspace metadata from the manifest via `toml`.** Only name and version are needed. A 60-line reader covering
+`pixi.toml` and `pyproject.toml` is enough; failures degrade to the directory name rather than blocking output.
+
+**Intermediate model instead of writing directly from lock types.** Adds one small module but means every lockfile
+rule (source packages, partial metadata, purl construction, dependency resolution) is implemented and tested once,
+and a third format could be added without touching `lock.rs`.
+
+**Graph roots for the root component's dependencies.** The lockfile does not record which packages the manifest
+requested, so "direct" versus "transitive" cannot be derived from it. Packages that nothing else depends on are
+used as the root's dependencies; this is documented as a heuristic in [output-format.md](output-format.md). Reading
+the manifest's feature/dependency tables to recover the true direct set was considered and set aside as not needed.
+
+**pixi as the only task runner.** Cargo is never invoked directly in docs, hooks, or CI; every command goes through
+a `pixi run` task so the toolchain is the pinned one from `pixi.lock`. See [development.md](development.md).
+
+## Adding a format
+
+1. Add a variant to `cli::Format` and its extension in `Format::extension`.
+2. Create `src/format/<name>.rs` with serde structs and a `document(&Sbom, &WriteContext)` function; use
+   `format::top_level_ids` for the root's edges and `license::normalize` for licenses.
+3. Add the match arm in `format::to_value`.
+4. Vendor the format's JSON schema under `tests/schemas/`, add a snapshot test plus a schema-validation test against
+   `format::testing::sample_sbom()`, and an end-to-end case in `tests/cli.rs`.
+5. Document the field mapping in [output-format.md](output-format.md).

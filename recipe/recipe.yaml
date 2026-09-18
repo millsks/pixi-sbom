@@ -1,0 +1,52 @@
+# Starting point for a conda-forge staged-recipes submission (rattler-build format).
+# Fill in the sha256 from the tagged source tarball before submitting.
+context:
+  name: pixi-sbom
+  version: "0.1.0"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/millsks/pixi-sbom/archive/refs/tags/v${{ version }}.tar.gz
+  sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+
+build:
+  number: 0
+  script:
+    - cargo install --locked --root ${{ PREFIX }} --path .
+    - cargo-bundle-licenses --format yaml --output THIRDPARTY.yml
+
+requirements:
+  build:
+    - ${{ compiler("rust") }}
+    - ${{ compiler("c") }}
+    - cargo-bundle-licenses
+    - if: unix
+      then: pkg-config
+  host:
+    - if: unix
+      then: openssl
+
+tests:
+  - script:
+      - pixi-sbom --version
+      - pixi-sbom --help
+
+about:
+  homepage: https://github.com/millsks/pixi-sbom
+  repository: https://github.com/millsks/pixi-sbom
+  license: Apache-2.0
+  license_file:
+    - LICENSE
+    - THIRDPARTY.yml
+  summary: Generate a CycloneDX or SPDX SBOM from a pixi.lock file
+  description: |
+    A pixi extension: once installed with `pixi global install pixi-sbom`,
+    `pixi sbom` writes a CycloneDX 1.6 or SPDX 2.3 JSON Software Bill of
+    Materials for one environment/platform of a pixi.lock file.
+
+extra:
+  recipe-maintainers:
+    - millsks

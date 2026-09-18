@@ -1,0 +1,14 @@
+[files]
+extend-exclude = [
+  "tests/fixtures/**",
+  "tests/schemas/**",
+  "**/snapshots/**",
+  "Cargo.lock",
+  "pixi.lock",
+  "*.cdx.json",
+  "*.spdx.json",
+]
+
+[default.extend-words]
+# PyPI package name used in tests
+certifi = "certifi"
