@@ -34,6 +34,7 @@ pre-commit-run = "pre-commit run --all-files"
 
 [feature.cov.dependencies]
 cargo-llvm-cov = "*"
+cargo-insta = "*"
 
 [feature.cov.tasks]
 cov = "cargo llvm-cov --all-targets --fail-under-lines 90"

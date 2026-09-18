@@ -77,6 +77,15 @@ License strings are checked with the SPDX license list. Valid expressions (inclu
 on conda-forge) pass through unchanged; lenient spellings such as `MIT/Apache-2.0` are rewritten canonically; anything
 else is preserved as free text.
 
+## Documentation
+
+| | |
+|---|---|
+| [docs/usage.md](docs/usage.md) | Installing, every option, output naming, exit codes and error messages, CI recipes |
+| [docs/output-format.md](docs/output-format.md) | Field-by-field reference for the CycloneDX and SPDX documents, purls, licenses, dependency graph |
+| [docs/architecture.md](docs/architecture.md) | Pipeline, modules, and the design decisions behind them |
+| [docs/development.md](docs/development.md) | Toolchain, tasks, the change harness, tests and fixtures, conventions, releasing |
+
 ## Development
 
 ```sh
@@ -88,14 +97,9 @@ pixi run cov            # coverage gate (>= 90% lines)
 pixi run ci             # full gate: pre-commit, build, check, lint, cov
 ```
 
-End-to-end tests validate generated documents against the official JSON schemas vendored in `tests/schemas/`.
-Lockfile fixtures in `tests/fixtures/` were produced by `pixi lock` on the tiny workspaces committed next to them.
-
-### Releasing
-
-Tag `vX.Y.Z` on `main`. The release workflow builds binaries for linux-64, linux-aarch64, osx-64, osx-arm64 and
-win-64, and publishes a GitHub release with notes from git-cliff. `recipe/recipe.yaml` is the starting point for the
-conda-forge feedstock that backs `pixi global install pixi-sbom`.
+Cargo is never invoked directly; every command is a pixi task so the pinned toolchain is always used. End-to-end
+tests validate generated documents against the official JSON schemas vendored in `tests/schemas/`. See
+[docs/development.md](docs/development.md) for the full workflow, test layers, fixtures, and the release process.
 
 ## License
 
