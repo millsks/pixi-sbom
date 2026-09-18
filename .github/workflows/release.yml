@@ -1,15 +1,59 @@
 name: Release
 
+# Second half of a release. Runs on every push to main that touches Cargo.toml or
+# CHANGELOG.md (i.e. a merged release PR from release-prepare.yml). If Cargo.toml's
+# version has no tag yet and CHANGELOG.md has a section for it, this tags the commit,
+# builds binaries for every platform, and publishes a GitHub release with the
+# changelog section as its notes. Re-runnable via workflow_dispatch.
+
 on:
   push:
-    tags: ["v*"]
+    branches: ["main"]
+    paths: ["Cargo.toml", "CHANGELOG.md"]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
   contents: write
 
 jobs:
+  version:
+    name: Check for an unreleased version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      tag: ${{ steps.check.outputs.tag }}
+      release: ${{ steps.check.outputs.release }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          set -euo pipefail
+          version=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "([^"]+)"/\1/')
+          tag="v$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "release $tag already published; nothing to do"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! grep -q "^## $version - " CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no section for $version; run the 'Prepare release' workflow first"
+            exit 1
+          fi
+          echo "releasing $tag"
+          echo "release=true" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build (${{ matrix.target }})
+    needs: version
+    if: needs.version.outputs.release == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -28,13 +72,17 @@ jobs:
           cache: true
       - name: Release build
         run: pixi run build
+      - name: Smoke test
+        run: pixi run cargo run --release -- --version
       - name: Package
         shell: bash
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
         run: |
           set -euo pipefail
-          name="pixi-sbom-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          name="pixi-sbom-${TAG}-${{ matrix.target }}"
           mkdir -p dist/"$name"
-          cp "target/release/pixi-sbom${{ matrix.ext }}" LICENSE README.md dist/"$name"/
+          cp "target/release/pixi-sbom${{ matrix.ext }}" LICENSE README.md CHANGELOG.md dist/"$name"/
           cd dist
           if [[ "${{ matrix.target }}" == win-64 ]]; then
             7z a "$name.zip" "$name" > /dev/null
@@ -49,26 +97,61 @@ jobs:
           name: pixi-sbom-${{ matrix.target }}
           path: dist/*
 
-  release:
-    name: Publish GitHub release
-    needs: build
+  publish:
+    name: Tag and publish ${{ needs.version.outputs.tag }}
+    needs: [version, build]
+    if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.version.outputs.tag }}
+      VERSION: ${{ needs.version.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          environments: default
+          cache: true
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
-      - name: Release notes
-        uses: orhun/git-cliff-action@v4
-        with:
-          config: cliff.toml
-          args: --latest --strip header
-        env:
-          OUTPUT: RELEASE_NOTES.md
-      - uses: softprops/action-gh-release@v2
-        with:
-          body_path: RELEASE_NOTES.md
-          files: dist/*
+
+      - name: Release notes from the changelog
+        run: |
+          set -euo pipefail
+          pixi run git-cliff --config cliff.toml --tag "$TAG" --unreleased --strip header > RELEASE_NOTES.md
+          cat RELEASE_NOTES.md
+
+      - name: Tag
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            echo "$TAG already exists; reusing it"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG" "$GITHUB_SHA"
+          git push origin "$TAG"
+
+      - name: Publish GitHub release
+        run: |
+          set -euo pipefail
+          ls -l dist
+          gh release create "$TAG" --title "$TAG" --notes-file RELEASE_NOTES.md --verify-tag dist/*
+
+      - name: Source tarball checksum for the conda-forge recipe
+        run: |
+          set -euo pipefail
+          url="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${TAG}.tar.gz"
+          sha=$(curl -sSL "$url" | sha256sum | cut -d' ' -f1)
+          {
+            echo "## $TAG published"
+            echo
+            echo "Source tarball: \`$url\`"
+            echo
+            echo "SHA-256 for \`recipe/recipe.yaml\`: \`$sha\`"
+          } >> "$GITHUB_STEP_SUMMARY"

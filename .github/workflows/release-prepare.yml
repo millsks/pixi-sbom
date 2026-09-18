@@ -1,0 +1,89 @@
+name: Prepare release
+
+# Manual first half of a release: bump the version everywhere, regenerate CHANGELOG.md
+# with git-cliff, run the full gate on the result, and open a release PR against main.
+# Merging that PR triggers release.yml, which tags, builds, and publishes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without the v prefix (e.g. 0.2.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    name: Bump ${{ inputs.version }} and open PR
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      # A fine-grained PAT (contents + pull-requests: write) stored as RELEASE_TOKEN lets the
+      # release PR trigger the normal CI workflow. Without it the PR is opened with the
+      # workflow token, which cannot trigger other workflows; the gate below covers that case.
+      GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
+
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          environments: default
+          cache: true
+
+      - name: Validate version
+        run: |
+          set -euo pipefail
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::'$VERSION' is not a semantic version (expected X.Y.Z, no v prefix)"; exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null; then
+            echo "::error::tag v$VERSION already exists"; exit 1
+          fi
+          current=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "([^"]+)"/\1/')
+          if [[ "$current" == "$VERSION" ]]; then
+            echo "::error::Cargo.toml is already at $VERSION"; exit 1
+          fi
+          echo "bumping $current -> $VERSION"
+
+      - name: Bump version in Cargo.toml, Cargo.lock, pixi.toml, recipe
+        run: |
+          set -euo pipefail
+          sed -i -E "s/^version = \"[^\"]+\"/version = \"$VERSION\"/" Cargo.toml pixi.toml
+          sed -i -E "s/^  version: \"[^\"]+\"/  version: \"$VERSION\"/" recipe/recipe.yaml
+          pixi run cargo update --workspace
+          git diff --stat
+
+      - name: Regenerate CHANGELOG.md
+        run: |
+          set -euo pipefail
+          pixi run git-cliff --config cliff.toml --tag "v$VERSION" -o CHANGELOG.md
+          pixi run git-cliff --config cliff.toml --tag "v$VERSION" --unreleased --strip header > /tmp/release-notes.md
+          cat /tmp/release-notes.md
+
+      - name: Run the full gate on the bumped tree
+        run: pixi run ci
+
+      - name: Commit, push, and open the release PR
+        run: |
+          set -euo pipefail
+          branch="release/v$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add -A
+          git commit -m "chore(release): v$VERSION"
+          git push -u origin "$branch"
+          {
+            echo "Release PR for v$VERSION. Merging it tags \`v$VERSION\`, builds the binaries, and publishes the GitHub release."
+            echo
+            echo "## Changelog"
+            cat /tmp/release-notes.md
+          } > /tmp/pr-body.md
+          gh pr create --base main --head "$branch" --title "chore(release): v$VERSION" --body-file /tmp/pr-body.md
