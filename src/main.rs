@@ -2,15 +2,18 @@
 
 mod cli;
 mod discover;
+mod format;
+mod license;
 mod lock;
 mod manifest;
 mod model;
 mod purl;
 
 use std::io::IsTerminal;
+use std::path::Path;
 
 use clap::Parser;
-use miette::{IntoDiagnostic, Result};
+use miette::{Context, IntoDiagnostic, Result};
 use tracing_subscriber::EnvFilter;
 
 fn main() -> Result<()> {
@@ -22,7 +25,7 @@ fn main() -> Result<()> {
     let cwd = std::env::current_dir().into_diagnostic()?;
     let lockfile = discover::resolve_lockfile(args.lockfile.as_deref(), &cwd)?;
     let output = discover::resolve_output(args.output.as_deref(), &lockfile, args.format);
-    tracing::info!(lockfile = %lockfile.display(), output = %output.display(), format = ?args.format, "resolved paths");
+    tracing::debug!(lockfile = %lockfile.display(), output = %output.display(), format = ?args.format, "resolved paths");
 
     let root = manifest::root_for_lockfile(&lockfile);
     let selection = lock::Selection {
@@ -30,7 +33,30 @@ fn main() -> Result<()> {
         platform: args.platform.as_deref(),
     };
     let sbom = lock::build_sbom(&lockfile, selection, root)?;
-    tracing::info!(packages = sbom.packages.len(), root = %sbom.root.name, "built sbom model");
+
+    write_output(&output, args.format, &sbom)?;
+    tracing::info!(
+        output = %output.display(),
+        format = ?args.format,
+        packages = sbom.packages.len(),
+        environment = %sbom.environment,
+        platform = %sbom.platform,
+        "wrote SBOM"
+    );
+    Ok(())
+}
+
+fn write_output(output: &Path, format: cli::Format, sbom: &model::Sbom) -> Result<()> {
+    if let Some(parent) = output.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent)
+            .into_diagnostic()
+            .wrap_err_with(|| format!("cannot create output directory {}", parent.display()))?;
+    }
+    let file = std::fs::File::create(output)
+        .into_diagnostic()
+        .wrap_err_with(|| format!("cannot create {}", output.display()))?;
+    let mut writer = std::io::BufWriter::new(file);
+    format::write(format, sbom, &format::WriteContext::new(), &mut writer)?;
     Ok(())
 }
 
