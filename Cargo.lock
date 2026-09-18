@@ -1635,6 +1635,7 @@ dependencies = [
  "miette",
  "packageurl",
  "predicates",
+ "rattler_conda_types",
  "rattler_lock",
  "serde",
  "serde_json",
