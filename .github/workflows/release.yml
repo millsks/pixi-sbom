@@ -1,59 +1,225 @@
 name: Release
 
-# Second half of a release. Runs on every push to main that touches Cargo.toml or
-# CHANGELOG.md (i.e. a merged release PR from release-prepare.yml). If Cargo.toml's
-# version has no tag yet and CHANGELOG.md has a section for it, this tags the commit,
-# builds binaries for every platform, and publishes a GitHub release with the
-# changelog section as its notes. Re-runnable via workflow_dispatch.
+# On-demand releases, built on the pixi toolchain (git-cliff via `pixi run changelog`,
+# the `pixi run ci` gate, cargo release builds for every platform).
+#
+# Operator prerequisite: a release commits the version bump + CHANGELOG.md and pushes a
+# tag to `main` under the branch ruleset, so the default GITHUB_TOKEN is not enough.
+# The release GitHub App (already in the ruleset's bypass list) needs its credentials
+# exposed as two repository secrets:
+#   - APP_ID           the GitHub App's numeric App ID
+#   - APP_PRIVATE_KEY  the App's private key (PEM contents)
+# The App token is minted per run by actions/create-github-app-token below.
 
 on:
-  push:
-    branches: ["main"]
-    paths: ["Cargo.toml", "CHANGELOG.md"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 1.0.0); leave blank to auto-increment the patch"
+        required: false
+        type: string
+      prerelease:
+        description: "Mark as pre-release"
+        required: false
+        type: boolean
+        default: false
+      force_recreate:
+        description: "Remove an existing tag/release before recreating it"
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
-  group: release
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
-permissions:
-  contents: write
-
 jobs:
-  version:
-    name: Check for an unreleased version
+  # ---------------------------------------------------------------------------
+  # Version, gate, changelog, commit, tag — everything that touches main.
+  # ---------------------------------------------------------------------------
+  release:
+    name: Version, changelog, tag
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
     outputs:
-      version: ${{ steps.check.outputs.version }}
-      tag: ${{ steps.check.outputs.tag }}
-      release: ${{ steps.check.outputs.release }}
-    env:
-      GH_TOKEN: ${{ github.token }}
+      released: ${{ steps.should_skip.outputs.skip != 'true' }}
+      version: ${{ steps.resolve.outputs.version }}
+      tag: v${{ steps.resolve.outputs.version }}
+
     steps:
-      - uses: actions/checkout@v4
-      - id: check
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      # -----------------------------------------------------------------------
+      # Version calculation
+      # -----------------------------------------------------------------------
+      - name: Get latest tag
+        id: get_tag
         run: |
-          set -euo pipefail
-          version=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "([^"]+)"/\1/')
-          tag="v$version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "release $tag already published; nothing to do"
-            echo "release=false" >> "$GITHUB_OUTPUT"
-            exit 0
+          git fetch --tags
+          latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || echo no_tag_found)
+          echo "tag=${latest_tag}" >> "$GITHUB_OUTPUT"
+          if [ "$latest_tag" != "no_tag_found" ]; then
+            echo "has_tags=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_tags=false" >> "$GITHUB_OUTPUT"
           fi
-          if ! grep -q "^## $version - " CHANGELOG.md; then
-            echo "::error::CHANGELOG.md has no section for $version; run the 'Prepare release' workflow first"
+
+      - name: Compute next tag
+        id: next_tag
+        run: |
+          if [ "${{ steps.get_tag.outputs.has_tags }}" = "true" ]; then
+            base_tag="${{ steps.get_tag.outputs.tag }}"
+            base_tag="${base_tag#v}"
+            IFS='.' read -r major minor patch <<< "${base_tag%%-*}"
+            patch=$((patch + 1))
+            next_tag="${major}.${minor}.${patch}"
+          else
+            # First release: use whatever Cargo.toml already says.
+            next_tag=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "([^"]+)"/\1/')
+          fi
+          echo "next_tag=${next_tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Check for changes since last tag
+        id: check_changes
+        run: |
+          if [ "${{ steps.get_tag.outputs.has_tags }}" = "false" ]; then
+            echo "No previous tags found - proceeding with first release"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "${{ steps.get_tag.outputs.tag }}" HEAD; then
+            echo "::notice::No changes since last tag ${{ steps.get_tag.outputs.tag }} - skipping"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Changes detected since last tag ${{ steps.get_tag.outputs.tag }}"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Decide whether to skip
+        id: should_skip
+        run: |
+          if [ "${{ steps.check_changes.outputs.changed }}" = "false" ] && [ "${{ inputs.force_recreate }}" != "true" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # -----------------------------------------------------------------------
+      # Resolve, validate & guard the release tag
+      # -----------------------------------------------------------------------
+      - name: Resolve release tag
+        id: resolve
+        if: steps.should_skip.outputs.skip != 'true'
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            new_tag="${{ inputs.version }}"
+          else
+            new_tag="${{ steps.next_tag.outputs.next_tag }}"
+          fi
+          echo "NEW_TAG=${new_tag}" >> "$GITHUB_ENV"
+          echo "version=${new_tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate version format
+        if: steps.should_skip.outputs.skip != 'true'
+        run: |
+          if ! echo "${{ env.NEW_TAG }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$'; then
+            echo "::error::Invalid version '${{ env.NEW_TAG }}'. Use semantic versioning, e.g. 1.0.0 or 1.0.0-beta.1"
             exit 1
           fi
-          echo "releasing $tag"
-          echo "release=true" >> "$GITHUB_OUTPUT"
+          echo "Version format valid: ${{ env.NEW_TAG }}"
 
+      - name: Check the version does not already exist
+        if: steps.should_skip.outputs.skip != 'true'
+        run: |
+          if git tag | grep -q "^v${{ env.NEW_TAG }}$"; then
+            if [ "${{ inputs.force_recreate }}" = "true" ]; then
+              echo "v${{ env.NEW_TAG }} exists - force_recreate enabled"
+            else
+              echo "::error::v${{ env.NEW_TAG }} already exists. Use force_recreate to overwrite."
+              exit 1
+            fi
+          else
+            echo "Version is new"
+          fi
+
+      - name: Remove existing tag and release (force_recreate)
+        if: steps.should_skip.outputs.skip != 'true' && inputs.force_recreate == true
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          VERSION="v${{ env.NEW_TAG }}"
+          if git tag | grep -q "^${VERSION}$"; then
+            git push origin --delete "${VERSION}" || true
+            git tag -d "${VERSION}" || true
+            echo "Tag ${VERSION} removed"
+          fi
+          if gh release view "${VERSION}" >/dev/null 2>&1; then
+            gh release delete "${VERSION}" --yes
+            echo "Release ${VERSION} removed"
+          fi
+
+      # -----------------------------------------------------------------------
+      # Pixi environment and version bump
+      # -----------------------------------------------------------------------
+      - name: Set up pixi
+        if: steps.should_skip.outputs.skip != 'true'
+        uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          environments: default
+          cache: true
+
+      - name: Bump version in Cargo.toml, Cargo.lock, pixi.toml, recipe
+        if: steps.should_skip.outputs.skip != 'true'
+        run: |
+          sed -i -E "s/^version = \"[^\"]+\"/version = \"${{ env.NEW_TAG }}\"/" Cargo.toml pixi.toml
+          sed -i -E "s/^  version: \"[^\"]+\"/  version: \"${{ env.NEW_TAG }}\"/" recipe/recipe.yaml
+          pixi run cargo update --workspace
+          git diff --stat
+
+      # -----------------------------------------------------------------------
+      # Quality gate - the authoritative local gate, run in CI before releasing.
+      # -----------------------------------------------------------------------
+      - name: Run the full CI gate
+        if: steps.should_skip.outputs.skip != 'true'
+        run: pixi run ci
+
+      # -----------------------------------------------------------------------
+      # Changelog & tag (git-cliff via cliff.toml)
+      # -----------------------------------------------------------------------
+      - name: Generate CHANGELOG.md with git-cliff
+        if: steps.should_skip.outputs.skip != 'true'
+        run: |
+          pixi run git-cliff --config cliff.toml --tag "v${{ env.NEW_TAG }}" -o CHANGELOG.md
+          echo "CHANGELOG.md updated for v${{ env.NEW_TAG }}"
+
+      - name: Commit the release and tag it
+        if: steps.should_skip.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md Cargo.toml Cargo.lock pixi.toml recipe/recipe.yaml
+          git commit -m "chore(release): v${{ env.NEW_TAG }}"
+          git tag -a "v${{ env.NEW_TAG }}" -m "Release v${{ env.NEW_TAG }}"
+          git push origin HEAD:main --tags
+
+  # ---------------------------------------------------------------------------
+  # Native binaries for every pixi platform, built from the tagged commit.
+  # ---------------------------------------------------------------------------
   build:
     name: Build (${{ matrix.target }})
-    needs: version
-    if: needs.version.outputs.release == 'true'
+    needs: release
+    if: needs.release.outputs.released == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -66,6 +232,8 @@ jobs:
           - { os: windows-latest, target: win-64, ext: ".exe" }
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
       - uses: prefix-dev/setup-pixi@v0.8.1
         with:
           environments: default
@@ -77,7 +245,7 @@ jobs:
       - name: Package
         shell: bash
         env:
-          TAG: ${{ needs.version.outputs.tag }}
+          TAG: ${{ needs.release.outputs.tag }}
         run: |
           set -euo pipefail
           name="pixi-sbom-${TAG}-${{ matrix.target }}"
@@ -97,18 +265,28 @@ jobs:
           name: pixi-sbom-${{ matrix.target }}
           path: dist/*
 
+  # ---------------------------------------------------------------------------
+  # Publish the GitHub Release with this version's changelog section as notes.
+  # ---------------------------------------------------------------------------
   publish:
-    name: Tag and publish ${{ needs.version.outputs.tag }}
-    needs: [version, build]
-    if: needs.version.outputs.release == 'true'
+    name: Publish ${{ needs.release.outputs.tag }}
+    needs: [release, build]
+    if: needs.release.outputs.released == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
-      TAG: ${{ needs.version.outputs.tag }}
-      VERSION: ${{ needs.version.outputs.version }}
-      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.release.outputs.tag }}
     steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.TAG }}
           fetch-depth: 0
       - uses: prefix-dev/setup-pixi@v0.8.1
         with:
@@ -119,39 +297,49 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Release notes from the changelog
+      - name: Release notes (this version's changelog section)
         run: |
           set -euo pipefail
-          pixi run git-cliff --config cliff.toml --tag "$TAG" --unreleased --strip header > RELEASE_NOTES.md
+          pixi run git-cliff --config cliff.toml --latest --strip header > RELEASE_NOTES.md
+          {
+            echo
+            echo "---"
+            echo
+            echo "## Release artifacts"
+            echo
+            echo "| Artifact | Platform |"
+            echo "|---|---|"
+            echo "| \`pixi-sbom-${TAG}-linux-64.tar.gz\` | Linux x86_64 |"
+            echo "| \`pixi-sbom-${TAG}-linux-aarch64.tar.gz\` | Linux arm64 |"
+            echo "| \`pixi-sbom-${TAG}-osx-64.tar.gz\` | macOS Intel |"
+            echo "| \`pixi-sbom-${TAG}-osx-arm64.tar.gz\` | macOS Apple Silicon |"
+            echo "| \`pixi-sbom-${TAG}-win-64.zip\` | Windows x86_64 |"
+            echo
+            echo "Each archive has a \`.sha256\` beside it. Full changelog: [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md)"
+          } >> RELEASE_NOTES.md
           cat RELEASE_NOTES.md
 
-      - name: Tag
-        run: |
-          set -euo pipefail
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
-            echo "$TAG already exists; reusing it"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "Release $TAG" "$GITHUB_SHA"
-          git push origin "$TAG"
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: Release ${{ env.TAG }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ inputs.prerelease }}
+          files: dist/*
+          token: ${{ steps.app-token.outputs.token }}
 
-      - name: Publish GitHub release
-        run: |
-          set -euo pipefail
-          ls -l dist
-          gh release create "$TAG" --title "$TAG" --notes-file RELEASE_NOTES.md --verify-tag dist/*
-
-      - name: Source tarball checksum for the conda-forge recipe
+      - name: Release summary
         run: |
           set -euo pipefail
           url="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${TAG}.tar.gz"
           sha=$(curl -sSL "$url" | sha256sum | cut -d' ' -f1)
           {
-            echo "## $TAG published"
+            echo "## ${TAG} published"
             echo
-            echo "Source tarball: \`$url\`"
+            echo "Release: ${{ steps.create_release.outputs.url }}"
             echo
-            echo "SHA-256 for \`recipe/recipe.yaml\`: \`$sha\`"
+            echo "Source tarball SHA-256 for \`recipe/recipe.yaml\`: \`$sha\`"
           } >> "$GITHUB_STEP_SUMMARY"

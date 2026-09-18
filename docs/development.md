@@ -145,31 +145,38 @@ five pixi platforms and therefore uses `ubuntu-24.04-arm` and `macos-15-intel` f
 
 ## Releasing
 
-Releases are driven by two workflows and never need a local tag or a hand-edited changelog.
+One workflow, `release.yml`, run by hand from the Actions tab (*Release* → *Run workflow* on `main`). Inputs:
 
-1. **Prepare.** In GitHub, run the *Prepare release* workflow (`release-prepare.yml`) with the version to release
-   (`0.2.0`, no `v`). It validates the version, bumps `Cargo.toml`, `Cargo.lock`, `pixi.toml` and
-   `recipe/recipe.yaml`, regenerates `CHANGELOG.md` with git-cliff (`cliff.toml`), runs the full `pixi run ci` gate on
-   the bumped tree, and opens a `chore(release): vX.Y.Z` pull request whose body is the new changelog section.
-2. **Review and merge** that PR. Nothing else should be squeezed into it.
-3. **Publish.** Merging triggers `release.yml` (it runs on pushes to `main` that touch `Cargo.toml` or
-   `CHANGELOG.md`). If `Cargo.toml`'s version has no GitHub release yet and `CHANGELOG.md` has its section, the
-   workflow builds `pixi-sbom` for linux-64, linux-aarch64, osx-64, osx-arm64 and win-64, tags the merge commit
-   `vX.Y.Z`, and creates the GitHub release with the changelog section as notes and the packaged binaries plus
-   `.sha256` files as assets. The job summary prints the source tarball's SHA-256 for the conda-forge recipe.
-4. **conda-forge.** Put that SHA-256 into `recipe/recipe.yaml` and submit it to `staged-recipes` for the first
-   release; afterwards the feedstock bot handles version bumps, which is what backs `pixi global install pixi-sbom`.
+| Input | Default | Meaning |
+|---|---|---|
+| `version` | blank | Version to release without the `v` (e.g. `1.2.0`). Blank auto-increments the patch of the latest `v*` tag; for the very first release it uses `Cargo.toml`'s version. |
+| `prerelease` | false | Mark the GitHub release as a pre-release. |
+| `force_recreate` | false | Delete an existing tag and release of that version first, then recreate them. |
 
-Notes:
+What it does, in order:
 
-- The workflow token cannot push to `main` (the branch ruleset only lets admins bypass), which is why step 1 opens
-  a PR instead of committing directly. Pull requests opened with the workflow token do not trigger the CI workflow,
-  so the prepare job runs `pixi run ci` itself. If you would rather see the normal CI checks on the release PR, add a
-  fine-grained personal access token with `contents` and `pull-requests` write access as the `RELEASE_TOKEN` secret;
-  the workflow uses it when present.
-- `release.yml` is idempotent: re-running it (via *Run workflow*) after a failed publish reuses an existing tag and
-  skips entirely once the release exists. Pushes to `main` that touch `Cargo.toml` for other reasons exit early.
-- `pixi run changelog` regenerates `CHANGELOG.md` locally (unreleased section included) if you want to preview it;
-  do not commit the result outside a release PR.
-- Commit types map to changelog sections via `cliff.toml`: `feat` → Features, `fix` → Bug Fixes, `perf`, `refactor`,
-  `docs`, `test`, `ci`/`build` → CI and Build; `chore` commits are omitted.
+1. **Version and guard.** Finds the latest `v*` tag, computes the next version, and exits quietly (no release) if
+   nothing changed on `main` since that tag. Validates the version and refuses to reuse an existing tag unless
+   `force_recreate` is set.
+2. **Bump.** Writes the version into `Cargo.toml`, `Cargo.lock` (via `cargo update --workspace`), `pixi.toml` and
+   `recipe/recipe.yaml`.
+3. **Gate.** Runs `pixi run ci` on the bumped tree; a red gate stops the release before anything is pushed.
+4. **Changelog.** Regenerates `CHANGELOG.md` with `git-cliff --tag vX.Y.Z` (`cliff.toml`), commits the bump and
+   changelog as `chore(release): vX.Y.Z`, tags that commit, and pushes both to `main`.
+5. **Build.** Checks out the tag on five runners and builds `pixi-sbom` for linux-64, linux-aarch64, osx-64,
+   osx-arm64 and win-64, packaged with `LICENSE`, `README.md`, `CHANGELOG.md` and a `.sha256` each.
+6. **Publish.** Creates the GitHub release with this version's changelog section (from `git-cliff --latest`) plus an
+   artifact table as the notes and the packages as assets. The job summary prints the source tarball's SHA-256 for
+   `recipe/recipe.yaml`.
+
+For `pixi global install pixi-sbom`, put that SHA-256 into `recipe/recipe.yaml` and submit it to conda-forge
+`staged-recipes` once; after that the feedstock bot handles version bumps.
+
+Operator prerequisite: the release commit and tag land on `main` under the branch ruleset, so the workflow
+authenticates with the release GitHub App (already in the ruleset's bypass list) rather than `GITHUB_TOKEN`. The
+App's credentials must be present as the repository secrets `APP_ID` and `APP_PRIVATE_KEY`; the workflow mints a
+short-lived token from them per run.
+
+`pixi run changelog` regenerates `CHANGELOG.md` locally with an *Unreleased* section if you want to preview it; do
+not commit that. Commit types map to sections via `cliff.toml`: `feat` → Features, `fix` → Bug Fixes, `perf`,
+`refactor`, `docs`, `test`, `ci`/`build` → CI and Build; `chore` commits are omitted.
