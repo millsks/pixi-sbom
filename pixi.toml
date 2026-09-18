@@ -19,7 +19,7 @@ check = "cargo check --all-targets"
 test = "cargo test"
 test-integration = "cargo test --test '*'"
 build = "cargo build --release"
-changelog = "git cliff --config cliff.toml -o CHANGELOG.md"
+changelog = "git-cliff --config cliff.toml -o CHANGELOG.md"
 
 [feature.lint.dependencies]
 pre-commit = "*"
