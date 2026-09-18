@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: linux-64, ext: "" }
+          - { os: ubuntu-24.04-arm, target: linux-aarch64, ext: "" }
+          - { os: macos-13, target: osx-64, ext: "" }
+          - { os: macos-latest, target: osx-arm64, ext: "" }
+          - { os: windows-latest, target: win-64, ext: ".exe" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          environments: default
+          cache: true
+      - name: Release build
+        run: pixi run build
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="pixi-sbom-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          mkdir -p dist/"$name"
+          cp "target/release/pixi-sbom${{ matrix.ext }}" LICENSE README.md dist/"$name"/
+          cd dist
+          if [[ "${{ matrix.target }}" == win-64 ]]; then
+            7z a "$name.zip" "$name" > /dev/null
+            sha256sum "$name.zip" > "$name.zip.sha256"
+          else
+            tar czf "$name.tar.gz" "$name"
+            shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"
+          fi
+          rm -rf "$name"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pixi-sbom-${{ matrix.target }}
+          path: dist/*
+
+  release:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Release notes
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: RELEASE_NOTES.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          body_path: RELEASE_NOTES.md
+          files: dist/*
