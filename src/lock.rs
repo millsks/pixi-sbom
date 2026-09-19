@@ -105,6 +105,19 @@ pub fn environment_names(lock: &LockFile) -> Vec<String> {
     names
 }
 
+/// Names of every platform `environment` is locked for, alphabetical.
+pub fn platform_names(lock: &LockFile, environment: &str) -> Result<Vec<String>, LockError> {
+    let environment = lock
+        .environment(environment)
+        .ok_or_else(|| LockError::EnvironmentNotFound {
+            name: environment.to_string(),
+            available: lock.environments().map(|(name, _)| name.to_string()).collect(),
+        })?;
+    let mut names: Vec<String> = environment.platforms().map(|p| p.name().to_string()).collect();
+    names.sort();
+    Ok(names)
+}
+
 /// Parse `path` and build the SBOM model for the selected environment/platform.
 #[cfg(test)]
 pub fn build_sbom(path: &Path, selection: Selection<'_>, root: Root) -> Result<Sbom, LockError> {
@@ -584,6 +597,16 @@ mod tests {
         assert_eq!(environment_names(&lock), ["default", "alpha", "zeta"]);
         let lock = load(&fixture("conda-only")).unwrap().lock;
         assert_eq!(environment_names(&lock), ["default"]);
+    }
+
+    #[test]
+    fn platform_names_are_alphabetical_per_environment() {
+        let lock = load(&fixture("conda-only")).unwrap().lock;
+        assert_eq!(platform_names(&lock, "default").unwrap(), ["linux-64", "osx-arm64"]);
+        let lock = load(&fixture("multi-env")).unwrap().lock;
+        assert_eq!(platform_names(&lock, "zeta").unwrap(), ["linux-64"]);
+        let err = platform_names(&lock, "nope").unwrap_err();
+        assert!(matches!(err, LockError::EnvironmentNotFound { .. }));
     }
 
     #[test]

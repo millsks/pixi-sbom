@@ -28,9 +28,16 @@ impl Format {
         format!("sbom{}", self.extension())
     }
 
-    /// File name used for one environment when `--all-environments` is given.
-    pub fn environment_file_name(self, environment: &str) -> String {
-        format!("sbom-{environment}{}", self.extension())
+    /// File name for one document of a batch (`--all-environments` / `--all-platforms`):
+    /// `sbom-<label>-<label>...` with the given labels.
+    pub fn batch_file_name<'a>(self, labels: impl IntoIterator<Item = &'a str>) -> String {
+        let mut name = String::from("sbom");
+        for label in labels {
+            name.push('-');
+            name.push_str(label);
+        }
+        name.push_str(self.extension());
+        name
     }
 }
 
@@ -47,8 +54,8 @@ pub struct Args {
     pub format: Format,
 
     /// Where to write the SBOM. Defaults to the lockfile's directory; `-` writes to stdout.
-    /// With --all-environments this is a directory that receives one sbom-<environment> file
-    /// per environment.
+    /// With --all-environments / --all-platforms this is a directory that receives one
+    /// sbom-<environment>, sbom-<platform> or sbom-<environment>-<platform> file per document.
     #[arg(long, value_name = "PATH")]
     pub output: Option<PathBuf>,
 
@@ -61,8 +68,12 @@ pub struct Args {
     pub all_environments: bool,
 
     /// Platform within the environment (e.g. linux-64). Defaults to the current platform.
-    #[arg(short, long, value_name = "PLATFORM")]
+    #[arg(short, long, value_name = "PLATFORM", conflicts_with = "all_platforms")]
     pub platform: Option<String>,
+
+    /// Generate one SBOM per platform the environment is locked for instead of a single platform.
+    #[arg(long)]
+    pub all_platforms: bool,
 
     #[command(flatten)]
     pub verbosity: Verbosity<InfoLevel>,

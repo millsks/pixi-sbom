@@ -10,6 +10,7 @@ mod model;
 mod purl;
 
 use std::io::{IsTerminal, Write};
+use std::path::Path;
 
 use clap::{CommandFactory, Parser};
 use miette::{Context, IntoDiagnostic, Result};
@@ -26,32 +27,18 @@ fn main() -> Result<()> {
     let lock::LoadedLock { lock, contents } = lock::load(&lockfile)?;
     let root = manifest::root_for_lockfile(&lockfile);
 
-    let targets: Vec<(String, discover::Output)> = if args.all_environments {
-        if discover::is_stdout(args.output.as_deref()) {
-            cli::Args::command()
-                .error(
-                    clap::error::ErrorKind::ArgumentConflict,
-                    "'--output -' writes one document to stdout and cannot be combined with '--all-environments'",
-                )
-                .exit();
-        }
-        lock::environment_names(&lock)
-            .into_iter()
-            .map(|env| {
-                let output = discover::resolve_environment_output(args.output.as_deref(), &lockfile, args.format, &env);
-                (env, discover::Output::File(output))
-            })
-            .collect()
-    } else {
-        let output = discover::resolve_output(args.output.as_deref(), &lockfile, args.format);
-        vec![(args.environment.clone(), output)]
-    };
+    let targets = resolve_targets(&args, &lock, &lockfile)?;
     tracing::debug!(lockfile = %lockfile.display(), ?targets, format = ?args.format, "resolved targets");
 
-    for (environment, output) in &targets {
+    for Target {
+        environment,
+        platform,
+        output,
+    } in &targets
+    {
         let selection = lock::Selection {
             environment,
-            platform: args.platform.as_deref(),
+            platform: platform.as_deref(),
         };
         let sbom = lock::sbom_from_lock(&lock, selection, root.clone(), &discover::lockfile_name(&lockfile))?;
         let ctx = format::WriteContext::for_document(&contents, &sbom, args.format);
@@ -66,6 +53,73 @@ fn main() -> Result<()> {
         );
     }
     Ok(())
+}
+
+/// One document to write: an environment, a platform (`None` = host), and where it goes.
+#[derive(Debug)]
+struct Target {
+    environment: String,
+    platform: Option<String>,
+    output: discover::Output,
+}
+
+/// Expand `--all-environments` / `--all-platforms` into the list of documents to write, and
+/// decide each one's output location.
+fn resolve_targets(args: &cli::Args, lock: &rattler_lock::LockFile, lockfile: &Path) -> Result<Vec<Target>> {
+    let batch = args.all_environments || args.all_platforms;
+    if batch && discover::is_stdout(args.output.as_deref()) {
+        let flag = if args.all_environments {
+            "--all-environments"
+        } else {
+            "--all-platforms"
+        };
+        cli::Args::command()
+            .error(
+                clap::error::ErrorKind::ArgumentConflict,
+                format!("'--output -' writes one document to stdout and cannot be combined with '{flag}'"),
+            )
+            .exit();
+    }
+
+    let environments = if args.all_environments {
+        lock::environment_names(lock)
+    } else {
+        vec![args.environment.clone()]
+    };
+    let mut targets = Vec::new();
+    for environment in environments {
+        let platforms: Vec<Option<String>> = if args.all_platforms {
+            lock::platform_names(lock, &environment)?
+                .into_iter()
+                .map(Some)
+                .collect()
+        } else {
+            vec![args.platform.clone()]
+        };
+        for platform in platforms {
+            let output = if batch {
+                let labels = args
+                    .all_environments
+                    .then_some(environment.as_str())
+                    .into_iter()
+                    .chain(platform.as_deref().filter(|_| args.all_platforms));
+                discover::Output::File(discover::resolve_batch_output(
+                    args.output.as_deref(),
+                    lockfile,
+                    args.format,
+                    labels,
+                ))
+            } else {
+                discover::resolve_output(args.output.as_deref(), lockfile, args.format)
+            };
+            targets.push(Target {
+                environment: environment.clone(),
+                platform,
+                output,
+            });
+        }
+    }
+    Ok(targets)
 }
 
 fn write_output(

@@ -46,6 +46,9 @@ pixi sbom --all-environments
 
 # ... into a directory of your choice
 pixi sbom --all-environments --format spdx --output reports/
+
+# Every environment on every platform: sbom-<environment>-<platform>.cdx.json
+pixi sbom --all-environments --all-platforms --output reports/
 ```
 
 | Option | Default | Description |
@@ -56,14 +59,14 @@ pixi sbom --all-environments --format spdx --output reports/
 | `-e, --environment <NAME>` | `default` | Lock environment to describe |
 | `--all-environments` | off | Write one `sbom-<environment>` file per environment instead; `--output` is then a directory |
 | `-p, --platform <PLATFORM>` | current platform | Platform within that environment |
+| `--all-platforms` | off | Write one `sbom-<platform>` file per locked platform instead (`sbom-<environment>-<platform>` with `--all-environments`) |
 | `-v` / `-q` | info | More / less logging on stderr |
 
 Output is reproducible: the document identifier is derived from the lockfile, and setting `SOURCE_DATE_EPOCH` pins
 the timestamp so repeated runs are byte-identical.
 
 One document describes one environment on one platform, which is what SBOM consumers expect. Use
-`--all-environments` to cover every environment in the lockfile in one run (each on the selected platform), or run
-the command once per platform you ship.
+`--all-environments` and `--all-platforms` to cover every environment and platform in the lockfile in one run.
 
 ## What goes in the SBOM
 
