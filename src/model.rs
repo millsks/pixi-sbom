@@ -14,7 +14,9 @@ pub struct Sbom {
     pub environment: String,
     /// Platform within that environment (e.g. `linux-64`).
     pub platform: String,
-    /// Path of the lockfile the SBOM was generated from, as given on the command line.
+    /// Name of the lockfile the SBOM was generated from, relative to the workspace root
+    /// (normally `pixi.lock`). Never an absolute path, so documents do not depend on where
+    /// they were generated.
     pub lockfile: String,
     /// Packages sorted by kind, then name, then version. Order is stable across runs.
     pub packages: Vec<Package>,

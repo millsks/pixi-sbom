@@ -43,7 +43,7 @@ expression: json()
       },
       {
         "name": "pixi:lockfile",
-        "value": "/work/demo/pixi.lock"
+        "value": "pixi.lock"
       }
     ]
   },

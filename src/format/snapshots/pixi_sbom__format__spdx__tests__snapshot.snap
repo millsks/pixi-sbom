@@ -25,7 +25,7 @@ expression: json()
       "licenseDeclared": "NOASSERTION",
       "copyrightText": "NOASSERTION",
       "primaryPackagePurpose": "APPLICATION",
-      "sourceInfo": "pixi workspace; lockfile /work/demo/pixi.lock; environment default; platform linux-64"
+      "sourceInfo": "pixi workspace; lockfile pixi.lock; environment default; platform linux-64"
     },
     {
       "SPDXID": "SPDXRef-Package-conda-libzlib-1.3.1",

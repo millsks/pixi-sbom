@@ -180,6 +180,10 @@ fn spdx_format_writes_valid_spdx_document() {
     let packages = doc["packages"].as_array().unwrap();
     assert_eq!(packages.len(), 3, "root + 2 packages");
     assert!(packages.iter().all(|p| p["downloadLocation"].as_str().is_some()));
+    assert_eq!(
+        packages[0]["sourceInfo"],
+        "pixi workspace; lockfile pixi.lock; environment default; platform osx-arm64"
+    );
 }
 
 #[test]
@@ -211,6 +215,17 @@ fn explicit_lockfile_and_output_paths_are_honored() {
         props
             .iter()
             .any(|p| p["name"] == "pixi:environment" && p["value"] == "web")
+    );
+    assert!(
+        props
+            .iter()
+            .any(|p| p["name"] == "pixi:lockfile" && p["value"] == "pixi.lock"),
+        "lockfile is recorded by name, not by the absolute path it was read from"
+    );
+    let text = std::fs::read_to_string(&out).unwrap();
+    assert!(
+        !text.contains(dir.path().to_str().unwrap()),
+        "document must not contain the generating machine's paths"
     );
 }
 

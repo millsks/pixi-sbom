@@ -97,15 +97,16 @@ pub fn environment_names(lock: &LockFile) -> Vec<String> {
 #[cfg(test)]
 pub fn build_sbom(path: &Path, selection: Selection<'_>, root: Root) -> Result<Sbom, LockError> {
     let lock = load(path)?;
-    sbom_from_lock(&lock, selection, root, &path.display().to_string())
+    sbom_from_lock(&lock, selection, root, &crate::discover::lockfile_name(path))
 }
 
-/// Build the SBOM model from an already parsed lockfile.
+/// Build the SBOM model from an already parsed lockfile. `lockfile_name` is recorded in the
+/// document as-is; pass the workspace-relative name, not an absolute path.
 pub fn sbom_from_lock(
     lock: &LockFile,
     selection: Selection<'_>,
     root: Root,
-    lockfile_display: &str,
+    lockfile_name: &str,
 ) -> Result<Sbom, LockError> {
     let environment = lock
         .environment(selection.environment)
@@ -149,7 +150,7 @@ pub fn sbom_from_lock(
         root,
         environment: selection.environment.to_string(),
         platform: platform_name,
-        lockfile: lockfile_display.to_string(),
+        lockfile: lockfile_name.to_string(),
         packages,
     })
 }

@@ -115,7 +115,7 @@ pub(crate) mod testing {
             },
             environment: "default".into(),
             platform: "linux-64".into(),
-            lockfile: "/work/demo/pixi.lock".into(),
+            lockfile: "pixi.lock".into(),
             packages: vec![
                 Package {
                     id: libzlib_id.into(),
