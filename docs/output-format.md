@@ -9,7 +9,7 @@ specifications list them, followed by a trailing newline.
 | | CycloneDX 1.6 | SPDX 2.3 |
 |---|---|---|
 | Identity | `bomFormat: CycloneDX`, `specVersion: 1.6`, `$schema` | `spdxVersion: SPDX-2.3`, `dataLicense: CC0-1.0`, `SPDXID: SPDXRef-DOCUMENT` |
-| Unique id | `serialNumber: urn:uuid:<v4>` | `documentNamespace: https://spdx.org/spdxdocs/pixi-sbom/<name>/<uuid>` |
+| Unique id | `serialNumber: urn:uuid:<v5>` | `documentNamespace: https://spdx.org/spdxdocs/pixi-sbom/<name>/<uuid>` |
 | Timestamp (UTC, seconds) | `metadata.timestamp` | `creationInfo.created` |
 | Generator | `metadata.tools.components[]`: `pixi-sbom` with version and repository link | `creationInfo.creators[]`: `Tool: pixi-sbom-<version>` |
 | Document name | (none; the root component carries it) | `name: <workspace>-<environment>-<platform>` |
@@ -18,8 +18,14 @@ specifications list them, followed by a trailing newline.
 `pixi:lockfile` is the lockfile's name relative to the workspace root (normally `pixi.lock`), never the absolute path
 it was read from, so a document does not reveal or depend on the layout of the machine that generated it.
 
-A fresh UUID and the current time are generated on every run, so two runs over the same lockfile differ only in
-those two values plus, for SPDX, the namespace. Everything else, including package order, is deterministic.
+### Reproducibility
+
+Documents are deterministic. The identifier is a UUIDv5 derived from the lockfile text, the environment, the
+platform, the format, and the pixi-sbom version, so the same input always yields the same `serialNumber` /
+`documentNamespace`, and any change to the lockfile yields a new one. The timestamp is the only value that varies
+between runs; set [`SOURCE_DATE_EPOCH`](https://reproducible-builds.org/specs/source-date-epoch/) (seconds since the
+Unix epoch) to pin it, and two runs produce byte-identical files. An unparsable `SOURCE_DATE_EPOCH` is ignored with a
+warning.
 
 ## The root component
 

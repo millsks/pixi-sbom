@@ -164,6 +164,61 @@ fn default_run_writes_cyclonedx_next_to_discovered_lockfile() {
 }
 
 #[test]
+fn documents_are_byte_identical_with_source_date_epoch() {
+    let dir = workspace("with-pypi");
+    let mut outputs = Vec::new();
+    for (i, format) in ["cyclonedx", "spdx", "cyclonedx"].iter().enumerate() {
+        let out = dir.path().join(format!("run-{i}.json"));
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("SOURCE_DATE_EPOCH", "1700000000")
+            .args(["--format", format, "-e", "web", "-p", "linux-64", "--output"])
+            .arg(&out)
+            .assert()
+            .success();
+        outputs.push(std::fs::read(&out).unwrap());
+    }
+    assert_eq!(outputs[0], outputs[2], "same input, same bytes");
+    let cdx = read_json(&dir.path().join("run-0.json"));
+    let spdx = read_json(&dir.path().join("run-1.json"));
+    assert_eq!(cdx["metadata"]["timestamp"], "2023-11-14T22:13:20Z");
+    assert_eq!(spdx["creationInfo"]["created"], "2023-11-14T22:13:20Z");
+    let serial = cdx["serialNumber"].as_str().unwrap();
+    assert!(
+        !spdx["documentNamespace"]
+            .as_str()
+            .unwrap()
+            .ends_with(&serial["urn:uuid:".len()..]),
+        "each format gets its own identifier"
+    );
+
+    // A different environment over the same lockfile is a different document.
+    let other = dir.path().join("other.json");
+    pixi_sbom()
+        .current_dir(dir.path())
+        .env("SOURCE_DATE_EPOCH", "1700000000")
+        .args(["-e", "default", "-p", "linux-64", "--output"])
+        .arg(&other)
+        .assert()
+        .success();
+    assert_ne!(read_json(&other)["serialNumber"], cdx["serialNumber"]);
+}
+
+#[test]
+fn invalid_source_date_epoch_warns_and_continues() {
+    let dir = workspace("conda-only");
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .env("SOURCE_DATE_EPOCH", "not-a-number")
+        .args(["-p", "linux-64"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("ignoring SOURCE_DATE_EPOCH"));
+    assert_valid(&cyclonedx_validator(), &read_json(&dir.path().join("sbom.cdx.json")));
+}
+
+#[test]
 fn spdx_format_writes_valid_spdx_document() {
     let dir = workspace("conda-only");
 

@@ -24,7 +24,7 @@ fn main() -> Result<()> {
 
     let cwd = std::env::current_dir().into_diagnostic()?;
     let lockfile = discover::resolve_lockfile(args.lockfile.as_deref(), &cwd)?;
-    let lock = lock::load(&lockfile)?;
+    let lock::LoadedLock { lock, contents } = lock::load(&lockfile)?;
     let root = manifest::root_for_lockfile(&lockfile);
 
     let targets: Vec<(String, PathBuf)> = if args.all_environments {
@@ -47,7 +47,8 @@ fn main() -> Result<()> {
             platform: args.platform.as_deref(),
         };
         let sbom = lock::sbom_from_lock(&lock, selection, root.clone(), &discover::lockfile_name(&lockfile))?;
-        write_output(output, args.format, &sbom)?;
+        let ctx = format::WriteContext::for_document(&contents, &sbom, args.format);
+        write_output(output, args.format, &sbom, &ctx)?;
         tracing::info!(
             output = %output.display(),
             format = ?args.format,
@@ -60,7 +61,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn write_output(output: &Path, format: cli::Format, sbom: &model::Sbom) -> Result<()> {
+fn write_output(output: &Path, format: cli::Format, sbom: &model::Sbom, ctx: &format::WriteContext) -> Result<()> {
     if let Some(parent) = output.parent().filter(|p| !p.as_os_str().is_empty()) {
         std::fs::create_dir_all(parent)
             .into_diagnostic()
@@ -70,7 +71,7 @@ fn write_output(output: &Path, format: cli::Format, sbom: &model::Sbom) -> Resul
         .into_diagnostic()
         .wrap_err_with(|| format!("cannot create {}", output.display()))?;
     let mut writer = std::io::BufWriter::new(file);
-    format::write(format, sbom, &format::WriteContext::new(), &mut writer)?;
+    format::write(format, sbom, ctx, &mut writer)?;
     Ok(())
 }
 

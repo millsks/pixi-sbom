@@ -52,6 +52,13 @@ With no options this means:
 
 `RUST_LOG` is also honored and overrides `-v`/`-q` (for example `RUST_LOG=pixi_sbom::lock=debug`).
 
+### Environment variables
+
+| Variable | Effect |
+|---|---|
+| `SOURCE_DATE_EPOCH` | Pins the document timestamp (seconds since the Unix epoch). With it set, repeated runs over the same lockfile are byte-identical, which lets CI diff SBOMs between commits. See [output-format.md](output-format.md#reproducibility). |
+| `RUST_LOG` | Log filter, overrides `-v`/`-q`. |
+
 ### Examples
 
 ```sh
