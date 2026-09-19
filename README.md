@@ -72,15 +72,22 @@ One document describes one environment on one platform, which is what SBOM consu
 
 | Lockfile data | CycloneDX 1.6 | SPDX 2.3 |
 |---|---|---|
-| Workspace name/version (from `pixi.toml` / `pyproject.toml`) | `metadata.component` | root package, `DESCRIBES` relationship |
+| Workspace name, version, license, homepage, repository (from `pixi.toml` / `pyproject.toml`) | `metadata.component` | root package, `DESCRIBES` relationship |
+| Workspace authors | `metadata.authors[]` | `creationInfo.creators[]` (`Person:`) |
+| Generation context (`pre-build`: derived from the lockfile) | `metadata.lifecycles[]` | `creationInfo.comment` |
 | conda, pixi-build source, and PyPI packages | `components[]` (`type: library`) | `packages[]` |
 | Package URL (`pkg:conda/...`, `pkg:pypi/...`) | `purl`, `bom-ref` | `externalRefs[]` (PACKAGE-MANAGER / purl) |
+| Supplier (conda channel or PyPI index) | `supplier` | `supplier` (`Organization:`) |
 | Download URL | `externalReferences[distribution]` | `downloadLocation` |
 | SHA-256 / MD5 | `hashes[]` | `checksums[]` |
 | License | `licenses[].expression`, or `.license.name` for non-SPDX text | `licenseDeclared`, with `LicenseRef-pixi-*` + `hasExtractedLicensingInfos` for non-SPDX text |
 | Channel, subdir, build string, build number, size, index URL, ... | `properties[]` (`pixi:*`) | package `comment` (`key=value` lines) |
 | Dependency graph (resolved within the environment) | `dependencies[]` | `DEPENDS_ON` relationships |
 | Environment, platform, lockfile name | `metadata.properties[]` | root package `sourceInfo` |
+
+The documents cover every [CISA 2026 SBOM minimum element](https://www.cisa.gov/sbom) that a lockfile can support:
+author, timestamp, tool, generation context, and per component the name, version, supplier, purl, hashes, license and
+dependency relationships.
 
 License strings are checked with the SPDX license list. Valid expressions (including deprecated identifiers still used
 on conda-forge) pass through unchanged; lenient spellings such as `MIT/Apache-2.0` are rewritten canonically; anything

@@ -6,11 +6,14 @@ use serde::Serialize;
 
 use super::{WriteContext, top_level_ids};
 use crate::license::{self, License};
-use crate::model::{Package, PackageKind, Sbom};
+use crate::model::{Author, Package, PackageKind, Sbom, Supplier};
 
 const DOCUMENT_ID: &str = "SPDXRef-DOCUMENT";
 const ROOT_ID: &str = "SPDXRef-Package-root";
 const NOASSERTION: &str = "NOASSERTION";
+/// Generation context, the SPDX 2.3 counterpart of a CycloneDX lifecycle phase.
+const CREATOR_COMMENT: &str =
+    "Generated from the pixi lockfile (resolved dependencies) before any build; lifecycle phase: pre-build";
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,6 +34,7 @@ pub(crate) struct Document {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CreationInfo {
+    comment: &'static str,
     created: String,
     creators: Vec<String>,
 }
@@ -43,7 +47,11 @@ struct SpdxPackage {
     name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     version_info: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    supplier: Option<String>,
     download_location: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    homepage: Option<String>,
     files_analyzed: bool,
     license_concluded: String,
     license_declared: String,
@@ -120,7 +128,7 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
     }
 
     let name = format!("{}-{}-{}", sbom.root.name, sbom.environment, sbom.platform);
-    let mut all_packages = vec![root_package(sbom)];
+    let mut all_packages = vec![root_package(sbom, &mut extracted)];
     all_packages.extend::<Vec<SpdxPackage>>(packages);
 
     Document {
@@ -134,8 +142,11 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
         ),
         name,
         creation_info: CreationInfo {
+            comment: CREATOR_COMMENT,
             created: ctx.timestamp.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-            creators: vec![format!("Tool: pixi-sbom-{}", ctx.tool_version)],
+            creators: std::iter::once(format!("Tool: pixi-sbom-{}", ctx.tool_version))
+                .chain(sbom.root.authors.iter().map(person))
+                .collect(),
         },
         packages: all_packages,
         relationships,
@@ -180,15 +191,38 @@ fn id_fragment(text: &str) -> String {
         .collect()
 }
 
-fn root_package(sbom: &Sbom) -> SpdxPackage {
+/// `Person: name (email)` per the SPDX agent syntax.
+fn person(author: &Author) -> String {
+    match &author.email {
+        Some(email) => format!("Person: {} ({email})", author.name),
+        None => format!("Person: {}", author.name),
+    }
+}
+
+/// `Organization: name (url)`; the url stands in for the contact SPDX puts in parentheses.
+fn organization(supplier: &Supplier) -> String {
+    match &supplier.url {
+        Some(url) => format!("Organization: {} ({url})", supplier.name),
+        None => format!("Organization: {}", supplier.name),
+    }
+}
+
+fn root_package(sbom: &Sbom, extracted: &mut BTreeMap<String, ExtractedLicense>) -> SpdxPackage {
+    let root = &sbom.root;
     SpdxPackage {
         spdx_id: ROOT_ID.into(),
-        name: sbom.root.name.clone(),
-        version_info: sbom.root.version.clone(),
-        download_location: NOASSERTION.into(),
+        name: root.name.clone(),
+        version_info: root.version.clone(),
+        supplier: None,
+        download_location: root.repository.clone().unwrap_or_else(|| NOASSERTION.into()),
+        homepage: root.homepage.clone(),
         files_analyzed: false,
         license_concluded: NOASSERTION.into(),
-        license_declared: NOASSERTION.into(),
+        license_declared: root
+            .license
+            .as_deref()
+            .map(|raw| license_declared(raw, extracted))
+            .unwrap_or_else(|| NOASSERTION.into()),
         copyright_text: NOASSERTION,
         primary_package_purpose: "APPLICATION",
         checksums: vec![],
@@ -252,7 +286,9 @@ fn spdx_package(
         spdx_id: ids[package.id.as_str()].clone(),
         name: package.name.clone(),
         version_info: package.version.clone(),
+        supplier: package.supplier.as_ref().map(organization),
         download_location,
+        homepage: None,
         files_analyzed: false,
         license_concluded: NOASSERTION.into(),
         license_declared: package
@@ -322,6 +358,52 @@ mod tests {
         );
         assert_eq!(doc["creationInfo"]["created"], "2026-09-18T12:00:00Z");
         assert_eq!(doc["creationInfo"]["creators"][0], "Tool: pixi-sbom-0.0.0-test");
+        assert_eq!(
+            doc["creationInfo"]["creators"][1],
+            "Person: Ada Lovelace (ada@example.org)"
+        );
+        assert_eq!(doc["creationInfo"]["creators"][2], "Person: Anonymous");
+        assert!(doc["creationInfo"]["comment"].as_str().unwrap().contains("pre-build"));
+    }
+
+    #[test]
+    fn root_package_carries_manifest_metadata() {
+        let doc = json();
+        let root = &doc["packages"][0];
+        assert_eq!(root["licenseDeclared"], "Apache-2.0");
+        assert_eq!(root["homepage"], "https://demo.example");
+        assert_eq!(root["downloadLocation"], "https://github.com/example/demo");
+        assert!(root.get("supplier").is_none());
+
+        let mut bare = sample_sbom();
+        bare.root = crate::model::Root {
+            name: "bare".into(),
+            license: Some("Proprietary".into()),
+            ..Default::default()
+        };
+        let doc = serde_json::to_value(document(&bare, &fixed_context())).unwrap();
+        let root = &doc["packages"][0];
+        assert_eq!(root["downloadLocation"], "NOASSERTION");
+        assert!(root.get("homepage").is_none());
+        assert_eq!(root["licenseDeclared"], "LicenseRef-pixi-Proprietary");
+        assert_eq!(doc["creationInfo"]["creators"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn suppliers_use_the_organization_syntax() {
+        let doc = json();
+        let packages = doc["packages"].as_array().unwrap();
+        let by_name = |name: &str| packages.iter().find(|p| p["name"] == name).unwrap();
+        assert_eq!(
+            by_name("libzlib")["supplier"],
+            "Organization: conda-forge (https://conda.anaconda.org/conda-forge/)"
+        );
+        assert_eq!(by_name("zlib")["supplier"], "Organization: conda-forge");
+        assert_eq!(
+            by_name("six")["supplier"],
+            "Organization: pypi.org (https://pypi.org/simple)"
+        );
+        assert!(by_name("mylib").get("supplier").is_none());
     }
 
     #[test]

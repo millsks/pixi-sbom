@@ -137,7 +137,7 @@ pub(crate) fn top_level_ids(sbom: &Sbom) -> Vec<&str> {
 #[cfg(test)]
 pub(crate) mod testing {
     use super::*;
-    use crate::model::{Package, PackageKind, Root};
+    use crate::model::{Author, Package, PackageKind, Root, Supplier};
     use std::collections::BTreeMap;
 
     /// A fixed context so snapshots do not change between runs.
@@ -161,6 +161,19 @@ pub(crate) mod testing {
             root: Root {
                 name: "demo".into(),
                 version: Some("2.0.0".into()),
+                authors: vec![
+                    Author {
+                        name: "Ada Lovelace".into(),
+                        email: Some("ada@example.org".into()),
+                    },
+                    Author {
+                        name: "Anonymous".into(),
+                        email: None,
+                    },
+                ],
+                license: Some("Apache-2.0".into()),
+                homepage: Some("https://demo.example".into()),
+                repository: Some("https://github.com/example/demo".into()),
             },
             environment: "default".into(),
             platform: "linux-64".into(),
@@ -172,6 +185,10 @@ pub(crate) mod testing {
                     version: Some("1.3.1".into()),
                     kind: PackageKind::CondaBinary,
                     purl: libzlib_id.into(),
+                    supplier: Some(Supplier {
+                        name: "conda-forge".into(),
+                        url: Some("https://conda.anaconda.org/conda-forge/".into()),
+                    }),
                     extra_purls: vec![],
                     location: "https://conda.anaconda.org/conda-forge/linux-64/libzlib-1.3.1-h1.conda".into(),
                     sha256: Some("a".repeat(64)),
@@ -189,6 +206,10 @@ pub(crate) mod testing {
                     version: Some("1.3.1".into()),
                     kind: PackageKind::CondaBinary,
                     purl: zlib_id.into(),
+                    supplier: Some(Supplier {
+                        name: "conda-forge".into(),
+                        url: None,
+                    }),
                     extra_purls: vec!["pkg:pypi/zlib@1.3.1".into()],
                     location: "https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-h1.conda".into(),
                     sha256: Some("c".repeat(64)),
@@ -203,6 +224,7 @@ pub(crate) mod testing {
                     version: None,
                     kind: PackageKind::CondaSource,
                     purl: src_id.into(),
+                    supplier: None,
                     extra_purls: vec![],
                     location: "./packages/mylib".into(),
                     sha256: None,
@@ -217,6 +239,10 @@ pub(crate) mod testing {
                     version: Some("1.17.0".into()),
                     kind: PackageKind::Pypi,
                     purl: six_id.into(),
+                    supplier: Some(Supplier {
+                        name: "pypi.org".into(),
+                        url: Some("https://pypi.org/simple".into()),
+                    }),
                     extra_purls: vec![],
                     location: "https://files.pythonhosted.org/packages/six-1.17.0-py2.py3-none-any.whl".into(),
                     sha256: Some("d".repeat(64)),
