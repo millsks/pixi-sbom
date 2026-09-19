@@ -11,7 +11,7 @@ use rattler_lock::{
 };
 use thiserror::Error;
 
-use crate::model::{Package, PackageKind, Root, Sbom};
+use crate::model::{Package, PackageKind, Root, Sbom, Supplier};
 use crate::purl::{self, CondaPurl};
 
 /// Errors raised while reading the lockfile or selecting what to describe.
@@ -206,6 +206,7 @@ fn convert_conda(conda: &CondaPackageData) -> Result<Package, LockError> {
         .map(|purls| purls.iter().map(ToString::to_string).collect())
         .unwrap_or_default();
 
+    let mut supplier = None;
     let (kind, channel, subdir, archive_type, build) = match conda {
         CondaPackageData::Binary(binary) => {
             let channel_url = binary.channel.as_ref().map(|c| c.url().to_string());
@@ -216,6 +217,10 @@ fn convert_conda(conda: &CondaPackageData) -> Result<Package, LockError> {
             if let Some(url) = &channel_url {
                 properties.insert("pixi:channel-url".into(), url.clone());
             }
+            supplier = channel.as_ref().map(|name| Supplier {
+                name: name.clone(),
+                url: channel_url.clone(),
+            });
             let file_name = binary.file_name.to_string();
             let archive_type = purl::archive_type_from_file_name(&file_name).map(str::to_string);
             properties.insert("pixi:file-name".into(), file_name);
@@ -282,6 +287,7 @@ fn convert_conda(conda: &CondaPackageData) -> Result<Package, LockError> {
         version,
         kind,
         purl,
+        supplier,
         extra_purls,
         location,
         sha256,
@@ -362,8 +368,16 @@ fn convert_pypi(pypi: &PypiPackageData) -> Result<Package, LockError> {
     let purl = purl::pypi(&name, version.as_deref().unwrap_or("0"))?;
     let mut properties = BTreeMap::new();
     let hashes = pypi.as_wheel().and_then(|wheel| wheel.hash.as_ref());
+    let mut supplier = None;
     if let Some(index) = pypi.as_wheel().and_then(|wheel| wheel.index_url.as_ref()) {
         properties.insert("pixi:index-url".into(), index.to_string());
+        supplier = Some(Supplier {
+            name: index
+                .host_str()
+                .map(str::to_string)
+                .unwrap_or_else(|| index.to_string()),
+            url: Some(index.to_string()),
+        });
     }
     if let Some(requires_python) = pypi.requires_python() {
         properties.insert("pixi:requires-python".into(), requires_python.to_string());
@@ -378,6 +392,7 @@ fn convert_pypi(pypi: &PypiPackageData) -> Result<Package, LockError> {
         version,
         kind: PackageKind::Pypi,
         purl,
+        supplier,
         extra_purls: Vec::new(),
         location: location_string(pypi.location().inner()),
         sha256: hashes.and_then(PackageHashes::sha256).map(hex),
@@ -469,6 +484,7 @@ mod tests {
         Root {
             name: "test".into(),
             version: Some("0.0.1".into()),
+            ..Root::default()
         }
     }
 
@@ -507,6 +523,13 @@ mod tests {
             "https://conda.anaconda.org/conda-forge/"
         );
         assert!(zlib.properties.contains_key("pixi:size"));
+        assert_eq!(
+            zlib.supplier,
+            Some(Supplier {
+                name: "conda-forge".into(),
+                url: Some("https://conda.anaconda.org/conda-forge/".into()),
+            })
+        );
     }
 
     #[test]
@@ -542,6 +565,13 @@ mod tests {
         assert_eq!(requests.sha256.as_deref().map(str::len), Some(64));
         assert!(requests.location.contains("files.pythonhosted.org"));
         assert!(requests.properties.contains_key("pixi:requires-python"));
+        assert_eq!(
+            requests.supplier,
+            Some(Supplier {
+                name: "pypi.org".into(),
+                url: Some("https://pypi.org/simple".into()),
+            })
+        );
         let dep_names: Vec<_> = requests
             .dependencies
             .iter()
@@ -672,6 +702,7 @@ mod tests {
         assert_eq!(git.properties["pixi:source-rev"], "def456789012345");
         assert_eq!(git.properties["pixi:identifier-hash"], "8a76ea86");
         assert_eq!(git.license.as_deref(), Some("MIT"));
+        assert_eq!(git.supplier, None, "source packages have no supplier");
         assert_eq!(git.dependencies, vec![find("libzlib").id.clone()]);
 
         let archive = find("archive-package");

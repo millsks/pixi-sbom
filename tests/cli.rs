@@ -163,6 +163,19 @@ fn default_run_writes_cyclonedx_next_to_discovered_lockfile() {
         .collect();
     assert_eq!(names, ["libzlib", "zlib"]);
     assert!(doc["serialNumber"].as_str().unwrap().starts_with("urn:uuid:"));
+
+    // CISA minimum elements: author, generation context, supplier, root metadata.
+    assert_eq!(doc["metadata"]["authors"][0]["name"], "Test Author");
+    assert_eq!(doc["metadata"]["authors"][0]["email"], "author@example.org");
+    assert_eq!(doc["metadata"]["lifecycles"][0]["phase"], "pre-build");
+    assert_eq!(doc["metadata"]["component"]["licenses"][0]["expression"], "MIT");
+    assert_eq!(
+        doc["metadata"]["component"]["externalReferences"][1]["url"],
+        "https://github.com/example/conda-only"
+    );
+    assert!(doc["components"].as_array().unwrap().iter().all(|c| {
+        c["supplier"]["name"] == "conda-forge" && c["supplier"]["url"][0] == "https://conda.anaconda.org/conda-forge/"
+    }));
 }
 
 #[test]
@@ -356,6 +369,16 @@ fn spdx_format_writes_valid_spdx_document() {
     assert_eq!(
         packages[0]["sourceInfo"],
         "pixi workspace; lockfile pixi.lock; environment default; platform osx-arm64"
+    );
+    assert_eq!(packages[0]["licenseDeclared"], "MIT");
+    assert_eq!(packages[0]["homepage"], "https://conda-only.example");
+    assert_eq!(packages[0]["downloadLocation"], "https://github.com/example/conda-only");
+    let creators = doc["creationInfo"]["creators"].as_array().unwrap();
+    assert!(creators.contains(&Value::from("Person: Test Author (author@example.org)")));
+    assert!(
+        packages[1..]
+            .iter()
+            .all(|p| p["supplier"].as_str().unwrap().starts_with("Organization: conda-forge"))
     );
 }
 

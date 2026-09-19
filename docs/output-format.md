@@ -12,6 +12,8 @@ specifications list them, followed by a trailing newline.
 | Unique id | `serialNumber: urn:uuid:<v5>` | `documentNamespace: https://spdx.org/spdxdocs/pixi-sbom/<name>/<uuid>` |
 | Timestamp (UTC, seconds) | `metadata.timestamp` | `creationInfo.created` |
 | Generator | `metadata.tools.components[]`: `pixi-sbom` with version and repository link | `creationInfo.creators[]`: `Tool: pixi-sbom-<version>` |
+| Author | `metadata.authors[]` (`name`, `email`) from the manifest's `authors` | `creationInfo.creators[]`: `Person: <name> (<email>)` |
+| Generation context | `metadata.lifecycles[]`: `phase: pre-build` (derived from resolved inputs, before any build) | `creationInfo.comment` saying the same |
 | Document name | (none; the root component carries it) | `name: <workspace>-<environment>-<platform>` |
 | What was described | `metadata.properties[]`: `pixi:environment`, `pixi:platform`, `pixi:lockfile` | root package `sourceInfo` |
 
@@ -35,11 +37,15 @@ The workspace itself is the subject of the document.
 |---|---|---|
 | Element | `metadata.component` (`type: application`, `bom-ref: root`) | `packages[0]` with `SPDXID: SPDXRef-Package-root`, `primaryPackagePurpose: APPLICATION` |
 | Name / version | `name`, `version` from the manifest | `name`, `versionInfo` |
+| License | `licenses[]` (same rules as packages, see below) | `licenseDeclared` |
+| Homepage / repository | `externalReferences[]` of type `website` / `vcs` | `homepage` / `downloadLocation` |
 | Link to document | implicit | relationship `SPDXRef-DOCUMENT DESCRIBES SPDXRef-Package-root` |
 
-Name and version come from `pixi.toml` (`[workspace]`, or the legacy `[project]` table) or from `pyproject.toml`
-(`[tool.pixi.workspace]` name, with `[project]` filling in whatever is missing). With no manifest, the name is the
-lockfile's directory and there is no version.
+Name, version, authors, license, homepage and repository come from `pixi.toml` (`[workspace]`, or the legacy
+`[project]` table) or from `pyproject.toml` (`[tool.pixi.workspace]`, with the PEP 621 `[project]` table filling in
+whatever is missing: `authors` entries as `{ name, email }`, `license` as an expression string or `{ text = ... }`,
+`[project.urls]` keys `Homepage` and `Repository` / `Source`). With no manifest, the name is the lockfile's directory
+and everything else is absent.
 
 ## Packages
 
@@ -52,6 +58,7 @@ conda source, PyPI), then name, then version.
 | Identifier | `bom-ref` = purl | `SPDXID: SPDXRef-Package-<kind>-<name>-<version>` (sanitized, de-duplicated with a numeric suffix) |
 | Name, version | `name`, `version` | `name`, `versionInfo` |
 | Package URL | `purl` | `externalRefs[]` with `referenceCategory: PACKAGE-MANAGER`, `referenceType: purl` |
+| Supplier | `supplier` (`name`, `url[]`): the conda channel (e.g. `conda-forge`) or the PyPI index host (e.g. `pypi.org`); absent for source packages | `supplier`: `Organization: <name> (<url>)` |
 | Extra purls (see below) | property `pixi:purl` per purl | additional `externalRefs[]` entries |
 | Download location | `externalReferences[]` of type `distribution`, or `vcs` for `git+` locations | `downloadLocation` (URL or `git+<url>@<rev>`); `NOASSERTION` plus `sourceInfo` for local paths |
 | SHA-256, MD5 | `hashes[]` (`SHA-256`, `MD5`) | `checksums[]` (`SHA256`, `MD5`) |

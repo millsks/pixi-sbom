@@ -4,11 +4,13 @@ use serde::Serialize;
 
 use super::{WriteContext, top_level_ids};
 use crate::license::{self, License};
-use crate::model::{Package, PackageKind, Sbom};
+use crate::model::{Author, Package, PackageKind, Sbom, Supplier};
 
 const SPEC_VERSION: &str = "1.6";
 const SCHEMA_URL: &str = "http://cyclonedx.org/schema/bom-1.6.schema.json";
 const ROOT_REF: &str = "root";
+/// The document is derived from a lockfile, i.e. from resolved inputs before any build runs.
+const LIFECYCLE_PHASE: &str = "pre-build";
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,9 +30,31 @@ pub(crate) struct Bom {
 #[serde(rename_all = "camelCase")]
 struct Metadata {
     timestamp: String,
+    lifecycles: Vec<Lifecycle>,
     tools: Tools,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    authors: Vec<Contact>,
     component: Component,
     properties: Vec<Property>,
+}
+
+#[derive(Debug, Serialize)]
+struct Lifecycle {
+    phase: &'static str,
+}
+
+#[derive(Debug, Serialize)]
+struct Contact {
+    name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    email: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct Entity {
+    name: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    url: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -48,6 +72,8 @@ struct Component {
     name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    supplier: Option<Entity>,
     #[serde(skip_serializing_if = "Option::is_none")]
     purl: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -120,9 +146,11 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Bom {
         version: 1,
         metadata: Metadata {
             timestamp: ctx.timestamp.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+            lifecycles: vec![Lifecycle { phase: LIFECYCLE_PHASE }],
             tools: Tools {
                 components: vec![tool_component(ctx)],
             },
+            authors: sbom.root.authors.iter().map(contact).collect(),
             component: root_component(sbom),
             properties: vec![
                 property("pixi:environment", &sbom.environment),
@@ -141,6 +169,7 @@ fn tool_component(ctx: &WriteContext) -> Component {
         bom_ref: format!("pkg:cargo/pixi-sbom@{}", ctx.tool_version),
         name: "pixi-sbom".into(),
         version: Some(ctx.tool_version.clone()),
+        supplier: None,
         purl: None,
         hashes: vec![],
         licenses: vec![],
@@ -153,16 +182,45 @@ fn tool_component(ctx: &WriteContext) -> Component {
 }
 
 fn root_component(sbom: &Sbom) -> Component {
+    let root = &sbom.root;
+    let mut external_references = Vec::new();
+    if let Some(url) = &root.homepage {
+        external_references.push(ExternalReference {
+            kind: "website",
+            url: url.clone(),
+        });
+    }
+    if let Some(url) = &root.repository {
+        external_references.push(ExternalReference {
+            kind: "vcs",
+            url: url.clone(),
+        });
+    }
     Component {
         kind: "application",
         bom_ref: ROOT_REF.into(),
-        name: sbom.root.name.clone(),
-        version: sbom.root.version.clone(),
+        name: root.name.clone(),
+        version: root.version.clone(),
+        supplier: None,
         purl: None,
         hashes: vec![],
-        licenses: vec![],
-        external_references: vec![],
+        licenses: root.license.as_deref().and_then(license_choice).into_iter().collect(),
+        external_references,
         properties: vec![],
+    }
+}
+
+fn contact(author: &Author) -> Contact {
+    Contact {
+        name: author.name.clone(),
+        email: author.email.clone(),
+    }
+}
+
+fn entity(supplier: &Supplier) -> Entity {
+    Entity {
+        name: supplier.name.clone(),
+        url: supplier.url.iter().cloned().collect(),
     }
 }
 
@@ -190,6 +248,7 @@ fn component(package: &Package) -> Component {
         bom_ref: package.id.clone(),
         name: package.name.clone(),
         version: package.version.clone(),
+        supplier: package.supplier.as_ref().map(entity),
         purl: Some(package.purl.clone()),
         hashes,
         licenses: package
@@ -261,6 +320,48 @@ mod tests {
         assert_eq!(doc["metadata"]["component"]["version"], "2.0.0");
         assert_eq!(doc["metadata"]["tools"]["components"][0]["name"], "pixi-sbom");
         assert_eq!(doc["metadata"]["tools"]["components"][0]["version"], "0.0.0-test");
+        assert_eq!(doc["metadata"]["lifecycles"][0]["phase"], "pre-build");
+    }
+
+    #[test]
+    fn authors_and_root_metadata_come_from_the_manifest() {
+        let doc = json();
+        let authors = doc["metadata"]["authors"].as_array().unwrap();
+        assert_eq!(authors.len(), 2);
+        assert_eq!(authors[0]["name"], "Ada Lovelace");
+        assert_eq!(authors[0]["email"], "ada@example.org");
+        assert!(authors[1].get("email").is_none());
+        let root = &doc["metadata"]["component"];
+        assert_eq!(root["licenses"][0]["expression"], "Apache-2.0");
+        assert_eq!(root["externalReferences"][0]["type"], "website");
+        assert_eq!(root["externalReferences"][0]["url"], "https://demo.example");
+        assert_eq!(root["externalReferences"][1]["type"], "vcs");
+        assert!(root.get("supplier").is_none());
+
+        let mut bare = sample_sbom();
+        bare.root = crate::model::Root {
+            name: "bare".into(),
+            ..Default::default()
+        };
+        let doc = serde_json::to_value(document(&bare, &fixed_context())).unwrap();
+        assert!(doc["metadata"].get("authors").is_none());
+        assert!(doc["metadata"]["component"].get("licenses").is_none());
+        assert!(doc["metadata"]["component"].get("externalReferences").is_none());
+    }
+
+    #[test]
+    fn suppliers_are_channels_and_indexes() {
+        let doc = json();
+        let components = doc["components"].as_array().unwrap();
+        let by_name = |name: &str| components.iter().find(|c| c["name"] == name).unwrap();
+        assert_eq!(by_name("libzlib")["supplier"]["name"], "conda-forge");
+        assert_eq!(
+            by_name("libzlib")["supplier"]["url"][0],
+            "https://conda.anaconda.org/conda-forge/"
+        );
+        assert!(by_name("zlib")["supplier"].get("url").is_none());
+        assert_eq!(by_name("six")["supplier"]["name"], "pypi.org");
+        assert!(by_name("mylib").get("supplier").is_none());
     }
 
     #[test]
