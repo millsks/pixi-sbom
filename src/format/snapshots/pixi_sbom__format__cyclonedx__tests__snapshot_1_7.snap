@@ -1,0 +1,271 @@
+---
+source: src/format/cyclonedx.rs
+expression: doc
+---
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.7.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.7",
+  "serialNumber": "urn:uuid:11111111-2222-4333-8444-555555555555",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-09-18T12:00:00Z",
+    "lifecycles": [
+      {
+        "phase": "pre-build"
+      }
+    ],
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "bom-ref": "pkg:cargo/pixi-sbom@0.0.0-test",
+          "name": "pixi-sbom",
+          "version": "0.0.0-test",
+          "externalReferences": [
+            {
+              "type": "vcs",
+              "url": "https://github.com/millsks/pixi-sbom"
+            }
+          ]
+        }
+      ]
+    },
+    "authors": [
+      {
+        "name": "Ada Lovelace",
+        "email": "ada@example.org"
+      },
+      {
+        "name": "Anonymous"
+      }
+    ],
+    "component": {
+      "type": "application",
+      "bom-ref": "root",
+      "name": "demo",
+      "version": "2.0.0",
+      "licenses": [
+        {
+          "expression": "Apache-2.0"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://demo.example"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/example/demo"
+        }
+      ]
+    },
+    "properties": [
+      {
+        "name": "pixi:environment",
+        "value": "default"
+      },
+      {
+        "name": "pixi:platform",
+        "value": "linux-64"
+      },
+      {
+        "name": "pixi:lockfile",
+        "value": "pixi.lock"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:conda/libzlib@1.3.1?build=h1&channel=conda-forge&subdir=linux-64&type=conda",
+      "name": "libzlib",
+      "version": "1.3.1",
+      "supplier": {
+        "name": "conda-forge",
+        "url": [
+          "https://conda.anaconda.org/conda-forge/"
+        ]
+      },
+      "purl": "pkg:conda/libzlib@1.3.1?build=h1&channel=conda-forge&subdir=linux-64&type=conda",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "alg": "MD5",
+          "content": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Zlib"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://conda.anaconda.org/conda-forge/linux-64/libzlib-1.3.1-h1.conda"
+        }
+      ],
+      "properties": [
+        {
+          "name": "pixi:channel",
+          "value": "conda-forge"
+        },
+        {
+          "name": "pixi:subdir",
+          "value": "linux-64"
+        },
+        {
+          "name": "pixi:kind",
+          "value": "conda"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:conda/zlib@1.3.1?build=h1&channel=conda-forge&subdir=linux-64&type=conda",
+      "name": "zlib",
+      "version": "1.3.1",
+      "supplier": {
+        "name": "conda-forge"
+      },
+      "purl": "pkg:conda/zlib@1.3.1?build=h1&channel=conda-forge&subdir=linux-64&type=conda",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-h1.conda"
+        }
+      ],
+      "properties": [
+        {
+          "name": "pixi:channel",
+          "value": "conda-forge"
+        },
+        {
+          "name": "pixi:kind",
+          "value": "conda"
+        },
+        {
+          "name": "pixi:purl",
+          "value": "pkg:pypi/zlib@1.3.1"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:conda/mylib@0.1.0",
+      "name": "mylib",
+      "purl": "pkg:conda/mylib@0.1.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "Proprietary"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "./packages/mylib"
+        }
+      ],
+      "properties": [
+        {
+          "name": "pixi:kind",
+          "value": "conda-source"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/six@1.17.0",
+      "name": "six",
+      "version": "1.17.0",
+      "supplier": {
+        "name": "pypi.org",
+        "url": [
+          "https://pypi.org/simple"
+        ]
+      },
+      "purl": "pkg:pypi/six@1.17.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/six-1.17.0-py2.py3-none-any.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "pixi:requires-python",
+          "value": ">=2.7"
+        },
+        {
+          "name": "pixi:kind",
+          "value": "pypi"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "root",
+      "dependsOn": [
+        "pkg:conda/mylib@0.1.0",
+        "pkg:pypi/six@1.17.0"
+      ]
+    },
+    {
+      "ref": "pkg:conda/libzlib@1.3.1?build=h1&channel=conda-forge&subdir=linux-64&type=conda",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:conda/zlib@1.3.1?build=h1&channel=conda-forge&subdir=linux-64&type=conda",
+      "dependsOn": [
+        "pkg:conda/libzlib@1.3.1?build=h1&channel=conda-forge&subdir=linux-64&type=conda"
+      ]
+    },
+    {
+      "ref": "pkg:conda/mylib@0.1.0",
+      "dependsOn": [
+        "pkg:conda/zlib@1.3.1?build=h1&channel=conda-forge&subdir=linux-64&type=conda"
+      ]
+    },
+    {
+      "ref": "pkg:pypi/six@1.17.0",
+      "dependsOn": []
+    }
+  ],
+  "citations": [
+    {
+      "pointers": [
+        "/metadata/component",
+        "/components",
+        "/dependencies"
+      ],
+      "timestamp": "2026-09-18T12:00:00Z",
+      "attributedTo": "pkg:cargo/pixi-sbom@0.0.0-test",
+      "note": "Derived from the pixi lockfile pixi.lock (environment default, platform linux-64) and the workspace manifest"
+    }
+  ]
+}

@@ -30,6 +30,7 @@ fn main() -> Result<()> {
     let lock::LoadedLock { lock, contents } = lock::load(&lockfile)?;
     let root = manifest::root_for_lockfile(&lockfile);
 
+    let spec_version = resolve_spec_version(&args);
     let targets = resolve_targets(&args, &lock, &lockfile)?;
     let pypi_mapping = load_pypi_mapping(&args)?;
     tracing::debug!(lockfile = %lockfile.display(), ?targets, format = ?args.format, "resolved targets");
@@ -62,7 +63,7 @@ fn main() -> Result<()> {
             let pypi::Outcome { found, missing, failed } = lookup.run(&mut sbom);
             tracing::info!(found, missing, failed, "looked up PyPI licenses");
         }
-        let ctx = format::WriteContext::for_document(&contents, &sbom, args.format);
+        let ctx = format::WriteContext::for_document(&contents, &sbom, args.format, spec_version);
         write_output(output, args.format, &sbom, &ctx)?;
         tracing::info!(
             output = %output,
@@ -74,6 +75,26 @@ fn main() -> Result<()> {
         );
     }
     Ok(())
+}
+
+/// The CycloneDX version to write; `--spec-version` is a usage error with any other format.
+fn resolve_spec_version(args: &cli::Args) -> cli::SpecVersion {
+    match (args.format, args.spec_version) {
+        (cli::Format::Cyclonedx, version) => version.unwrap_or_default(),
+        (_, None) => cli::SpecVersion::default(),
+        (format, Some(_)) => {
+            let name = clap::ValueEnum::to_possible_value(&format).map(|v| v.get_name().to_string());
+            cli::Args::command()
+                .error(
+                    clap::error::ErrorKind::ArgumentConflict,
+                    format!(
+                        "'--spec-version' selects a CycloneDX version and cannot be used with '--format {}'",
+                        name.unwrap_or_default()
+                    ),
+                )
+                .exit()
+        }
+    }
 }
 
 /// Load the PyPI mapping the flags ask for; `None` means only the lockfile's own purls.

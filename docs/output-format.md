@@ -6,14 +6,15 @@ specifications list them, followed by a trailing newline.
 
 ## Document header
 
-| | CycloneDX 1.6 | SPDX 2.3 |
+| | CycloneDX 1.6 / 1.7 | SPDX 2.3 |
 |---|---|---|
-| Identity | `bomFormat: CycloneDX`, `specVersion: 1.6`, `$schema` | `spdxVersion: SPDX-2.3`, `dataLicense: CC0-1.0`, `SPDXID: SPDXRef-DOCUMENT` |
+| Identity | `bomFormat: CycloneDX`, `specVersion: 1.6` or `1.7` (`--spec-version`), matching `$schema` | `spdxVersion: SPDX-2.3`, `dataLicense: CC0-1.0`, `SPDXID: SPDXRef-DOCUMENT` |
 | Unique id | `serialNumber: urn:uuid:<v5>` | `documentNamespace: https://spdx.org/spdxdocs/pixi-sbom/<name>/<uuid>` |
 | Timestamp (UTC, seconds) | `metadata.timestamp` | `creationInfo.created` |
 | Generator | `metadata.tools.components[]`: `pixi-sbom` with version and repository link | `creationInfo.creators[]`: `Tool: pixi-sbom-<version>` |
 | Author | `metadata.authors[]` (`name`, `email`) from the manifest's `authors` | `creationInfo.creators[]`: `Person: <name> (<email>)` |
 | Generation context | `metadata.lifecycles[]`: `phase: pre-build` (derived from resolved inputs, before any build) | `creationInfo.comment` saying the same |
+| Data origin (1.7 only) | `citations[]`: one entry attributing `/metadata/component`, `/components` and `/dependencies` to the pixi-sbom tool component, with a note naming the lockfile, environment and platform | (none) |
 | Document name | (none; the root component carries it) | `name: <workspace>-<environment>-<platform>` |
 | What was described | `metadata.properties[]`: `pixi:environment`, `pixi:platform`, `pixi:lockfile` | root package `sourceInfo` |
 

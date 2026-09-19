@@ -82,10 +82,11 @@ discovery, every option including `--all-environments`, both formats, and each e
 
 ### Schema validation
 
-`tests/schemas/` contains the official CycloneDX 1.6 schema (with the `spdx.schema.json` and `jsf-0.82.schema.json`
-it references, registered under their canonical `$id`s so no network access happens) and the SPDX 2.3 schema. Both
-the sample model and every end-to-end document are validated. When upgrading a spec version, replace the schema files
-and update the `$schema` / `specVersion` constants in the writer.
+`tests/schemas/` contains the official CycloneDX 1.6 and 1.7 schemas (with the `spdx.schema.json`,
+`jsf-0.82.schema.json` and `cryptography-defs.schema.json` they reference, registered under their canonical `$id`s so
+no network access happens) and the SPDX 2.3 schema. Both the sample model and every end-to-end document are validated,
+CycloneDX against the schema of the version written. When adding a spec version, vendor its schema and extend
+`cli::SpecVersion` and the writer's `schema_url` / `number` tables.
 
 ### Fixtures (`tests/fixtures/`)
 

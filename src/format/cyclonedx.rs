@@ -1,13 +1,12 @@
-//! CycloneDX 1.6 JSON serializer.
+//! CycloneDX 1.6 / 1.7 JSON serializer.
 
 use serde::Serialize;
 
 use super::{WriteContext, top_level_ids};
+use crate::cli::SpecVersion;
 use crate::license::{self, License};
 use crate::model::{Author, Package, PackageKind, Sbom, Supplier};
 
-const SPEC_VERSION: &str = "1.6";
-const SCHEMA_URL: &str = "http://cyclonedx.org/schema/bom-1.6.schema.json";
 const ROOT_REF: &str = "root";
 /// The document is derived from a lockfile, i.e. from resolved inputs before any build runs.
 const LIFECYCLE_PHASE: &str = "pre-build";
@@ -24,6 +23,34 @@ pub(crate) struct Bom {
     metadata: Metadata,
     components: Vec<Component>,
     dependencies: Vec<Dependency>,
+    /// CycloneDX 1.7 only: who supplied which fields.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    citations: Vec<Citation>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Citation {
+    pointers: Vec<&'static str>,
+    timestamp: String,
+    attributed_to: String,
+    note: String,
+}
+
+impl SpecVersion {
+    fn number(self) -> &'static str {
+        match self {
+            SpecVersion::V1_6 => "1.6",
+            SpecVersion::V1_7 => "1.7",
+        }
+    }
+
+    fn schema_url(self) -> &'static str {
+        match self {
+            SpecVersion::V1_6 => "http://cyclonedx.org/schema/bom-1.6.schema.json",
+            SpecVersion::V1_7 => "http://cyclonedx.org/schema/bom-1.7.schema.json",
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -138,14 +165,28 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Bom {
         depends_on: p.dependencies.clone(),
     }));
 
+    let timestamp = ctx.timestamp.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let citations = match ctx.spec_version {
+        SpecVersion::V1_6 => vec![],
+        SpecVersion::V1_7 => vec![Citation {
+            pointers: vec!["/metadata/component", "/components", "/dependencies"],
+            timestamp: timestamp.clone(),
+            attributed_to: tool_ref(ctx),
+            note: format!(
+                "Derived from the pixi lockfile {} (environment {}, platform {}) and the workspace manifest",
+                sbom.lockfile, sbom.environment, sbom.platform
+            ),
+        }],
+    };
+
     Bom {
-        schema: SCHEMA_URL,
+        schema: ctx.spec_version.schema_url(),
         bom_format: "CycloneDX",
-        spec_version: SPEC_VERSION,
+        spec_version: ctx.spec_version.number(),
         serial_number: format!("urn:uuid:{}", ctx.uuid),
         version: 1,
         metadata: Metadata {
-            timestamp: ctx.timestamp.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+            timestamp,
             lifecycles: vec![Lifecycle { phase: LIFECYCLE_PHASE }],
             tools: Tools {
                 components: vec![tool_component(ctx)],
@@ -160,13 +201,18 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Bom {
         },
         components: sbom.packages.iter().map(component).collect(),
         dependencies,
+        citations,
     }
+}
+
+fn tool_ref(ctx: &WriteContext) -> String {
+    format!("pkg:cargo/pixi-sbom@{}", ctx.tool_version)
 }
 
 fn tool_component(ctx: &WriteContext) -> Component {
     Component {
         kind: "application",
-        bom_ref: format!("pkg:cargo/pixi-sbom@{}", ctx.tool_version),
+        bom_ref: tool_ref(ctx),
         name: "pixi-sbom".into(),
         version: Some(ctx.tool_version.clone()),
         supplier: None,
@@ -307,6 +353,30 @@ mod tests {
     #[test]
     fn snapshot() {
         insta::assert_json_snapshot!(json());
+    }
+
+    #[test]
+    fn snapshot_1_7() {
+        let doc = serde_json::to_value(document(&sample_sbom(), &crate::format::testing::fixed_context_1_7())).unwrap();
+        insta::assert_json_snapshot!(doc);
+    }
+
+    #[test]
+    fn spec_version_1_7_adds_schema_and_citation() {
+        let doc = json();
+        assert_eq!(doc["specVersion"], "1.6");
+        assert_eq!(doc["$schema"], "http://cyclonedx.org/schema/bom-1.6.schema.json");
+        assert!(doc.get("citations").is_none());
+
+        let doc = serde_json::to_value(document(&sample_sbom(), &crate::format::testing::fixed_context_1_7())).unwrap();
+        assert_eq!(doc["specVersion"], "1.7");
+        assert_eq!(doc["$schema"], "http://cyclonedx.org/schema/bom-1.7.schema.json");
+        let citation = &doc["citations"][0];
+        assert_eq!(citation["attributedTo"], "pkg:cargo/pixi-sbom@0.0.0-test");
+        assert_eq!(citation["pointers"][1], "/components");
+        assert_eq!(citation["timestamp"], "2026-09-18T12:00:00Z");
+        assert!(citation["note"].as_str().unwrap().contains("pixi.lock"));
+        assert_eq!(doc["serialNumber"], json()["serialNumber"]);
     }
 
     #[test]

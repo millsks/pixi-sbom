@@ -1,7 +1,7 @@
 # pixi-sbom
 
 A [pixi](https://pixi.sh) extension that generates a Software Bill of Materials (SBOM) from a `pixi.lock` file, in
-[CycloneDX](https://cyclonedx.org) 1.6 or [SPDX](https://spdx.dev) 2.3 JSON.
+[CycloneDX](https://cyclonedx.org) 1.6 / 1.7 or [SPDX](https://spdx.dev) 2.3 JSON.
 
 [![CI](https://github.com/millsks/pixi-sbom/actions/workflows/ci.yml/badge.svg)](https://github.com/millsks/pixi-sbom/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
@@ -59,6 +59,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 |---|---|---|
 | `--lockfile <PATH>` | search upward from cwd | `pixi.lock` to read |
 | `--format <cyclonedx\|spdx>` | `cyclonedx` | SBOM format |
+| `--spec-version <1.6\|1.7>` | `1.6` | CycloneDX version |
 | `--output <PATH>` | `<lockfile dir>/sbom.cdx.json` or `sbom.spdx.json` | Where to write the SBOM; `-` for stdout |
 | `-e, --environment <NAME>` | `default` | Lock environment to describe |
 | `--all-environments` | off | Write one `sbom-<environment>` file per environment instead; `--output` is then a directory |
@@ -78,7 +79,7 @@ One document describes one environment on one platform, which is what SBOM consu
 
 ## What goes in the SBOM
 
-| Lockfile data | CycloneDX 1.6 | SPDX 2.3 |
+| Lockfile data | CycloneDX 1.6 / 1.7 | SPDX 2.3 |
 |---|---|---|
 | Workspace name, version, license, homepage, repository (from `pixi.toml` / `pyproject.toml`) | `metadata.component` | root package, `DESCRIBES` relationship |
 | Workspace authors | `metadata.authors[]` | `creationInfo.creators[]` (`Person:`) |

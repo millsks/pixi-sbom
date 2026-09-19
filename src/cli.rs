@@ -8,7 +8,7 @@ use clap_verbosity_flag::{InfoLevel, Verbosity};
 /// SBOM output format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Format {
-    /// CycloneDX 1.6 (JSON)
+    /// CycloneDX 1.6 or 1.7 (JSON), see --spec-version
     Cyclonedx,
     /// SPDX 2.3 (JSON)
     Spdx,
@@ -41,6 +41,18 @@ impl Format {
     }
 }
 
+/// CycloneDX specification version to write.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
+pub enum SpecVersion {
+    /// CycloneDX 1.6
+    #[default]
+    #[value(name = "1.6")]
+    V1_6,
+    /// CycloneDX 1.7 (ECMA-424 2nd edition); adds a citation attributing the inventory to its source
+    #[value(name = "1.7")]
+    V1_7,
+}
+
 /// Where PyPI identities for conda packages come from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum PypiMappingSource {
@@ -70,6 +82,10 @@ pub struct Args {
     /// SBOM format to generate.
     #[arg(long, value_enum, default_value_t = Format::Cyclonedx)]
     pub format: Format,
+
+    /// CycloneDX specification version to write (only with --format cyclonedx).
+    #[arg(long, value_enum, value_name = "VERSION")]
+    pub spec_version: Option<SpecVersion>,
 
     /// Where to write the SBOM. Defaults to the lockfile's directory; `-` writes to stdout.
     /// With --all-environments / --all-platforms this is a directory that receives one
