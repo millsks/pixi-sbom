@@ -186,25 +186,7 @@ impl PypiMapping {
 }
 
 fn download(url: &str) -> Result<String, Box<ureq::Error>> {
-    let tls = ureq::tls::TlsConfig::builder()
-        .root_certs(ureq::tls::RootCerts::PlatformVerifier)
-        .build();
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .tls_config(tls)
-        .timeout_global(Some(Duration::from_secs(120)))
-        .user_agent(concat!("pixi-sbom/", env!("CARGO_PKG_VERSION")))
-        .build()
-        .into();
-    let text = agent
-        .get(url)
-        .call()
-        .map_err(Box::new)?
-        .into_body()
-        .with_config()
-        .limit(MAX_MAPPING_BYTES)
-        .read_to_string()
-        .map_err(Box::new)?;
-    Ok(text)
+    crate::http::get_text(url, MAX_MAPPING_BYTES)
 }
 
 /// Directory for cached downloads: `PIXI_SBOM_CACHE_DIR`, else `pixi-sbom` under

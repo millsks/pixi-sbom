@@ -3,12 +3,14 @@
 mod cli;
 mod discover;
 mod format;
+mod http;
 mod license;
 mod lock;
 mod manifest;
 mod mapping;
 mod model;
 mod purl;
+mod pypi;
 
 use std::io::{IsTerminal, Write};
 use std::path::Path;
@@ -50,6 +52,15 @@ fn main() -> Result<()> {
         if args.primary_purl == cli::PrimaryPurl::Pypi {
             let switched = mapping::prefer_pypi_purl(&mut sbom);
             tracing::info!(switched, "made PyPI purls primary");
+        }
+        if args.pypi_licenses {
+            let cache_dir = mapping::cache_dir();
+            let lookup = pypi::Lookup {
+                index_url: &pypi::index_url(),
+                cache_dir: &cache_dir,
+            };
+            let pypi::Outcome { found, missing, failed } = lookup.run(&mut sbom);
+            tracing::info!(found, missing, failed, "looked up PyPI licenses");
         }
         let ctx = format::WriteContext::for_document(&contents, &sbom, args.format);
         write_output(output, args.format, &sbom, &ctx)?;

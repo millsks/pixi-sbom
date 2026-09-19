@@ -508,6 +508,100 @@ fn bad_mapping_file_and_conflicting_mapping_flags_are_reported() {
 }
 
 #[test]
+fn pypi_licenses_come_from_cached_index_metadata() {
+    let dir = workspace("with-pypi");
+    let cache = dir.path().join("cache").join("pypi");
+    std::fs::create_dir_all(&cache).unwrap();
+    for entry in std::fs::read_dir(tests_dir().join("fixtures").join("pypi-metadata")).unwrap() {
+        let entry = entry.unwrap();
+        std::fs::copy(entry.path(), cache.join(entry.file_name())).unwrap();
+    }
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+        .env("PIXI_SBOM_PYPI_URL", "http://127.0.0.1:9/pypi")
+        .args(["-e", "web", "-p", "linux-64", "--pypi-licenses", "--output", "-"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("found=6 missing=0 failed=0"));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let components = doc["components"].as_array().unwrap();
+    let by_name = |name: &str| components.iter().find(|c| c["name"] == name).unwrap();
+    assert_eq!(by_name("requests")["licenses"][0]["expression"], "Apache-2.0");
+    assert_eq!(by_name("certifi")["licenses"][0]["expression"], "MPL-2.0");
+    assert_eq!(by_name("idna")["licenses"][0]["expression"], "BSD-3-Clause");
+    assert!(
+        by_name("six")["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["name"] == "pixi:license-source" && p["value"] == "pypi")
+    );
+    assert!(
+        !by_name("python")["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["name"] == "pixi:license-source"),
+        "conda packages keep their lockfile license"
+    );
+
+    // SPDX carries the same expressions.
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+        .env("PIXI_SBOM_PYPI_URL", "http://127.0.0.1:9/pypi")
+        .args([
+            "-e",
+            "web",
+            "-p",
+            "linux-64",
+            "--format",
+            "spdx",
+            "--pypi-licenses",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .success();
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&spdx_validator(), &doc);
+    let urllib3 = doc["packages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "urllib3")
+        .unwrap();
+    assert_eq!(urllib3["licenseDeclared"], "MIT");
+}
+
+#[test]
+fn pypi_licenses_never_fail_the_run_when_the_index_is_unreachable() {
+    let dir = workspace("with-pypi");
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+        .env("PIXI_SBOM_PYPI_URL", "http://127.0.0.1:9/pypi")
+        .args(["-e", "web", "-p", "linux-64", "--pypi-licenses", "--output", "-"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("PyPI index unreachable"))
+        .stderr(predicate::str::contains("found=0 missing=0 failed=6"));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let six = doc["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "six")
+        .unwrap();
+    assert!(six.get("licenses").is_none());
+}
+
+#[test]
 fn spdx_format_writes_valid_spdx_document() {
     let dir = workspace("conda-only");
 

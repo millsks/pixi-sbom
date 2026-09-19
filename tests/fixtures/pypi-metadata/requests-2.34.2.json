@@ -1,0 +1,11 @@
+{
+  "info": {
+    "name": "requests",
+    "version": "2.34.2",
+    "license": "Apache-2.0",
+    "license_expression": null,
+    "classifiers": [
+      "License :: OSI Approved :: Apache Software License"
+    ]
+  }
+}

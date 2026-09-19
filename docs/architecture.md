@@ -9,7 +9,8 @@ once no matter how many output formats exist.
                  ▲             ▲       └──▶ format/spdx.rs      ──▶ sbom.spdx.json
    purl.rs ──────┘             │
    manifest.rs ────────────────┘   (workspace metadata)
-   mapping.rs ──── enriches model::Sbom with PyPI purls (optional, the only network user)
+   mapping.rs ──── enriches model::Sbom with PyPI purls (optional, via http.rs)
+   pypi.rs ─────── fills PyPI licenses from the index (optional, via http.rs)
    license.rs ◀── used by both writers
    discover.rs ── finds the lockfile, decides output paths
    cli.rs ──────── clap definitions
@@ -25,7 +26,9 @@ once no matter how many output formats exist.
 | `manifest.rs` | Reading workspace name/version from `pixi.toml` or `pyproject.toml` into `model::Root`. Never fails: problems are logged and the directory name is used. | toml, serde |
 | `lock.rs` | Parsing the lockfile with `rattler_lock`, selecting an environment and platform, converting each locked package into `model::Package`, and resolving the dependency graph. All lockfile-shape knowledge lives here. | rattler_lock, rattler_conda_types, purl.rs |
 | `purl.rs` | Building `pkg:conda` and `pkg:pypi` purls, PEP 503 name normalization, channel-name and archive-type helpers. | packageurl |
-| `mapping.rs` | PyPI identity enrichment: loading the conda-forge conda-to-PyPI mapping (offline file, or downloaded with `ureq` and cached), adding `pkg:pypi` purls to conda-forge packages the lockfile says nothing about, and optionally swapping the primary purl. The only module that touches the network, and only when asked. | ureq, serde_json, purl.rs |
+| `mapping.rs` | PyPI identity enrichment: loading the conda-forge conda-to-PyPI mapping (offline file, or downloaded and cached), adding `pkg:pypi` purls to conda-forge packages the lockfile says nothing about, and optionally swapping the primary purl. Also owns the cache directory rule. | serde_json, purl.rs, http.rs |
+| `pypi.rs` | License lookup for PyPI packages from the index JSON API (`--pypi-licenses`): field precedence, classifier-to-SPDX table, per-release cache, and the "stop when the network is down" rule. | serde_json, http.rs |
+| `http.rs` | The one `ureq` agent (system certificate store, proxies from the environment) and the connectivity-error test. | ureq |
 | `model.rs` | `Sbom`, `Root`, `Package`, `PackageKind`: plain data with no serde and no knowledge of any SBOM spec. | — |
 | `license.rs` | Turning a declared license string into either an SPDX expression or free text. | spdx |
 | `format/mod.rs` | `WriteContext` (timestamp, UUID, tool version), `write()` / `to_value()` entry points, the shared graph-root helper, and the hand-built sample model used by writer tests. | serde_json, chrono, uuid |
