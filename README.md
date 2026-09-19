@@ -35,6 +35,10 @@ pixi sbom --format spdx
 # Pipe into a scanner instead of writing a file
 pixi sbom --output - | grype
 
+# Make conda-installed Python packages scannable: add PyPI purls from the
+# conda-forge mapping and use them as the primary identity
+pixi sbom --pypi-mapping prefix --primary-purl pypi --output - | grype
+
 # Explicit lockfile and output path
 pixi sbom --lockfile /path/to/pixi.lock --output /tmp/my-project.cdx.json
 
@@ -60,6 +64,9 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--all-environments` | off | Write one `sbom-<environment>` file per environment instead; `--output` is then a directory |
 | `-p, --platform <PLATFORM>` | current platform | Platform within that environment |
 | `--all-platforms` | off | Write one `sbom-<platform>` file per locked platform instead (`sbom-<environment>-<platform>` with `--all-environments`) |
+| `--pypi-mapping <lock\|prefix>` | `lock` | `prefix` adds `pkg:pypi` purls to conda-forge packages from the mapping pixi uses (cached daily) |
+| `--pypi-mapping-file <PATH>` | | Offline copy of that mapping |
+| `--primary-purl <conda\|pypi>` | `conda` | `pypi` makes the PyPI purl primary so grype / trivy / osv-scanner can match |
 | `-v` / `-q` | info | More / less logging on stderr |
 
 Output is reproducible: the document identifier is derived from the lockfile, and setting `SOURCE_DATE_EPOCH` pins
@@ -77,6 +84,7 @@ One document describes one environment on one platform, which is what SBOM consu
 | Generation context (`pre-build`: derived from the lockfile) | `metadata.lifecycles[]` | `creationInfo.comment` |
 | conda, pixi-build source, and PyPI packages | `components[]` (`type: library`) | `packages[]` |
 | Package URL (`pkg:conda/...`, `pkg:pypi/...`) | `purl`, `bom-ref` | `externalRefs[]` (PACKAGE-MANAGER / purl) |
+| PyPI identity of a conda package (lockfile `purls:`, or `--pypi-mapping`) | `pixi:purl` property, or `purl` with `--primary-purl pypi` | extra `externalRefs[]` entry |
 | Supplier (conda channel or PyPI index) | `supplier` | `supplier` (`Organization:`) |
 | Download URL | `externalReferences[distribution]` | `downloadLocation` |
 | SHA-256 / MD5 | `hashes[]` | `checksums[]` |

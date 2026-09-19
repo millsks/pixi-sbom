@@ -201,8 +201,9 @@ fn convert_conda(conda: &CondaPackageData) -> Result<Package, LockError> {
     let mut properties = BTreeMap::new();
     let mut sha256 = record.and_then(|r| r.sha256.as_ref()).map(hex);
     let mut license = record.and_then(|r| r.license.clone());
-    let mut extra_purls: Vec<String> = record
-        .and_then(|record| record.purls.as_ref())
+    let lock_purls = record.and_then(|record| record.purls.as_ref());
+    let mut purls_from_lock = lock_purls.is_some();
+    let mut extra_purls: Vec<String> = lock_purls
         .map(|purls| purls.iter().map(ToString::to_string).collect())
         .unwrap_or_default();
 
@@ -238,6 +239,7 @@ fn convert_conda(conda: &CondaPackageData) -> Result<Package, LockError> {
             }
             if let Some(partial) = source.metadata.as_partial() {
                 license = partial.license.clone();
+                purls_from_lock = partial.purls.is_some();
                 extra_purls = partial
                     .purls
                     .as_ref()
@@ -289,6 +291,7 @@ fn convert_conda(conda: &CondaPackageData) -> Result<Package, LockError> {
         purl,
         supplier,
         extra_purls,
+        purls_from_lock,
         location,
         sha256,
         md5: record.and_then(|r| r.md5.as_ref()).map(hex),
@@ -394,6 +397,7 @@ fn convert_pypi(pypi: &PypiPackageData) -> Result<Package, LockError> {
         purl,
         supplier,
         extra_purls: Vec::new(),
+        purls_from_lock: true,
         location: location_string(pypi.location().inner()),
         sha256: hashes.and_then(PackageHashes::sha256).map(hex),
         md5: hashes.and_then(PackageHashes::md5).map(hex),
@@ -517,6 +521,7 @@ mod tests {
         assert_eq!(zlib.sha256.as_deref().map(str::len), Some(64));
         assert_eq!(zlib.md5.as_deref().map(str::len), Some(32));
         assert_eq!(zlib.license.as_deref(), Some("Zlib"));
+        assert!(!zlib.purls_from_lock, "conda-only lock has no purls: entries");
         assert_eq!(zlib.properties["pixi:channel"], "conda-forge");
         assert_eq!(zlib.properties["pixi:subdir"], "linux-64");
         assert_eq!(zlib.properties["pixi:build"], "h25fd6f3_3");
@@ -595,6 +600,7 @@ mod tests {
 
         let python = sbom.packages.iter().find(|p| p.name == "python").unwrap();
         assert_eq!(python.kind, PackageKind::CondaBinary);
+        assert!(python.purls_from_lock, "lock states `purls: []` for python");
         assert!(python.dependencies.len() > 3, "python has many runtime deps");
         let noarch: Vec<_> = sbom
             .packages
@@ -738,6 +744,7 @@ mod tests {
         assert_eq!(partial.version, None);
         assert_eq!(partial.purl, "pkg:conda/my-partial-pkg");
         assert_eq!(partial.extra_purls, vec!["pkg:pypi/my-partial-pkg@1.0"]);
+        assert!(partial.purls_from_lock);
         assert_eq!(partial.license, None);
         assert!(partial.dependencies.is_empty(), "python is not in this environment");
     }

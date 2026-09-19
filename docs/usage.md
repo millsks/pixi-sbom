@@ -47,6 +47,9 @@ With no options this means:
 | `-p, --platform <PLATFORM>` | host platform | Platform within that environment, e.g. `linux-64`, `osx-arm64`, `win-64`. Must be locked for the environment. |
 | `--all-environments` | off | Write one document per environment (see below). Cannot be combined with `--environment`. |
 | `--all-platforms` | off | Write one document per platform the environment is locked for (see below). Cannot be combined with `--platform`. |
+| `--pypi-mapping <lock\|prefix>` | `lock` | Where PyPI identities for conda packages come from. `prefix` downloads the conda-forge mapping (cached for a day) so conda-installed Python packages get a `pkg:pypi` purl. |
+| `--pypi-mapping-file <PATH>` | | Offline copy of that mapping; implies the same enrichment with no network. Cannot be combined with `--pypi-mapping`. |
+| `--primary-purl <conda\|pypi>` | `conda` | With `pypi`, a conda package that has a PyPI purl uses it as its primary `purl` so vulnerability scanners can match it. |
 | `-v`, `-vv` | info | Raise the log level to debug / trace. Logs go to stderr; the SBOM never goes to stdout. |
 | `-q`, `-qq`, `-qqq` | info | Lower it to warnings only / errors only / silent. Error diagnostics are printed regardless. |
 | `-h, --help`, `-V, --version` | | Usual meanings. |
@@ -57,6 +60,8 @@ With no options this means:
 
 | Variable | Effect |
 |---|---|
+| `PIXI_SBOM_CACHE_DIR` | Where the downloaded PyPI mapping is cached. Default: `pixi-sbom` under `PIXI_CACHE_DIR` if set, else the platform cache directory (`~/.cache/pixi-sbom`, `~/Library/Caches/pixi-sbom`, `%LOCALAPPDATA%\pixi-sbom\cache`). |
+| `HTTPS_PROXY` / `HTTP_PROXY` | Honored for the mapping download. |
 | `SOURCE_DATE_EPOCH` | Pins the document timestamp (seconds since the Unix epoch). With it set, repeated runs over the same lockfile are byte-identical, which lets CI diff SBOMs between commits. See [output-format.md](output-format.md#reproducibility). |
 | `RUST_LOG` | Log filter, overrides `-v`/`-q`. |
 
@@ -68,6 +73,12 @@ pixi sbom --format spdx
 
 # Straight into a consumer, nothing written to disk
 pixi sbom --output - | grype
+
+# Scannable: give conda-forge Python packages their PyPI identity and make it primary
+pixi sbom --pypi-mapping prefix --primary-purl pypi --output - | grype
+
+# The same, air-gapped, from a saved copy of the mapping
+pixi sbom --pypi-mapping-file /srv/mirrors/compressed_mapping.json --primary-purl pypi
 
 # A specific lockfile and output file, from anywhere
 pixi sbom --lockfile ~/proj/pixi.lock --output ~/reports/proj.cdx.json
@@ -125,6 +136,8 @@ Runtime diagnostics carry a stable code you can grep for in CI logs:
 | `pixi_sbom::lock::environment` | `--environment` names something not in the lockfile | The message lists the available environments |
 | `pixi_sbom::lock::platform` | The chosen platform is not locked for that environment | The message lists the locked platforms; pass `-p` |
 | `pixi_sbom::lock::current_platform` | The host platform could not be detected | Pass `-p` explicitly |
+| `pixi_sbom::mapping::fetch` | `--pypi-mapping prefix` could not download the mapping and has no cached copy | Check network/proxy, or pass `--pypi-mapping-file`; a stale cache is used automatically with a warning |
+| `pixi_sbom::mapping::read` / `parse` | `--pypi-mapping-file` is unreadable or not a JSON object of conda name to PyPI name | Check the file |
 | `pixi_sbom::purl::invalid` | A package name the purl spec cannot encode | Report it with the lockfile entry |
 | `pixi_sbom::format::io` / `serialize` | The output could not be written | Check the path and permissions; `--output` must not be an existing directory in single-environment mode |
 
@@ -167,5 +180,17 @@ grype sbom:sbom.cdx.json
 ```
 
 Conda packages are identified by `pkg:conda/...` purls with `channel`, `subdir`, `build` and `type` qualifiers; PyPI
-packages by `pkg:pypi/...`. Where conda-forge publishes a PyPI purl for a conda package it is included too (see
-[output-format.md](output-format.md)), which lets scanners that only know PyPI match conda-installed Python packages.
+packages by `pkg:pypi/...`.
+
+Scanners have no conda vulnerability data, so by default a conda-only Python environment scans as clean no matter
+what it contains. To get real results, give conda-forge Python packages their PyPI identity and make it the primary
+purl:
+
+```sh
+pixi sbom --pypi-mapping prefix --primary-purl pypi --output - | grype
+```
+
+`--pypi-mapping prefix` consults the same conda-forge mapping pixi uses (downloaded once a day into a cache);
+`--pypi-mapping-file` takes an offline copy. On a typical conda-forge Python environment this gives roughly 60% of the
+components a `pkg:pypi` purl. See [output-format.md](output-format.md#pypi-identities-for-conda-packages) for exactly
+what is recorded.
