@@ -42,7 +42,7 @@ safe to use in pipelines.
 
 ## The intermediate model
 
-`model::Sbom` holds the root (workspace), the environment and platform names, the lockfile path, and a sorted list of
+`model::Sbom` holds the root (workspace), the environment and platform names, the lockfile name, and a sorted list of
 `Package`s. A `Package` carries an `id` (currently the purl, unique within the document), name, optional version,
 kind, purl, extra purls, download location, optional SHA-256/MD5, optional raw license string, a `BTreeMap` of
 `pixi:*` properties, and the sorted list of ids it depends on.

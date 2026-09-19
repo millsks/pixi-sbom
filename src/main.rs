@@ -46,7 +46,7 @@ fn main() -> Result<()> {
             environment,
             platform: args.platform.as_deref(),
         };
-        let sbom = lock::sbom_from_lock(&lock, selection, root.clone(), &lockfile.display().to_string())?;
+        let sbom = lock::sbom_from_lock(&lock, selection, root.clone(), &discover::lockfile_name(&lockfile))?;
         write_output(output, args.format, &sbom)?;
         tracing::info!(
             output = %output.display(),

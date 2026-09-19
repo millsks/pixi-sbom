@@ -15,6 +15,9 @@ specifications list them, followed by a trailing newline.
 | Document name | (none; the root component carries it) | `name: <workspace>-<environment>-<platform>` |
 | What was described | `metadata.properties[]`: `pixi:environment`, `pixi:platform`, `pixi:lockfile` | root package `sourceInfo` |
 
+`pixi:lockfile` is the lockfile's name relative to the workspace root (normally `pixi.lock`), never the absolute path
+it was read from, so a document does not reveal or depend on the layout of the machine that generated it.
+
 A fresh UUID and the current time are generated on every run, so two runs over the same lockfile differ only in
 those two values plus, for SPDX, the namespace. Everything else, including package order, is deterministic.
 

@@ -77,6 +77,16 @@ pub fn resolve_environment_output(
         .join(format.environment_file_name(environment))
 }
 
+/// The lockfile's own name (normally `pixi.lock`), which is what the SBOM records. The
+/// lockfile always lives at the workspace root, so this is its workspace-relative path; the
+/// absolute path would leak the generating machine's layout and differ between machines.
+pub fn lockfile_name(lockfile: &Path) -> String {
+    lockfile
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| LOCKFILE_NAME.to_string())
+}
+
 fn lockfile_dir(lockfile: &Path) -> PathBuf {
     lockfile.parent().map(Path::to_path_buf).unwrap_or_default()
 }
@@ -123,6 +133,13 @@ mod tests {
         let err = resolve_lockfile(None, dir.path()).unwrap_err();
         assert!(matches!(err, DiscoverError::NotFound { .. }));
         assert!(err.to_string().contains(LOCKFILE_NAME));
+    }
+
+    #[test]
+    fn lockfile_name_is_the_file_name_only() {
+        assert_eq!(lockfile_name(Path::new("/home/alice/proj/pixi.lock")), "pixi.lock");
+        assert_eq!(lockfile_name(Path::new("custom.lock")), "custom.lock");
+        assert_eq!(lockfile_name(Path::new("/")), LOCKFILE_NAME);
     }
 
     #[test]

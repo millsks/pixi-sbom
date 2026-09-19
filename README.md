@@ -71,7 +71,7 @@ the command once per platform you ship.
 | License | `licenses[].expression`, or `.license.name` for non-SPDX text | `licenseDeclared`, with `LicenseRef-pixi-*` + `hasExtractedLicensingInfos` for non-SPDX text |
 | Channel, subdir, build string, build number, size, index URL, ... | `properties[]` (`pixi:*`) | package `comment` (`key=value` lines) |
 | Dependency graph (resolved within the environment) | `dependencies[]` | `DEPENDS_ON` relationships |
-| Environment, platform, lockfile path | `metadata.properties[]` | root package `sourceInfo` |
+| Environment, platform, lockfile name | `metadata.properties[]` | root package `sourceInfo` |
 
 License strings are checked with the SPDX license list. Valid expressions (including deprecated identifiers still used
 on conda-forge) pass through unchanged; lenient spellings such as `MIT/Apache-2.0` are rewritten canonically; anything
