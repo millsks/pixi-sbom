@@ -46,8 +46,9 @@ pub struct Args {
     #[arg(long, value_enum, default_value_t = Format::Cyclonedx)]
     pub format: Format,
 
-    /// Where to write the SBOM. Defaults to the lockfile's directory. With --all-environments
-    /// this is a directory that receives one sbom-<environment> file per environment.
+    /// Where to write the SBOM. Defaults to the lockfile's directory; `-` writes to stdout.
+    /// With --all-environments this is a directory that receives one sbom-<environment> file
+    /// per environment.
     #[arg(long, value_name = "PATH")]
     pub output: Option<PathBuf>,
 
