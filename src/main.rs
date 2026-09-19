@@ -9,10 +9,9 @@ mod manifest;
 mod model;
 mod purl;
 
-use std::io::IsTerminal;
-use std::path::{Path, PathBuf};
+use std::io::{IsTerminal, Write};
 
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use miette::{Context, IntoDiagnostic, Result};
 use tracing_subscriber::EnvFilter;
 
@@ -27,12 +26,20 @@ fn main() -> Result<()> {
     let lock::LoadedLock { lock, contents } = lock::load(&lockfile)?;
     let root = manifest::root_for_lockfile(&lockfile);
 
-    let targets: Vec<(String, PathBuf)> = if args.all_environments {
+    let targets: Vec<(String, discover::Output)> = if args.all_environments {
+        if discover::is_stdout(args.output.as_deref()) {
+            cli::Args::command()
+                .error(
+                    clap::error::ErrorKind::ArgumentConflict,
+                    "'--output -' writes one document to stdout and cannot be combined with '--all-environments'",
+                )
+                .exit();
+        }
         lock::environment_names(&lock)
             .into_iter()
             .map(|env| {
                 let output = discover::resolve_environment_output(args.output.as_deref(), &lockfile, args.format, &env);
-                (env, output)
+                (env, discover::Output::File(output))
             })
             .collect()
     } else {
@@ -50,7 +57,7 @@ fn main() -> Result<()> {
         let ctx = format::WriteContext::for_document(&contents, &sbom, args.format);
         write_output(output, args.format, &sbom, &ctx)?;
         tracing::info!(
-            output = %output.display(),
+            output = %output,
             format = ?args.format,
             packages = sbom.packages.len(),
             environment = %sbom.environment,
@@ -61,7 +68,21 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn write_output(output: &Path, format: cli::Format, sbom: &model::Sbom, ctx: &format::WriteContext) -> Result<()> {
+fn write_output(
+    output: &discover::Output,
+    format: cli::Format,
+    sbom: &model::Sbom,
+    ctx: &format::WriteContext,
+) -> Result<()> {
+    let output = match output {
+        discover::Output::Stdout => {
+            let mut stdout = std::io::stdout().lock();
+            format::write(format, sbom, ctx, &mut stdout)?;
+            stdout.flush().into_diagnostic().wrap_err("cannot write to stdout")?;
+            return Ok(());
+        }
+        discover::Output::File(path) => path,
+    };
     if let Some(parent) = output.parent().filter(|p| !p.as_os_str().is_empty()) {
         std::fs::create_dir_all(parent)
             .into_diagnostic()

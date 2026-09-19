@@ -42,7 +42,7 @@ With no options this means:
 |---|---|---|
 | `--lockfile <PATH>` | upward search from cwd | Lockfile to read. The file must exist; there is no fallback search when this is given. |
 | `--format <cyclonedx\|spdx>` | `cyclonedx` | `cyclonedx` writes CycloneDX 1.6 JSON; `spdx` writes SPDX 2.3 JSON. |
-| `--output <PATH>` | `<lockfile dir>/sbom.cdx.json` or `sbom.spdx.json` | File to write. Parent directories are created. With `--all-environments` this is a directory instead. |
+| `--output <PATH>` | `<lockfile dir>/sbom.cdx.json` or `sbom.spdx.json` | File to write; parent directories are created. `-` writes the document to stdout (logs stay on stderr). With `--all-environments` this is a directory instead, and `-` is rejected. |
 | `-e, --environment <NAME>` | `default` | Lock environment to describe. Must exist in the lockfile. |
 | `-p, --platform <PLATFORM>` | host platform | Platform within that environment, e.g. `linux-64`, `osx-arm64`, `win-64`. Must be locked for the environment. |
 | `--all-environments` | off | Write one document per environment (see below). Cannot be combined with `--environment`. |
@@ -64,6 +64,9 @@ With no options this means:
 ```sh
 # SPDX instead of CycloneDX
 pixi sbom --format spdx
+
+# Straight into a consumer, nothing written to disk
+pixi sbom --output - | grype
 
 # A specific lockfile and output file, from anywhere
 pixi sbom --lockfile ~/proj/pixi.lock --output ~/reports/proj.cdx.json
@@ -101,7 +104,7 @@ CycloneDX metadata properties; the root package `sourceInfo` in SPDX), so a batc
 |---|---|
 | 0 | Document(s) written. |
 | 1 | A runtime error; a diagnostic is printed to stderr. |
-| 2 | Command-line usage error (unknown option, conflicting options). |
+| 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments`). |
 
 Runtime diagnostics carry a stable code you can grep for in CI logs:
 

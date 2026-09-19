@@ -219,6 +219,39 @@ fn invalid_source_date_epoch_warns_and_continues() {
 }
 
 #[test]
+fn dash_output_writes_only_the_document_to_stdout() {
+    let dir = workspace("conda-only");
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--format", "spdx", "--output", "-"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("output=<stdout>"));
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    let doc: Value = serde_json::from_str(&stdout).expect("stdout is exactly one JSON document");
+    assert_valid(&spdx_validator(), &doc);
+    assert_eq!(doc["spdxVersion"], "SPDX-2.3");
+    assert!(stdout.ends_with("}\n"));
+    assert!(
+        !dir.path().join("sbom.spdx.json").exists(),
+        "nothing written next to the lockfile"
+    );
+}
+
+#[test]
+fn dash_output_conflicts_with_all_environments() {
+    let dir = workspace("multi-env");
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--all-environments", "--output", "-"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("cannot be combined with '--all-environments'"));
+}
+
+#[test]
 fn spdx_format_writes_valid_spdx_document() {
     let dir = workspace("conda-only");
 

@@ -54,12 +54,39 @@ fn find_upward(start: &Path) -> Option<PathBuf> {
         .find(|candidate| candidate.is_file())
 }
 
-/// Resolve where the SBOM is written: an explicit path if given, otherwise the format's
-/// default file name in the same directory as the lockfile.
-pub fn resolve_output(explicit: Option<&Path>, lockfile: &Path, format: Format) -> PathBuf {
+/// The `--output` spelling that selects standard output.
+pub const STDOUT: &str = "-";
+
+/// Where a document goes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Output {
+    /// Standard output.
+    Stdout,
+    /// A file, created (with its parent directories) on write.
+    File(PathBuf),
+}
+
+impl std::fmt::Display for Output {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Output::Stdout => f.write_str("<stdout>"),
+            Output::File(path) => path.display().fmt(f),
+        }
+    }
+}
+
+/// Whether an explicit `--output` value means standard output.
+pub fn is_stdout(explicit: Option<&Path>) -> bool {
+    explicit.is_some_and(|path| path.as_os_str() == STDOUT)
+}
+
+/// Resolve where the SBOM is written: stdout for `-`, an explicit path if given, otherwise
+/// the format's default file name in the same directory as the lockfile.
+pub fn resolve_output(explicit: Option<&Path>, lockfile: &Path, format: Format) -> Output {
     match explicit {
-        Some(path) => path.to_path_buf(),
-        None => lockfile_dir(lockfile).join(format.default_file_name()),
+        Some(_) if is_stdout(explicit) => Output::Stdout,
+        Some(path) => Output::File(path.to_path_buf()),
+        None => Output::File(lockfile_dir(lockfile).join(format.default_file_name())),
     }
 }
 
@@ -148,12 +175,28 @@ mod tests {
 
         assert_eq!(
             resolve_output(None, lock, Format::Cyclonedx),
-            Path::new("/work/proj/sbom.cdx.json")
+            Output::File("/work/proj/sbom.cdx.json".into())
         );
         assert_eq!(
             resolve_output(None, lock, Format::Spdx),
-            Path::new("/work/proj/sbom.spdx.json")
+            Output::File("/work/proj/sbom.spdx.json".into())
         );
+    }
+
+    #[test]
+    fn explicit_output_path_or_dash() {
+        let lock = Path::new("/work/proj/pixi.lock");
+
+        assert_eq!(
+            resolve_output(Some(Path::new("out/x.json")), lock, Format::Spdx),
+            Output::File("out/x.json".into())
+        );
+        assert_eq!(resolve_output(Some(Path::new("-")), lock, Format::Spdx), Output::Stdout);
+        assert!(is_stdout(Some(Path::new("-"))));
+        assert!(!is_stdout(Some(Path::new("-.json"))));
+        assert!(!is_stdout(None));
+        assert_eq!(Output::Stdout.to_string(), "<stdout>");
+        assert_eq!(Output::File("a/b".into()).to_string(), "a/b");
     }
 
     #[test]
@@ -186,6 +229,9 @@ mod tests {
         let lock = Path::new("/work/proj/pixi.lock");
         let out = Path::new("/elsewhere/bom.json");
 
-        assert_eq!(resolve_output(Some(out), lock, Format::Cyclonedx), out);
+        assert_eq!(
+            resolve_output(Some(out), lock, Format::Cyclonedx),
+            Output::File(out.to_path_buf())
+        );
     }
 }

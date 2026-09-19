@@ -32,6 +32,9 @@ pixi sbom
 # SPDX instead (sbom.spdx.json)
 pixi sbom --format spdx
 
+# Pipe into a scanner instead of writing a file
+pixi sbom --output - | grype
+
 # Explicit lockfile and output path
 pixi sbom --lockfile /path/to/pixi.lock --output /tmp/my-project.cdx.json
 
@@ -49,7 +52,7 @@ pixi sbom --all-environments --format spdx --output reports/
 |---|---|---|
 | `--lockfile <PATH>` | search upward from cwd | `pixi.lock` to read |
 | `--format <cyclonedx\|spdx>` | `cyclonedx` | SBOM format |
-| `--output <PATH>` | `<lockfile dir>/sbom.cdx.json` or `sbom.spdx.json` | Where to write the SBOM |
+| `--output <PATH>` | `<lockfile dir>/sbom.cdx.json` or `sbom.spdx.json` | Where to write the SBOM; `-` for stdout |
 | `-e, --environment <NAME>` | `default` | Lock environment to describe |
 | `--all-environments` | off | Write one `sbom-<environment>` file per environment instead; `--output` is then a directory |
 | `-p, --platform <PLATFORM>` | current platform | Platform within that environment |
