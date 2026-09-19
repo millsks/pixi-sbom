@@ -1,0 +1,9 @@
+{
+  "info": {
+    "name": "urllib3",
+    "version": "2.8.0",
+    "license": null,
+    "license_expression": "MIT",
+    "classifiers": []
+  }
+}

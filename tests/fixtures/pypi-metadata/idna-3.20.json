@@ -1,0 +1,9 @@
+{
+  "info": {
+    "name": "idna",
+    "version": "3.20",
+    "license": null,
+    "license_expression": "BSD-3-Clause",
+    "classifiers": []
+  }
+}

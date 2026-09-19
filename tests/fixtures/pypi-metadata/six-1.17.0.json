@@ -1,0 +1,11 @@
+{
+  "info": {
+    "name": "six",
+    "version": "1.17.0",
+    "license": "MIT",
+    "license_expression": null,
+    "classifiers": [
+      "License :: OSI Approved :: MIT License"
+    ]
+  }
+}

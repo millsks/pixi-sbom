@@ -106,6 +106,11 @@ pub struct Args {
     #[arg(long, value_enum, default_value_t = PrimaryPurl::Conda)]
     pub primary_purl: PrimaryPurl,
 
+    /// Look up licenses for PyPI packages from the index JSON API (pixi.lock records none).
+    /// Responses are cached; a lookup that fails is logged and the run continues.
+    #[arg(long)]
+    pub pypi_licenses: bool,
+
     #[command(flatten)]
     pub verbosity: Verbosity<InfoLevel>,
 }

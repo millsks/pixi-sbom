@@ -1,0 +1,9 @@
+{
+  "info": {
+    "name": "charset-normalizer",
+    "version": "3.5.1",
+    "license": "MIT",
+    "license_expression": null,
+    "classifiers": []
+  }
+}

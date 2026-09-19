@@ -67,6 +67,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--pypi-mapping <lock\|prefix>` | `lock` | `prefix` adds `pkg:pypi` purls to conda-forge packages from the mapping pixi uses (cached daily) |
 | `--pypi-mapping-file <PATH>` | | Offline copy of that mapping |
 | `--primary-purl <conda\|pypi>` | `conda` | `pypi` makes the PyPI purl primary so grype / trivy / osv-scanner can match |
+| `--pypi-licenses` | off | Look up licenses for PyPI wheels from the index (cached; failures never break the run) |
 | `-v` / `-q` | info | More / less logging on stderr |
 
 Output is reproducible: the document identifier is derived from the lockfile, and setting `SOURCE_DATE_EPOCH` pins
@@ -88,7 +89,7 @@ One document describes one environment on one platform, which is what SBOM consu
 | Supplier (conda channel or PyPI index) | `supplier` | `supplier` (`Organization:`) |
 | Download URL | `externalReferences[distribution]` | `downloadLocation` |
 | SHA-256 / MD5 | `hashes[]` | `checksums[]` |
-| License | `licenses[].expression`, or `.license.name` for non-SPDX text | `licenseDeclared`, with `LicenseRef-pixi-*` + `hasExtractedLicensingInfos` for non-SPDX text |
+| License (conda: from the lockfile; PyPI: with `--pypi-licenses`) | `licenses[].expression`, or `.license.name` for non-SPDX text | `licenseDeclared`, with `LicenseRef-pixi-*` + `hasExtractedLicensingInfos` for non-SPDX text |
 | Channel, subdir, build string, build number, size, index URL, ... | `properties[]` (`pixi:*`) | package `comment` (`key=value` lines) |
 | Dependency graph (resolved within the environment) | `dependencies[]` | `DEPENDS_ON` relationships |
 | Environment, platform, lockfile name | `metadata.properties[]` | root package `sourceInfo` |

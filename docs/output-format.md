@@ -128,7 +128,8 @@ the conda purl to `pixi:purl`, because scanners only read the primary identity. 
 ### Licenses
 
 Package license strings are whatever the channel or index declared; conda-forge is mostly SPDX-clean but not
-entirely, and PyPI wheels in a pixi lockfile carry no license at all. The rules:
+entirely, and PyPI wheels in a pixi lockfile carry no license at all unless `--pypi-licenses` looks them up (below).
+The rules:
 
 1. A valid SPDX expression is kept verbatim. Deprecated identifiers such as `GPL-3.0` or `LGPL-2.1` count as valid
    because conda-forge still uses them widely.
@@ -140,6 +141,18 @@ entirely, and PyPI wheels in a pixi lockfile carry no license at all. The rules:
    - SPDX: `licenseDeclared` becomes `LicenseRef-pixi-<sanitized text>` and a matching entry is added to
      `hasExtractedLicensingInfos` with the original text, so nothing is lost.
 4. No license → no `licenses` entry (CycloneDX) / `NOASSERTION` (SPDX).
+
+#### PyPI license lookup
+
+`--pypi-licenses` asks the index JSON API (`https://pypi.org/pypi/<name>/<version>/json`, or `PIXI_SBOM_PYPI_URL`)
+for every PyPI package that has no license and takes, in order: the PEP 639 `license_expression`; the classic
+`license` field when it is a short single line (it sometimes holds a whole license text, which is ignored); and the
+`License ::` trove classifiers, mapped to SPDX identifiers for the common unambiguous ones (`MIT License` → `MIT`,
+`Apache Software License` → `Apache-2.0`, `BSD License` → `BSD-3-Clause`, ...) and joined with `OR` when several are
+listed. The result goes through the same normalization as conda licenses and the package gets
+`pixi:license-source=pypi`. Responses are cached under the cache directory (a release's metadata never changes). A
+lookup that fails is logged and the package is left without a license; once the index looks unreachable the remaining
+lookups are skipped.
 
 ## Dependency graph
 
