@@ -50,6 +50,7 @@ With no options this means:
 | `--pypi-mapping <lock\|prefix>` | `lock` | Where PyPI identities for conda packages come from. `prefix` downloads the conda-forge mapping (cached for a day) so conda-installed Python packages get a `pkg:pypi` purl. |
 | `--pypi-mapping-file <PATH>` | | Offline copy of that mapping; implies the same enrichment with no network. Cannot be combined with `--pypi-mapping`. |
 | `--primary-purl <conda\|pypi>` | `conda` | With `pypi`, a conda package that has a PyPI purl uses it as its primary `purl` so vulnerability scanners can match it. |
+| `--pypi-licenses` | off | Look up licenses for PyPI packages from the index JSON API (the lockfile records none). Responses are cached; a failed lookup is logged and the run continues. |
 | `-v`, `-vv` | info | Raise the log level to debug / trace. Logs go to stderr; the SBOM never goes to stdout. |
 | `-q`, `-qq`, `-qqq` | info | Lower it to warnings only / errors only / silent. Error diagnostics are printed regardless. |
 | `-h, --help`, `-V, --version` | | Usual meanings. |
@@ -60,8 +61,9 @@ With no options this means:
 
 | Variable | Effect |
 |---|---|
-| `PIXI_SBOM_CACHE_DIR` | Where the downloaded PyPI mapping is cached. Default: `pixi-sbom` under `PIXI_CACHE_DIR` if set, else the platform cache directory (`~/.cache/pixi-sbom`, `~/Library/Caches/pixi-sbom`, `%LOCALAPPDATA%\pixi-sbom\cache`). |
-| `HTTPS_PROXY` / `HTTP_PROXY` | Honored for the mapping download. |
+| `PIXI_SBOM_PYPI_URL` | Base of the PyPI JSON API queried by `--pypi-licenses` (default `https://pypi.org/pypi`); point it at a mirror such as devpi or Artifactory. |
+| `PIXI_SBOM_CACHE_DIR` | Where downloaded data (the PyPI mapping, PyPI metadata) is cached. Default: `pixi-sbom` under `PIXI_CACHE_DIR` if set, else the platform cache directory (`~/.cache/pixi-sbom`, `~/Library/Caches/pixi-sbom`, `%LOCALAPPDATA%\pixi-sbom\cache`). |
+| `HTTPS_PROXY` / `HTTP_PROXY` | Honored for every download. |
 | `SOURCE_DATE_EPOCH` | Pins the document timestamp (seconds since the Unix epoch). With it set, repeated runs over the same lockfile are byte-identical, which lets CI diff SBOMs between commits. See [output-format.md](output-format.md#reproducibility). |
 | `RUST_LOG` | Log filter, overrides `-v`/`-q`. |
 
@@ -79,6 +81,9 @@ pixi sbom --pypi-mapping prefix --primary-purl pypi --output - | grype
 
 # The same, air-gapped, from a saved copy of the mapping
 pixi sbom --pypi-mapping-file /srv/mirrors/compressed_mapping.json --primary-purl pypi
+
+# Fill in licenses for PyPI wheels from pypi.org
+pixi sbom --pypi-licenses
 
 # A specific lockfile and output file, from anywhere
 pixi sbom --lockfile ~/proj/pixi.lock --output ~/reports/proj.cdx.json
