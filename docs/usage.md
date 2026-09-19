@@ -34,14 +34,16 @@ With no options this means:
 1. Find `pixi.lock` by searching the current directory, then each parent, until one is found (the same walk pixi
    itself does for its manifest).
 2. Describe the `default` environment on the platform the command is running on (for example `osx-arm64`).
-3. Write CycloneDX 1.6 JSON to `sbom.cdx.json` in the directory that contains the lockfile.
+3. Write CycloneDX 1.6 JSON (`--spec-version 1.7` for 1.7) to `sbom.cdx.json` in the directory that contains the
+   lockfile.
 
 ### Options
 
 | Option | Default | Effect |
 |---|---|---|
 | `--lockfile <PATH>` | upward search from cwd | Lockfile to read. The file must exist; there is no fallback search when this is given. |
-| `--format <cyclonedx\|spdx>` | `cyclonedx` | `cyclonedx` writes CycloneDX 1.6 JSON; `spdx` writes SPDX 2.3 JSON. |
+| `--format <cyclonedx\|spdx>` | `cyclonedx` | `cyclonedx` writes CycloneDX JSON; `spdx` writes SPDX 2.3 JSON. |
+| `--spec-version <1.6\|1.7>` | `1.6` | CycloneDX version to write. `1.7` (ECMA-424 2nd edition) is backward compatible and adds a `citations` entry attributing the inventory to the lockfile; the default stays `1.6` until the common consumers default to 1.7. Only valid with `--format cyclonedx`. |
 | `--output <PATH>` | `<lockfile dir>/sbom.cdx.json` or `sbom.spdx.json` | File to write; parent directories are created. `-` writes the document to stdout (logs stay on stderr). With `--all-environments` / `--all-platforms` this is a directory instead, and `-` is rejected. |
 | `-e, --environment <NAME>` | `default` | Lock environment to describe. Must exist in the lockfile. |
 | `-p, --platform <PLATFORM>` | host platform | Platform within that environment, e.g. `linux-64`, `osx-arm64`, `win-64`. Must be locked for the environment. |
@@ -72,6 +74,9 @@ With no options this means:
 ```sh
 # SPDX instead of CycloneDX
 pixi sbom --format spdx
+
+# CycloneDX 1.7 instead of 1.6
+pixi sbom --spec-version 1.7
 
 # Straight into a consumer, nothing written to disk
 pixi sbom --output - | grype
@@ -129,7 +134,7 @@ CycloneDX metadata properties; the root package `sourceInfo` in SPDX), so a batc
 |---|---|
 | 0 | Document(s) written. |
 | 1 | A runtime error; a diagnostic is printed to stderr. |
-| 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments` or `--all-platforms`). |
+| 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments` or `--all-platforms`, or `--spec-version` with `--format spdx`). |
 
 Runtime diagnostics carry a stable code you can grep for in CI logs:
 

@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use miette::Diagnostic;
 use thiserror::Error;
 
-use crate::cli::Format;
+use crate::cli::{Format, SpecVersion};
 use crate::model::Sbom;
 
 /// Namespace for the UUIDv5 document identifiers pixi-sbom derives. Fixed for all time so
@@ -31,6 +31,8 @@ pub struct WriteContext {
     pub uuid: uuid::Uuid,
     /// Version of pixi-sbom recorded as the generating tool.
     pub tool_version: String,
+    /// CycloneDX specification version to write; ignored by the SPDX writer.
+    pub spec_version: SpecVersion,
 }
 
 impl WriteContext {
@@ -38,12 +40,13 @@ impl WriteContext {
     /// the environment, the platform, the format, and this crate's version, so identical
     /// inputs yield identical documents. The timestamp is `SOURCE_DATE_EPOCH` when set,
     /// otherwise now.
-    pub fn for_document(lock_contents: &str, sbom: &Sbom, format: Format) -> Self {
+    pub fn for_document(lock_contents: &str, sbom: &Sbom, format: Format, spec_version: SpecVersion) -> Self {
         let tool_version = env!("CARGO_PKG_VERSION").to_string();
         Self {
             timestamp: timestamp_from_env(),
             uuid: document_uuid(lock_contents, sbom, format, &tool_version),
             tool_version,
+            spec_version,
         }
     }
 }
@@ -148,6 +151,15 @@ pub(crate) mod testing {
                 .with_timezone(&Utc),
             uuid: uuid::Uuid::parse_str("11111111-2222-4333-8444-555555555555").unwrap(),
             tool_version: "0.0.0-test".into(),
+            spec_version: SpecVersion::V1_6,
+        }
+    }
+
+    /// The fixed context, writing CycloneDX 1.7.
+    pub fn fixed_context_1_7() -> WriteContext {
+        WriteContext {
+            spec_version: SpecVersion::V1_7,
+            ..fixed_context()
         }
     }
 
@@ -274,11 +286,12 @@ mod tests {
     #[test]
     fn document_context_is_deterministic_for_identical_input() {
         let sbom = testing::sample_sbom();
-        let a = WriteContext::for_document("version: 6\n", &sbom, Format::Cyclonedx);
-        let b = WriteContext::for_document("version: 6\n", &sbom, Format::Cyclonedx);
+        let a = WriteContext::for_document("version: 6\n", &sbom, Format::Cyclonedx, SpecVersion::V1_6);
+        let b = WriteContext::for_document("version: 6\n", &sbom, Format::Cyclonedx, SpecVersion::V1_7);
         assert_eq!(a.tool_version, env!("CARGO_PKG_VERSION"));
         assert_eq!(a.uuid.get_version_num(), 5);
-        assert_eq!(a.uuid, b.uuid);
+        assert_eq!(a.uuid, b.uuid, "the spec version does not change the document identity");
+        assert_eq!(b.spec_version, SpecVersion::V1_7);
     }
 
     #[test]
@@ -338,8 +351,7 @@ mod schema_tests {
         assert!(errors.is_empty(), "schema violations:\n{}", errors.join("\n"));
     }
 
-    #[test]
-    fn sample_cyclonedx_document_is_schema_valid() {
+    fn cyclonedx_validator(version: &str) -> jsonschema::Validator {
         let registry = jsonschema::Registry::new()
             .add(
                 "http://cyclonedx.org/schema/spdx.schema.json",
@@ -351,16 +363,37 @@ mod schema_tests {
                 schema("jsf-0.82.schema.json"),
             )
             .unwrap()
+            .add(
+                "http://cyclonedx.org/schema/cryptography-defs.schema.json",
+                schema("cryptography-defs.schema.json"),
+            )
+            .unwrap()
             .prepare()
             .unwrap();
-        let validator = jsonschema::options()
+        jsonschema::options()
             .with_registry(&registry)
             .offline()
-            .build(&schema("bom-1.6.schema.json"))
-            .unwrap();
+            .build(&schema(&format!("bom-{version}.schema.json")))
+            .unwrap()
+    }
 
+    #[test]
+    fn sample_cyclonedx_document_is_schema_valid() {
         let doc = to_value(Format::Cyclonedx, &sample_sbom(), &fixed_context()).unwrap();
-        assert_valid(&validator, &doc);
+        assert_valid(&cyclonedx_validator("1.6"), &doc);
+    }
+
+    #[test]
+    fn sample_cyclonedx_1_7_document_is_schema_valid() {
+        let doc = to_value(
+            Format::Cyclonedx,
+            &sample_sbom(),
+            &crate::format::testing::fixed_context_1_7(),
+        )
+        .unwrap();
+        assert_valid(&cyclonedx_validator("1.7"), &doc);
+        // and is not accepted by 1.6 (the citations element is new), proving the version matters
+        assert!(cyclonedx_validator("1.6").iter_errors(&doc).next().is_some());
     }
 
     #[test]

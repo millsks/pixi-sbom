@@ -601,6 +601,80 @@ fn pypi_licenses_never_fail_the_run_when_the_index_is_unreachable() {
     assert!(six.get("licenses").is_none());
 }
 
+fn cyclonedx_1_7_validator() -> Validator {
+    let registry = Registry::new()
+        .add(
+            "http://cyclonedx.org/schema/spdx.schema.json",
+            schema("spdx.schema.json"),
+        )
+        .unwrap()
+        .add(
+            "http://cyclonedx.org/schema/jsf-0.82.schema.json",
+            schema("jsf-0.82.schema.json"),
+        )
+        .unwrap()
+        .add(
+            "http://cyclonedx.org/schema/cryptography-defs.schema.json",
+            schema("cryptography-defs.schema.json"),
+        )
+        .unwrap()
+        .prepare()
+        .unwrap();
+    jsonschema::options()
+        .with_registry(&registry)
+        .offline()
+        .build(&schema("bom-1.7.schema.json"))
+        .unwrap()
+}
+
+#[test]
+fn spec_version_1_7_writes_a_valid_cyclonedx_1_7_document() {
+    let dir = workspace("with-pypi");
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-e", "web", "-p", "linux-64", "--spec-version", "1.7", "--output", "-"])
+        .assert()
+        .success();
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_1_7_validator(), &doc);
+    assert_eq!(doc["specVersion"], "1.7");
+    assert_eq!(doc["$schema"], "http://cyclonedx.org/schema/bom-1.7.schema.json");
+    let citation = &doc["citations"][0];
+    assert_eq!(
+        citation["attributedTo"],
+        doc["metadata"]["tools"]["components"][0]["bom-ref"]
+    );
+    assert!(
+        citation["note"]
+            .as_str()
+            .unwrap()
+            .contains("environment web, platform linux-64")
+    );
+
+    // The default stays 1.6 and is unaffected.
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-e", "web", "-p", "linux-64", "--output", "-"])
+        .assert()
+        .success();
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_eq!(doc["specVersion"], "1.6");
+    assert!(doc.get("citations").is_none());
+}
+
+#[test]
+fn spec_version_conflicts_with_spdx() {
+    let dir = workspace("conda-only");
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--format", "spdx", "--spec-version", "1.7"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("cannot be used with '--format spdx'"));
+}
+
 #[test]
 fn spdx_format_writes_valid_spdx_document() {
     let dir = workspace("conda-only");
