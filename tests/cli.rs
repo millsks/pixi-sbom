@@ -349,6 +349,164 @@ fn all_platforms_conflicts_with_platform() {
         .stderr(predicate::str::contains("--all-platforms"));
 }
 
+fn mapping_file() -> PathBuf {
+    tests_dir().join("fixtures").join("pypi-mapping.json")
+}
+
+#[test]
+fn pypi_mapping_file_adds_purls_and_primary_purl_pypi_swaps_them() {
+    let dir = workspace("conda-python");
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--pypi-mapping-file"])
+        .arg(mapping_file())
+        .args(["--output", "-"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("enriched=3"));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let components = doc["components"].as_array().unwrap();
+    let by_name = |name: &str| components.iter().find(|c| c["name"] == name).unwrap();
+    let props = |c: &Value, key: &str| -> Vec<String> {
+        c["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|p| p["name"] == key)
+            .map(|p| p["value"].as_str().unwrap().to_string())
+            .collect()
+    };
+    assert!(by_name("numpy")["purl"].as_str().unwrap().starts_with("pkg:conda/"));
+    assert_eq!(props(by_name("numpy"), "pixi:purl"), ["pkg:pypi/numpy@2.3.1"]);
+    assert_eq!(props(by_name("numpy"), "pixi:pypi-mapping"), ["file"]);
+    assert_eq!(props(by_name("pytorch"), "pixi:purl"), ["pkg:pypi/torch@2.7.1"]);
+    assert!(props(by_name("python"), "pixi:purl").is_empty());
+    assert!(props(by_name("samtools"), "pixi:purl").is_empty(), "not conda-forge");
+
+    // --primary-purl pypi: PyPI purl becomes `purl`, conda purl moves to pixi:purl, bom-ref unchanged.
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--format", "spdx", "--pypi-mapping-file"])
+        .arg(mapping_file())
+        .args(["--primary-purl", "pypi", "--output", "-"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("switched=3"));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&spdx_validator(), &doc);
+    let numpy = doc["packages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "numpy")
+        .unwrap();
+    let refs: Vec<_> = numpy["externalRefs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["referenceLocator"].as_str().unwrap())
+        .collect();
+    assert_eq!(refs[0], "pkg:pypi/numpy@2.3.1");
+    assert!(refs[1].starts_with("pkg:conda/numpy@2.3.1"));
+    assert_eq!(numpy["SPDXID"], "SPDXRef-Package-conda-numpy-2.3.1");
+
+    let cdx = pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--pypi-mapping-file"])
+        .arg(mapping_file())
+        .args(["--primary-purl", "pypi", "--output", "-"])
+        .assert()
+        .success();
+    let doc: Value = serde_json::from_slice(&cdx.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let numpy = doc["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "numpy")
+        .unwrap();
+    assert_eq!(numpy["purl"], "pkg:pypi/numpy@2.3.1");
+    assert!(numpy["bom-ref"].as_str().unwrap().starts_with("pkg:conda/numpy@2.3.1"));
+    assert!(
+        doc["dependencies"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d["ref"] == numpy["bom-ref"]),
+        "dependency graph still keyed by the conda bom-ref"
+    );
+}
+
+#[test]
+fn primary_purl_pypi_without_mapping_uses_lockfile_purls_only() {
+    let dir = workspace("with-pypi");
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "-e", "web", "--primary-purl", "pypi", "--output", "-"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("switched=0"));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+}
+
+#[test]
+fn pypi_mapping_prefix_uses_a_cached_mapping_without_network() {
+    let dir = workspace("conda-python");
+    let cache = dir.path().join("cache");
+    std::fs::create_dir_all(&cache).unwrap();
+    std::fs::copy(mapping_file(), cache.join("conda-forge-pypi-mapping.json")).unwrap();
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_SBOM_CACHE_DIR", &cache)
+        .args(["-p", "linux-64", "--pypi-mapping", "prefix"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("enriched=3"));
+    let doc = read_json(&dir.path().join("sbom.cdx.json"));
+    let numpy = doc["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "numpy")
+        .unwrap();
+    assert!(
+        numpy["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["name"] == "pixi:pypi-mapping" && p["value"] == "prefix")
+    );
+}
+
+#[test]
+fn bad_mapping_file_and_conflicting_mapping_flags_are_reported() {
+    let dir = workspace("conda-python");
+    std::fs::write(dir.path().join("bad.json"), "[]").unwrap();
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--pypi-mapping-file", "bad.json"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("pixi_sbom::mapping::parse"));
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--pypi-mapping-file", "missing.json"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("pixi_sbom::mapping::read"));
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--pypi-mapping", "prefix", "--pypi-mapping-file", "x.json"])
+        .assert()
+        .code(2);
+}
+
 #[test]
 fn spdx_format_writes_valid_spdx_document() {
     let dir = workspace("conda-only");

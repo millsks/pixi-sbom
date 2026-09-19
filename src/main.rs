@@ -6,6 +6,7 @@ mod format;
 mod license;
 mod lock;
 mod manifest;
+mod mapping;
 mod model;
 mod purl;
 
@@ -28,6 +29,7 @@ fn main() -> Result<()> {
     let root = manifest::root_for_lockfile(&lockfile);
 
     let targets = resolve_targets(&args, &lock, &lockfile)?;
+    let pypi_mapping = load_pypi_mapping(&args)?;
     tracing::debug!(lockfile = %lockfile.display(), ?targets, format = ?args.format, "resolved targets");
 
     for Target {
@@ -40,7 +42,15 @@ fn main() -> Result<()> {
             environment,
             platform: platform.as_deref(),
         };
-        let sbom = lock::sbom_from_lock(&lock, selection, root.clone(), &discover::lockfile_name(&lockfile))?;
+        let mut sbom = lock::sbom_from_lock(&lock, selection, root.clone(), &discover::lockfile_name(&lockfile))?;
+        if let Some(mapping) = &pypi_mapping {
+            let enriched = mapping::enrich(&mut sbom, mapping);
+            tracing::info!(enriched, "added PyPI purls to conda packages");
+        }
+        if args.primary_purl == cli::PrimaryPurl::Pypi {
+            let switched = mapping::prefer_pypi_purl(&mut sbom);
+            tracing::info!(switched, "made PyPI purls primary");
+        }
         let ctx = format::WriteContext::for_document(&contents, &sbom, args.format);
         write_output(output, args.format, &sbom, &ctx)?;
         tracing::info!(
@@ -53,6 +63,17 @@ fn main() -> Result<()> {
         );
     }
     Ok(())
+}
+
+/// Load the PyPI mapping the flags ask for; `None` means only the lockfile's own purls.
+fn load_pypi_mapping(args: &cli::Args) -> Result<Option<mapping::PypiMapping>> {
+    let mapping = match (&args.pypi_mapping_file, args.pypi_mapping) {
+        (Some(path), _) => mapping::PypiMapping::from_file(path)?,
+        (None, cli::PypiMappingSource::Prefix) => mapping::PypiMapping::fetch(&mapping::cache_dir())?,
+        (None, cli::PypiMappingSource::Lock) => return Ok(None),
+    };
+    tracing::debug!(entries = mapping.len(), "loaded PyPI mapping");
+    Ok(Some(mapping))
 }
 
 /// One document to write: an environment, a platform (`None` = host), and where it goes.

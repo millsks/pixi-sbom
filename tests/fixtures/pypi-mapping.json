@@ -1,0 +1,9 @@
+{
+  "libzlib": null,
+  "numpy": "numpy",
+  "python": null,
+  "pytorch": "torch",
+  "requests": "requests",
+  "typing_extensions": ["typing-extensions"],
+  "samtools": "samtools-fake"
+}

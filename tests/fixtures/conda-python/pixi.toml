@@ -1,0 +1,13 @@
+# Companion manifest for a hand-composed lockfile of conda-forge Python packages without
+# `purls:` entries (what pixi writes for environments with no pypi-dependencies); not itself lockable.
+[workspace]
+name = "conda-python"
+version = "0.1.0"
+channels = ["conda-forge", "bioconda"]
+platforms = ["linux-64"]
+
+[dependencies]
+numpy = "*"
+requests = "*"
+pytorch = "*"
+samtools = "*"

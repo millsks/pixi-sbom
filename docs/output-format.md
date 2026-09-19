@@ -103,7 +103,27 @@ In SPDX these appear in the package `comment` because SPDX 2.3 has no free-form 
 | PyPI | `pkg:pypi/<normalized-name>@<version>` with PEP 503 normalization (lower-case, runs of `-_.` collapsed to `-`) |
 
 Purls double as the CycloneDX `bom-ref`, which is why they must be unique within a document; within one environment
-and platform they always are.
+and platform they always are. The `bom-ref` / `SPDXID` is always derived from the conda purl, even when
+`--primary-purl pypi` (below) makes a PyPI purl the component's `purl`.
+
+### PyPI identities for conda packages
+
+Vulnerability databases (OSV, GHSA) and the scanners built on them have no conda ecosystem: a `pkg:conda/numpy@...`
+purl matches nothing, so a conda-only Python environment scans as clean whatever it contains. Three sources supply a
+`pkg:pypi/...` purl for a conda package:
+
+| Source | When | Recorded as |
+|---|---|---|
+| Lockfile `purls:` | pixi writes them for environments that have `pypi-dependencies`; an empty list means "not on PyPI" | `pixi:purl` property / extra `externalRefs` entry |
+| `--pypi-mapping prefix` | the [conda-forge mapping](https://conda-mapping.prefix.dev/compressed-v0/compressed_mapping.json) pixi itself uses, downloaded and cached for a day | as above, plus `pixi:pypi-mapping=prefix` |
+| `--pypi-mapping-file <PATH>` | an offline copy of that mapping (`{"<conda name>": "<pypi name>" \| ["..."] \| null}`) | as above, plus `pixi:pypi-mapping=file` |
+
+The mapping is applied only to conda-forge binary packages whose lock entry has no `purls:` at all; the lockfile's own
+answer, including an explicit empty list, is authoritative. The PyPI purl carries the conda package's version.
+
+`--primary-purl pypi` then makes that PyPI purl the component's `purl` (first `externalRefs` entry in SPDX) and moves
+the conda purl to `pixi:purl`, because scanners only read the primary identity. With it, `grype` / `trivy` /
+`osv-scanner` report advisories for conda-installed Python packages.
 
 ### Licenses
 

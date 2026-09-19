@@ -113,8 +113,12 @@ pub struct Package {
     pub purl: String,
     /// Where the package was obtained from, if it came from a channel or index.
     pub supplier: Option<Supplier>,
-    /// Additional purls the channel declares for the package (e.g. a conda package's PyPI purl).
+    /// Additional purls for the package (e.g. a conda package's PyPI purl), from the lockfile
+    /// or from PyPI identity enrichment.
     pub extra_purls: Vec<String>,
+    /// Whether the lockfile itself states the package's purls (`purls:` present, even if
+    /// empty). When true the lockfile's answer is authoritative and enrichment leaves it alone.
+    pub purls_from_lock: bool,
     /// Download URL or filesystem path.
     pub location: String,
     /// Hex-encoded SHA-256 of the archive, if known.

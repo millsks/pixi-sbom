@@ -8,7 +8,8 @@ once no matter how many output formats exist.
  pixi.lock ──▶ lock.rs ──▶ model::Sbom ──▶ format/cyclonedx.rs ──▶ sbom.cdx.json
                  ▲             ▲       └──▶ format/spdx.rs      ──▶ sbom.spdx.json
    purl.rs ──────┘             │
-   manifest.rs ────────────────┘   (workspace name/version)
+   manifest.rs ────────────────┘   (workspace metadata)
+   mapping.rs ──── enriches model::Sbom with PyPI purls (optional, the only network user)
    license.rs ◀── used by both writers
    discover.rs ── finds the lockfile, decides output paths
    cli.rs ──────── clap definitions
@@ -24,6 +25,7 @@ once no matter how many output formats exist.
 | `manifest.rs` | Reading workspace name/version from `pixi.toml` or `pyproject.toml` into `model::Root`. Never fails: problems are logged and the directory name is used. | toml, serde |
 | `lock.rs` | Parsing the lockfile with `rattler_lock`, selecting an environment and platform, converting each locked package into `model::Package`, and resolving the dependency graph. All lockfile-shape knowledge lives here. | rattler_lock, rattler_conda_types, purl.rs |
 | `purl.rs` | Building `pkg:conda` and `pkg:pypi` purls, PEP 503 name normalization, channel-name and archive-type helpers. | packageurl |
+| `mapping.rs` | PyPI identity enrichment: loading the conda-forge conda-to-PyPI mapping (offline file, or downloaded with `ureq` and cached), adding `pkg:pypi` purls to conda-forge packages the lockfile says nothing about, and optionally swapping the primary purl. The only module that touches the network, and only when asked. | ureq, serde_json, purl.rs |
 | `model.rs` | `Sbom`, `Root`, `Package`, `PackageKind`: plain data with no serde and no knowledge of any SBOM spec. | — |
 | `license.rs` | Turning a declared license string into either an SPDX expression or free text. | spdx |
 | `format/mod.rs` | `WriteContext` (timestamp, UUID, tool version), `write()` / `to_value()` entry points, the shared graph-root helper, and the hand-built sample model used by writer tests. | serde_json, chrono, uuid |

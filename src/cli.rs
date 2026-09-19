@@ -41,6 +41,24 @@ impl Format {
     }
 }
 
+/// Where PyPI identities for conda packages come from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum PypiMappingSource {
+    /// Only the purls recorded in the lockfile (no network).
+    Lock,
+    /// Also the conda-forge mapping from conda-mapping.prefix.dev, cached for a day.
+    Prefix,
+}
+
+/// Which purl is the primary identity of a conda package that also has a PyPI one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum PrimaryPurl {
+    /// `pkg:conda/...` is the purl; the PyPI purl is an extra reference.
+    Conda,
+    /// `pkg:pypi/...` is the purl so vulnerability scanners can match it; the conda purl is an extra reference.
+    Pypi,
+}
+
 /// Generate a Software Bill of Materials from a pixi.lock file.
 #[derive(Debug, Parser)]
 #[command(name = "pixi-sbom", bin_name = "pixi sbom", version, about, long_about = None)]
@@ -74,6 +92,19 @@ pub struct Args {
     /// Generate one SBOM per platform the environment is locked for instead of a single platform.
     #[arg(long)]
     pub all_platforms: bool,
+
+    /// Where to get PyPI identities for conda packages. `prefix` downloads the conda-forge
+    /// mapping (same source pixi uses) so scanners can match conda-installed Python packages.
+    #[arg(long, value_enum, default_value_t = PypiMappingSource::Lock, conflicts_with = "pypi_mapping_file")]
+    pub pypi_mapping: PypiMappingSource,
+
+    /// Offline copy of the conda-forge PyPI mapping (JSON object of conda name to PyPI name).
+    #[arg(long, value_name = "PATH")]
+    pub pypi_mapping_file: Option<PathBuf>,
+
+    /// Which purl to use as a conda package's primary identity when it also has a PyPI one.
+    #[arg(long, value_enum, default_value_t = PrimaryPurl::Conda)]
+    pub primary_purl: PrimaryPurl,
 
     #[command(flatten)]
     pub verbosity: Verbosity<InfoLevel>,
