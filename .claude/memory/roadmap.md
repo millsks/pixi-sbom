@@ -27,6 +27,10 @@ Roadmap:
   `--primary-purl pypi` so scanners that only read `purl` can match; optional PyPI license lookup; CycloneDX 1.7 as a
   selectable spec version.
 
+0.3.0 PRs #19 (#8), #20 (#9), #21 (#10) merged 2026-09-19 and v0.3.0 released; ureq 3.4 (rustls, gzip,
+platform-verifier) approved and added as the only HTTP client (src/http.rs). Goal measured on the openteams lock with
+the live mapping: enriched=69/120, syft classifies them as python, grype matches an injected vulnerable urllib3 pin.
+
 Goal: `pixi sbom --output - | grype` on a conda-only Python environment reports real findings; on the openteams lock,
 >= 60/120 components carry a PyPI purl, and two runs with `SOURCE_DATE_EPOCH` set are byte-identical.
 
