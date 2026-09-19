@@ -128,7 +128,9 @@ normalized package name against the packages present in the same environment and
 chosen one package per name, so name matching is exact and version constraints do not need re-evaluating. PyPI
 requirements may resolve to conda packages (pixi satisfies PyPI requirements from conda when it can). Virtual packages
 (`__glibc`, `__osx`, ...) and requirements not present in the environment (unused extras, other-platform markers) are
-dropped. Self-references are removed.
+dropped. Self-references are removed. Every PyPI package additionally depends on the environment's conda `python`
+package: wheels never declare the interpreter, but cannot run without it, and the edge keeps PyPI packages attached
+to the graph instead of floating as extra roots.
 
 | | CycloneDX | SPDX |
 |---|---|---|

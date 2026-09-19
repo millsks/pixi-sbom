@@ -414,9 +414,14 @@ fn location_string(location: &UrlOrPath) -> String {
     }
 }
 
+/// Name of the conda package that provides the interpreter every PyPI package runs on.
+const PYTHON: &str = "python";
+
 /// Fill in `dependencies` on every package by resolving declared requirements
 /// against the packages that are actually present in the environment. The solver
-/// already picked one package per name, so resolution is by normalized name.
+/// already picked one package per name, so resolution is by normalized name. Every
+/// PyPI package additionally depends on the environment's conda `python` package,
+/// which wheels never declare but cannot run without.
 fn resolve_dependencies(locked: &[&LockedPackage], packages: &mut [Package]) {
     let conda_ids: HashMap<String, &str> = packages
         .iter()
@@ -452,12 +457,9 @@ fn resolve_dependencies(locked: &[&LockedPackage], packages: &mut [Package]) {
                 .requires_dist()
                 .iter()
                 .map(|req| purl::normalize_pypi_name(req.name.as_ref()))
-                .filter_map(|dep| {
-                    pypi_ids
-                        .get(&dep)
-                        .or_else(|| conda_ids.get(&dep))
-                        .map(|id| (*id).to_string())
-                })
+                .filter_map(|dep| pypi_ids.get(&dep).or_else(|| conda_ids.get(&dep)))
+                .chain(conda_ids.get(PYTHON))
+                .map(|id| (*id).to_string())
                 .collect::<BTreeSet<_>>()
                 .into_iter()
                 .collect(),
@@ -577,9 +579,14 @@ mod tests {
             .iter()
             .map(|id| sbom.packages.iter().find(|p| &p.id == id).unwrap().name.as_str())
             .collect();
-        for expected in ["charset-normalizer", "idna", "urllib3", "certifi"] {
+        for expected in ["charset-normalizer", "idna", "urllib3", "certifi", "python"] {
             assert!(dep_names.contains(&expected), "{expected} missing from {dep_names:?}");
         }
+        let python_id = &sbom.packages.iter().find(|p| p.name == "python").unwrap().id;
+        assert!(
+            pypi.iter().all(|p| p.dependencies.contains(python_id)),
+            "every PyPI package depends on the interpreter"
+        );
     }
 
     #[test]
@@ -733,6 +740,32 @@ mod tests {
         assert_eq!(partial.extra_purls, vec!["pkg:pypi/my-partial-pkg@1.0"]);
         assert_eq!(partial.license, None);
         assert!(partial.dependencies.is_empty(), "python is not in this environment");
+    }
+
+    #[test]
+    fn pypi_packages_without_python_in_environment_get_no_extra_edge() {
+        // Hand-built: a PyPI package in an environment with no conda python.
+        let sbom = build_sbom(&fixture("with-pypi"), select("web", "linux-64"), root()).unwrap();
+        let mut packages: Vec<Package> = sbom
+            .packages
+            .iter()
+            .filter(|p| p.kind == PackageKind::Pypi)
+            .cloned()
+            .collect();
+        let locked = load(&fixture("with-pypi")).unwrap().lock;
+        let env = locked.environment("web").unwrap();
+        let platform = env.platforms().find(|p| p.name().as_str() == "linux-64").unwrap();
+        let pypi_only: Vec<&LockedPackage> = env
+            .packages(platform)
+            .unwrap()
+            .filter(|p| matches!(p, LockedPackage::Pypi(_)))
+            .collect();
+        resolve_dependencies(&pypi_only, &mut packages);
+        assert!(
+            packages
+                .iter()
+                .all(|p| !p.dependencies.iter().any(|d| d.contains("/python@")))
+        );
     }
 
     #[test]
