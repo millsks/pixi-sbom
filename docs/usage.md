@@ -42,10 +42,11 @@ With no options this means:
 |---|---|---|
 | `--lockfile <PATH>` | upward search from cwd | Lockfile to read. The file must exist; there is no fallback search when this is given. |
 | `--format <cyclonedx\|spdx>` | `cyclonedx` | `cyclonedx` writes CycloneDX 1.6 JSON; `spdx` writes SPDX 2.3 JSON. |
-| `--output <PATH>` | `<lockfile dir>/sbom.cdx.json` or `sbom.spdx.json` | File to write; parent directories are created. `-` writes the document to stdout (logs stay on stderr). With `--all-environments` this is a directory instead, and `-` is rejected. |
+| `--output <PATH>` | `<lockfile dir>/sbom.cdx.json` or `sbom.spdx.json` | File to write; parent directories are created. `-` writes the document to stdout (logs stay on stderr). With `--all-environments` / `--all-platforms` this is a directory instead, and `-` is rejected. |
 | `-e, --environment <NAME>` | `default` | Lock environment to describe. Must exist in the lockfile. |
 | `-p, --platform <PLATFORM>` | host platform | Platform within that environment, e.g. `linux-64`, `osx-arm64`, `win-64`. Must be locked for the environment. |
 | `--all-environments` | off | Write one document per environment (see below). Cannot be combined with `--environment`. |
+| `--all-platforms` | off | Write one document per platform the environment is locked for (see below). Cannot be combined with `--platform`. |
 | `-v`, `-vv` | info | Raise the log level to debug / trace. Logs go to stderr; the SBOM never goes to stdout. |
 | `-q`, `-qq`, `-qqq` | info | Lower it to warnings only / errors only / silent. Error diagnostics are printed regardless. |
 | `-h, --help`, `-V, --version` | | Usual meanings. |
@@ -76,6 +77,12 @@ pixi sbom -e prod -p linux-64
 
 # Every environment, each on linux-64, into a directory
 pixi sbom --all-environments -p linux-64 --output sboms/
+
+# Every platform the prod environment is locked for
+pixi sbom -e prod --all-platforms --output sboms/
+
+# Everything: one document per environment and platform
+pixi sbom --all-environments --all-platforms --output sboms/
 ```
 
 ### One document per environment and platform
@@ -84,16 +91,18 @@ A pixi lockfile can hold many environments, each locked for several platforms. A
 describe one deliverable, so `pixi sbom` never merges environments or platforms into one document:
 
 - `--environment` / `--platform` pick exactly one combination.
-- `--all-environments` runs that selection once per environment. Files are named `sbom-<environment>.cdx.json` /
-  `sbom-<environment>.spdx.json`, `default` first, then the rest alphabetically. `--output` names the directory that
-  receives them (default: next to the lockfile).
-- Covering several platforms means running the command once per platform. A shell loop is enough:
+- `--all-environments` runs that selection once per environment, `default` first, then the rest alphabetically.
+- `--all-platforms` runs it once per platform the environment is locked for, alphabetically.
+- Both together cover every (environment, platform) pair in the lockfile.
 
-  ```sh
-  for p in linux-64 osx-arm64 win-64; do
-    pixi sbom -p "$p" --output "sboms/sbom-$p.cdx.json"
-  done
-  ```
+In batch mode `--output` names the directory that receives the files (default: next to the lockfile), and each file is
+named after what it describes:
+
+| Flags | File name |
+|---|---|
+| `--all-environments` | `sbom-<environment>.cdx.json` / `.spdx.json` |
+| `--all-platforms` | `sbom-<platform>.cdx.json` |
+| both | `sbom-<environment>-<platform>.cdx.json` |
 
 Each document records which environment and platform it describes (`pixi:environment` / `pixi:platform` in the
 CycloneDX metadata properties; the root package `sourceInfo` in SPDX), so a batch of files stays self-describing.
@@ -104,7 +113,7 @@ CycloneDX metadata properties; the root package `sourceInfo` in SPDX), so a batc
 |---|---|
 | 0 | Document(s) written. |
 | 1 | A runtime error; a diagnostic is printed to stderr. |
-| 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments`). |
+| 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments` or `--all-platforms`). |
 
 Runtime diagnostics carry a stable code you can grep for in CI logs:
 

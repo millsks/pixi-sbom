@@ -84,7 +84,9 @@ fn help_lists_all_options() {
         .stdout(predicate::str::contains("--format"))
         .stdout(predicate::str::contains("--output"))
         .stdout(predicate::str::contains("--environment"))
-        .stdout(predicate::str::contains("--platform"));
+        .stdout(predicate::str::contains("--platform"))
+        .stdout(predicate::str::contains("--all-environments"))
+        .stdout(predicate::str::contains("--all-platforms"));
 }
 
 #[test]
@@ -240,7 +242,7 @@ fn dash_output_writes_only_the_document_to_stdout() {
 }
 
 #[test]
-fn dash_output_conflicts_with_all_environments() {
+fn dash_output_conflicts_with_batch_modes() {
     let dir = workspace("multi-env");
 
     pixi_sbom()
@@ -249,6 +251,89 @@ fn dash_output_conflicts_with_all_environments() {
         .assert()
         .code(2)
         .stderr(predicate::str::contains("cannot be combined with '--all-environments'"));
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--all-platforms", "--output", "-"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("cannot be combined with '--all-platforms'"));
+}
+
+#[test]
+fn all_platforms_writes_one_file_per_locked_platform() {
+    let dir = workspace("conda-only");
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--all-platforms"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("platform=linux-64"))
+        .stderr(predicate::str::contains("platform=osx-arm64"));
+
+    let validator = cyclonedx_validator();
+    for platform in ["linux-64", "osx-arm64"] {
+        let doc = read_json(&dir.path().join(format!("sbom-{platform}.cdx.json")));
+        assert_valid(&validator, &doc);
+        let props = doc["metadata"]["properties"].as_array().unwrap();
+        assert!(
+            props
+                .iter()
+                .any(|p| p["name"] == "pixi:platform" && p["value"] == platform),
+            "{platform}"
+        );
+        assert!(doc["components"].as_array().unwrap().iter().all(|c| {
+            c["properties"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|p| p["name"] == "pixi:subdir" && p["value"] == platform)
+        }));
+    }
+    assert!(!dir.path().join("sbom.cdx.json").exists());
+}
+
+#[test]
+fn all_environments_and_all_platforms_cover_every_pair() {
+    let dir = workspace("with-pypi");
+    let out = dir.path().join("sboms");
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--all-environments", "--all-platforms", "--format", "spdx", "--output"])
+        .arg(&out)
+        .assert()
+        .success();
+
+    let mut written: Vec<_> = std::fs::read_dir(&out)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .collect();
+    written.sort();
+    assert_eq!(
+        written,
+        [
+            "sbom-default-linux-64.spdx.json",
+            "sbom-default-osx-arm64.spdx.json",
+            "sbom-web-linux-64.spdx.json",
+            "sbom-web-osx-arm64.spdx.json",
+        ]
+    );
+    let doc = read_json(&out.join("sbom-web-osx-arm64.spdx.json"));
+    assert_valid(&spdx_validator(), &doc);
+    assert_eq!(doc["name"], "with-pypi-web-osx-arm64");
+}
+
+#[test]
+fn all_platforms_conflicts_with_platform() {
+    let dir = workspace("conda-only");
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--all-platforms", "-p", "linux-64"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("--all-platforms"));
 }
 
 #[test]

@@ -90,18 +90,19 @@ pub fn resolve_output(explicit: Option<&Path>, lockfile: &Path, format: Format) 
     }
 }
 
-/// Resolve the per-environment output file for `--all-environments`: `sbom-<environment>`
-/// inside the explicit output directory if given, otherwise next to the lockfile.
-pub fn resolve_environment_output(
+/// Resolve one output file of a batch (`--all-environments` / `--all-platforms`):
+/// `sbom-<labels...>` inside the explicit output directory if given, otherwise next to the
+/// lockfile.
+pub fn resolve_batch_output<'a>(
     explicit_dir: Option<&Path>,
     lockfile: &Path,
     format: Format,
-    environment: &str,
+    labels: impl IntoIterator<Item = &'a str>,
 ) -> PathBuf {
     explicit_dir
         .map(Path::to_path_buf)
         .unwrap_or_else(|| lockfile_dir(lockfile))
-        .join(format.environment_file_name(environment))
+        .join(format.batch_file_name(labels))
 }
 
 /// The lockfile's own name (normally `pixi.lock`), which is what the SBOM records. The
@@ -200,26 +201,30 @@ mod tests {
     }
 
     #[test]
-    fn environment_output_defaults_next_to_lockfile() {
+    fn batch_output_defaults_next_to_lockfile() {
         let lock = Path::new("/work/proj/pixi.lock");
 
         assert_eq!(
-            resolve_environment_output(None, lock, Format::Cyclonedx, "prod"),
+            resolve_batch_output(None, lock, Format::Cyclonedx, ["prod"]),
             Path::new("/work/proj/sbom-prod.cdx.json")
         );
         assert_eq!(
-            resolve_environment_output(None, lock, Format::Spdx, "default"),
+            resolve_batch_output(None, lock, Format::Spdx, ["default"]),
             Path::new("/work/proj/sbom-default.spdx.json")
+        );
+        assert_eq!(
+            resolve_batch_output(None, lock, Format::Spdx, ["prod", "linux-64"]),
+            Path::new("/work/proj/sbom-prod-linux-64.spdx.json")
         );
     }
 
     #[test]
-    fn environment_output_uses_explicit_directory() {
+    fn batch_output_uses_explicit_directory() {
         let lock = Path::new("/work/proj/pixi.lock");
         let dir = Path::new("/reports");
 
         assert_eq!(
-            resolve_environment_output(Some(dir), lock, Format::Cyclonedx, "web"),
+            resolve_batch_output(Some(dir), lock, Format::Cyclonedx, ["web"]),
             Path::new("/reports/sbom-web.cdx.json")
         );
     }
