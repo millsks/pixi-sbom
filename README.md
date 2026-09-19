@@ -55,6 +55,9 @@ pixi sbom --all-environments --format spdx --output reports/
 | `-p, --platform <PLATFORM>` | current platform | Platform within that environment |
 | `-v` / `-q` | info | More / less logging on stderr |
 
+Output is reproducible: the document identifier is derived from the lockfile, and setting `SOURCE_DATE_EPOCH` pins
+the timestamp so repeated runs are byte-identical.
+
 One document describes one environment on one platform, which is what SBOM consumers expect. Use
 `--all-environments` to cover every environment in the lockfile in one run (each on the selected platform), or run
 the command once per platform you ship.

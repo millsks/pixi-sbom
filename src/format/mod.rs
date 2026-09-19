@@ -3,6 +3,7 @@
 pub mod cyclonedx;
 pub mod spdx;
 
+use std::ffi::OsStr;
 use std::io::Write;
 
 use chrono::{DateTime, Utc};
@@ -12,31 +13,79 @@ use thiserror::Error;
 use crate::cli::Format;
 use crate::model::Sbom;
 
-/// Values that vary between runs; injected so tests can produce stable output.
+/// Namespace for the UUIDv5 document identifiers pixi-sbom derives. Fixed for all time so
+/// that the same input always maps to the same identifier.
+const DOCUMENT_NAMESPACE: uuid::Uuid = uuid::uuid!("6b1f7f0a-3d0e-5c3a-9e2b-7f1c2d4e5a60");
+
+/// Environment variable that pins the document timestamp, per the reproducible-builds
+/// convention: <https://reproducible-builds.org/specs/source-date-epoch/>.
+pub const SOURCE_DATE_EPOCH: &str = "SOURCE_DATE_EPOCH";
+
+/// Document-level values that are not part of the [`Sbom`] model: the timestamp, the
+/// identifier, and the generating tool's version. Injected so tests can produce stable output.
 #[derive(Debug, Clone)]
 pub struct WriteContext {
     /// When the document was created.
     pub timestamp: DateTime<Utc>,
-    /// A fresh UUID used for the document identifier.
+    /// The document identifier (CycloneDX `serialNumber`, part of the SPDX namespace).
     pub uuid: uuid::Uuid,
     /// Version of pixi-sbom recorded as the generating tool.
     pub tool_version: String,
 }
 
 impl WriteContext {
-    /// Context for a real run: now, a random UUID, and this crate's version.
-    pub fn new() -> Self {
+    /// Context for a real run. The identifier is a UUIDv5 derived from the lockfile text,
+    /// the environment, the platform, the format, and this crate's version, so identical
+    /// inputs yield identical documents. The timestamp is `SOURCE_DATE_EPOCH` when set,
+    /// otherwise now.
+    pub fn for_document(lock_contents: &str, sbom: &Sbom, format: Format) -> Self {
+        let tool_version = env!("CARGO_PKG_VERSION").to_string();
         Self {
-            timestamp: Utc::now(),
-            uuid: uuid::Uuid::new_v4(),
-            tool_version: env!("CARGO_PKG_VERSION").to_string(),
+            timestamp: timestamp_from_env(),
+            uuid: document_uuid(lock_contents, sbom, format, &tool_version),
+            tool_version,
         }
     }
 }
 
-impl Default for WriteContext {
-    fn default() -> Self {
-        Self::new()
+fn document_uuid(lock_contents: &str, sbom: &Sbom, format: Format, tool_version: &str) -> uuid::Uuid {
+    let mut name = Vec::with_capacity(lock_contents.len() + 64);
+    for part in [
+        lock_contents,
+        &sbom.environment,
+        &sbom.platform,
+        format.extension(),
+        tool_version,
+    ] {
+        name.extend_from_slice(part.as_bytes());
+        name.push(0);
+    }
+    uuid::Uuid::new_v5(&DOCUMENT_NAMESPACE, &name)
+}
+
+/// The document timestamp: `SOURCE_DATE_EPOCH` (seconds since the Unix epoch) when set and
+/// valid, otherwise the current time. An unusable value is logged and ignored.
+pub fn timestamp_from_env() -> DateTime<Utc> {
+    timestamp_from(std::env::var_os(SOURCE_DATE_EPOCH).as_deref())
+}
+
+fn timestamp_from(source_date_epoch: Option<&OsStr>) -> DateTime<Utc> {
+    let Some(raw) = source_date_epoch else {
+        return Utc::now();
+    };
+    let parsed = raw
+        .to_str()
+        .and_then(|text| text.trim().parse::<i64>().ok())
+        .and_then(|seconds| DateTime::from_timestamp(seconds, 0));
+    match parsed {
+        Some(timestamp) => timestamp,
+        None => {
+            tracing::warn!(
+                value = ?raw,
+                "ignoring {SOURCE_DATE_EPOCH}: not a whole number of seconds since the Unix epoch"
+            );
+            Utc::now()
+        }
     }
 }
 
@@ -193,10 +242,49 @@ mod tests {
     }
 
     #[test]
-    fn default_context_uses_crate_version() {
-        let ctx = WriteContext::default();
-        assert_eq!(ctx.tool_version, env!("CARGO_PKG_VERSION"));
-        assert_eq!(ctx.uuid.get_version_num(), 4);
+    fn document_context_is_deterministic_for_identical_input() {
+        let sbom = testing::sample_sbom();
+        let a = WriteContext::for_document("version: 6\n", &sbom, Format::Cyclonedx);
+        let b = WriteContext::for_document("version: 6\n", &sbom, Format::Cyclonedx);
+        assert_eq!(a.tool_version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(a.uuid.get_version_num(), 5);
+        assert_eq!(a.uuid, b.uuid);
+    }
+
+    #[test]
+    fn document_uuid_changes_with_every_input() {
+        let sbom = testing::sample_sbom();
+        let base = document_uuid("lock", &sbom, Format::Cyclonedx, "1.0.0");
+        assert_ne!(base, document_uuid("lock!", &sbom, Format::Cyclonedx, "1.0.0"));
+        assert_ne!(base, document_uuid("lock", &sbom, Format::Spdx, "1.0.0"));
+        assert_ne!(base, document_uuid("lock", &sbom, Format::Cyclonedx, "1.0.1"));
+        let mut other_env = sbom.clone();
+        other_env.environment = "prod".into();
+        assert_ne!(base, document_uuid("lock", &other_env, Format::Cyclonedx, "1.0.0"));
+        let mut other_platform = sbom.clone();
+        other_platform.platform = "win-64".into();
+        assert_ne!(base, document_uuid("lock", &other_platform, Format::Cyclonedx, "1.0.0"));
+    }
+
+    #[test]
+    fn timestamp_honors_source_date_epoch() {
+        let pinned = timestamp_from(Some(OsStr::new("1700000000")));
+        assert_eq!(pinned.to_rfc3339(), "2023-11-14T22:13:20+00:00");
+        assert_eq!(timestamp_from(Some(OsStr::new(" 0 "))).timestamp(), 0);
+    }
+
+    #[test]
+    fn timestamp_falls_back_to_now_when_unset_or_invalid() {
+        let before = Utc::now();
+        for value in [
+            None,
+            Some(OsStr::new("")),
+            Some(OsStr::new("yesterday")),
+            Some(OsStr::new("1.5")),
+        ] {
+            let ts = timestamp_from(value);
+            assert!(ts >= before && ts <= Utc::now(), "{value:?} -> {ts}");
+        }
     }
 }
 

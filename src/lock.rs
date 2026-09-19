@@ -78,12 +78,24 @@ pub struct Selection<'a> {
     pub platform: Option<&'a str>,
 }
 
-/// Parse the lockfile at `path`.
-pub fn load(path: &Path) -> Result<LockFile, LockError> {
-    LockFile::from_path(path).map_err(|source| LockError::Parse {
+/// A parsed lockfile together with the exact text it was parsed from.
+#[derive(Debug)]
+pub struct LoadedLock {
+    /// The parsed lockfile.
+    pub lock: LockFile,
+    /// The lockfile's source text, which identifies the input for reproducible document ids.
+    pub contents: String,
+}
+
+/// Read and parse the lockfile at `path`.
+pub fn load(path: &Path) -> Result<LoadedLock, LockError> {
+    let parse_error = |source: rattler_lock::ParseCondaLockError| LockError::Parse {
         path: path.display().to_string(),
         source: Box::new(source),
-    })
+    };
+    let contents = std::fs::read_to_string(path).map_err(|err| parse_error(err.into()))?;
+    let lock = LockFile::from_str_with_base_directory(&contents, path.parent()).map_err(parse_error)?;
+    Ok(LoadedLock { lock, contents })
 }
 
 /// Names of every environment in the lockfile: `default` first, the rest alphabetical.
@@ -96,7 +108,7 @@ pub fn environment_names(lock: &LockFile) -> Vec<String> {
 /// Parse `path` and build the SBOM model for the selected environment/platform.
 #[cfg(test)]
 pub fn build_sbom(path: &Path, selection: Selection<'_>, root: Root) -> Result<Sbom, LockError> {
-    let lock = load(path)?;
+    let lock = load(path)?.lock;
     sbom_from_lock(&lock, selection, root, &crate::discover::lockfile_name(path))
 }
 
@@ -566,11 +578,11 @@ mod tests {
 
     #[test]
     fn environment_names_put_default_first_then_alphabetical() {
-        let lock = load(&fixture("with-pypi")).unwrap();
+        let lock = load(&fixture("with-pypi")).unwrap().lock;
         assert_eq!(environment_names(&lock), ["default", "web"]);
-        let lock = load(&fixture("multi-env")).unwrap();
+        let lock = load(&fixture("multi-env")).unwrap().lock;
         assert_eq!(environment_names(&lock), ["default", "alpha", "zeta"]);
-        let lock = load(&fixture("conda-only")).unwrap();
+        let lock = load(&fixture("conda-only")).unwrap().lock;
         assert_eq!(environment_names(&lock), ["default"]);
     }
 
@@ -592,6 +604,19 @@ mod tests {
         assert!(text.contains("'win-64'"));
         assert!(text.contains("linux-64"));
         assert!(text.contains("osx-arm64"));
+    }
+
+    #[test]
+    fn load_keeps_the_source_text() {
+        let path = fixture("conda-only");
+        let loaded = load(&path).unwrap();
+        assert_eq!(loaded.contents, std::fs::read_to_string(&path).unwrap());
+    }
+
+    #[test]
+    fn missing_lockfile_is_a_parse_error() {
+        let err = load(Path::new("/definitely/not/here/pixi.lock")).unwrap_err();
+        assert!(matches!(err, LockError::Parse { .. }));
     }
 
     #[test]
