@@ -32,7 +32,7 @@ once no matter how many output formats exist.
 | `model.rs` | `Sbom`, `Root`, `Package`, `PackageKind`: plain data with no serde and no knowledge of any SBOM spec. | — |
 | `license.rs` | Turning a declared license string into either an SPDX expression or free text. | spdx |
 | `format/mod.rs` | `WriteContext` (timestamp, UUID, tool version), `write()` / `to_value()` entry points, the shared graph-root helper, and the hand-built sample model used by writer tests. | serde_json, chrono, uuid |
-| `format/cyclonedx.rs` | Serde structs mirroring the parts of CycloneDX 1.6 that are used, and the `Sbom` → `Bom` mapping. | serde |
+| `format/cyclonedx.rs` | Serde structs mirroring the parts of CycloneDX 1.6 / 1.7 that are used, the version table (`$schema`, `specVersion`, 1.7 citations), and the `Sbom` → `Bom` mapping. | serde |
 | `format/spdx.rs` | Same for SPDX 2.3, including `SPDXRef` id assignment and `LicenseRef` extraction. | serde |
 | `main.rs` | Argument parsing, tracing setup, miette report handler, the environment loop, and file output. | miette, tracing |
 
