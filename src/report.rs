@@ -193,8 +193,18 @@ fn summarize(rows: &[Row]) -> LicenseSummary {
     summary
 }
 
-/// Render `reports` (one per document) in `format` to `out`.
+/// Render `reports` (one per document) in `format` to `out`, fitting tables to the terminal.
 pub fn render(reports: &[Report], format: ReportFormat, out: &mut dyn Write) -> io::Result<()> {
+    render_with_width(reports, format, terminal_width(), out)
+}
+
+/// [`render`] with an explicit table width instead of the terminal's.
+pub fn render_with_width(
+    reports: &[Report],
+    format: ReportFormat,
+    width: usize,
+    out: &mut dyn Write,
+) -> io::Result<()> {
     match format {
         ReportFormat::Json if reports.len() == 1 => writeln!(out, "{}", serde_json::to_string_pretty(&reports[0])?),
         ReportFormat::Json => writeln!(out, "{}", serde_json::to_string_pretty(reports)?),
@@ -218,7 +228,7 @@ pub fn render(reports: &[Report], format: ReportFormat, out: &mut dyn Write) -> 
                 let rows: Vec<Vec<String>> = report.packages.iter().map(|r| report.cells(r)).collect();
                 match format {
                     ReportFormat::Markdown => render_markdown(&columns, &rows, out)?,
-                    _ => render_table(&columns, &rows, terminal_width(), out)?,
+                    _ => render_table(&columns, &rows, width, out)?,
                 }
                 if let Some(summary) = &report.summary {
                     render_summary(summary, report.packages.len(), format, out)?;
@@ -398,10 +408,11 @@ mod tests {
     use super::*;
     use crate::format::testing::sample_sbom;
 
+    /// Renders at a fixed width so snapshots do not depend on the terminal running the tests.
     fn render_string(kind: ReportKind, format: ReportFormat, sboms: &[Sbom]) -> String {
         let reports: Vec<Report> = sboms.iter().map(|s| Report::new(kind, s)).collect();
         let mut out = Vec::new();
-        render(&reports, format, &mut out).unwrap();
+        render_with_width(&reports, format, DEFAULT_WIDTH, &mut out).unwrap();
         String::from_utf8(out).unwrap()
     }
 
@@ -531,5 +542,10 @@ mod tests {
         // COLUMNS is process-global; only assert the invariant that holds either way.
         let width = terminal_width();
         assert!(width >= 40);
+        // render() itself uses the terminal width: with a huge COLUMNS nothing is truncated.
+        let reports = [Report::new(ReportKind::Packages, &sample_sbom())];
+        let mut out = Vec::new();
+        render_with_width(&reports, ReportFormat::Table, usize::MAX, &mut out).unwrap();
+        assert!(!String::from_utf8(out).unwrap().contains('…'));
     }
 }
