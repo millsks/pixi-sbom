@@ -1,6 +1,7 @@
 //! `pixi-sbom`: a pixi extension that generates CycloneDX or SPDX SBOMs from `pixi.lock`.
 
 mod cli;
+mod condaarchive;
 mod discover;
 mod format;
 mod http;
@@ -13,6 +14,7 @@ mod pkgcache;
 mod purl;
 mod pypi;
 mod report;
+mod zipread;
 
 use std::io::{IsTerminal, Write};
 use std::path::Path;
@@ -75,9 +77,23 @@ fn main() -> Result<()> {
                 found,
                 licenses_filled,
                 files,
+                missing,
             } = pkgcache::enrich(&mut sbom, &pkgs, args.license_texts);
             tracing::info!(pkgs = %pkgs.display(), found, licenses_filled, files, "read conda license details from the package cache");
             let cache_dir = mapping::cache_dir();
+            if !missing.is_empty() {
+                let condaarchive::Outcome {
+                    fetched,
+                    failed,
+                    skipped,
+                } = condaarchive::enrich(&mut sbom, &missing, &cache_dir, args.license_texts);
+                tracing::info!(
+                    fetched,
+                    failed,
+                    skipped,
+                    "read conda license details from channel archives"
+                );
+            }
             let lookup = pypi::Lookup {
                 index_url: &pypi::index_url(),
                 cache_dir: &cache_dir,

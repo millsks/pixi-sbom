@@ -151,8 +151,13 @@ The rules:
 package cache (`<pixi cache>/pkgs/<name>-<version>-<build>/info/`): `about.json` supplies the license expression when
 the lockfile has none (recorded as `pixi:license-source=package-cache`), the license family, the summary and the
 project URLs, and `info/licenses/` supplies the names of the license files (`pixi:license-files-source=package-cache`).
-Packages that are not in the cache are left as they are (a network fallback is planned). For PyPI packages it asks
-the index as described next.
+Packages that are not in the local cache are read from the archive on the channel without downloading it: a `.conda`
+file is a zip whose `info-*.tar.zst` member holds the same files, so one or two HTTP range requests (the archive's
+tail, then the member when it is not already in the tail) fetch a few kilobytes per package. The extracted files are
+cached under the pixi-sbom cache directory by the archive's SHA-256, so repeated runs are offline. Provenance is
+recorded as `conda-archive`. Legacy `.tar.bz2` archives cannot be read partially and are skipped; a package whose
+archive cannot be reached keeps the lockfile's license and the run continues. For PyPI packages it asks the index as
+described next.
 
 By default only the license *type* is recorded: the expression as always, plus the file names as `pixi:license-file`
 properties (CycloneDX) / `licenseComments` (SPDX). `--license-texts` additionally embeds the file contents:
