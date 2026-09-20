@@ -368,10 +368,12 @@ fn package_licenses(package: &Package) -> Vec<LicenseChoice> {
         License::Expression(expression) if with_text.is_empty() || !license::is_single_id(&expression) => {
             return vec![LicenseChoice::Expression { expression }];
         }
+        // A LicenseRef- is a valid expression but not an SPDX list identifier, which is all
+        // the `id` field accepts; it travels as a name.
         License::Expression(id) => (
             LicenseObject {
-                id: Some(id),
-                name: None,
+                name: id.starts_with("LicenseRef-").then(|| id.clone()),
+                id: (!id.starts_with("LicenseRef-")).then_some(id),
                 text: with_text.first().map(|f| attachment(f)),
                 acknowledgement: Some("declared"),
             },
@@ -568,6 +570,24 @@ mod tests {
         assert!(mylib.get("id").is_none());
 
         assert!(by_name("six").get("licenses").is_none());
+    }
+
+    #[test]
+    fn license_ref_with_text_is_a_named_license_not_an_id() {
+        let mut sbom = sample_sbom();
+        sbom.packages[0].license = Some("LicenseRef-Public-Domain".into());
+        let doc = serde_json::to_value(document(&sbom, &fixed_context())).unwrap();
+        let license = &doc["components"][0]["licenses"][0]["license"];
+        assert_eq!(license["name"], "LicenseRef-Public-Domain");
+        assert!(license.get("id").is_none());
+        assert_eq!(license["text"]["content"], "zlib license text");
+        // Without a text it stays an expression, as before.
+        sbom.packages[0].license_files.clear();
+        let doc = serde_json::to_value(document(&sbom, &fixed_context())).unwrap();
+        assert_eq!(
+            doc["components"][0]["licenses"][0]["expression"],
+            "LicenseRef-Public-Domain"
+        );
     }
 
     #[test]

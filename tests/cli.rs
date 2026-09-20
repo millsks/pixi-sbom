@@ -519,6 +519,7 @@ fn pypi_licenses_come_from_cached_index_metadata() {
 
     let assert = pixi_sbom()
         .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
         .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
         .env("PIXI_SBOM_OFFLINE", "1")
         .args(["-e", "web", "-p", "linux-64", "--fetch-licenses", "--output", "-"])
@@ -554,6 +555,7 @@ fn pypi_licenses_come_from_cached_index_metadata() {
     // SPDX carries the same expressions.
     let assert = pixi_sbom()
         .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
         .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
         .env("PIXI_SBOM_OFFLINE", "1")
         .args([
@@ -586,6 +588,7 @@ fn fetch_licenses_never_fails_the_run_when_offline() {
 
     let assert = pixi_sbom()
         .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
         .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
         .env("PIXI_SBOM_OFFLINE", "1")
         .args(["-e", "web", "-p", "linux-64", "--fetch-licenses", "--output", "-"])
@@ -1068,6 +1071,7 @@ fn fetch_licenses_reads_wheel_metadata_and_license_files() {
 
     let assert = pixi_sbom()
         .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
         .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
         .env("PIXI_SBOM_OFFLINE", "1")
         .args([
