@@ -520,10 +520,13 @@ fn pypi_licenses_come_from_cached_index_metadata() {
     let assert = pixi_sbom()
         .current_dir(dir.path())
         .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
-        .env("PIXI_SBOM_PYPI_URL", "http://127.0.0.1:9/pypi")
-        .args(["-e", "web", "-p", "linux-64", "--pypi-licenses", "--output", "-"])
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args(["-e", "web", "-p", "linux-64", "--fetch-licenses", "--output", "-"])
         .assert()
         .success()
+        .stderr(predicate::str::contains(
+            "read PyPI license details from wheels fetched=0 failed=6 skipped=0",
+        ))
         .stderr(predicate::str::contains("found=6 missing=0 failed=0"));
     let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
     assert_valid(&cyclonedx_validator(), &doc);
@@ -552,7 +555,7 @@ fn pypi_licenses_come_from_cached_index_metadata() {
     let assert = pixi_sbom()
         .current_dir(dir.path())
         .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
-        .env("PIXI_SBOM_PYPI_URL", "http://127.0.0.1:9/pypi")
+        .env("PIXI_SBOM_OFFLINE", "1")
         .args([
             "-e",
             "web",
@@ -560,7 +563,7 @@ fn pypi_licenses_come_from_cached_index_metadata() {
             "linux-64",
             "--format",
             "spdx",
-            "--pypi-licenses",
+            "--fetch-licenses",
             "--output",
             "-",
         ])
@@ -578,17 +581,21 @@ fn pypi_licenses_come_from_cached_index_metadata() {
 }
 
 #[test]
-fn pypi_licenses_never_fail_the_run_when_the_index_is_unreachable() {
+fn fetch_licenses_never_fails_the_run_when_offline() {
     let dir = workspace("with-pypi");
 
     let assert = pixi_sbom()
         .current_dir(dir.path())
         .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
-        .env("PIXI_SBOM_PYPI_URL", "http://127.0.0.1:9/pypi")
-        .args(["-e", "web", "-p", "linux-64", "--pypi-licenses", "--output", "-"])
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args(["-e", "web", "-p", "linux-64", "--fetch-licenses", "--output", "-"])
         .assert()
         .success()
+        .stderr(predicate::str::contains("PIXI_SBOM_OFFLINE is set"))
         .stderr(predicate::str::contains("PyPI index unreachable"))
+        .stderr(predicate::str::contains(
+            "read PyPI license details from wheels fetched=0 failed=6",
+        ))
         .stderr(predicate::str::contains("found=0 missing=0 failed=6"));
     let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
     assert_valid(&cyclonedx_validator(), &doc);
@@ -1038,6 +1045,81 @@ fn fetch_licenses_reads_the_archive_when_the_package_cache_misses() {
         .find(|c| c["name"] == "libzlib")
         .unwrap();
     assert_eq!(libzlib["licenses"][0]["expression"], "Zlib");
+}
+
+#[test]
+fn fetch_licenses_reads_wheel_metadata_and_license_files() {
+    // The with-pypi fixture with the six wheel pointed at the local copy; everything else offline.
+    let dir = workspace("with-pypi");
+    let wheel = tests_dir()
+        .join("fixtures")
+        .join("archives")
+        .join("six-1.17.0-py2.py3-none-any.whl");
+    let path = wheel.display().to_string().replace('\\', "/");
+    let url = format!("file://{}{path}", if path.starts_with('/') { "" } else { "/" });
+    let lock = std::fs::read_to_string(dir.path().join("pixi.lock"))
+        .unwrap()
+        .replace("\r\n", "\n")
+        .replace(
+            "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl",
+            &url,
+        );
+    std::fs::write(dir.path().join("pixi.lock"), lock).unwrap();
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args([
+            "-e",
+            "web",
+            "-p",
+            "linux-64",
+            "--fetch-licenses",
+            "--license-texts",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "read PyPI license details from wheels fetched=1 failed=5 skipped=0",
+        ));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let six = doc["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "six")
+        .unwrap();
+    assert_eq!(six["licenses"][0]["license"]["id"], "MIT", "License: MIT from METADATA");
+    assert!(
+        six["licenses"][0]["license"]["text"]["content"]
+            .as_str()
+            .unwrap()
+            .contains("Benjamin Peterson")
+    );
+    assert_eq!(six["description"], "Python 2 and 3 compatibility utilities");
+    let props = six["properties"].as_array().unwrap();
+    assert!(
+        props
+            .iter()
+            .any(|p| p["name"] == "pixi:license-source" && p["value"] == "wheel")
+    );
+    assert!(
+        props
+            .iter()
+            .any(|p| p["name"] == "pixi:license-files-source" && p["value"] == "wheel")
+    );
+    // The other wheels were unreachable offline and simply have no license.
+    let requests = doc["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "requests")
+        .unwrap();
+    assert!(requests.get("licenses").is_none());
 }
 
 #[test]

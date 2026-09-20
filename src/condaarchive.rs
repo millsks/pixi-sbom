@@ -11,7 +11,6 @@
 use std::collections::HashSet;
 use std::io::{self, Read};
 use std::path::Path;
-use std::sync::Mutex;
 
 use crate::model::{PackageKind, Sbom};
 use crate::pkgcache::{self, CondaInfo};
@@ -74,7 +73,9 @@ pub fn enrich(sbom: &mut Sbom, indexes: &[usize], cache_dir: &Path, texts: bool)
         return outcome;
     }
 
-    let results = fetch_all(&jobs, cache_dir, texts);
+    let results = crate::parallel::map(&jobs, CONCURRENCY, |job| {
+        info_for(&job.location, &job.key, cache_dir, texts)
+    });
     for (job, result) in jobs.iter().zip(results) {
         match result {
             Ok(info) => {
@@ -88,35 +89,6 @@ pub fn enrich(sbom: &mut Sbom, indexes: &[usize], cache_dir: &Path, texts: bool)
         }
     }
     outcome
-}
-
-/// Run the jobs on a small pool of threads; results come back in job order.
-fn fetch_all(jobs: &[Job], cache_dir: &Path, texts: bool) -> Vec<io::Result<CondaInfo>> {
-    let next = Mutex::new(0usize);
-    let results: Mutex<Vec<Option<io::Result<CondaInfo>>>> = Mutex::new((0..jobs.len()).map(|_| None).collect());
-    std::thread::scope(|scope| {
-        for _ in 0..CONCURRENCY.min(jobs.len()) {
-            scope.spawn(|| {
-                loop {
-                    let i = {
-                        let mut next = next.lock().expect("job counter");
-                        let i = *next;
-                        *next += 1;
-                        i
-                    };
-                    let Some(job) = jobs.get(i) else { break };
-                    let result = info_for(&job.location, &job.key, cache_dir, texts);
-                    results.lock().expect("results")[i] = Some(result);
-                }
-            });
-        }
-    });
-    results
-        .into_inner()
-        .expect("results")
-        .into_iter()
-        .map(|r| r.expect("every job produces a result"))
-        .collect()
 }
 
 /// The info directory for one archive: from the sbom cache when present, otherwise fetched.

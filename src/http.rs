@@ -2,6 +2,21 @@
 
 use std::time::Duration;
 
+/// Environment variable that forbids every network request: caches only.
+pub const OFFLINE_ENV: &str = "PIXI_SBOM_OFFLINE";
+
+/// Whether `PIXI_SBOM_OFFLINE` is set to anything but empty or `0`.
+pub fn offline() -> bool {
+    std::env::var(OFFLINE_ENV).is_ok_and(|v| !v.trim().is_empty() && v.trim() != "0")
+}
+
+fn offline_error() -> Box<ureq::Error> {
+    Box::new(ureq::Error::Io(std::io::Error::new(
+        std::io::ErrorKind::NotConnected,
+        format!("offline: {OFFLINE_ENV} is set, no network requests are made"),
+    )))
+}
+
 /// Build the agent: system certificate store, proxies from the environment, one timeout.
 fn agent() -> ureq::Agent {
     let tls = ureq::tls::TlsConfig::builder()
@@ -17,6 +32,9 @@ fn agent() -> ureq::Agent {
 
 /// GET `url` and return the body as text, refusing bodies larger than `limit` bytes.
 pub fn get_text(url: &str, limit: u64) -> Result<String, Box<ureq::Error>> {
+    if offline() {
+        return Err(offline_error());
+    }
     agent()
         .get(url)
         .call()
@@ -44,11 +62,25 @@ fn other(message: &'static str) -> Box<ureq::Error> {
 /// The last `count` bytes of `url` (fewer when the resource is smaller), plus its total size,
 /// in one suffix-range request. Errors when the server ignores ranges.
 pub fn get_tail(url: &str, count: u64) -> Result<(u64, Vec<u8>), Box<ureq::Error>> {
-    let mut response = agent()
-        .get(url)
-        .header("Range", &format!("bytes=-{count}"))
-        .call()
-        .map_err(Box::new)?;
+    if offline() {
+        return Err(offline_error());
+    }
+    let mut response = match agent().get(url).header("Range", &format!("bytes=-{count}")).call() {
+        Ok(response) => response,
+        // Some CDNs answer 416 to a suffix longer than the file instead of sending it whole
+        // (RFC 9110 allows either). Learn the size and ask for an exact range instead.
+        Err(ureq::Error::StatusCode(416)) => {
+            let total = content_length(url)?;
+            let start = total.saturating_sub(count);
+            let bytes = if total == 0 {
+                Vec::new()
+            } else {
+                get_range(url, start, total - 1)?
+            };
+            return Ok((total, bytes));
+        }
+        Err(err) => return Err(Box::new(err)),
+    };
     if response.status() != 206 {
         return Err(other("server does not support HTTP range requests"));
     }
@@ -71,8 +103,22 @@ pub fn get_tail(url: &str, count: u64) -> Result<(u64, Vec<u8>), Box<ureq::Error
     Ok((total, bytes))
 }
 
+/// Size of the resource at `url`, from a HEAD request.
+fn content_length(url: &str) -> Result<u64, Box<ureq::Error>> {
+    let response = agent().head(url).call().map_err(Box::new)?;
+    response
+        .headers()
+        .get("Content-Length")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .ok_or_else(|| other("missing Content-Length"))
+}
+
 /// The bytes `start..=end` of `url`.
 pub fn get_range(url: &str, start: u64, end: u64) -> Result<Vec<u8>, Box<ureq::Error>> {
+    if offline() {
+        return Err(offline_error());
+    }
     let mut response = agent()
         .get(url)
         .header("Range", &format!("bytes={start}-{end}"))
@@ -94,4 +140,17 @@ pub fn get_range(url: &str, start: u64, end: u64) -> Result<Vec<u8>, Box<ureq::E
         return Err(other("short range response"));
     }
     Ok(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn offline_errors_count_as_connectivity_failures() {
+        let err = offline_error();
+        assert!(is_connectivity_error(&err));
+        assert!(err.to_string().contains(OFFLINE_ENV));
+        assert!(!is_connectivity_error(&ureq::Error::StatusCode(404)));
+    }
 }

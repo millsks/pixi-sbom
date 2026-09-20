@@ -13,6 +13,7 @@ once no matter how many output formats exist.
    pypi.rs ─────── fills PyPI licenses from the index (optional, via http.rs)
    pkgcache.rs ─── conda license files and metadata from the package cache (optional, offline)
    condaarchive.rs ─ the same from the channel archive by HTTP range (optional, via zipread.rs)
+   wheel.rs ─────── PyPI license details from the wheel's dist-info (optional, via zipread.rs)
    report.rs ───── --report: renders the model as a terminal table instead of a document
    license.rs ◀── used by both writers
    discover.rs ── finds the lockfile, decides output paths
@@ -31,6 +32,8 @@ once no matter how many output formats exist.
 | `purl.rs` | Building `pkg:conda` and `pkg:pypi` purls, PEP 503 name normalization, channel-name and archive-type helpers. | packageurl |
 | `mapping.rs` | PyPI identity enrichment: loading the conda-forge conda-to-PyPI mapping (offline file, or downloaded and cached), adding `pkg:pypi` purls to conda-forge packages the lockfile says nothing about, and optionally swapping the primary purl. Also owns the cache directory rule. | serde_json, purl.rs, http.rs |
 | `zipread.rs` | Reads single members out of zip archives (`.conda`, wheels) by range: the central directory from the tail, then the member. Works over HTTP ranges, `file://` URLs and paths. Hand-rolled: EOCD, zip64, stored and deflated members. | flate2, http.rs |
+| `wheel.rs` | The same for PyPI wheels: `METADATA` (PEP 639 `License-Expression`, `License`, `License-File`, `Summary`, `Project-URL`) and the license files, through `zipread`, cached under `wheel-info/<sha256>/`. | zipread.rs, parallel.rs |
+| `parallel.rs` | A bounded scoped-thread pool for the fetchers; no async runtime. | — |
 | `condaarchive.rs` | The network fallback for conda license details: pulls the `info-*.tar.zst` member through `zipread`, decompresses it and writes `about.json`, `index.json` and `licenses/` into the pixi-sbom cache in the rattler layout, on a small thread pool. | zstd, tar, zipread.rs, pkgcache.rs |
 | `pkgcache.rs` | Conda license details from the local rattler package cache: `about.json` and `info/licenses/` of extracted packages, and the cache directory rule (`PIXI_CACHE_DIR`, `RATTLER_CACHE_DIR`, platform default). Offline. | serde_json |
 | `pypi.rs` | License lookup for PyPI packages from the index JSON API (part of `--fetch-licenses`): field precedence, classifier-to-SPDX table, per-release cache, and the "stop when the network is down" rule. | serde_json, http.rs |
