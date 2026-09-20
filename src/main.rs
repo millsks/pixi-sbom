@@ -9,6 +9,7 @@ mod lock;
 mod manifest;
 mod mapping;
 mod model;
+mod pkgcache;
 mod purl;
 mod pypi;
 
@@ -31,6 +32,18 @@ fn main() -> Result<()> {
     let root = manifest::root_for_lockfile(&lockfile);
 
     let spec_version = resolve_spec_version(&args);
+    let fetch_licenses = args.fetch_licenses || args.pypi_licenses;
+    if args.pypi_licenses {
+        tracing::warn!("--pypi-licenses is deprecated and now behaves as --fetch-licenses; use that instead");
+    }
+    if args.license_texts && !fetch_licenses {
+        cli::Args::command()
+            .error(
+                clap::error::ErrorKind::MissingRequiredArgument,
+                "'--license-texts' only applies together with '--fetch-licenses'",
+            )
+            .exit();
+    }
     let targets = resolve_targets(&args, &lock, &lockfile)?;
     let pypi_mapping = load_pypi_mapping(&args)?;
     tracing::debug!(lockfile = %lockfile.display(), ?targets, format = ?args.format, "resolved targets");
@@ -54,7 +67,14 @@ fn main() -> Result<()> {
             let switched = mapping::prefer_pypi_purl(&mut sbom);
             tracing::info!(switched, "made PyPI purls primary");
         }
-        if args.pypi_licenses {
+        if fetch_licenses {
+            let pkgs = pkgcache::package_cache_dir();
+            let pkgcache::Outcome {
+                found,
+                licenses_filled,
+                files,
+            } = pkgcache::enrich(&mut sbom, &pkgs, args.license_texts);
+            tracing::info!(pkgs = %pkgs.display(), found, licenses_filled, files, "read conda license details from the package cache");
             let cache_dir = mapping::cache_dir();
             let lookup = pypi::Lookup {
                 index_url: &pypi::index_url(),

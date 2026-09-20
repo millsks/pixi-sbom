@@ -35,6 +35,19 @@ pub fn normalize(raw: &str) -> License {
     }
 }
 
+/// Whether a (normalized) SPDX expression is a single license identifier with no operators,
+/// e.g. `MIT` or `GPL-2.0-or-later WITH Classpath-exception-2.0` but not `MIT OR Apache-2.0`.
+/// CycloneDX can attach a license text to a single identifier but not to a compound expression.
+pub fn is_single_id(expression: &str) -> bool {
+    let strict_with_deprecated = ParseMode {
+        allow_deprecated: true,
+        ..ParseMode::STRICT
+    };
+    spdx::Expression::parse_mode(expression, strict_with_deprecated)
+        .map(|expr| expr.iter().all(|node| matches!(node, ExprNode::Req(_))) && expr.iter().count() == 1)
+        .unwrap_or(false)
+}
+
 /// Rebuild an infix expression from the parser's postfix node list.
 fn canonical(expr: &spdx::Expression) -> String {
     let mut stack: Vec<(String, Option<Operator>)> = Vec::new();
@@ -119,6 +132,17 @@ mod tests {
             normalize("(MIT OR Apache-2.0) AND Zlib"),
             License::Expression("(MIT OR Apache-2.0) AND Zlib".into())
         );
+    }
+
+    #[test]
+    fn single_ids_are_recognized() {
+        assert!(is_single_id("MIT"));
+        assert!(is_single_id("GPL-3.0"));
+        assert!(is_single_id("GPL-2.0-or-later WITH Classpath-exception-2.0"));
+        assert!(is_single_id("LicenseRef-Proprietary"));
+        assert!(!is_single_id("MIT OR Apache-2.0"));
+        assert!(!is_single_id("MIT AND Zlib"));
+        assert!(!is_single_id("Proprietary"));
     }
 
     #[test]

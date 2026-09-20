@@ -82,6 +82,7 @@ expression: doc
       "bom-ref": "pkg:conda/libzlib@1.3.1?build=h1&channel=conda-forge&subdir=linux-64&type=conda",
       "name": "libzlib",
       "version": "1.3.1",
+      "description": "zlib data compression library",
       "supplier": {
         "name": "conda-forge",
         "url": [
@@ -101,13 +102,28 @@ expression: doc
       ],
       "licenses": [
         {
-          "expression": "Zlib"
+          "license": {
+            "id": "Zlib",
+            "text": {
+              "contentType": "text/plain",
+              "content": "zlib license text"
+            },
+            "acknowledgement": "declared"
+          }
         }
       ],
       "externalReferences": [
         {
           "type": "distribution",
           "url": "https://conda.anaconda.org/conda-forge/linux-64/libzlib-1.3.1-h1.conda"
+        },
+        {
+          "type": "website",
+          "url": "https://zlib.net"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/madler/zlib"
         }
       ],
       "properties": [
@@ -149,6 +165,10 @@ expression: doc
         {
           "type": "distribution",
           "url": "https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-h1.conda"
+        },
+        {
+          "type": "documentation",
+          "url": "https://zlib.net/manual.html"
         }
       ],
       "properties": [
@@ -163,6 +183,14 @@ expression: doc
         {
           "name": "pixi:purl",
           "value": "pkg:pypi/zlib@1.3.1"
+        },
+        {
+          "name": "pixi:license-file",
+          "value": "LICENSE-APACHE"
+        },
+        {
+          "name": "pixi:license-file",
+          "value": "LICENSE-MIT"
         }
       ]
     },
@@ -174,7 +202,12 @@ expression: doc
       "licenses": [
         {
           "license": {
-            "name": "Proprietary"
+            "name": "Proprietary",
+            "text": {
+              "contentType": "text/plain",
+              "content": "all rights reserved"
+            },
+            "acknowledgement": "declared"
           }
         }
       ],

@@ -37,3 +37,20 @@ Goal: `pixi sbom --output - | grype` on a conda-only Python environment reports 
 **Why:** the SBOM is only useful to the community if scanners can act on it and CI can diff it.
 **How to apply:** create an issue before starting any new work item and reference it from the PR; network features stay opt-in; adding an HTTP client is a new runtime
 dependency that needs user confirmation. See [[architecture-decisions]].
+
+## 0.4.0 / 0.5.0 (planned 2026-09-20)
+
+User direction: license details must be visible for every package regardless of kind; `--pypi-licenses` alone is
+useless on conda-majority lockfiles. Replace it with one generic `--fetch-licenses`.
+
+- 0.4.0 "License details for every package" (milestone 3): #23 umbrella `--fetch-licenses` (deprecate
+  `--pypi-licenses`); #24 conda details from the local rattler package cache (`<cache>/pkgs/<n>-<v>-<b>/info/`:
+  about.json + licenses/); #25 network fallback range-reading the `info-*.tar.zst` member of `.conda` zips;
+  #26 wheel `dist-info/licenses` texts via the same zip range reader; #27 output mapping (CycloneDX
+  `licenses[].license.text`, SPDX extracted licensing infos / licenseComments, `--no-license-texts`);
+  #28 `--report licenses` table/markdown/csv/json.
+- 0.5.0 "Compliance and ecosystem" (milestone 4): #29 `--deny-license`/`--allow-license` exit 3; #30 PEP 770
+  embedded wheel SBOMs; #31 SPDX 3.0.1 JSON-LD; #32 GitHub Action.
+
+**How to apply:** #25/#26 add dependencies (zip reader, zstd, tar) that need user confirmation; keep everything
+offline-first and never fail the run on a fetch error.
