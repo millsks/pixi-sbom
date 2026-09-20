@@ -54,6 +54,8 @@ With no options this means:
 | `--primary-purl <conda\|pypi>` | `conda` | With `pypi`, a conda package that has a PyPI purl uses it as its primary `purl` so vulnerability scanners can match it. |
 | `--fetch-licenses` | off | Fetch the license of every package, conda and PyPI alike, where the lockfile has none, plus the names of the license files it ships and its summary and project URLs. Conda details come from the local package cache pixi filled at install time; PyPI expressions from the index JSON API. Failures are logged and the run continues. |
 | `--license-texts` | off | With `--fetch-licenses`, also embed the full text of every license file. |
+| `--report <packages\|licenses>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`. |
+| `--report-format <table\|markdown\|csv\|json>` | `table` | How to render the report. |
 | `--pypi-licenses` | | Deprecated alias for `--fetch-licenses` (hidden from `--help`; removed in a future release). |
 | `-v`, `-vv` | info | Raise the log level to debug / trace. Logs go to stderr; the SBOM never goes to stdout. |
 | `-q`, `-qq`, `-qqq` | info | Lower it to warnings only / errors only / silent. Error diagnostics are printed regardless. |
@@ -61,10 +63,33 @@ With no options this means:
 
 `RUST_LOG` is also honored and overrides `-v`/`-q` (for example `RUST_LOG=pixi_sbom::lock=debug`).
 
+### Looking instead of writing
+
+`--report` prints a report to the terminal and writes nothing:
+
+```sh
+# The inventory: name, version, kind, source, license, purl
+pixi sbom --report packages
+
+# The license view, with a per-license summary, unlicensed and non-SPDX packages called out
+pixi sbom --fetch-licenses --report licenses
+
+# For a PR comment, a spreadsheet, or a script
+pixi sbom --report licenses --report-format markdown
+pixi sbom --report licenses --report-format csv > licenses.csv
+pixi sbom --report packages --report-format json | jq '.packages[] | select(.license == null)'
+```
+
+Reports respect every selection and enrichment flag, so they show exactly what a document would contain; with
+`--all-environments` / `--all-platforms` there is one section (or JSON array element) per document. `--report`
+cannot be combined with `--output`. The `table` format fits the terminal width (`COLUMNS`, default 120) by
+truncating the last column; the other formats are never truncated.
+
 ### Environment variables
 
 | Variable | Effect |
 |---|---|
+| `COLUMNS` | Terminal width for `--report-format table` (default 120). |
 | `PIXI_CACHE_DIR` / `RATTLER_CACHE_DIR` | Where pixi keeps its package cache; `--fetch-licenses` reads extracted conda packages from its `pkgs/` directory. Default: the platform cache directory's `rattler/cache` (`~/.cache/rattler/cache`, `~/Library/Caches/rattler/cache`, `%LOCALAPPDATA%\rattler\cache`). |
 | `PIXI_SBOM_PYPI_URL` | Base of the PyPI JSON API queried by `--fetch-licenses` (default `https://pypi.org/pypi`); point it at a mirror such as devpi or Artifactory. |
 | `PIXI_SBOM_CACHE_DIR` | Where downloaded data (the PyPI mapping, PyPI metadata) is cached. Default: `pixi-sbom` under `PIXI_CACHE_DIR` if set, else the platform cache directory (`~/.cache/pixi-sbom`, `~/Library/Caches/pixi-sbom`, `%LOCALAPPDATA%\pixi-sbom\cache`). |

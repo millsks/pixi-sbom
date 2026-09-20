@@ -136,6 +136,15 @@ pub struct Args {
     #[arg(long, hide = true)]
     pub pypi_licenses: bool,
 
+    /// Print a report to the terminal instead of writing an SBOM document: `packages` is the
+    /// inventory, `licenses` the license view with a summary. Nothing is written to disk.
+    #[arg(long, value_enum, value_name = "REPORT", conflicts_with_all = ["output", "spec_version"])]
+    pub report: Option<crate::report::ReportKind>,
+
+    /// How to render the report.
+    #[arg(long, value_enum, default_value_t = crate::report::ReportFormat::Table, requires = "report")]
+    pub report_format: crate::report::ReportFormat,
+
     #[command(flatten)]
     pub verbosity: Verbosity<InfoLevel>,
 }

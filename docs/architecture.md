@@ -12,6 +12,7 @@ once no matter how many output formats exist.
    mapping.rs ──── enriches model::Sbom with PyPI purls (optional, via http.rs)
    pypi.rs ─────── fills PyPI licenses from the index (optional, via http.rs)
    pkgcache.rs ─── conda license files and metadata from the package cache (optional, offline)
+   report.rs ───── --report: renders the model as a terminal table instead of a document
    license.rs ◀── used by both writers
    discover.rs ── finds the lockfile, decides output paths
    cli.rs ──────── clap definitions
@@ -36,6 +37,7 @@ once no matter how many output formats exist.
 | `format/mod.rs` | `WriteContext` (timestamp, UUID, tool version), `write()` / `to_value()` entry points, the shared graph-root helper, and the hand-built sample model used by writer tests. | serde_json, chrono, uuid |
 | `format/cyclonedx.rs` | Serde structs mirroring the parts of CycloneDX 1.6 / 1.7 that are used, the version table (`$schema`, `specVersion`, 1.7 citations), and the `Sbom` → `Bom` mapping. | serde |
 | `format/spdx.rs` | Same for SPDX 2.3, including `SPDXRef` id assignment and `LicenseRef` extraction. | serde |
+| `report.rs` | `--report`: the `packages` and `licenses` views built from the model, rendered as an aligned table, Markdown, CSV or JSON. Owns no I/O beyond the writer it is handed. | serde_json |
 | `main.rs` | Argument parsing, tracing setup, miette report handler, the environment loop, and file output. | miette, tracing |
 
 Errors are `thiserror` enums per module (`DiscoverError`, `LockError`, `PurlError`, `WriteError`) that also derive
