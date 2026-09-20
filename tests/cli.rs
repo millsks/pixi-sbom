@@ -814,6 +814,124 @@ fn pypi_licenses_is_a_deprecated_alias_and_license_texts_needs_fetch_licenses() 
         .stderr(predicate::str::contains("--license-texts"));
 }
 #[test]
+fn report_packages_prints_a_table_and_writes_nothing() {
+    let dir = workspace("with-pypi");
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("COLUMNS", "100")
+        .args(["-e", "web", "-p", "linux-64", "--report", "packages"])
+        .assert()
+        .success();
+    let text = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    assert!(text.starts_with("Name"), "{text}");
+    assert!(text.contains("requests"));
+    assert!(text.contains("  pypi  "));
+    assert!(text.contains("  conda  "));
+    assert!(
+        text.lines().all(|l| l.chars().count() <= 100),
+        "fits the terminal width"
+    );
+    assert!(!dir.path().join("sbom.cdx.json").exists());
+    assert_eq!(
+        std::fs::read_dir(dir.path()).unwrap().count(),
+        2,
+        "only pixi.toml and pixi.lock remain"
+    );
+}
+
+#[test]
+fn report_licenses_in_every_format_with_fetch_licenses() {
+    let dir = workspace("conda-only");
+    let cache = tests_dir().join("fixtures").join("package-cache");
+
+    let run = |format: &str| {
+        let assert = pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", &cache)
+            .env("PIXI_SBOM_PYPI_URL", "http://127.0.0.1:9/pypi")
+            .args([
+                "-p",
+                "linux-64",
+                "--fetch-licenses",
+                "--report",
+                "licenses",
+                "--report-format",
+                format,
+            ])
+            .assert()
+            .success();
+        String::from_utf8(assert.get_output().stdout.clone()).unwrap()
+    };
+
+    let table = run("table");
+    assert!(
+        table.contains("zlib     1.3.2    conda  Zlib     Other   lockfile  1"),
+        "{table}"
+    );
+    assert!(table.contains("Summary: 2 packages, 1 distinct licenses"));
+    assert!(table.contains("No license: none"));
+
+    let markdown = run("markdown");
+    assert!(markdown.starts_with("## licenses (conda-only, environment default, platform linux-64)"));
+    assert!(markdown.contains("| zlib | 1.3.2 | conda | Zlib | Other | lockfile | 1 |"));
+
+    let csv = run("csv");
+    assert_eq!(
+        csv.lines().next().unwrap(),
+        "environment,platform,name,version,kind,license,spdx,license_family,license_source,license_files,purl"
+    );
+    assert!(
+        csv.contains("default,linux-64,zlib,1.3.2,conda,Zlib,true,Other,lockfile,license.txt,pkg:conda/zlib@1.3.2")
+    );
+
+    let json: Value = serde_json::from_str(&run("json")).unwrap();
+    assert_eq!(json["report"], "licenses");
+    assert_eq!(json["summary"]["by_license"][0][0], "Zlib");
+    assert_eq!(json["summary"]["by_license"][0][1], 2);
+    assert_eq!(json["packages"][1]["license_files"][0], "license.txt");
+}
+
+#[test]
+fn report_batch_mode_prints_one_section_per_document() {
+    let dir = workspace("conda-only");
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--all-platforms", "--report", "packages"])
+        .assert()
+        .success();
+    let text = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    assert!(text.contains("packages (conda-only, environment default, platform linux-64)"));
+    assert!(text.contains("packages (conda-only, environment default, platform osx-arm64)"));
+    assert!(!dir.path().join("sbom-linux-64.cdx.json").exists());
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--all-platforms", "--report", "packages", "--report-format", "json"])
+        .assert()
+        .success();
+    let json: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_eq!(json.as_array().unwrap().len(), 2);
+}
+
+#[test]
+fn report_rejects_output_and_report_format_needs_report() {
+    let dir = workspace("conda-only");
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--report", "packages", "--output", "x.json"])
+        .assert()
+        .code(2);
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--report-format", "csv"])
+        .assert()
+        .code(2);
+}
+
+#[test]
 fn spdx_format_writes_valid_spdx_document() {
     let dir = workspace("conda-only");
 

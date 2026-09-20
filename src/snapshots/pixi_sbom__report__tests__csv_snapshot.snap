@@ -1,0 +1,9 @@
+---
+source: src/report.rs
+expression: "render_string(ReportKind::Licenses, ReportFormat::Csv, &[sample_sbom()])"
+---
+environment,platform,name,version,kind,license,spdx,license_family,license_source,license_files,purl
+default,linux-64,libzlib,1.3.1,conda,Zlib,true,,lockfile,LICENSE.txt,pkg:conda/libzlib@1.3.1?build=h1&channel=conda-forge&subdir=linux-64&type=conda
+default,linux-64,zlib,1.3.1,conda,MIT OR Apache-2.0,true,,lockfile,LICENSE-APACHE;LICENSE-MIT,pkg:conda/zlib@1.3.1?build=h1&channel=conda-forge&subdir=linux-64&type=conda
+default,linux-64,mylib,-,conda-source,Proprietary,false,,lockfile,EULA,pkg:conda/mylib@0.1.0
+default,linux-64,six,1.17.0,pypi,,false,,,,pkg:pypi/six@1.17.0

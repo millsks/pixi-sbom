@@ -12,6 +12,7 @@ mod model;
 mod pkgcache;
 mod purl;
 mod pypi;
+mod report;
 
 use std::io::{IsTerminal, Write};
 use std::path::Path;
@@ -47,6 +48,7 @@ fn main() -> Result<()> {
     let targets = resolve_targets(&args, &lock, &lockfile)?;
     let pypi_mapping = load_pypi_mapping(&args)?;
     tracing::debug!(lockfile = %lockfile.display(), ?targets, format = ?args.format, "resolved targets");
+    let mut reports = Vec::new();
 
     for Target {
         environment,
@@ -83,6 +85,10 @@ fn main() -> Result<()> {
             let pypi::Outcome { found, missing, failed } = lookup.run(&mut sbom);
             tracing::info!(found, missing, failed, "looked up PyPI licenses");
         }
+        if let Some(kind) = args.report {
+            reports.push(report::Report::new(kind, &sbom));
+            continue;
+        }
         let ctx = format::WriteContext::for_document(&contents, &sbom, args.format, spec_version);
         write_output(output, args.format, &sbom, &ctx)?;
         tracing::info!(
@@ -93,6 +99,13 @@ fn main() -> Result<()> {
             platform = %sbom.platform,
             "wrote SBOM"
         );
+    }
+    if !reports.is_empty() {
+        let mut stdout = std::io::stdout().lock();
+        report::render(&reports, args.report_format, &mut stdout)
+            .and_then(|()| stdout.flush())
+            .into_diagnostic()
+            .wrap_err("cannot write the report to stdout")?;
     }
     Ok(())
 }

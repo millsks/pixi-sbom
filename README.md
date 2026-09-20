@@ -38,6 +38,10 @@ pixi sbom --output - | grype
 # Licenses for every package, conda and PyPI alike (add --license-texts for the full texts)
 pixi sbom --fetch-licenses
 
+# Just look: an inventory or license table in the terminal, nothing written
+pixi sbom --report packages
+pixi sbom --fetch-licenses --report licenses --report-format markdown
+
 # Make conda-installed Python packages scannable: add PyPI purls from the
 # conda-forge mapping and use them as the primary identity
 pixi sbom --pypi-mapping prefix --primary-purl pypi --output - | grype
@@ -73,6 +77,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--primary-purl <conda\|pypi>` | `conda` | `pypi` makes the PyPI purl primary so grype / trivy / osv-scanner can match |
 | `--fetch-licenses` | off | Licenses for every package, conda and PyPI alike (conda from the local package cache, PyPI from the index), plus license file names, summary and URLs |
 | `--license-texts` | off | With `--fetch-licenses`, embed the full license texts |
+| `--report <packages\|licenses>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`) |
 | `-v` / `-q` | info | More / less logging on stderr |
 
 Output is reproducible: the document identifier is derived from the lockfile, and setting `SOURCE_DATE_EPOCH` pins

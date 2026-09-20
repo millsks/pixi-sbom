@@ -47,7 +47,7 @@ useless on conda-majority lockfiles. Replace it with one generic `--fetch-licens
   `--pypi-licenses`); #24 conda details from the local rattler package cache (`<cache>/pkgs/<n>-<v>-<b>/info/`:
   about.json + licenses/); #25 network fallback range-reading the `info-*.tar.zst` member of `.conda` zips;
   #26 wheel `dist-info/licenses` texts via the same zip range reader; #27 output mapping (CycloneDX
-  `licenses[].license.text`, SPDX extracted licensing infos / licenseComments, `--no-license-texts`);
+  `licenses[].license.text`, SPDX extracted licensing infos / licenseComments, `--license-texts` opt-in);
   #28 `--report licenses` table/markdown/csv/json.
 - 0.5.0 "Compliance and ecosystem" (milestone 4): #29 `--deny-license`/`--allow-license` exit 3; #30 PEP 770
   embedded wheel SBOMs; #31 SPDX 3.0.1 JSON-LD; #32 GitHub Action.
