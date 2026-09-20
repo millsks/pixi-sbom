@@ -676,6 +676,144 @@ fn spec_version_conflicts_with_spdx() {
 }
 
 #[test]
+fn fetch_licenses_reads_conda_details_from_the_package_cache() {
+    let dir = workspace("conda-only");
+    let cache = tests_dir().join("fixtures").join("package-cache");
+
+    // Default: license type and file names, no texts.
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", &cache)
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("sbom-cache"))
+        .env("PIXI_SBOM_PYPI_URL", "http://127.0.0.1:9/pypi")
+        .args(["-p", "linux-64", "--fetch-licenses", "--output", "-"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("found=2 licenses_filled=0 files=1"));
+    let stdout = assert.get_output().stdout.clone();
+    let doc: Value = serde_json::from_slice(&stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let components = doc["components"].as_array().unwrap();
+    let by_name = |name: &str| components.iter().find(|c| c["name"] == name).unwrap();
+    let zlib = by_name("zlib");
+    assert_eq!(zlib["licenses"][0]["expression"], "Zlib");
+    assert!(
+        zlib["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["name"] == "pixi:license-file" && p["value"] == "license.txt")
+    );
+    assert!(
+        !String::from_utf8_lossy(&stdout).contains("Jean-loup Gailly"),
+        "texts are not embedded by default"
+    );
+    assert_eq!(
+        zlib["description"],
+        "Massively spiffy yet delicately unobtrusive compression library"
+    );
+    assert!(
+        zlib["externalReferences"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["type"] == "documentation" && r["url"] == "https://zlib.net/manual.html")
+    );
+    assert!(
+        zlib["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["name"] == "pixi:license-files-source" && p["value"] == "package-cache")
+    );
+    let libzlib = by_name("libzlib");
+    assert_eq!(
+        libzlib["licenses"][0]["expression"], "Zlib",
+        "no file: plain expression"
+    );
+    assert_eq!(libzlib["description"], "zlib shared library");
+
+    // --license-texts embeds the text as a license object.
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", &cache)
+        .env("PIXI_SBOM_PYPI_URL", "http://127.0.0.1:9/pypi")
+        .args(["-p", "linux-64", "--fetch-licenses", "--license-texts", "--output", "-"])
+        .assert()
+        .success();
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let zlib = doc["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "zlib")
+        .unwrap();
+    assert_eq!(zlib["licenses"][0]["license"]["id"], "Zlib");
+    assert!(
+        zlib["licenses"][0]["license"]["text"]["content"]
+            .as_str()
+            .unwrap()
+            .contains("Jean-loup Gailly")
+    );
+
+    // SPDX carries the file name and summary.
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", &cache)
+        .env("PIXI_SBOM_PYPI_URL", "http://127.0.0.1:9/pypi")
+        .args([
+            "-p",
+            "linux-64",
+            "--format",
+            "spdx",
+            "--fetch-licenses",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .success();
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&spdx_validator(), &doc);
+    let zlib = doc["packages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "zlib")
+        .unwrap();
+    assert_eq!(zlib["licenseComments"], "License files: license.txt");
+    assert_eq!(zlib["homepage"], "https://zlib.net/");
+    assert_eq!(
+        zlib["summary"],
+        "Massively spiffy yet delicately unobtrusive compression library"
+    );
+}
+#[test]
+fn pypi_licenses_is_a_deprecated_alias_and_license_texts_needs_fetch_licenses() {
+    let dir = workspace("conda-only");
+    let cache = tests_dir().join("fixtures").join("package-cache");
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", &cache)
+        .env("PIXI_SBOM_PYPI_URL", "http://127.0.0.1:9/pypi")
+        .args(["-p", "linux-64", "--pypi-licenses", "--output", "-"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("--pypi-licenses is deprecated"))
+        .stderr(predicate::str::contains("found=2"));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+
+    // --license-texts alone is a usage error.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--license-texts"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("--license-texts"));
+}
+#[test]
 fn spdx_format_writes_valid_spdx_document() {
     let dir = workspace("conda-only");
 

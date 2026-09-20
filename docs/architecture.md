@@ -11,6 +11,7 @@ once no matter how many output formats exist.
    manifest.rs ────────────────┘   (workspace metadata)
    mapping.rs ──── enriches model::Sbom with PyPI purls (optional, via http.rs)
    pypi.rs ─────── fills PyPI licenses from the index (optional, via http.rs)
+   pkgcache.rs ─── conda license files and metadata from the package cache (optional, offline)
    license.rs ◀── used by both writers
    discover.rs ── finds the lockfile, decides output paths
    cli.rs ──────── clap definitions
@@ -27,7 +28,8 @@ once no matter how many output formats exist.
 | `lock.rs` | Parsing the lockfile with `rattler_lock`, selecting an environment and platform, converting each locked package into `model::Package`, and resolving the dependency graph. All lockfile-shape knowledge lives here. | rattler_lock, rattler_conda_types, purl.rs |
 | `purl.rs` | Building `pkg:conda` and `pkg:pypi` purls, PEP 503 name normalization, channel-name and archive-type helpers. | packageurl |
 | `mapping.rs` | PyPI identity enrichment: loading the conda-forge conda-to-PyPI mapping (offline file, or downloaded and cached), adding `pkg:pypi` purls to conda-forge packages the lockfile says nothing about, and optionally swapping the primary purl. Also owns the cache directory rule. | serde_json, purl.rs, http.rs |
-| `pypi.rs` | License lookup for PyPI packages from the index JSON API (`--pypi-licenses`): field precedence, classifier-to-SPDX table, per-release cache, and the "stop when the network is down" rule. | serde_json, http.rs |
+| `pkgcache.rs` | Conda license details from the local rattler package cache: `about.json` and `info/licenses/` of extracted packages, and the cache directory rule (`PIXI_CACHE_DIR`, `RATTLER_CACHE_DIR`, platform default). Offline. | serde_json |
+| `pypi.rs` | License lookup for PyPI packages from the index JSON API (part of `--fetch-licenses`): field precedence, classifier-to-SPDX table, per-release cache, and the "stop when the network is down" rule. | serde_json, http.rs |
 | `http.rs` | The one `ureq` agent (system certificate store, proxies from the environment) and the connectivity-error test. | ureq |
 | `model.rs` | `Sbom`, `Root`, `Package`, `PackageKind`: plain data with no serde and no knowledge of any SBOM spec. | — |
 | `license.rs` | Turning a declared license string into either an SPDX expression or free text. | spdx |

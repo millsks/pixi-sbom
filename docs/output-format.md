@@ -64,6 +64,8 @@ conda source, PyPI), then name, then version.
 | Download location | `externalReferences[]` of type `distribution`, or `vcs` for `git+` locations | `downloadLocation` (URL or `git+<url>@<rev>`); `NOASSERTION` plus `sourceInfo` for local paths |
 | SHA-256, MD5 | `hashes[]` (`SHA-256`, `MD5`) | `checksums[]` (`SHA256`, `MD5`) |
 | License | `licenses[]` (see below) | `licenseDeclared` (see below); `licenseConcluded` and `copyrightText` are `NOASSERTION` |
+| License file names, summary, URLs (`--fetch-licenses`) | `pixi:license-file` properties, `description`, `externalReferences[]` | `licenseComments`, `summary`, `homepage` |
+| License texts (`--license-texts`) | `licenses[].license.text` | `hasExtractedLicensingInfos` for `LicenseRef-` licenses |
 | Everything else | `properties[]` with `pixi:` names | `comment`: one `key=value` per line |
 | `filesAnalyzed` | | always `false` (no archive is opened) |
 
@@ -129,7 +131,7 @@ the conda purl to `pixi:purl`, because scanners only read the primary identity. 
 ### Licenses
 
 Package license strings are whatever the channel or index declared; conda-forge is mostly SPDX-clean but not
-entirely, and PyPI wheels in a pixi lockfile carry no license at all unless `--pypi-licenses` looks them up (below).
+entirely, and PyPI wheels in a pixi lockfile carry no license at all unless `--fetch-licenses` looks them up (below).
 The rules:
 
 1. A valid SPDX expression is kept verbatim. Deprecated identifiers such as `GPL-3.0` or `LGPL-2.1` count as valid
@@ -143,9 +145,32 @@ The rules:
      `hasExtractedLicensingInfos` with the original text, so nothing is lost.
 4. No license → no `licenses` entry (CycloneDX) / `NOASSERTION` (SPDX).
 
+#### License details with `--fetch-licenses`
+
+`--fetch-licenses` works for every package kind. For conda packages it reads the extracted package in the local
+package cache (`<pixi cache>/pkgs/<name>-<version>-<build>/info/`): `about.json` supplies the license expression when
+the lockfile has none (recorded as `pixi:license-source=package-cache`), the license family, the summary and the
+project URLs, and `info/licenses/` supplies the names of the license files (`pixi:license-files-source=package-cache`).
+Packages that are not in the cache are left as they are (a network fallback is planned). For PyPI packages it asks
+the index as described next.
+
+By default only the license *type* is recorded: the expression as always, plus the file names as `pixi:license-file`
+properties (CycloneDX) / `licenseComments` (SPDX). `--license-texts` additionally embeds the file contents:
+
+| Declared license | CycloneDX `licenses[]` | SPDX 2.3 |
+|---|---|---|
+| single SPDX identifier, e.g. `Zlib` | `{ license: { id, text, acknowledgement: declared } }` for the first file, then `{ license: { name: <file>, text } }` per additional file | `licenseDeclared: Zlib`; `licenseComments: License files: ...` (the spec has no per-package text for known identifiers) |
+| compound expression, e.g. `MIT OR Apache-2.0` | `{ expression }` only, since CycloneDX cannot put texts next to an expression; file names as `pixi:license-file` properties | as above |
+| free text, e.g. `Proprietary` | `{ license: { name, text, acknowledgement: declared } }` plus named entries for further files | `LicenseRef-pixi-<name>-<hash>` whose `hasExtractedLicensingInfos` entry carries the file text |
+| none, but files exist | one `{ license: { name: <file>, text } }` per file | `NOASSERTION`; `licenseComments` lists the files |
+
+Texts can add a few megabytes to a large environment, which is why they are opt-in. Summary and URLs from
+`about.json` become the component `description` and `externalReferences` of type `website` / `vcs` /
+`documentation` (SPDX: `summary`, `homepage`).
+
 #### PyPI license lookup
 
-`--pypi-licenses` asks the index JSON API (`https://pypi.org/pypi/<name>/<version>/json`, or `PIXI_SBOM_PYPI_URL`)
+With `--fetch-licenses`, PyPI packages without a license are looked up on the index JSON API (`https://pypi.org/pypi/<name>/<version>/json`, or `PIXI_SBOM_PYPI_URL`)
 for every PyPI package that has no license and takes, in order: the PEP 639 `license_expression`; the classic
 `license` field when it is a short single line (it sometimes holds a whole license text, which is ignored); and the
 `License ::` trove classifiers, mapped to SPDX identifiers for the common unambiguous ones (`MIT License` → `MIT`,

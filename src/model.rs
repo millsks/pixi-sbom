@@ -77,6 +77,15 @@ impl Author {
     }
 }
 
+/// A license file shipped with a package, optionally with its text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LicenseFile {
+    /// File name, relative to the package's license directory (e.g. `LICENSE`, `third_party/zlib.txt`).
+    pub name: String,
+    /// The file's contents, read lossily as UTF-8; present only when texts were requested.
+    pub text: Option<String>,
+}
+
 /// The organization a package was obtained from: a conda channel or a PyPI index.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Supplier {
@@ -127,6 +136,16 @@ pub struct Package {
     pub md5: Option<String>,
     /// License string as declared by the package. Not guaranteed to be an SPDX expression.
     pub license: Option<String>,
+    /// License files shipped with the package, when fetched (names always, texts on request). Sorted by name.
+    pub license_files: Vec<LicenseFile>,
+    /// One-line summary of the package, when known.
+    pub description: Option<String>,
+    /// Project homepage, when known.
+    pub homepage: Option<String>,
+    /// Source repository URL, when known.
+    pub repository: Option<String>,
+    /// Documentation URL, when known.
+    pub documentation: Option<String>,
     /// Extra facts that have no first-class field in the SBOM specs
     /// (channel, subdir, build string, ...). Keys are prefixed `pixi:`.
     pub properties: BTreeMap<String, String>,

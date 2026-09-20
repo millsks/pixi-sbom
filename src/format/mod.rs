@@ -140,7 +140,7 @@ pub(crate) fn top_level_ids(sbom: &Sbom) -> Vec<&str> {
 #[cfg(test)]
 pub(crate) mod testing {
     use super::*;
-    use crate::model::{Author, Package, PackageKind, Root, Supplier};
+    use crate::model::{Author, LicenseFile, Package, PackageKind, Root, Supplier};
     use std::collections::BTreeMap;
 
     /// A fixed context so snapshots do not change between runs.
@@ -207,6 +207,14 @@ pub(crate) mod testing {
                     sha256: Some("a".repeat(64)),
                     md5: Some("b".repeat(32)),
                     license: Some("Zlib".into()),
+                    license_files: vec![LicenseFile {
+                        name: "LICENSE.txt".into(),
+                        text: Some("zlib license text".into()),
+                    }],
+                    description: Some("zlib data compression library".into()),
+                    homepage: Some("https://zlib.net".into()),
+                    repository: Some("https://github.com/madler/zlib".into()),
+                    documentation: None,
                     properties: BTreeMap::from([
                         ("pixi:channel".to_string(), "conda-forge".to_string()),
                         ("pixi:subdir".to_string(), "linux-64".to_string()),
@@ -229,6 +237,20 @@ pub(crate) mod testing {
                     sha256: Some("c".repeat(64)),
                     md5: None,
                     license: Some("MIT/Apache-2.0".into()),
+                    license_files: vec![
+                        LicenseFile {
+                            name: "LICENSE-APACHE".into(),
+                            text: None,
+                        },
+                        LicenseFile {
+                            name: "LICENSE-MIT".into(),
+                            text: None,
+                        },
+                    ],
+                    description: None,
+                    homepage: None,
+                    repository: None,
+                    documentation: Some("https://zlib.net/manual.html".into()),
                     properties: BTreeMap::from([("pixi:channel".to_string(), "conda-forge".to_string())]),
                     dependencies: vec![libzlib_id.into()],
                 },
@@ -245,6 +267,14 @@ pub(crate) mod testing {
                     sha256: None,
                     md5: None,
                     license: Some("Proprietary".into()),
+                    license_files: vec![LicenseFile {
+                        name: "EULA".into(),
+                        text: Some("all rights reserved".into()),
+                    }],
+                    description: None,
+                    homepage: None,
+                    repository: None,
+                    documentation: None,
                     properties: BTreeMap::new(),
                     dependencies: vec![zlib_id.into()],
                 },
@@ -264,6 +294,11 @@ pub(crate) mod testing {
                     sha256: Some("d".repeat(64)),
                     md5: None,
                     license: None,
+                    license_files: vec![],
+                    description: None,
+                    homepage: None,
+                    repository: None,
+                    documentation: None,
                     properties: BTreeMap::from([("pixi:requires-python".to_string(), ">=2.7".to_string())]),
                     dependencies: vec![],
                 },

@@ -296,6 +296,11 @@ fn convert_conda(conda: &CondaPackageData) -> Result<Package, LockError> {
         sha256,
         md5: record.and_then(|r| r.md5.as_ref()).map(hex),
         license,
+        license_files: Vec::new(),
+        description: None,
+        homepage: None,
+        repository: None,
+        documentation: None,
         properties,
         dependencies: Vec::new(),
     })
@@ -402,6 +407,11 @@ fn convert_pypi(pypi: &PypiPackageData) -> Result<Package, LockError> {
         sha256: hashes.and_then(PackageHashes::sha256).map(hex),
         md5: hashes.and_then(PackageHashes::md5).map(hex),
         license: None,
+        license_files: Vec::new(),
+        description: None,
+        homepage: None,
+        repository: None,
+        documentation: None,
         properties,
         dependencies: Vec::new(),
     })

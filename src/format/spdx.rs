@@ -55,7 +55,11 @@ struct SpdxPackage {
     files_analyzed: bool,
     license_concluded: String,
     license_declared: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    license_comments: Option<String>,
     copyright_text: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    summary: Option<String>,
     primary_package_purpose: &'static str,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     checksums: Vec<Checksum>,
@@ -221,9 +225,11 @@ fn root_package(sbom: &Sbom, extracted: &mut BTreeMap<String, ExtractedLicense>)
         license_declared: root
             .license
             .as_deref()
-            .map(|raw| license_declared(raw, extracted))
+            .map(|raw| license_declared(raw, None, extracted))
             .unwrap_or_else(|| NOASSERTION.into()),
+        license_comments: None,
         copyright_text: NOASSERTION,
+        summary: None,
         primary_package_purpose: "APPLICATION",
         checksums: vec![],
         external_refs: vec![],
@@ -288,15 +294,33 @@ fn spdx_package(
         version_info: package.version.clone(),
         supplier: package.supplier.as_ref().map(organization),
         download_location,
-        homepage: None,
+        homepage: package.homepage.clone(),
         files_analyzed: false,
         license_concluded: NOASSERTION.into(),
         license_declared: package
             .license
             .as_deref()
-            .map(|raw| license_declared(raw, extracted))
+            .map(|raw| {
+                license_declared(
+                    raw,
+                    package.license_files.iter().find_map(|f| f.text.as_deref()),
+                    extracted,
+                )
+            })
             .unwrap_or_else(|| NOASSERTION.into()),
+        license_comments: (!package.license_files.is_empty()).then(|| {
+            format!(
+                "License files: {}",
+                package
+                    .license_files
+                    .iter()
+                    .map(|f| f.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        }),
         copyright_text: NOASSERTION,
+        summary: package.description.clone(),
         primary_package_purpose: "LIBRARY",
         checksums,
         external_refs,
@@ -306,16 +330,30 @@ fn spdx_package(
 }
 
 /// SPDX expressions pass through; anything else becomes a `LicenseRef-` backed by an
-/// extracted licensing info entry so the original text is preserved.
-fn license_declared(raw: &str, extracted: &mut BTreeMap<String, ExtractedLicense>) -> String {
+/// extracted licensing info entry so the original text is preserved. When a license file is
+/// known, its text is the extracted text (the declared name is just a label), and the ref is
+/// keyed by the text so packages sharing a name but not a text stay distinct.
+fn license_declared(raw: &str, file_text: Option<&str>, extracted: &mut BTreeMap<String, ExtractedLicense>) -> String {
     match license::normalize(raw) {
         License::Expression(expression) => expression,
         License::Text(text) if text.is_empty() => NOASSERTION.into(),
         License::Text(text) => {
-            let license_id = format!("LicenseRef-pixi-{}", id_fragment(&text));
+            let (license_id, extracted_text) = match file_text {
+                Some(file_text) => (
+                    format!(
+                        "LicenseRef-pixi-{}-{}",
+                        id_fragment(&text),
+                        &uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_OID, file_text.as_bytes())
+                            .simple()
+                            .to_string()[..8]
+                    ),
+                    file_text.to_string(),
+                ),
+                None => (format!("LicenseRef-pixi-{}", id_fragment(&text)), text.clone()),
+            };
             extracted.entry(license_id.clone()).or_insert_with(|| ExtractedLicense {
                 license_id: license_id.clone(),
-                extracted_text: text.clone(),
+                extracted_text,
                 name: text,
             });
             license_id
@@ -478,11 +516,46 @@ mod tests {
             .iter()
             .find(|p| p["name"] == "mylib")
             .unwrap();
-        assert_eq!(mylib["licenseDeclared"], "LicenseRef-pixi-Proprietary");
+        let id = mylib["licenseDeclared"].as_str().unwrap();
+        assert!(id.starts_with("LicenseRef-pixi-Proprietary-"), "{id}");
         let extracted = doc["hasExtractedLicensingInfos"].as_array().unwrap();
         assert_eq!(extracted.len(), 1);
-        assert_eq!(extracted[0]["licenseId"], "LicenseRef-pixi-Proprietary");
-        assert_eq!(extracted[0]["extractedText"], "Proprietary");
+        assert_eq!(extracted[0]["licenseId"], id);
+        assert_eq!(
+            extracted[0]["extractedText"], "all rights reserved",
+            "file text, not the label"
+        );
+        assert_eq!(extracted[0]["name"], "Proprietary");
+        assert_eq!(mylib["licenseComments"], "License files: EULA");
+
+        // Without a file the label itself is the extracted text and the ref is name-only.
+        let mut sbom = sample_sbom();
+        sbom.packages[2].license_files.clear();
+        let doc = serde_json::to_value(document(&sbom, &fixed_context())).unwrap();
+        let mylib = &doc["packages"][3];
+        assert_eq!(mylib["licenseDeclared"], "LicenseRef-pixi-Proprietary");
+        assert_eq!(doc["hasExtractedLicensingInfos"][0]["extractedText"], "Proprietary");
+        assert!(mylib.get("licenseComments").is_none());
+    }
+
+    #[test]
+    fn package_metadata_becomes_summary_homepage_and_license_comments() {
+        let doc = json();
+        let packages = doc["packages"].as_array().unwrap();
+        let by_name = |name: &str| packages.iter().find(|p| p["name"] == name).unwrap();
+        assert_eq!(by_name("libzlib")["summary"], "zlib data compression library");
+        assert_eq!(by_name("libzlib")["homepage"], "https://zlib.net");
+        assert_eq!(by_name("libzlib")["licenseComments"], "License files: LICENSE.txt");
+        assert_eq!(
+            by_name("libzlib")["licenseDeclared"],
+            "Zlib",
+            "known ids carry no text in SPDX 2.3"
+        );
+        assert_eq!(
+            by_name("zlib")["licenseComments"],
+            "License files: LICENSE-APACHE, LICENSE-MIT"
+        );
+        assert!(by_name("six").get("summary").is_none());
     }
 
     #[test]

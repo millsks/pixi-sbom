@@ -37,10 +37,13 @@ expression: json()
       "versionInfo": "1.3.1",
       "supplier": "Organization: conda-forge (https://conda.anaconda.org/conda-forge/)",
       "downloadLocation": "https://conda.anaconda.org/conda-forge/linux-64/libzlib-1.3.1-h1.conda",
+      "homepage": "https://zlib.net",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "Zlib",
+      "licenseComments": "License files: LICENSE.txt",
       "copyrightText": "NOASSERTION",
+      "summary": "zlib data compression library",
       "primaryPackagePurpose": "LIBRARY",
       "checksums": [
         {
@@ -70,6 +73,7 @@ expression: json()
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "MIT OR Apache-2.0",
+      "licenseComments": "License files: LICENSE-APACHE, LICENSE-MIT",
       "copyrightText": "NOASSERTION",
       "primaryPackagePurpose": "LIBRARY",
       "checksums": [
@@ -98,7 +102,8 @@ expression: json()
       "downloadLocation": "NOASSERTION",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "LicenseRef-pixi-Proprietary",
+      "licenseDeclared": "LicenseRef-pixi-Proprietary-f008d7ca",
+      "licenseComments": "License files: EULA",
       "copyrightText": "NOASSERTION",
       "primaryPackagePurpose": "LIBRARY",
       "externalRefs": [
@@ -166,8 +171,8 @@ expression: json()
   ],
   "hasExtractedLicensingInfos": [
     {
-      "licenseId": "LicenseRef-pixi-Proprietary",
-      "extractedText": "Proprietary",
+      "licenseId": "LicenseRef-pixi-Proprietary-f008d7ca",
+      "extractedText": "all rights reserved",
       "name": "Proprietary"
     }
   ]

@@ -52,7 +52,9 @@ With no options this means:
 | `--pypi-mapping <lock\|prefix>` | `lock` | Where PyPI identities for conda packages come from. `prefix` downloads the conda-forge mapping (cached for a day) so conda-installed Python packages get a `pkg:pypi` purl. |
 | `--pypi-mapping-file <PATH>` | | Offline copy of that mapping; implies the same enrichment with no network. Cannot be combined with `--pypi-mapping`. |
 | `--primary-purl <conda\|pypi>` | `conda` | With `pypi`, a conda package that has a PyPI purl uses it as its primary `purl` so vulnerability scanners can match it. |
-| `--pypi-licenses` | off | Look up licenses for PyPI packages from the index JSON API (the lockfile records none). Responses are cached; a failed lookup is logged and the run continues. |
+| `--fetch-licenses` | off | Fetch the license of every package, conda and PyPI alike, where the lockfile has none, plus the names of the license files it ships and its summary and project URLs. Conda details come from the local package cache pixi filled at install time; PyPI expressions from the index JSON API. Failures are logged and the run continues. |
+| `--license-texts` | off | With `--fetch-licenses`, also embed the full text of every license file. |
+| `--pypi-licenses` | | Deprecated alias for `--fetch-licenses` (hidden from `--help`; removed in a future release). |
 | `-v`, `-vv` | info | Raise the log level to debug / trace. Logs go to stderr; the SBOM never goes to stdout. |
 | `-q`, `-qq`, `-qqq` | info | Lower it to warnings only / errors only / silent. Error diagnostics are printed regardless. |
 | `-h, --help`, `-V, --version` | | Usual meanings. |
@@ -63,7 +65,8 @@ With no options this means:
 
 | Variable | Effect |
 |---|---|
-| `PIXI_SBOM_PYPI_URL` | Base of the PyPI JSON API queried by `--pypi-licenses` (default `https://pypi.org/pypi`); point it at a mirror such as devpi or Artifactory. |
+| `PIXI_CACHE_DIR` / `RATTLER_CACHE_DIR` | Where pixi keeps its package cache; `--fetch-licenses` reads extracted conda packages from its `pkgs/` directory. Default: the platform cache directory's `rattler/cache` (`~/.cache/rattler/cache`, `~/Library/Caches/rattler/cache`, `%LOCALAPPDATA%\rattler\cache`). |
+| `PIXI_SBOM_PYPI_URL` | Base of the PyPI JSON API queried by `--fetch-licenses` (default `https://pypi.org/pypi`); point it at a mirror such as devpi or Artifactory. |
 | `PIXI_SBOM_CACHE_DIR` | Where downloaded data (the PyPI mapping, PyPI metadata) is cached. Default: `pixi-sbom` under `PIXI_CACHE_DIR` if set, else the platform cache directory (`~/.cache/pixi-sbom`, `~/Library/Caches/pixi-sbom`, `%LOCALAPPDATA%\pixi-sbom\cache`). |
 | `HTTPS_PROXY` / `HTTP_PROXY` | Honored for every download. |
 | `SOURCE_DATE_EPOCH` | Pins the document timestamp (seconds since the Unix epoch). With it set, repeated runs over the same lockfile are byte-identical, which lets CI diff SBOMs between commits. See [output-format.md](output-format.md#reproducibility). |
@@ -87,8 +90,11 @@ pixi sbom --pypi-mapping prefix --primary-purl pypi --output - | grype
 # The same, air-gapped, from a saved copy of the mapping
 pixi sbom --pypi-mapping-file /srv/mirrors/compressed_mapping.json --primary-purl pypi
 
-# Fill in licenses for PyPI wheels from pypi.org
-pixi sbom --pypi-licenses
+# Licenses for everything: expressions and license file names
+pixi sbom --fetch-licenses
+
+# The same plus the full license texts
+pixi sbom --fetch-licenses --license-texts
 
 # A specific lockfile and output file, from anywhere
 pixi sbom --lockfile ~/proj/pixi.lock --output ~/reports/proj.cdx.json

@@ -35,6 +35,9 @@ pixi sbom --format spdx
 # Pipe into a scanner instead of writing a file
 pixi sbom --output - | grype
 
+# Licenses for every package, conda and PyPI alike (add --license-texts for the full texts)
+pixi sbom --fetch-licenses
+
 # Make conda-installed Python packages scannable: add PyPI purls from the
 # conda-forge mapping and use them as the primary identity
 pixi sbom --pypi-mapping prefix --primary-purl pypi --output - | grype
@@ -68,7 +71,8 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--pypi-mapping <lock\|prefix>` | `lock` | `prefix` adds `pkg:pypi` purls to conda-forge packages from the mapping pixi uses (cached daily) |
 | `--pypi-mapping-file <PATH>` | | Offline copy of that mapping |
 | `--primary-purl <conda\|pypi>` | `conda` | `pypi` makes the PyPI purl primary so grype / trivy / osv-scanner can match |
-| `--pypi-licenses` | off | Look up licenses for PyPI wheels from the index (cached; failures never break the run) |
+| `--fetch-licenses` | off | Licenses for every package, conda and PyPI alike (conda from the local package cache, PyPI from the index), plus license file names, summary and URLs |
+| `--license-texts` | off | With `--fetch-licenses`, embed the full license texts |
 | `-v` / `-q` | info | More / less logging on stderr |
 
 Output is reproducible: the document identifier is derived from the lockfile, and setting `SOURCE_DATE_EPOCH` pins
@@ -90,7 +94,8 @@ One document describes one environment on one platform, which is what SBOM consu
 | Supplier (conda channel or PyPI index) | `supplier` | `supplier` (`Organization:`) |
 | Download URL | `externalReferences[distribution]` | `downloadLocation` |
 | SHA-256 / MD5 | `hashes[]` | `checksums[]` |
-| License (conda: from the lockfile; PyPI: with `--pypi-licenses`) | `licenses[].expression`, or `.license.name` for non-SPDX text | `licenseDeclared`, with `LicenseRef-pixi-*` + `hasExtractedLicensingInfos` for non-SPDX text |
+| License (conda: from the lockfile; PyPI: with `--fetch-licenses`) | `licenses[].expression`, or `.license.name` for non-SPDX text |
+| License file names, summary, project URLs (`--fetch-licenses`); texts (`--license-texts`) | `pixi:license-file` properties, `description`, `externalReferences[]`; `licenses[].license.text` | `licenseComments`, `summary`, `homepage`; extracted licensing infos | `licenseDeclared`, with `LicenseRef-pixi-*` + `hasExtractedLicensingInfos` for non-SPDX text |
 | Channel, subdir, build string, build number, size, index URL, ... | `properties[]` (`pixi:*`) | package `comment` (`key=value` lines) |
 | Dependency graph (resolved within the environment) | `dependencies[]` | `DEPENDS_ON` relationships |
 | Environment, platform, lockfile name | `metadata.properties[]` | root package `sourceInfo` |
