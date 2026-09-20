@@ -10,10 +10,12 @@ mod lock;
 mod manifest;
 mod mapping;
 mod model;
+mod parallel;
 mod pkgcache;
 mod purl;
 mod pypi;
 mod report;
+mod wheel;
 mod zipread;
 
 use std::io::{IsTerminal, Write};
@@ -81,6 +83,12 @@ fn main() -> Result<()> {
             } = pkgcache::enrich(&mut sbom, &pkgs, args.license_texts);
             tracing::info!(pkgs = %pkgs.display(), found, licenses_filled, files, "read conda license details from the package cache");
             let cache_dir = mapping::cache_dir();
+            let wheel::Outcome {
+                fetched,
+                failed,
+                skipped,
+            } = wheel::enrich(&mut sbom, &cache_dir, args.license_texts);
+            tracing::info!(fetched, failed, skipped, "read PyPI license details from wheels");
             if !missing.is_empty() {
                 let condaarchive::Outcome {
                     fetched,

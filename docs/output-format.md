@@ -157,7 +157,11 @@ tail, then the member when it is not already in the tail) fetch a few kilobytes 
 cached under the pixi-sbom cache directory by the archive's SHA-256, so repeated runs are offline. Provenance is
 recorded as `conda-archive`. Legacy `.tar.bz2` archives cannot be read partially and are skipped; a package whose
 archive cannot be reached keeps the lockfile's license and the run continues. For PyPI packages it asks the index as
-described next.
+described next, and reads each wheel's `dist-info` the same way (the `METADATA` member and the license files, by
+HTTP range, cached by SHA-256): the PEP 639 `License-Expression` or the older `License` header fills a missing
+license (`pixi:license-source=wheel`), `Summary` and the project URLs fill the description and references, and the
+`License-File` names (PEP 639 `licenses/` directory, or files next to `METADATA` in older wheels) become the license
+files. Sdists are skipped.
 
 By default only the license *type* is recorded: the expression as always, plus the file names as `pixi:license-file`
 properties (CycloneDX) / `licenseComments` (SPDX). `--license-texts` additionally embeds the file contents:
@@ -175,7 +179,8 @@ Texts can add a few megabytes to a large environment, which is why they are opt-
 
 #### PyPI license lookup
 
-With `--fetch-licenses`, PyPI packages without a license are looked up on the index JSON API (`https://pypi.org/pypi/<name>/<version>/json`, or `PIXI_SBOM_PYPI_URL`)
+With `--fetch-licenses`, PyPI packages that still have no license after their wheel was read (sdists, unreachable
+wheels, wheels that declare only classifiers) are looked up on the index JSON API (`https://pypi.org/pypi/<name>/<version>/json`, or `PIXI_SBOM_PYPI_URL`)
 for every PyPI package that has no license and takes, in order: the PEP 639 `license_expression`; the classic
 `license` field when it is a short single line (it sometimes holds a whole license text, which is ignored); and the
 `License ::` trove classifiers, mapped to SPDX identifiers for the common unambiguous ones (`MIT License` → `MIT`,
