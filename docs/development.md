@@ -48,8 +48,11 @@ the next run fails identically. Coverage below 90% lines fails the gate; new cod
 `pixi run cargo fmt`, `pixi run cargo clippy`, `pixi run taplo`, `pixi run typos`, because the git hook runs outside
 the pixi environment. The `commit-msg` hook enforces Conventional Commits. `--no-verify` is not used.
 
-**Claude Code.** `.claude/settings.json` registers a Stop hook that runs `pixi run ci`, so an AI-assisted session
-cannot finish with a red gate. `.claude/memory/` holds the recorded design decisions and environment notes.
+**Claude Code.** `.claude/settings.json` registers `.claude/hooks/stop-ci.sh` as a Stop hook. It fingerprints the
+working tree (HEAD, staged and unstaged changes, untracked files) and runs `pixi run ci` only when that differs from
+the state recorded at the last green run (`.pixi/.last-ci-ok`), so a stop that changed nothing costs nothing. A
+failing gate exits 2 with the tail of `.pixi/.last-ci.log`, which blocks the stop and hands the failure back to the
+assistant rather than only printing it. `.claude/memory/` holds the recorded design decisions and environment notes.
 
 ## Tests
 

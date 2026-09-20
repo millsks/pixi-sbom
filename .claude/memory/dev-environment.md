@@ -12,3 +12,7 @@ metadata:
 
 **Why:** these are environment facts not derivable from the repo.
 **How to apply:** use them when manually verifying the extension; see [[architecture-decisions]] for design constraints.
+- Stop hook (2026-09-20): the project hook is `.claude/hooks/stop-ci.sh` (fingerprint-skip, exit 2 on failure with
+  the log tail). The global `~/.claude/settings.json` Stop hook yields whenever the project defines its own
+  `hooks.Stop`, so the gate runs once per stop, not twice concurrently. If a stop is blocked, read
+  `.pixi/.last-ci.log`, fix, and stop again; do not touch the marker.
