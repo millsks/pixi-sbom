@@ -12,3 +12,5 @@ extend-exclude = [
 [default.extend-words]
 # PyPI package name used in tests
 certifi = "certifi"
+# Crate name (deflate implementation)
+flate = "flate"

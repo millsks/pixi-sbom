@@ -109,13 +109,24 @@ pub struct Outcome {
     pub licenses_filled: usize,
     /// License files attached in total.
     pub files: usize,
+    /// Indexes of conda binary packages that were not in the cache, for the network fallback.
+    pub missing: Vec<usize>,
+}
+
+/// What [`apply`] changed on one package.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Applied {
+    /// The license expression was filled in.
+    pub license_filled: bool,
+    /// Number of license files attached.
+    pub files: usize,
 }
 
 /// Enrich every conda binary package that is extracted under `pkgs_dir`; license file texts
 /// are included only with `texts`.
 pub fn enrich(sbom: &mut Sbom, pkgs_dir: &Path, texts: bool) -> Outcome {
     let mut outcome = Outcome::default();
-    for package in &mut sbom.packages {
+    for (index, package) in sbom.packages.iter_mut().enumerate() {
         if package.kind != PackageKind::CondaBinary {
             continue;
         }
@@ -123,37 +134,46 @@ pub fn enrich(sbom: &mut Sbom, pkgs_dir: &Path, texts: bool) -> Outcome {
             continue;
         };
         let Some(info) = read_extracted(&pkgs_dir.join(dir_name), texts) else {
+            outcome.missing.push(index);
             continue;
         };
         outcome.found += 1;
-        let about = info.about;
-        if package.license.is_none()
-            && let Some(license) = about.license.filter(|l| !l.trim().is_empty())
-        {
-            package.license = Some(license);
-            package
-                .properties
-                .insert("pixi:license-source".into(), LICENSE_SOURCE.into());
-            outcome.licenses_filled += 1;
-        }
-        if let Some(family) = about.license_family
-            && !package.properties.contains_key("pixi:license-family")
-        {
-            package.properties.insert("pixi:license-family".into(), family);
-        }
-        package.description = package.description.take().or(about.summary);
-        package.homepage = package.homepage.take().or(about.home);
-        package.repository = package.repository.take().or(about.dev_url);
-        package.documentation = package.documentation.take().or(about.doc_url);
-        if package.license_files.is_empty() && !info.license_files.is_empty() {
-            outcome.files += info.license_files.len();
-            package.license_files = info.license_files;
-            package
-                .properties
-                .insert("pixi:license-files-source".into(), LICENSE_SOURCE.into());
-        }
+        let applied = apply(package, info, LICENSE_SOURCE);
+        outcome.licenses_filled += usize::from(applied.license_filled);
+        outcome.files += applied.files;
     }
     outcome
+}
+
+/// Merge `info` into `package`: fill what is missing, never override what the lockfile
+/// says, and record `source` as the provenance of what was added.
+pub fn apply(package: &mut crate::model::Package, info: CondaInfo, source: &str) -> Applied {
+    let mut applied = Applied::default();
+    let about = info.about;
+    if package.license.is_none()
+        && let Some(license) = about.license.filter(|l| !l.trim().is_empty())
+    {
+        package.license = Some(license);
+        package.properties.insert("pixi:license-source".into(), source.into());
+        applied.license_filled = true;
+    }
+    if let Some(family) = about.license_family
+        && !package.properties.contains_key("pixi:license-family")
+    {
+        package.properties.insert("pixi:license-family".into(), family);
+    }
+    package.description = package.description.take().or(about.summary);
+    package.homepage = package.homepage.take().or(about.home);
+    package.repository = package.repository.take().or(about.dev_url);
+    package.documentation = package.documentation.take().or(about.doc_url);
+    if package.license_files.is_empty() && !info.license_files.is_empty() {
+        applied.files = info.license_files.len();
+        package.license_files = info.license_files;
+        package
+            .properties
+            .insert("pixi:license-files-source".into(), source.into());
+    }
+    applied
 }
 
 /// The extracted directory name for an archive file name: `foo-1.0-h1.conda` -> `foo-1.0-h1`.
@@ -317,7 +337,8 @@ mod tests {
             Outcome {
                 found: 2,
                 licenses_filled: 0,
-                files: 1
+                files: 1,
+                missing: vec![],
             }
         );
         let libzlib = &sbom.packages[0];
@@ -353,9 +374,18 @@ mod tests {
 
         let outcome = enrich(&mut sbom, dir.path(), true);
         assert_eq!(outcome.licenses_filled, 1);
+        assert!(outcome.missing.is_empty());
         assert_eq!(sbom.packages[0].license.as_deref(), Some(" Zlib "));
         assert_eq!(sbom.packages[0].properties["pixi:license-source"], LICENSE_SOURCE);
         assert_eq!(sbom.packages[1].license, None, "empty license string ignored");
+
+        // A conda binary package that is not extracted is reported as missing.
+        let mut sbom = sample_sbom();
+        sbom.packages[0]
+            .properties
+            .insert("pixi:file-name".into(), "absent-1.0-h1.conda".into());
+        let outcome = enrich(&mut sbom, dir.path(), false);
+        assert_eq!(outcome.missing, vec![0]);
     }
 
     #[test]

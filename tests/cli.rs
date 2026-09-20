@@ -931,6 +931,110 @@ fn report_rejects_output_and_report_format_needs_report() {
         .code(2);
 }
 
+/// A copy of the `conda-only` fixture whose linux-64 zlib entry points at the real archive in
+/// `tests/fixtures/archives/` through a `file://` URL, so the network fallback runs offline.
+fn workspace_with_local_archive() -> tempfile::TempDir {
+    let dir = workspace("conda-only");
+    let archive = tests_dir()
+        .join("fixtures")
+        .join("archives")
+        .join("zlib-1.3.2-h25fd6f3_3.conda");
+    let lock = std::fs::read_to_string(dir.path().join("pixi.lock")).unwrap();
+    let url = format!("file://{}", archive.display());
+    let lock = lock
+        .replace(
+            "https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.2-h25fd6f3_3.conda",
+            &url,
+        )
+        // A file:// location carries no channel/subdir, so the record must state it.
+        .replace(
+            &format!("- conda: {url}\n  sha256:"),
+            &format!("- conda: {url}\n  subdir: linux-64\n  sha256:"),
+        )
+        // libzlib points at an archive that does not exist, so its fetch fails offline.
+        .replace(
+            "https://conda.anaconda.org/conda-forge/linux-64/libzlib-1.3.2-h25fd6f3_3.conda",
+            "file:///nonexistent/libzlib-1.3.2-h25fd6f3_3.conda",
+        )
+        .replace(
+            "- conda: file:///nonexistent/libzlib-1.3.2-h25fd6f3_3.conda\n  sha256:",
+            "- conda: file:///nonexistent/libzlib-1.3.2-h25fd6f3_3.conda\n  subdir: linux-64\n  sha256:",
+        );
+    std::fs::write(dir.path().join("pixi.lock"), lock).unwrap();
+    dir
+}
+
+#[test]
+fn fetch_licenses_reads_the_archive_when_the_package_cache_misses() {
+    let dir = workspace_with_local_archive();
+    let empty_cache = dir.path().join("empty-pkgs-cache");
+    let sbom_cache = dir.path().join("sbom-cache");
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", &empty_cache)
+        .env("PIXI_SBOM_CACHE_DIR", &sbom_cache)
+        .env("PIXI_SBOM_PYPI_URL", "http://127.0.0.1:9/pypi")
+        .args(["-p", "linux-64", "--fetch-licenses", "--license-texts", "--output", "-"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "read conda license details from channel archives fetched=1 failed=1",
+        ));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let zlib = doc["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "zlib")
+        .unwrap();
+    assert_eq!(zlib["licenses"][0]["license"]["id"], "Zlib");
+    assert!(
+        zlib["licenses"][0]["license"]["text"]["content"]
+            .as_str()
+            .unwrap()
+            .contains("Jean-loup Gailly")
+    );
+    assert_eq!(
+        zlib["description"],
+        "Massively spiffy yet delicately unobtrusive compression library"
+    );
+    assert!(
+        zlib["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["name"] == "pixi:license-files-source" && p["value"] == "conda-archive")
+    );
+    // The extracted info is cached by sha256 for the next run.
+    let sha = doc["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "zlib")
+        .unwrap()["hashes"][0]["content"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert!(
+        sbom_cache
+            .join("conda-info")
+            .join(&sha)
+            .join("info/about.json")
+            .exists()
+    );
+
+    // libzlib's archive does not exist; it kept the lockfile's license and the run succeeded.
+    let libzlib = doc["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "libzlib")
+        .unwrap();
+    assert_eq!(libzlib["licenses"][0]["expression"], "Zlib");
+}
+
 #[test]
 fn spdx_format_writes_valid_spdx_document() {
     let dir = workspace("conda-only");
