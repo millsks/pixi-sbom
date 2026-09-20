@@ -38,7 +38,7 @@ Goal: `pixi sbom --output - | grype` on a conda-only Python environment reports 
 **How to apply:** create an issue before starting any new work item and reference it from the PR; network features stay opt-in; adding an HTTP client is a new runtime
 dependency that needs user confirmation. See [[architecture-decisions]].
 
-## 0.4.0 / 0.5.0 (planned 2026-09-20)
+## 0.4.0 (released 2026-09-20) / 0.5.0 (planned)
 
 User direction: license details must be visible for every package regardless of kind; `--pypi-licenses` alone is
 useless on conda-majority lockfiles. Replace it with one generic `--fetch-licenses`.
@@ -54,3 +54,11 @@ useless on conda-majority lockfiles. Replace it with one generic `--fetch-licens
 
 **How to apply:** #25/#26 add dependencies (zip reader, zstd, tar) that need user confirmation; keep everything
 offline-first and never fail the run on a fetch error.
+
+0.4.0 outcome (2026-09-20): PRs #34 (#23/#24/#27), #35 (#28/#33), #37 (#25), #38 (#26) merged; `zstd`, `tar`,
+`flate2` approved and added. Lessons from CI: Windows runners check out fixtures with CRLF (normalize in tests that
+rewrite lockfiles); a `file://` package location comes back from rattler as a path and must be rendered as a
+`file://` URL; the runner's pixi cache already holds this project's own packages, so `--fetch-licenses` e2e tests
+must pin `PIXI_CACHE_DIR` to an empty dir; CycloneDX `license.id` rejects `LicenseRef-*` (use `name`);
+files.pythonhosted.org answers 416 to a suffix range longer than the file; ureq's body `limit(n)` errors on a body
+of exactly n bytes (use n+1). `PIXI_SBOM_OFFLINE=1` forbids all network access and keeps e2e tests deterministic.
