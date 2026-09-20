@@ -93,7 +93,14 @@ pub fn open(location: &str) -> io::Result<Box<dyn RangeSource>> {
     if location.starts_with("http://") || location.starts_with("https://") {
         return Ok(Box::new(HttpSource::open(location)?));
     }
-    let path = location.strip_prefix("file://").unwrap_or(location);
+    let mut path = location.strip_prefix("file://").unwrap_or(location);
+    // `file:///D:/x` names a Windows drive path; drop the leading slash there.
+    if cfg!(windows)
+        && let Some(rest) = path.strip_prefix('/')
+        && rest.as_bytes().get(1) == Some(&b':')
+    {
+        path = rest;
+    }
     Ok(Box::new(FileSource::open(Path::new(path))?))
 }
 
@@ -344,5 +351,8 @@ mod tests {
         let by_url = open(&format!("file://{}", path.display())).unwrap();
         assert_eq!(by_path.len(), by_url.len());
         assert!(open("/definitely/missing.zip").is_err());
+        if cfg!(windows) {
+            assert!(open("file:///C:/definitely/missing.zip").is_err());
+        }
     }
 }

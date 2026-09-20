@@ -939,8 +939,13 @@ fn workspace_with_local_archive() -> tempfile::TempDir {
         .join("fixtures")
         .join("archives")
         .join("zlib-1.3.2-h25fd6f3_3.conda");
-    let lock = std::fs::read_to_string(dir.path().join("pixi.lock")).unwrap();
-    let url = format!("file://{}", archive.display());
+    // Windows runners check out with CRLF; normalize so the replacements below match.
+    let lock = std::fs::read_to_string(dir.path().join("pixi.lock"))
+        .unwrap()
+        .replace("\r\n", "\n");
+    // file:///D:/x on Windows, file:///abs/path elsewhere.
+    let path = archive.display().to_string().replace('\\', "/");
+    let url = format!("file://{}{path}", if path.starts_with('/') { "" } else { "/" });
     let lock = lock
         .replace(
             "https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.2-h25fd6f3_3.conda",
