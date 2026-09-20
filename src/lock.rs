@@ -421,10 +421,26 @@ fn hex(bytes: impl AsRef<[u8]>) -> String {
     bytes.as_ref().iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// A package location as a valid URI reference: URLs as they are, absolute local paths as
+/// `file://` URLs (a Windows path such as `D:\x\y.conda` is not a URI), relative paths with
+/// forward slashes.
 fn location_string(location: &UrlOrPath) -> String {
     match location {
         UrlOrPath::Url(url) => url.to_string(),
-        UrlOrPath::Path(path) => path.to_string(),
+        UrlOrPath::Path(path) => local_path_reference(path.as_ref()),
+    }
+}
+
+fn local_path_reference(path: &str) -> String {
+    let forward = path.replace('\\', "/");
+    let drive =
+        forward.as_bytes().get(1) == Some(&b':') && forward.as_bytes().first().is_some_and(u8::is_ascii_alphabetic);
+    if forward.starts_with('/') {
+        format!("file://{forward}")
+    } else if drive {
+        format!("file:///{forward}")
+    } else {
+        forward
     }
 }
 
@@ -812,6 +828,24 @@ mod tests {
             "existing git+ prefix kept"
         );
         assert!(!properties.contains_key("pixi:source-branch"));
+    }
+
+    #[test]
+    fn local_paths_become_valid_uri_references() {
+        assert_eq!(
+            local_path_reference("/opt/channel/pkg.conda"),
+            "file:///opt/channel/pkg.conda"
+        );
+        assert_eq!(
+            local_path_reference("D:\\a\\channel\\pkg.conda"),
+            "file:///D:/a/channel/pkg.conda"
+        );
+        assert_eq!(
+            local_path_reference("C:/channel/pkg.conda"),
+            "file:///C:/channel/pkg.conda"
+        );
+        assert_eq!(local_path_reference("../local-package"), "../local-package");
+        assert_eq!(local_path_reference("sub\\dir"), "sub/dir");
     }
 
     #[test]
