@@ -74,6 +74,18 @@ jobs:
       - name: Smoke test
         run: pixi run cargo run --release -- --version
 
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          environments: docs
+          cache: true
+      - name: Build the site strictly
+        run: pixi run -e docs docs-build
+
   # Dogfood the GitHub Action: generate this repository's own SBOMs with the released binary.
   sbom:
     name: SBOM via action (${{ matrix.os }})

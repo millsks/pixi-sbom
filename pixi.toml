@@ -42,6 +42,16 @@ cov = "cargo llvm-cov --all-targets --fail-under-lines 90"
 [feature.dev.tasks]
 ci = { depends-on = ["pre-commit-run", "build", "check", "lint", "cov"] }
 
+[feature.docs.dependencies]
+mkdocs = ">=1.6,<2"
+mkdocs-material = ">=9.6"
+pymdown-extensions = ">=10"
+
+[feature.docs.tasks]
+docs-serve = "mkdocs serve"
+docs-build = "mkdocs build --strict"
+
 [environments]
 default = ["lint", "cov", "dev"]
 lint = { features = ["lint"], no-default-feature = true }
+docs = { features = ["docs"], no-default-feature = true }

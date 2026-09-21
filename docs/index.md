@@ -7,4 +7,4 @@
 | [architecture.md](architecture.md) | Contributors | The pipeline from lockfile to document, what each module owns, and the design decisions with their rationale |
 | [development.md](development.md) | Contributors | Toolchain, tasks, the change harness, test strategy, fixtures, conventions, and releasing |
 
-The top-level [README](../README.md) is the short version of all of this.
+The top-level [README](https://github.com/millsks/pixi-sbom#readme) is the short version of all of this.

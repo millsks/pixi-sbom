@@ -24,6 +24,9 @@ target
 .pixi/*
 !.pixi/config.toml
 
+# MkDocs build output
+site/
+
 # Local Claude overrides — never commit
 CLAUDE.local.md
 

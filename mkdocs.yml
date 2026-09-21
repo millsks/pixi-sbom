@@ -1,0 +1,69 @@
+site_name: pixi-sbom
+site_description: CycloneDX and SPDX Software Bills of Materials from pixi.lock
+site_url: https://millsks.github.io/pixi-sbom/
+repo_url: https://github.com/millsks/pixi-sbom
+repo_name: millsks/pixi-sbom
+edit_uri: edit/main/docs/
+copyright: MIT licensed
+
+docs_dir: docs
+strict: true
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+nav:
+  - Overview: index.md
+  - Usage: usage.md
+  - Output format: output-format.md
+  - Architecture: architecture.md
+  - Development: development.md
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.action.edit
+  # Light by default regardless of the OS preference; the toggle switches to dark.
+  palette:
+    - scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/millsks/pixi-sbom
