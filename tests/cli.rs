@@ -1868,6 +1868,112 @@ fn configuration_file_is_read_before_the_command_line() {
 }
 
 #[test]
+fn diff_report_shows_what_changed_since_a_previous_document() {
+    // Yesterday's document: the with-pypi web environment with urllib3 1.26.4.
+    let old = workspace_with_vulnerable_urllib3();
+    for (format, extra) in [
+        ("cyclonedx", vec![]),
+        ("cyclonedx", vec!["--spec-version", "1.7"]),
+        ("spdx", vec![]),
+        ("spdx", vec!["--spec-version", "3.0"]),
+    ] {
+        let previous = old.path().join(format!("previous-{format}-{}.json", extra.len()));
+        pixi_sbom()
+            .current_dir(old.path())
+            .args(["-e", "web", "-p", "linux-64", "--format", format, "--output"])
+            .arg(&previous)
+            .args(&extra)
+            .assert()
+            .success();
+
+        // Today: urllib3 back at 2.8.0, requests excluded.
+        let new = workspace("with-pypi");
+        let assert = pixi_sbom()
+            .current_dir(new.path())
+            .args(["-e", "web", "-p", "linux-64", "--exclude", "requests", "--keep-orphans"])
+            .args(["--report", "diff", "--against"])
+            .arg(&previous)
+            .args(["--report-format", "json"])
+            .assert()
+            .success()
+            .stderr(predicate::str::contains("compared with the previous document"));
+        let report: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+        assert_eq!(report["report"], "diff", "{format} {extra:?}");
+        assert!(report["added"].as_array().unwrap().is_empty());
+        let removed: Vec<&str> = report["removed"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| p["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(removed, ["requests"], "{format} {extra:?}");
+        let changed = &report["version_changed"][0];
+        assert_eq!(changed["name"], "urllib3");
+        assert_eq!(changed["old_version"], "1.26.4");
+        assert_eq!(changed["new_version"], "2.8.0");
+        assert!(
+            report["license_changed"].as_array().unwrap().is_empty(),
+            "{format} {extra:?}"
+        );
+        assert!(report["unchanged"].as_u64().unwrap() > 20);
+    }
+
+    // Markdown for a PR comment; identical input reads as no changes.
+    let previous = old.path().join("previous-cyclonedx-0.json");
+    let new = workspace("with-pypi");
+    let markdown = String::from_utf8(
+        pixi_sbom()
+            .current_dir(new.path())
+            .args(["-e", "web", "-p", "linux-64", "--report", "diff", "--against"])
+            .arg(&previous)
+            .args(["--report-format", "markdown"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(
+        markdown.contains("| version | urllib3 | pypi | 1.26.4 | 2.8.0 |"),
+        "{markdown}"
+    );
+    assert!(markdown.contains("1 version changes"), "{markdown}");
+    let same = String::from_utf8(
+        pixi_sbom()
+            .current_dir(old.path())
+            .args(["-e", "web", "-p", "linux-64", "--report", "diff", "--against"])
+            .arg(&previous)
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(same.contains("No changes against"), "{same}");
+
+    // Usage: --against needs --report diff and vice versa; a non-document is a diagnostic.
+    pixi_sbom()
+        .current_dir(new.path())
+        .args(["--report", "diff"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("needs '--against <PATH>'"));
+    pixi_sbom()
+        .current_dir(new.path())
+        .args(["--report", "packages", "--against", "x.json"])
+        .assert()
+        .code(2);
+    pixi_sbom()
+        .current_dir(new.path())
+        .args(["--report", "diff", "--against", "pixi.toml"])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("pixi_sbom::diff::parse"));
+}
+
+#[test]
 fn fetch_licenses_reads_wheel_metadata_and_license_files() {
     // The with-pypi fixture with the six wheel pointed at the local copy; everything else offline.
     let dir = workspace("with-pypi");

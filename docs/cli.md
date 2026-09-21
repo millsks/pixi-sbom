@@ -46,7 +46,8 @@ With no options this means:
 | `--fail-on-kev` | off | With `--kev`: exit **4** after writing the document when any open finding is known exploited, regardless of severity. |
 | `--fail-on-severity <low\|medium\|high\|critical>` | | With `--vulnerabilities`: exit **4** after writing the document when any open finding is at or above the level. Findings of unknown severity never trip it. |
 | `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification), is excluded from `--fail-on-severity` and listed separately in the report. |
-| `--report <packages\|licenses\|vulnerabilities>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`. |
+| `--report <packages\|licenses\|vulnerabilities\|diff>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
+| `--against <PATH>` | | With `--report diff`: the previous document to compare with (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON). |
 | `--report-format <table\|markdown\|csv\|json\|sarif>` | `table` | How to render the report; `sarif` (2.1.0, for GitHub code scanning) applies to `--report vulnerabilities` only. |
 | `--pypi-licenses` | | Deprecated alias for `--fetch-licenses` (hidden from `--help`; removed in a future release). |
 | `-v`, `-vv` | info | Raise the log level to debug / trace. Logs go to stderr; the SBOM never goes to stdout. |
@@ -226,6 +227,9 @@ pixi sbom --fetch-licenses --report licenses
 # The findings of --vulnerabilities, one row per finding and affected package, worst first
 pixi sbom --pypi-mapping prefix --vulnerabilities osv --report vulnerabilities
 
+# What changed since the last release's document: added, removed, version and license changes
+pixi sbom --report diff --against release/sbom.cdx.json --report-format markdown
+
 # For a PR comment, a spreadsheet, or a script
 pixi sbom --report licenses --report-format markdown
 pixi sbom --report licenses --report-format csv > licenses.csv
@@ -245,6 +249,14 @@ findings, the ignored findings with their justification, and the packages that h
 answer. `--report-format sarif` renders it as a SARIF 2.1.0 log instead: one run per document, one rule per
 advisory (with `security-severity` for GitHub code scanning: the CVSS score, or 10 for known-exploited findings),
 one result per finding and affected package located at the lockfile, and accepted findings as suppressions.
+
+The diff report compares the document this run would write with a previous one (`--against`, any of the formats
+pixi-sbom writes, from this tool or another). Packages are matched by purl type and normalized name, so a version
+bump is one `version` row (before and after) rather than a removal plus an addition; the sections are `added`,
+`removed`, `version` and `license` (same package and version, different declared license), and a summary line
+counts each plus the unchanged packages. Filters, mapping and license fetching apply to the new side as usual.
+The exit code is always 0; a document that is none of the three families is an error
+(`pixi_sbom::diff::parse`). `--against` does not combine with `--all-environments` / `--all-platforms`.
 
 ## One document per environment and platform
 
