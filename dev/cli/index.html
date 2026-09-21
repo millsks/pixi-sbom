@@ -977,9 +977,9 @@
 <td>Look up known vulnerabilities of every package with a purl OSV can answer and record them in the document (see below).</td>
 </tr>
 <tr>
-<td><code>--report &lt;packages\|licenses&gt;</code></td>
+<td><code>--report &lt;packages\|licenses\|vulnerabilities&gt;</code></td>
 <td></td>
-<td>Print a report to the terminal instead of writing a document (see below). Cannot be combined with <code>--output</code>.</td>
+<td>Print a report to the terminal instead of writing a document (see below). Cannot be combined with <code>--output</code>; <code>vulnerabilities</code> needs <code>--vulnerabilities</code>.</td>
 </tr>
 <tr>
 <td><code>--report-format &lt;table\|markdown\|csv\|json&gt;</code></td>
@@ -1038,8 +1038,8 @@ them, so <code>--format spdx</code> writes the document and warns.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Conda-installed Python packages are matched through their PyPI purl, so add the mapping</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Straight into a scanner-free triage: which findings, worst first</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.vulnerabilities[] | {id, severity: .ratings[0].severity, recommendation}'</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Or as a table, worst first, with a summary by severity</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--report<span class="w"> </span>vulnerabilities
 </code></pre></div>
 <p>One <code>querybatch</code> request per thousand purls yields the advisory ids, then each record is fetched (ten at a time).
 Query results are cached for an hour under the pixi-sbom cache directory and records until OSV changes them, so
@@ -1062,15 +1062,22 @@ severity orders the list.</p>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># (each non-SPDX license names the token the parser rejected, e.g. "unknown term: 'PSF'")</span>
 <a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--report<span class="w"> </span>licenses
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># For a PR comment, a spreadsheet, or a script</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>markdown
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>csv<span class="w"> </span>&gt;<span class="w"> </span>licenses.csv
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>packages<span class="w"> </span>--report-format<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.packages[] | select(.license == null)'</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># The findings of --vulnerabilities, one row per finding and affected package, worst first</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--report<span class="w"> </span>vulnerabilities
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="c1"># For a PR comment, a spreadsheet, or a script</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>markdown
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>csv<span class="w"> </span>&gt;<span class="w"> </span>licenses.csv
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>packages<span class="w"> </span>--report-format<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.packages[] | select(.license == null)'</span>
 </code></pre></div>
 <p>Reports respect every selection and enrichment flag, so they show exactly what a document would contain; with
 <code>--all-environments</code> / <code>--all-platforms</code> there is one section (or JSON array element) per document. <code>--report</code>
 cannot be combined with <code>--output</code>. The <code>table</code> format fits the terminal width (<code>COLUMNS</code>, default 120) by
 truncating the last column; the other formats are never truncated.</p>
+<p>The vulnerabilities report has one row per finding and affected package (package, version, severity, the highest
+CVSS score, id, aliases, fixed version, summary; the CSV and JSON forms add the purl and the OSV URL), ordered worst
+first, followed by a count of distinct findings and affected packages, a table of findings per severity, and the
+packages that have no purl the database could answer.</p>
 <h2 id="one-document-per-environment-and-platform">One document per environment and platform<a class="headerlink" href="#one-document-per-environment-and-platform" title="Permanent link">&para;</a></h2>
 <p>A pixi lockfile can hold many environments, each locked for several platforms. An SBOM, by contrast, is expected to
 describe one deliverable, so <code>pixi sbom</code> never merges environments or platforms into one document:</p>
