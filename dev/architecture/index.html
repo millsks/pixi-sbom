@@ -809,21 +809,22 @@ once no matter how many output formats exist.</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>                 │             │       └──▶ format/spdx3.rs     ──▶ sbom.spdx.json (3.0.1)
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>   purl.rs ──────┘             │
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>   manifest.rs ────────────────┘   (workspace metadata)
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>   mapping.rs ──── enriches model::Sbom with PyPI purls (optional, via http.rs)
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>   pypi.rs ─────── fills PyPI licenses from the index (optional, via http.rs)
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>   pkgcache.rs ─── conda license files and metadata from the package cache (optional, offline)
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>   condaarchive.rs ─ the same from the channel archive by HTTP range (optional, via zipread.rs)
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>   wheel.rs ─────── PyPI license details from the wheel's dist-info (optional, via zipread.rs)
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>   embedded.rs ──── PEP 770 embedded SBOMs from the same wheels (optional)
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>   report.rs ───── --report: renders the model as a terminal table instead of a document
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>   policy.rs ───── --allow/--deny/--require-license: violations -&gt; exit 3 after writing
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>   osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>   kev.rs ──────── --kev: CISA's Known Exploited Vulnerabilities catalog onto the findings (via http.rs)
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>   vulnpolicy.rs ─ --fail-on-severity / --fail-on-kev / --ignore-vuln: analysis blocks and exit 4 after writing
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>   license.rs ◀── used by both writers
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>   discover.rs ── finds the lockfile, decides output paths
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>   cli.rs ──────── clap definitions
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>   main.rs ─────── wires it together, logging, error reporting
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>   filter.rs ───── --include/--exclude/--exclude-kind: drops packages and re-closes the graph first
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>   mapping.rs ──── enriches model::Sbom with PyPI purls (optional, via http.rs)
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>   pypi.rs ─────── fills PyPI licenses from the index (optional, via http.rs)
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>   pkgcache.rs ─── conda license files and metadata from the package cache (optional, offline)
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>   condaarchive.rs ─ the same from the channel archive by HTTP range (optional, via zipread.rs)
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>   wheel.rs ─────── PyPI license details from the wheel's dist-info (optional, via zipread.rs)
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>   embedded.rs ──── PEP 770 embedded SBOMs from the same wheels (optional)
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>   report.rs ───── --report: renders the model as a terminal table instead of a document
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>   policy.rs ───── --allow/--deny/--require-license: violations -&gt; exit 3 after writing
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>   osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>   kev.rs ──────── --kev: CISA's Known Exploited Vulnerabilities catalog onto the findings (via http.rs)
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>   vulnpolicy.rs ─ --fail-on-severity / --fail-on-kev / --ignore-vuln: analysis blocks and exit 4 after writing
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>   license.rs ◀── used by both writers
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>   discover.rs ── finds the lockfile, decides output paths
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>   cli.rs ──────── clap definitions
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>   main.rs ─────── wires it together, logging, error reporting
 </code></pre></div>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <table>
@@ -894,6 +895,11 @@ once no matter how many output formats exist.</p>
 <td><code>pkgcache.rs</code></td>
 <td>Conda license details from the local rattler package cache: <code>about.json</code> and <code>info/licenses/</code> of extracted packages, and the cache directory rule (<code>PIXI_CACHE_DIR</code>, <code>RATTLER_CACHE_DIR</code>, platform default). Offline.</td>
 <td>serde_json</td>
+</tr>
+<tr>
+<td><code>filter.rs</code></td>
+<td><code>--include</code> / <code>--exclude</code> / <code>--exclude-kind</code>: a small glob matcher over package names, removal before any enrichment, and graph re-closure from the original roots (orphans go unless <code>--keep-orphans</code>); records the omission in <code>Sbom::excluded</code> for the writers.</td>
+<td>model.rs</td>
 </tr>
 <tr>
 <td><code>pypi.rs</code></td>

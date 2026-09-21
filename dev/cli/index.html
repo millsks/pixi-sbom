@@ -391,6 +391,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#leaving-packages-out" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Leaving packages out
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#enforcing-a-license-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -791,6 +802,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#leaving-packages-out" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Leaving packages out
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#enforcing-a-license-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -998,6 +1020,26 @@
 <td>With <code>pypi</code>, a conda package that has a PyPI purl uses it as its primary <code>purl</code> so vulnerability scanners can match it.</td>
 </tr>
 <tr>
+<td><code>--exclude &lt;GLOB&gt;</code></td>
+<td></td>
+<td>Repeatable. Leave packages whose name matches the shell-style pattern (<code>*</code>, <code>?</code>; case-insensitive, <code>-</code> and <code>_</code> alike) out of the document, together with whatever only they needed (see below).</td>
+</tr>
+<tr>
+<td><code>--include &lt;GLOB&gt;</code></td>
+<td></td>
+<td>Repeatable. Keep only packages whose name matches one of the patterns.</td>
+</tr>
+<tr>
+<td><code>--exclude-kind &lt;conda\|conda-source\|pypi\|embedded&gt;</code></td>
+<td></td>
+<td>Repeatable. Leave every package of that kind out.</td>
+</tr>
+<tr>
+<td><code>--keep-orphans</code></td>
+<td>off</td>
+<td>With the filters above: keep the packages that only excluded packages needed.</td>
+</tr>
+<tr>
 <td><code>--fetch-licenses</code></td>
 <td>off</td>
 <td>Fetch the license of every package, conda and PyPI alike, where the lockfile has none, plus the names of the license files it ships and its summary and project URLs. Conda details come from the local package cache pixi filled at install time, or from the archive on the channel via HTTP range requests (a few KB per package, cached); PyPI details from the wheel's <code>dist-info</code> the same way, then the index JSON API for what is still missing. Failures are logged and the run continues.</td>
@@ -1085,15 +1127,31 @@
 </tbody>
 </table>
 <p><code>RUST_LOG</code> is also honored and overrides <code>-v</code>/<code>-q</code> (for example <code>RUST_LOG=pixi_sbom::lock=debug</code>).</p>
+<h2 id="leaving-packages-out">Leaving packages out<a class="headerlink" href="#leaving-packages-out" title="Permanent link">&para;</a></h2>
+<p>A shipped SBOM often should not list build-only tooling, and a license policy may reasonably exempt it.
+<code>--exclude</code>, <code>--include</code> and <code>--exclude-kind</code> drop packages before anything is fetched or checked, so nothing is
+looked up for them and the policy, the vulnerability gate and the reports all see the filtered set:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># The toolchain is not part of the product</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--exclude<span class="w"> </span><span class="s1">'pre-commit*'</span><span class="w"> </span>--exclude<span class="w"> </span>compilers<span class="w"> </span>--exclude<span class="w"> </span>rust
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Only the wheels</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--exclude-kind<span class="w"> </span>conda<span class="w"> </span>--exclude-kind<span class="w"> </span>conda-source
+</code></pre></div>
+<p>Dropping a package also drops what only it needed: the graph is re-closed from the remaining roots (the packages
+nothing depends on), and everything no longer reachable goes too (<code>orphans</code> in the log). <code>--keep-orphans</code> turns
+that off. Either way the root records what was left out, matched packages and orphans alike, in a
+<code>pixi:excluded</code> property (CycloneDX metadata) or comment (SPDX root package), so a reader can tell the document
+is deliberately partial. Excluding every root (for example <code>--exclude-kind pypi</code> on a PyPI-only project) empties
+the document unless orphans are kept.</p>
 <h2 id="enforcing-a-license-policy">Enforcing a license policy<a class="headerlink" href="#enforcing-a-license-policy" title="Permanent link">&para;</a></h2>
 <p>Any of <code>--allow-license</code>, <code>--deny-license</code> and <code>--require-license</code> turns on the policy check. Documents (or reports)
 are still produced, the violations are listed on stderr, and the run exits with code <strong>3</strong>, which is what a CI job
 should fail on:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Nothing copyleft, and every package must say what it is</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--deny-license<span class="w"> </span>GPL-3.0-only<span class="w"> </span>--deny-license<span class="w"> </span>AGPL-3.0-only<span class="w"> </span>--require-license<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span>&gt;<span class="w"> </span>sbom.cdx.json
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Only an approved set</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--allow-license<span class="w"> </span>MIT<span class="w"> </span>--allow-license<span class="w"> </span>Apache-2.0<span class="w"> </span>--allow-license<span class="w"> </span>BSD-3-Clause
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Nothing copyleft, and every package must say what it is</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--deny-license<span class="w"> </span>GPL-3.0-only<span class="w"> </span>--deny-license<span class="w"> </span>AGPL-3.0-only<span class="w"> </span>--require-license<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span>&gt;<span class="w"> </span>sbom.cdx.json
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Only an approved set</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--allow-license<span class="w"> </span>MIT<span class="w"> </span>--allow-license<span class="w"> </span>Apache-2.0<span class="w"> </span>--allow-license<span class="w"> </span>BSD-3-Clause
 </code></pre></div>
 <p>The check respects the structure of each license expression: <code>MIT OR GPL-3.0-only</code> passes a policy that denies
 GPL-3.0-only because MIT is an option, while <code>MIT AND GPL-3.0-only</code> does not. Identifiers are compared by base
@@ -1111,11 +1169,11 @@ purl it indexes (PyPI, crates.io, npm, Go, ...; conda has no ecosystem there) an
 CycloneDX <code>vulnerabilities[]</code> array: id, aliases (CVE, PYSEC, ...), severity and CVSS ratings, CWEs, summary,
 references, the fixed version to upgrade to, and which components are affected. SPDX documents have no place for
 them, so <code>--format spdx</code> writes the document and warns.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Conda-installed Python packages are matched through their PyPI purl, so add the mapping</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Or as a table, worst first, with a summary by severity</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--report<span class="w"> </span>vulnerabilities
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Conda-installed Python packages are matched through their PyPI purl, so add the mapping</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Or as a table, worst first, with a summary by severity</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--report<span class="w"> </span>vulnerabilities
 </code></pre></div>
 <p>One <code>querybatch</code> request per thousand purls yields the advisory ids, then each record is fetched (ten at a time).
 Query results are cached for an hour under the pixi-sbom cache directory and records until OSV changes them, so
@@ -1137,8 +1195,8 @@ regardless of its CVSS score: the finding gets a <code>critical</code> rating fr
 and records the CVE, the date it was added, the BOD 22-01 due date and whether ransomware campaigns are known to
 use it (CycloneDX <code>pixi:kev*</code> properties; the <code>KEV</code> column and a <em>Known exploited</em> list in the report). When the
 advisory names no fixed version, the catalog's required action becomes the recommendation.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--kev<span class="w"> </span>--report<span class="w"> </span>vulnerabilities
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--kev<span class="w"> </span>--fail-on-kev
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--kev<span class="w"> </span>--report<span class="w"> </span>vulnerabilities
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--kev<span class="w"> </span>--fail-on-kev
 </code></pre></div>
 <p>Python library CVEs are rarely in the catalog, so an empty <em>Known exploited</em> list is the normal outcome; the
 value is in the run that is not.</p>
@@ -1148,14 +1206,14 @@ still produced, the open findings at or above the level are listed on stderr, an
 <code>--fail-on-kev</code> does the same for known-exploited findings, independently of severity; the two combine.
 <code>--ignore-vuln</code> accepts findings you have assessed, VEX style: the finding stays in the document with an
 <code>analysis</code> block, drops out of the gate, and the report lists it under <em>Ignored</em> with its justification.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Anything high or critical fails the job</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--fail-on-severity<span class="w"> </span>high
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># ... except the ones assessed as not affecting this deployment</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--fail-on-severity<span class="w"> </span>high<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span>--ignore-vuln<span class="w"> </span><span class="s2">"GHSA-2xpw-w6gg-jr37:streaming API is not used"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span>--ignore-vuln<span class="w"> </span><span class="s2">"CVE-2023-43804:false_positive:only reachable through a removed code path"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span>--ignore-vuln<span class="w"> </span>GHSA-qccp-gfcp-xxvc:in_triage
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Anything high or critical fails the job</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--fail-on-severity<span class="w"> </span>high
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># ... except the ones assessed as not affecting this deployment</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--fail-on-severity<span class="w"> </span>high<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span>--ignore-vuln<span class="w"> </span><span class="s2">"GHSA-2xpw-w6gg-jr37:streaming API is not used"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span>--ignore-vuln<span class="w"> </span><span class="s2">"CVE-2023-43804:false_positive:only reachable through a removed code path"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span>--ignore-vuln<span class="w"> </span>GHSA-qccp-gfcp-xxvc:in_triage
 </code></pre></div>
 <p>An entry is <code>ID</code>, <code>ID:TEXT</code> or <code>ID:STATE:TEXT</code>. <code>ID</code> matches the record id or any alias, case-insensitively.
 <code>STATE</code> is one of the CycloneDX impact-analysis states (<code>not_affected</code>, <code>false_positive</code>, <code>in_triage</code>,
@@ -1166,20 +1224,20 @@ otherwise ignored, so a list of accepted findings can be kept across upgrades. F
 license policy and the vulnerability gate fail, both lists are printed and the exit code is 3.</p>
 <h2 id="looking-instead-of-writing">Looking instead of writing<a class="headerlink" href="#looking-instead-of-writing" title="Permanent link">&para;</a></h2>
 <p><code>--report</code> prints a report to the terminal and writes nothing:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># The inventory: name, version, kind, source, license, purl</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>packages
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># The license view, with a per-license summary, unlicensed and non-SPDX packages called out</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># (each non-SPDX license names the token the parser rejected, e.g. "unknown term: 'PSF'")</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--report<span class="w"> </span>licenses
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1"># The findings of --vulnerabilities, one row per finding and affected package, worst first</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--report<span class="w"> </span>vulnerabilities
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="c1"># For a PR comment, a spreadsheet, or a script</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>markdown
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>csv<span class="w"> </span>&gt;<span class="w"> </span>licenses.csv
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>packages<span class="w"> </span>--report-format<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.packages[] | select(.license == null)'</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># The inventory: name, version, kind, source, license, purl</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>packages
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># The license view, with a per-license summary, unlicensed and non-SPDX packages called out</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1"># (each non-SPDX license names the token the parser rejected, e.g. "unknown term: 'PSF'")</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--report<span class="w"> </span>licenses
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="c1"># The findings of --vulnerabilities, one row per finding and affected package, worst first</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--report<span class="w"> </span>vulnerabilities
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="c1"># For a PR comment, a spreadsheet, or a script</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>markdown
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>csv<span class="w"> </span>&gt;<span class="w"> </span>licenses.csv
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>packages<span class="w"> </span>--report-format<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.packages[] | select(.license == null)'</span>
 </code></pre></div>
 <p>Reports respect every selection and enrichment flag, so they show exactly what a document would contain; with
 <code>--all-environments</code> / <code>--all-platforms</code> there is one section (or JSON array element) per document. <code>--report</code>
@@ -1280,47 +1338,47 @@ CycloneDX metadata properties; the root package <code>sourceInfo</code> in SPDX)
 </tbody>
 </table>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># SPDX instead of CycloneDX</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--format<span class="w"> </span>spdx
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># CycloneDX 1.7 instead of 1.6</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--spec-version<span class="w"> </span><span class="m">1</span>.7
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># SPDX 3.0.1 (JSON-LD) instead of SPDX 2.3</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--format<span class="w"> </span>spdx<span class="w"> </span>--spec-version<span class="w"> </span><span class="m">3</span>.0
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># Straight into a consumer, nothing written to disk</span>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
-<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>
-<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="c1"># Scannable: give conda-forge Python packages their PyPI identity and make it primary</span>
-<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--primary-purl<span class="w"> </span>pypi<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
-<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>
-<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="c1"># The same, air-gapped, from a saved copy of the mapping</span>
-<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping-file<span class="w"> </span>/srv/mirrors/compressed_mapping.json<span class="w"> </span>--primary-purl<span class="w"> </span>pypi
-<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>
-<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="c1"># Licenses for everything: expressions and license file names</span>
-<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses
-<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a>
-<a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="c1"># What was compiled into the wheels (PEP 770 embedded SBOMs), e.g. Rust crates</span>
-<a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--embedded-sboms
-<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a>
-<a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="c1"># The same plus the full license texts</span>
-<a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--license-texts
-<a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a>
-<a id="__codelineno-6-28" name="__codelineno-6-28" href="#__codelineno-6-28"></a><span class="c1"># A specific lockfile and output file, from anywhere</span>
-<a id="__codelineno-6-29" name="__codelineno-6-29" href="#__codelineno-6-29"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>~/proj/pixi.lock<span class="w"> </span>--output<span class="w"> </span>~/reports/proj.cdx.json
-<a id="__codelineno-6-30" name="__codelineno-6-30" href="#__codelineno-6-30"></a>
-<a id="__codelineno-6-31" name="__codelineno-6-31" href="#__codelineno-6-31"></a><span class="c1"># The environment you actually ship, for the platform you ship it on</span>
-<a id="__codelineno-6-32" name="__codelineno-6-32" href="#__codelineno-6-32"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-e<span class="w"> </span>prod<span class="w"> </span>-p<span class="w"> </span>linux-64
-<a id="__codelineno-6-33" name="__codelineno-6-33" href="#__codelineno-6-33"></a>
-<a id="__codelineno-6-34" name="__codelineno-6-34" href="#__codelineno-6-34"></a><span class="c1"># Every environment, each on linux-64, into a directory</span>
-<a id="__codelineno-6-35" name="__codelineno-6-35" href="#__codelineno-6-35"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--all-environments<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--output<span class="w"> </span>sboms/
-<a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a>
-<a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a><span class="c1"># Every platform the prod environment is locked for</span>
-<a id="__codelineno-6-38" name="__codelineno-6-38" href="#__codelineno-6-38"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-e<span class="w"> </span>prod<span class="w"> </span>--all-platforms<span class="w"> </span>--output<span class="w"> </span>sboms/
-<a id="__codelineno-6-39" name="__codelineno-6-39" href="#__codelineno-6-39"></a>
-<a id="__codelineno-6-40" name="__codelineno-6-40" href="#__codelineno-6-40"></a><span class="c1"># Everything: one document per environment and platform</span>
-<a id="__codelineno-6-41" name="__codelineno-6-41" href="#__codelineno-6-41"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--all-environments<span class="w"> </span>--all-platforms<span class="w"> </span>--output<span class="w"> </span>sboms/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># SPDX instead of CycloneDX</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--format<span class="w"> </span>spdx
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># CycloneDX 1.7 instead of 1.6</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--spec-version<span class="w"> </span><span class="m">1</span>.7
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># SPDX 3.0.1 (JSON-LD) instead of SPDX 2.3</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--format<span class="w"> </span>spdx<span class="w"> </span>--spec-version<span class="w"> </span><span class="m">3</span>.0
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c1"># Straight into a consumer, nothing written to disk</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="c1"># Scannable: give conda-forge Python packages their PyPI identity and make it primary</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--primary-purl<span class="w"> </span>pypi<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="c1"># The same, air-gapped, from a saved copy of the mapping</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping-file<span class="w"> </span>/srv/mirrors/compressed_mapping.json<span class="w"> </span>--primary-purl<span class="w"> </span>pypi
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="c1"># Licenses for everything: expressions and license file names</span>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="c1"># What was compiled into the wheels (PEP 770 embedded SBOMs), e.g. Rust crates</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--embedded-sboms
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a><span class="c1"># The same plus the full license texts</span>
+<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--license-texts
+<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a>
+<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a><span class="c1"># A specific lockfile and output file, from anywhere</span>
+<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>~/proj/pixi.lock<span class="w"> </span>--output<span class="w"> </span>~/reports/proj.cdx.json
+<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a>
+<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a><span class="c1"># The environment you actually ship, for the platform you ship it on</span>
+<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-e<span class="w"> </span>prod<span class="w"> </span>-p<span class="w"> </span>linux-64
+<a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a>
+<a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a><span class="c1"># Every environment, each on linux-64, into a directory</span>
+<a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--all-environments<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--output<span class="w"> </span>sboms/
+<a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a>
+<a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a><span class="c1"># Every platform the prod environment is locked for</span>
+<a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-e<span class="w"> </span>prod<span class="w"> </span>--all-platforms<span class="w"> </span>--output<span class="w"> </span>sboms/
+<a id="__codelineno-7-39" name="__codelineno-7-39" href="#__codelineno-7-39"></a>
+<a id="__codelineno-7-40" name="__codelineno-7-40" href="#__codelineno-7-40"></a><span class="c1"># Everything: one document per environment and platform</span>
+<a id="__codelineno-7-41" name="__codelineno-7-41" href="#__codelineno-7-41"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--all-environments<span class="w"> </span>--all-platforms<span class="w"> </span>--output<span class="w"> </span>sboms/
 </code></pre></div>
 <h2 id="exit-codes-and-errors">Exit codes and errors<a class="headerlink" href="#exit-codes-and-errors" title="Permanent link">&para;</a></h2>
 <table>

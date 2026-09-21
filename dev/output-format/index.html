@@ -621,6 +621,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#excluded-packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Excluded packages
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -974,6 +985,17 @@
     <span class="md-ellipsis">
       
         Embedded SBOMs (PEP 770)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#excluded-packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Excluded packages
       
     </span>
   </a>
@@ -1538,6 +1560,11 @@ kind <code>embedded</code>:</p>
 separated, when more than one fragment declares the same purl; fragments merge into one package per purl).
 Embedded packages take part in <code>--report</code>, <code>--fetch-licenses</code> (their declared licenses) and the license policy.
 SPDX 3 fragments are not read yet. Conda packages have no equivalent convention.</p>
+<h3 id="excluded-packages">Excluded packages<a class="headerlink" href="#excluded-packages" title="Permanent link">&para;</a></h3>
+<p>With <code>--exclude</code> / <code>--include</code> / <code>--exclude-kind</code> the document lists only what survived the filter, and the root
+says so: a <code>pixi:excluded</code> metadata property (CycloneDX) or a <code>pixi:excluded=...</code> comment on the root package
+(SPDX 2.3 and 3.0.1) naming every package left out, whether it matched a pattern or was only needed by one that
+did.</p>
 <h2 id="dependency-graph">Dependency graph<a class="headerlink" href="#dependency-graph" title="Permanent link">&para;</a></h2>
 <p>Each conda package's <code>depends</code> (matchspecs) and each PyPI package's <code>requires_dist</code> (PEP 508) are resolved by
 normalized package name against the packages present in the same environment and platform. The solver has already

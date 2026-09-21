@@ -887,7 +887,9 @@ Code scanning</em> with the <code>sarif-category</code> you choose. The job need
 <a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">        </span><span class="no">CVE-2023-43804:false_positive:only reachable through a removed code path</span>
 <a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">      </span><span class="nt">upload-sarif</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
 </code></pre></div>
-<p>The SARIF report reuses the lookup's cache, so the second run costs no network requests. Outside the action, the
+<p>Each document is a SARIF run with its own automation id, so code scanning files the alerts under
+<code>pixi-sbom/&lt;environment&gt;</code> (or <code>pixi-sbom/&lt;environment&gt;/&lt;platform&gt;</code> in batch mode) rather than under
+<code>sarif-category</code>. The SARIF report reuses the lookup's cache, so the second run costs no network requests. Outside the action, the
 same file comes from <code>pixi sbom --vulnerabilities osv --report vulnerabilities --report-format sarif &gt; findings.sarif</code>.</p>
 <h2 id="a-worked-example">A worked example<a class="headerlink" href="#a-worked-example" title="Permanent link">&para;</a></h2>
 <p>This repository dogfoods its own action in <code>.github/workflows/ci.yml</code>: every environment of its lockfile is
