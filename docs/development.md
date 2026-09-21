@@ -205,10 +205,12 @@ What it does, in order:
 5. **Build.** Checks out the tag on five runners and builds `pixi-sbom` for linux-64, linux-aarch64, osx-64,
    osx-arm64 and win-64, packaged with `LICENSE`, `README.md`, `CHANGELOG.md` and a `.sha256` each.
 6. **Publish.** Creates the GitHub release with this version's changelog section (from `git-cliff --latest`) plus an
-   artifact table as the notes and the packages as assets, then publishes the crate to crates.io (`cargo publish
-   --locked`, skipped with a warning while the `CARGO_REGISTRY_TOKEN` secret is missing; the
-   `[package.metadata.binstall]` table in `Cargo.toml` points `cargo binstall` at the release archives). The job
-   summary prints the source tarball's SHA-256 for `recipe/recipe.yaml`.
+   artifact table as the notes and the packages as assets. The job summary prints the source tarball's SHA-256 for
+   `recipe/recipe.yaml`.
+7. **Crate.** `publish-crate.yml` (reusable, also dispatchable by hand with a `tag` input to republish) checks the
+   tag out clean and runs `cargo publish --locked` (skipped with a warning while the `CARGO_REGISTRY_TOKEN` secret
+   is missing). The `[package.metadata.binstall]` table in `Cargo.toml` points `cargo binstall` at the release
+   archives.
 
 For `pixi global install pixi-sbom`, put that SHA-256 into `recipe/recipe.yaml` and submit it to conda-forge
 `staged-recipes` once; after that the feedstock bot handles version bumps.
