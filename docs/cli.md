@@ -1,27 +1,4 @@
-# Using `pixi sbom`
-
-`pixi-sbom` is a [pixi extension](https://pixi.sh/latest/integration/extensions/introduction/): a standalone
-executable named `pixi-sbom`. Pixi finds any `pixi-<name>` binary on `PATH` (or in its own global bin directory) and
-runs it when you type `pixi <name>`. There is no plugin registration; installing the binary is the whole setup.
-
-## Installing
-
-| Method | Command |
-|---|---|
-| pixi global (recommended) | `pixi global install pixi-sbom` |
-| Prebuilt binary | Download `pixi-sbom-<version>-<platform>.tar.gz` (or `.zip` on Windows) from the [releases page](https://github.com/millsks/pixi-sbom/releases), verify the `.sha256` next to it, and put `pixi-sbom` on your `PATH` |
-| From source | `pixi run build` in a clone, then copy `target/release/pixi-sbom` to `~/.pixi/bin/` |
-
-Check it is picked up:
-
-```sh
-pixi --list          # ...  sbom  (via pixi-sbom)
-pixi sbom --version
-```
-
-`pixi-sbom --help` and `pixi sbom --help` are equivalent; the binary can be run directly without pixi.
-
-## Running
+# Command-line reference
 
 The command reads a `pixi.lock`, picks one environment and one platform from it, and writes one JSON document.
 
@@ -37,7 +14,7 @@ With no options this means:
 3. Write CycloneDX 1.6 JSON (`--spec-version 1.7` for 1.7; `--format spdx` for SPDX 2.3, with `--spec-version 3.0`
    for SPDX 3.0.1) to `sbom.cdx.json` in the directory that contains the lockfile.
 
-### Options
+## Options
 
 | Option | Default | Effect |
 |---|---|---|
@@ -67,7 +44,7 @@ With no options this means:
 
 `RUST_LOG` is also honored and overrides `-v`/`-q` (for example `RUST_LOG=pixi_sbom::lock=debug`).
 
-### Enforcing a license policy
+## Enforcing a license policy
 
 Any of `--allow-license`, `--deny-license` and `--require-license` turns on the policy check. Documents (or reports)
 are still produced, the violations are listed on stderr, and the run exits with code **3**, which is what a CI job
@@ -93,7 +70,7 @@ Packages without a license, or with one that is not an SPDX expression, are not 
 list (there is nothing to evaluate); `--require-license` makes them violations. Combine with `--fetch-licenses` so
 PyPI packages have a license to check. In batch mode each violation is prefixed with its environment and platform.
 
-### Looking instead of writing
+## Looking instead of writing
 
 `--report` prints a report to the terminal and writes nothing:
 
@@ -116,7 +93,29 @@ Reports respect every selection and enrichment flag, so they show exactly what a
 cannot be combined with `--output`. The `table` format fits the terminal width (`COLUMNS`, default 120) by
 truncating the last column; the other formats are never truncated.
 
-### Environment variables
+## One document per environment and platform
+
+A pixi lockfile can hold many environments, each locked for several platforms. An SBOM, by contrast, is expected to
+describe one deliverable, so `pixi sbom` never merges environments or platforms into one document:
+
+- `--environment` / `--platform` pick exactly one combination.
+- `--all-environments` runs that selection once per environment, `default` first, then the rest alphabetically.
+- `--all-platforms` runs it once per platform the environment is locked for, alphabetically.
+- Both together cover every (environment, platform) pair in the lockfile.
+
+In batch mode `--output` names the directory that receives the files (default: next to the lockfile), and each file is
+named after what it describes:
+
+| Flags | File name |
+|---|---|
+| `--all-environments` | `sbom-<environment>.cdx.json` / `.spdx.json` |
+| `--all-platforms` | `sbom-<platform>.cdx.json` |
+| both | `sbom-<environment>-<platform>.cdx.json` |
+
+Each document records which environment and platform it describes (`pixi:environment` / `pixi:platform` in the
+CycloneDX metadata properties; the root package `sourceInfo` in SPDX), so a batch of files stays self-describing.
+
+## Environment variables
 
 | Variable | Effect |
 |---|---|
@@ -129,7 +128,7 @@ truncating the last column; the other formats are never truncated.
 | `SOURCE_DATE_EPOCH` | Pins the document timestamp (seconds since the Unix epoch). With it set, repeated runs over the same lockfile are byte-identical, which lets CI diff SBOMs between commits. See [output-format.md](output-format.md#reproducibility). |
 | `RUST_LOG` | Log filter, overrides `-v`/`-q`. |
 
-### Examples
+## Examples
 
 ```sh
 # SPDX instead of CycloneDX
@@ -175,28 +174,6 @@ pixi sbom -e prod --all-platforms --output sboms/
 pixi sbom --all-environments --all-platforms --output sboms/
 ```
 
-### One document per environment and platform
-
-A pixi lockfile can hold many environments, each locked for several platforms. An SBOM, by contrast, is expected to
-describe one deliverable, so `pixi sbom` never merges environments or platforms into one document:
-
-- `--environment` / `--platform` pick exactly one combination.
-- `--all-environments` runs that selection once per environment, `default` first, then the rest alphabetically.
-- `--all-platforms` runs it once per platform the environment is locked for, alphabetically.
-- Both together cover every (environment, platform) pair in the lockfile.
-
-In batch mode `--output` names the directory that receives the files (default: next to the lockfile), and each file is
-named after what it describes:
-
-| Flags | File name |
-|---|---|
-| `--all-environments` | `sbom-<environment>.cdx.json` / `.spdx.json` |
-| `--all-platforms` | `sbom-<platform>.cdx.json` |
-| both | `sbom-<environment>-<platform>.cdx.json` |
-
-Each document records which environment and platform it describes (`pixi:environment` / `pixi:platform` in the
-CycloneDX metadata properties; the root package `sourceInfo` in SPDX), so a batch of files stays self-describing.
-
 ## Exit codes and errors
 
 | Exit code | Meaning |
@@ -223,86 +200,3 @@ Runtime diagnostics carry a stable code you can grep for in CI logs:
 
 Missing or unreadable manifests (`pixi.toml` / `pyproject.toml`) are not errors: the workspace name falls back to the
 lockfile's directory name and a warning is logged.
-
-## Running in CI
-
-### GitHub Action
-
-This repository doubles as a GitHub Action. It downloads the pinned release binary for the runner (verifying the
-checksum), runs it, and uploads the documents as a workflow artifact; pixi itself is not needed, and neither is
-`pixi install`, since the lockfile is the only input:
-
-```yaml
-- uses: actions/checkout@v4
-- uses: millsks/pixi-sbom@v0.5.1
-  with:
-    all-environments: "true"
-    fetch-licenses: "true"
-    pypi-mapping: prefix
-    primary-purl: pypi
-    deny-license: "GPL-3.0-only AGPL-3.0-only"
-    require-license: "true"
-```
-
-| Input | Default | Meaning |
-|---|---|---|
-| `version` | the action's own tag, else the latest release | pixi-sbom version to run |
-| `lockfile`, `format`, `spec-version`, `environment`, `platform`, `all-environments`, `all-platforms` | as the CLI | Selection and format, see the options above |
-| `output` | `sboms` | Output file (`*.json`, or `-` for the log) or directory; a single document lands in the directory as `sbom.cdx.json` / `sbom.spdx.json` |
-| `fetch-licenses`, `license-texts`, `embedded-sboms`, `pypi-mapping`, `primary-purl` | as the CLI | Enrichment |
-| `allow-license`, `deny-license`, `require-license` | | License policy; whitespace-separated lists |
-| `fail-on-policy` | `true` | Fail the step on a policy violation; with `false` it becomes a warning and the `policy-violated` output is `true` |
-| `extra-args` | | Any other CLI arguments |
-| `upload-artifact`, `artifact-name` | `true`, `sboms` | Artifact upload |
-
-Outputs: `version`, `output`, `policy-violated`. The action runs on Linux (x64, arm64), macOS (Intel, Apple
-Silicon) and Windows runners, and describes any platform in the lockfile regardless of the runner (`platform:
-linux-64` on a macOS runner is fine).
-
-### Without the action
-
-The binary has no runtime dependencies, so any job can download it from the
-[releases page](https://github.com/millsks/pixi-sbom/releases) and run it, or install it with pixi:
-
-```yaml
-- uses: prefix-dev/setup-pixi@v0.8.1
-  with:
-    run-install: false
-- name: Generate SBOMs
-  run: |
-    pixi global install pixi-sbom
-    pixi sbom --all-environments -p linux-64 --output sboms/
-- uses: actions/upload-artifact@v4
-  with:
-    name: sboms
-    path: sboms/
-```
-
-## Consuming the output
-
-The documents validate against the official JSON schemas and load in the usual tooling. Examples:
-
-```sh
-# Convert between formats or inspect
-syft convert sbom.cdx.json -o spdx-json
-cyclonedx-cli validate --input-file sbom.cdx.json --input-format json
-
-# Vulnerability scan
-grype sbom:sbom.cdx.json
-```
-
-Conda packages are identified by `pkg:conda/...` purls with `channel`, `subdir`, `build` and `type` qualifiers; PyPI
-packages by `pkg:pypi/...`.
-
-Scanners have no conda vulnerability data, so by default a conda-only Python environment scans as clean no matter
-what it contains. To get real results, give conda-forge Python packages their PyPI identity and make it the primary
-purl:
-
-```sh
-pixi sbom --pypi-mapping prefix --primary-purl pypi --output - | grype
-```
-
-`--pypi-mapping prefix` consults the same conda-forge mapping pixi uses (downloaded once a day into a cache);
-`--pypi-mapping-file` takes an offline copy. On a typical conda-forge Python environment this gives roughly 60% of the
-components a `pkg:pypi` purl. See [output-format.md](output-format.md#pypi-identities-for-conda-packages) for exactly
-what is recorded.

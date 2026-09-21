@@ -16,10 +16,19 @@ validation:
 
 nav:
   - Overview: index.md
-  - Usage: usage.md
-  - Output format: output-format.md
-  - Architecture: architecture.md
-  - Development: development.md
+  - Installation: installation.md
+  - Command-line reference: cli.md
+  - GitHub Action: github-action.md
+  - CI recipes: ci-recipes.md
+  - Which format to pick: formats.md
+  - Output format reference: output-format.md
+  - Contributing:
+      - Architecture: architecture.md
+      - Development: development.md
+  - Changelog: changelog.md
+
+hooks:
+  - mkdocs_hooks.py
 
 theme:
   name: material
@@ -49,6 +58,7 @@ theme:
 markdown_extensions:
   - admonition
   - attr_list
+  - md_in_html
   - tables
   - toc:
       permalink: true
