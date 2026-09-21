@@ -1,0 +1,66 @@
+{
+  "id": "GHSA-q2q7-5pp4-w6pg",
+  "aliases": [
+    "CVE-2021-33503",
+    "PYSEC-2021-108"
+  ],
+  "summary": "Catastrophic backtracking in URL authority parser when passed URL containing many @ characters",
+  "details": "### Impact\n\nWhen provided with a URL containing many `@` characters in the authority component the authority regular expression exhibits catastrophic backtracking causing a denial of service if a URL were passed as a parameter or redirected to via an HTTP redirect.\n\n\n### Patches\n\nThe issue has been ",
+  "published": "2021-06-01T21:19:32Z",
+  "modified": "2026-07-08T06:00:54.217433740Z",
+  "severity": [
+    {
+      "type": "CVSS_V3",
+      "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+    },
+    {
+      "type": "CVSS_V4",
+      "score": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N"
+    }
+  ],
+  "affected": [
+    {
+      "package": {
+        "name": "urllib3",
+        "ecosystem": "PyPI",
+        "purl": "pkg:pypi/urllib3"
+      },
+      "ranges": [
+        {
+          "type": "ECOSYSTEM",
+          "events": [
+            {
+              "introduced": "1.25.4"
+            },
+            {
+              "fixed": "1.26.5"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "references": [
+    {
+      "type": "WEB",
+      "url": "https://github.com/urllib3/urllib3/security/advisories/GHSA-q2q7-5pp4-w6pg"
+    },
+    {
+      "type": "ADVISORY",
+      "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-33503"
+    },
+    {
+      "type": "WEB",
+      "url": "https://github.com/urllib3/urllib3/commit/2d4a3fee6de2fa45eb82169361918f759269b4ec"
+    }
+  ],
+  "database_specific": {
+    "cwe_ids": [
+      "CWE-400"
+    ],
+    "severity": "HIGH",
+    "github_reviewed": true,
+    "github_reviewed_at": "2021-05-28T22:09:12Z",
+    "nvd_published_at": "2021-06-29T11:15:00Z"
+  }
+}

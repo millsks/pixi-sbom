@@ -1,0 +1,55 @@
+{
+  "id": "PYSEC-2026-1995",
+  "aliases": [
+    "CVE-2024-37891",
+    "GHSA-34jh-p97f-mpxf"
+  ],
+  "summary": "urllib3's Proxy-Authorization request header isn't stripped during cross-origin redirects",
+  "published": "2026-07-07T14:34:34.848392Z",
+  "modified": "2026-07-07T17:48:15.400192088Z",
+  "severity": [
+    {
+      "type": "CVSS_V3",
+      "score": "CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:H/I:N/A:N"
+    }
+  ],
+  "affected": [
+    {
+      "package": {
+        "name": "urllib3",
+        "ecosystem": "PyPI",
+        "purl": "pkg:pypi/urllib3"
+      },
+      "ranges": [
+        {
+          "type": "ECOSYSTEM",
+          "events": [
+            {
+              "introduced": "0"
+            },
+            {
+              "fixed": "1.26.19"
+            },
+            {
+              "introduced": "2.0.0"
+            },
+            {
+              "fixed": "2.2.2"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "references": [
+    {
+      "type": "WEB",
+      "url": "https://github.com/urllib3/urllib3/security/advisories/GHSA-34jh-p97f-mpxf"
+    },
+    {
+      "type": "ADVISORY",
+      "url": "https://nvd.nist.gov/vuln/detail/CVE-2024-37891"
+    }
+  ],
+  "database_specific": null
+}

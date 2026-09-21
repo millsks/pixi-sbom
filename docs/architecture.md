@@ -18,6 +18,7 @@ once no matter how many output formats exist.
    embedded.rs ──── PEP 770 embedded SBOMs from the same wheels (optional)
    report.rs ───── --report: renders the model as a terminal table instead of a document
    policy.rs ───── --allow/--deny/--require-license: violations -> exit 3 after writing
+   osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
    license.rs ◀── used by both writers
    discover.rs ── finds the lockfile, decides output paths
    cli.rs ──────── clap definitions
@@ -48,6 +49,8 @@ once no matter how many output formats exist.
 | `format/cyclonedx.rs` | Serde structs mirroring the parts of CycloneDX 1.6 / 1.7 that are used, the version table (`$schema`, `specVersion`, 1.7 citations), and the `Sbom` → `Bom` mapping. | serde |
 | `format/spdx3.rs` | SPDX 3.0.1 JSON-LD: one node struct for every element class, a builder that mints IRIs and deduplicates license and supplier elements, and the `dependsOn` / `hasDeclaredLicense` relationship graph. Shares id sanitizing with the 2.3 writer. | serde |
 | `format/spdx.rs` | Same for SPDX 2.3, including `SPDXRef` id assignment and `LicenseRef` extraction. | serde |
+| `osv.rs` | `--vulnerabilities osv`: collects every queryable purl (conda purls excluded), asks OSV's `querybatch` in thousands, fetches each record in parallel, caches queries (one hour) and records (until `modified` moves), merges GHSA / PYSEC twins by alias, picks the fixed version above the installed one, and fills `Sbom::vulnerabilities`. A failed query is fatal; a failed record is not. | serde_json, http.rs, cvss.rs, parallel.rs |
+| `cvss.rs` | CVSS v3.0 / v3.1 base scores from vector strings, for advisories that carry a vector but no qualitative severity. | |
 | `policy.rs` | `--allow-license` / `--deny-license` / `--require-license`: parses licensees, canonicalizes ids (base, `-or-later`, exception) and evaluates each package's expression with the `spdx` crate's `evaluate`, returning violations; exit code 3 is applied in `main`. | spdx, license.rs |
 | `report.rs` | `--report`: the `packages` and `licenses` views built from the model, rendered as an aligned table, Markdown, CSV or JSON. Owns no I/O beyond the writer it is handed. | serde_json |
 | `main.rs` | Argument parsing, tracing setup, miette report handler, the environment loop, and file output. | miette, tracing |

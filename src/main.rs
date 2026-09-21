@@ -2,6 +2,7 @@
 
 mod cli;
 mod condaarchive;
+mod cvss;
 mod discover;
 mod embedded;
 mod format;
@@ -11,6 +12,7 @@ mod lock;
 mod manifest;
 mod mapping;
 mod model;
+mod osv;
 mod parallel;
 mod pkgcache;
 mod policy;
@@ -133,6 +135,32 @@ fn main() -> Result<()> {
                 };
                 let pypi::Outcome { found, missing, failed } = lookup.run(&mut sbom);
                 tracing::info!(found, missing, failed, "looked up PyPI licenses");
+            }
+        }
+        if let Some(cli::VulnerabilitySource::Osv) = args.vulnerabilities {
+            let cache_dir = mapping::cache_dir();
+            let lookup = osv::Lookup {
+                api_url: &osv::api_url(),
+                cache_dir: &cache_dir,
+            };
+            let osv::Outcome {
+                queried,
+                without_identity,
+                findings,
+                failed,
+            } = lookup.run(&mut sbom)?;
+            tracing::info!(
+                queried,
+                without_identity,
+                findings,
+                failed,
+                "looked up vulnerabilities on OSV"
+            );
+            if args.format == cli::Format::Spdx && args.report.is_none() && findings > 0 {
+                tracing::warn!(
+                    findings,
+                    "SPDX documents do not record vulnerabilities; use --format cyclonedx to keep them"
+                );
             }
         }
         if let Some(policy) = &policy {

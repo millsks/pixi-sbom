@@ -239,6 +239,27 @@ The root's edges are a graph-root heuristic, not the manifest's declared depende
 what was requested directly, so a declared dependency that is also depended on by something else (`python` is the
 usual example) is reachable transitively rather than listed on the root.
 
+## Vulnerabilities
+
+With `--vulnerabilities osv` the CycloneDX document carries a `vulnerabilities[]` array (1.6 and 1.7 alike); SPDX
+2.3 and 3.0.1 documents do not record them. One entry per finding, after records describing the same vulnerability
+have been merged:
+
+| Field | Content |
+|---|---|
+| `bom-ref` | `vuln-<id>` |
+| `id`, `source` | The OSV record id (`GHSA-...`, `PYSEC-...`, `RUSTSEC-...`) and `{ name: OSV, url: https://osv.dev/vulnerability/<id> }` |
+| `references[]` | Every alias with where it is published: `CVE-*` → NVD, `GHSA-*` → GitHub Advisory Database, others → OSV |
+| `ratings[]` | The database's qualitative severity (`method: other`, source e.g. `GitHub Advisory Database`) and every CVSS vector the record carries (`method: CVSSv31` / `CVSSv3` / `CVSSv4`, with the v3 base score computed from the vector) |
+| `cwes[]` | CWE numbers from the record |
+| `description`, `detail` | The record's `summary` and `details` |
+| `recommendation` | `Upgrade <package> to <version>` for each affected package with a fixed version, the smallest fix above the installed version |
+| `advisories[]` | The record's reference URLs |
+| `published`, `updated` | The record's timestamps |
+| `affects[]` | `{ ref }` for every affected component (`bom-ref` = the package's purl); a conda package matched through its PyPI purl is listed under its own `bom-ref` |
+
+Entries are ordered by the worst rating, then id.
+
 ## SPDX 3.0.1
 
 `--format spdx --spec-version 3.0` writes the SPDX 3.0.1 JSON-LD serialization: a `@context` of

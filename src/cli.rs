@@ -96,6 +96,14 @@ pub enum PrimaryPurl {
     Pypi,
 }
 
+/// Where known vulnerabilities are looked up.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum VulnerabilitySource {
+    /// The Open Source Vulnerabilities database (osv.dev): PyPI, crates.io, npm and other
+    /// ecosystems it indexes; conda packages match through their PyPI purl.
+    Osv,
+}
+
 /// Generate a Software Bill of Materials from a pixi.lock file.
 #[derive(Debug, Parser)]
 #[command(
@@ -190,6 +198,12 @@ pub struct Args {
     /// Every package must declare a license that is an SPDX expression.
     #[arg(long)]
     pub require_license: bool,
+
+    /// Look up known vulnerabilities of every package with a queryable purl and record them
+    /// in the document (CycloneDX `vulnerabilities`). Conda packages are matched through their
+    /// PyPI purl, so combine with --pypi-mapping prefix. Results are cached for an hour.
+    #[arg(long, value_enum, value_name = "SOURCE")]
+    pub vulnerabilities: Option<VulnerabilitySource>,
 
     /// Print a report to the terminal instead of writing an SBOM document: `packages` is the
     /// inventory, `licenses` the license view with a summary. Nothing is written to disk.

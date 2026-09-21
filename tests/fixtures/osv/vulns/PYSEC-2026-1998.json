@@ -1,0 +1,49 @@
+{
+  "id": "PYSEC-2026-1998",
+  "aliases": [
+    "CVE-2025-66418",
+    "GHSA-gm62-xv2j-4w53"
+  ],
+  "summary": "urllib3 allows an unbounded number of links in the decompression chain",
+  "published": "2026-07-07T16:03:12.278581Z",
+  "modified": "2026-07-07T17:47:54.140852492Z",
+  "severity": [
+    {
+      "type": "CVSS_V4",
+      "score": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:H"
+    }
+  ],
+  "affected": [
+    {
+      "package": {
+        "name": "urllib3",
+        "ecosystem": "PyPI",
+        "purl": "pkg:pypi/urllib3"
+      },
+      "ranges": [
+        {
+          "type": "ECOSYSTEM",
+          "events": [
+            {
+              "introduced": "1.24"
+            },
+            {
+              "fixed": "2.6.0"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "references": [
+    {
+      "type": "WEB",
+      "url": "https://github.com/urllib3/urllib3/security/advisories/GHSA-gm62-xv2j-4w53"
+    },
+    {
+      "type": "ADVISORY",
+      "url": "https://nvd.nist.gov/vuln/detail/CVE-2025-66418"
+    }
+  ],
+  "database_specific": null
+}
