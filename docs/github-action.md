@@ -1,5 +1,8 @@
 # GitHub Action
 
+Listed on the [GitHub Marketplace](https://github.com/marketplace/actions/pixi-sbom); the source is `action.yml` at
+the root of the [repository](https://github.com/millsks/pixi-sbom).
+
 This repository doubles as a GitHub Action. It downloads the pinned release binary for the runner (verifying the
 checksum), runs it, and uploads the documents as a workflow artifact; pixi itself is not needed, and neither is
 `pixi install`, since the lockfile is the only input:

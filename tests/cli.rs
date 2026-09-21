@@ -86,7 +86,8 @@ fn help_lists_all_options() {
         .stdout(predicate::str::contains("--environment"))
         .stdout(predicate::str::contains("--platform"))
         .stdout(predicate::str::contains("--all-environments"))
-        .stdout(predicate::str::contains("--all-platforms"));
+        .stdout(predicate::str::contains("--all-platforms"))
+        .stdout(predicate::str::contains("https://millsks.github.io/pixi-sbom/"));
 }
 
 #[test]

@@ -98,7 +98,14 @@ pub enum PrimaryPurl {
 
 /// Generate a Software Bill of Materials from a pixi.lock file.
 #[derive(Debug, Parser)]
-#[command(name = "pixi-sbom", bin_name = "pixi sbom", version, about, long_about = None)]
+#[command(
+    name = "pixi-sbom",
+    bin_name = "pixi sbom",
+    version,
+    about,
+    long_about = None,
+    after_help = "Documentation: https://millsks.github.io/pixi-sbom/"
+)]
 pub struct Args {
     /// Path to the pixi.lock file. Defaults to searching from the current directory upward.
     #[arg(long, value_name = "PATH")]
