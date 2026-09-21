@@ -38,17 +38,20 @@ struct Citation {
 }
 
 impl SpecVersion {
+    /// The `specVersion` string; SPDX versions cannot reach this writer and fall back to 1.6.
     fn number(self) -> &'static str {
         match self {
-            SpecVersion::V1_6 => "1.6",
             SpecVersion::V1_7 => "1.7",
+            SpecVersion::V1_6 | SpecVersion::V2_3 | SpecVersion::V3_0 => "1.6",
         }
     }
 
     fn schema_url(self) -> &'static str {
         match self {
-            SpecVersion::V1_6 => "http://cyclonedx.org/schema/bom-1.6.schema.json",
             SpecVersion::V1_7 => "http://cyclonedx.org/schema/bom-1.7.schema.json",
+            SpecVersion::V1_6 | SpecVersion::V2_3 | SpecVersion::V3_0 => {
+                "http://cyclonedx.org/schema/bom-1.6.schema.json"
+            }
         }
     }
 }
@@ -184,7 +187,7 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Bom {
 
     let timestamp = ctx.timestamp.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     let citations = match ctx.spec_version {
-        SpecVersion::V1_6 => vec![],
+        SpecVersion::V1_6 | SpecVersion::V2_3 | SpecVersion::V3_0 => vec![],
         SpecVersion::V1_7 => vec![Citation {
             pointers: vec!["/metadata/component", "/components", "/dependencies"],
             timestamp: timestamp.clone(),

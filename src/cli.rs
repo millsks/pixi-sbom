@@ -10,7 +10,7 @@ use clap_verbosity_flag::{InfoLevel, Verbosity};
 pub enum Format {
     /// CycloneDX 1.6 or 1.7 (JSON), see --spec-version
     Cyclonedx,
-    /// SPDX 2.3 (JSON)
+    /// SPDX 2.3 or 3.0 (JSON), see --spec-version
     Spdx,
 }
 
@@ -41,7 +41,7 @@ impl Format {
     }
 }
 
-/// CycloneDX specification version to write.
+/// Specification version to write: `1.6` / `1.7` for CycloneDX, `2.3` / `3.0` for SPDX.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
 pub enum SpecVersion {
     /// CycloneDX 1.6
@@ -51,6 +51,31 @@ pub enum SpecVersion {
     /// CycloneDX 1.7 (ECMA-424 2nd edition); adds a citation attributing the inventory to its source
     #[value(name = "1.7")]
     V1_7,
+    /// SPDX 2.3 (tag-value-style JSON)
+    #[value(name = "2.3")]
+    V2_3,
+    /// SPDX 3.0.1 (JSON-LD graph)
+    #[value(name = "3.0")]
+    V3_0,
+}
+
+impl SpecVersion {
+    /// The version written when `--spec-version` is not given.
+    pub fn default_for(format: Format) -> Self {
+        match format {
+            Format::Cyclonedx => SpecVersion::V1_6,
+            Format::Spdx => SpecVersion::V2_3,
+        }
+    }
+
+    /// Whether this version belongs to `format`.
+    pub fn applies_to(self, format: Format) -> bool {
+        matches!(
+            (format, self),
+            (Format::Cyclonedx, SpecVersion::V1_6 | SpecVersion::V1_7)
+                | (Format::Spdx, SpecVersion::V2_3 | SpecVersion::V3_0)
+        )
+    }
 }
 
 /// Where PyPI identities for conda packages come from.
@@ -83,7 +108,8 @@ pub struct Args {
     #[arg(long, value_enum, default_value_t = Format::Cyclonedx)]
     pub format: Format,
 
-    /// CycloneDX specification version to write (only with --format cyclonedx).
+    /// Specification version to write: 1.6 (default) or 1.7 for CycloneDX, 2.3 (default) or
+    /// 3.0 for SPDX.
     #[arg(long, value_enum, value_name = "VERSION")]
     pub spec_version: Option<SpecVersion>,
 

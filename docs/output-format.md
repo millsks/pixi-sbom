@@ -8,7 +8,7 @@ specifications list them, followed by a trailing newline.
 
 | | CycloneDX 1.6 / 1.7 | SPDX 2.3 |
 |---|---|---|
-| Identity | `bomFormat: CycloneDX`, `specVersion: 1.6` or `1.7` (`--spec-version`), matching `$schema` | `spdxVersion: SPDX-2.3`, `dataLicense: CC0-1.0`, `SPDXID: SPDXRef-DOCUMENT` |
+| Identity | `bomFormat: CycloneDX`, `specVersion: 1.6` or `1.7` (`--spec-version`), matching `$schema` | `spdxVersion: SPDX-2.3`, `dataLicense: CC0-1.0`, `SPDXID: SPDXRef-DOCUMENT` (for `--spec-version 3.0` see [SPDX 3.0.1](#spdx-301)) |
 | Unique id | `serialNumber: urn:uuid:<v5>` | `documentNamespace: https://spdx.org/spdxdocs/pixi-sbom/<name>/<uuid>` |
 | Timestamp (UTC, seconds) | `metadata.timestamp` | `creationInfo.created` |
 | Generator | `metadata.tools.components[]`: `pixi-sbom` with version and repository link | `creationInfo.creators[]`: `Tool: pixi-sbom-<version>` |
@@ -209,6 +209,25 @@ to the graph instead of floating as extra roots.
 The root's edges are a graph-root heuristic, not the manifest's declared dependencies: the lockfile does not record
 what was requested directly, so a declared dependency that is also depended on by something else (`python` is the
 usual example) is reachable transitively rather than listed on the root.
+
+## SPDX 3.0.1
+
+`--format spdx --spec-version 3.0` writes the SPDX 3.0.1 JSON-LD serialization: a `@context` of
+`https://spdx.org/rdf/3.0.1/spdx-context.jsonld` and a `@graph` of typed elements, each with an IRI `spdxId` under
+`https://spdx.org/spdxdocs/pixi-sbom/<name>/<uuid>#...` and a reference to one shared `CreationInfo` blank node.
+
+| Element | Content |
+|---|---|
+| `CreationInfo` | `specVersion: 3.0.1`, `created`, `createdBy` (a `SoftwareAgent` for pixi-sbom plus a `Person` per manifest author), `createdUsing` (the `Tool`), a comment naming the lockfile, environment and platform |
+| `SpdxDocument` | `rootElement` = the `software_Sbom`; `dataLicense` = a `CC0-1.0` license element; profile conformance `core`, `software`, `simpleLicensing` |
+| `software_Sbom` | `software_sbomType: [build]`, `rootElement` = the workspace package, `element` = every package, relationship and license element |
+| `software_Package` (workspace) | `software_primaryPurpose: application`, name, version, homepage, repository as download location, `software_sourceInfo` |
+| `software_Package` (each locked package) | `software_primaryPurpose: library`, name, version, `software_packageUrl`, `software_downloadLocation` (or `software_sourceInfo` for local paths), `software_homePage`, `summary`, `suppliedBy` (an `Organization` per channel or index), `verifiedUsing` (`Hash` sha256 / md5), `externalIdentifier` (extra purls, repository URL), and the `pixi:*` properties as `comment` lines |
+| `simplelicensing_LicenseExpression` / `simplelicensing_SimpleLicensingText` | one element per distinct license expression, or per free-text license (carrying the license file text when fetched); packages point at them with `hasDeclaredLicense` relationships |
+| `Relationship` | `dependsOn` from each package to its dependencies and from the workspace package to the top level; `hasDeclaredLicense` from packages to license elements |
+
+The document is validated against the official 3.0.1 JSON schema in the tests and parses with the reference
+`spdx-python-model` deserializer. SPDX 2.3 remains the default because most consumers still read only 2.x.
 
 ## Validation
 

@@ -159,7 +159,7 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
 }
 
 /// Map every package id to a unique, spec-conforming `SPDXRef-...` identifier.
-fn assign_ids(packages: &[Package]) -> HashMap<&str, String> {
+pub(super) fn assign_ids(packages: &[Package]) -> HashMap<&str, String> {
     let mut taken: HashSet<String> = HashSet::from([ROOT_ID.to_string()]);
     let mut ids = HashMap::with_capacity(packages.len());
     for package in packages {
@@ -183,7 +183,7 @@ fn assign_ids(packages: &[Package]) -> HashMap<&str, String> {
 }
 
 /// Keep only the characters SPDX allows in identifiers.
-fn id_fragment(text: &str) -> String {
+pub(super) fn id_fragment(text: &str) -> String {
     text.chars()
         .map(|c| {
             if c.is_ascii_alphanumeric() || c == '.' || c == '-' {
@@ -361,7 +361,7 @@ fn license_declared(raw: &str, file_text: Option<&str>, extracted: &mut BTreeMap
     }
 }
 
-fn kind_name(kind: PackageKind) -> &'static str {
+pub(super) fn kind_name(kind: PackageKind) -> &'static str {
     match kind {
         PackageKind::CondaBinary => "conda",
         PackageKind::CondaSource => "conda-source",

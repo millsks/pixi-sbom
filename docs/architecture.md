@@ -6,7 +6,8 @@ once no matter how many output formats exist.
 
 ```
  pixi.lock ──▶ lock.rs ──▶ model::Sbom ──▶ format/cyclonedx.rs ──▶ sbom.cdx.json
-                 ▲             ▲       └──▶ format/spdx.rs      ──▶ sbom.spdx.json
+                 ▲             ▲       ├──▶ format/spdx.rs      ──▶ sbom.spdx.json (2.3)
+                 │             │       └──▶ format/spdx3.rs     ──▶ sbom.spdx.json (3.0.1)
    purl.rs ──────┘             │
    manifest.rs ────────────────┘   (workspace metadata)
    mapping.rs ──── enriches model::Sbom with PyPI purls (optional, via http.rs)
@@ -43,6 +44,7 @@ once no matter how many output formats exist.
 | `license.rs` | Turning a declared license string into either an SPDX expression or free text. | spdx |
 | `format/mod.rs` | `WriteContext` (timestamp, UUID, tool version), `write()` / `to_value()` entry points, the shared graph-root helper, and the hand-built sample model used by writer tests. | serde_json, chrono, uuid |
 | `format/cyclonedx.rs` | Serde structs mirroring the parts of CycloneDX 1.6 / 1.7 that are used, the version table (`$schema`, `specVersion`, 1.7 citations), and the `Sbom` → `Bom` mapping. | serde |
+| `format/spdx3.rs` | SPDX 3.0.1 JSON-LD: one node struct for every element class, a builder that mints IRIs and deduplicates license and supplier elements, and the `dependsOn` / `hasDeclaredLicense` relationship graph. Shares id sanitizing with the 2.3 writer. | serde |
 | `format/spdx.rs` | Same for SPDX 2.3, including `SPDXRef` id assignment and `LicenseRef` extraction. | serde |
 | `policy.rs` | `--allow-license` / `--deny-license` / `--require-license`: parses licensees, canonicalizes ids (base, `-or-later`, exception) and evaluates each package's expression with the `spdx` crate's `evaluate`, returning violations; exit code 3 is applied in `main`. | spdx, license.rs |
 | `report.rs` | `--report`: the `packages` and `licenses` views built from the model, rendered as an aligned table, Markdown, CSV or JSON. Owns no I/O beyond the writer it is handed. | serde_json |

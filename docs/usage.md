@@ -34,8 +34,8 @@ With no options this means:
 1. Find `pixi.lock` by searching the current directory, then each parent, until one is found (the same walk pixi
    itself does for its manifest).
 2. Describe the `default` environment on the platform the command is running on (for example `osx-arm64`).
-3. Write CycloneDX 1.6 JSON (`--spec-version 1.7` for 1.7) to `sbom.cdx.json` in the directory that contains the
-   lockfile.
+3. Write CycloneDX 1.6 JSON (`--spec-version 1.7` for 1.7; `--format spdx` for SPDX 2.3, with `--spec-version 3.0`
+   for SPDX 3.0.1) to `sbom.cdx.json` in the directory that contains the lockfile.
 
 ### Options
 
@@ -43,7 +43,7 @@ With no options this means:
 |---|---|---|
 | `--lockfile <PATH>` | upward search from cwd | Lockfile to read. The file must exist; there is no fallback search when this is given. |
 | `--format <cyclonedx\|spdx>` | `cyclonedx` | `cyclonedx` writes CycloneDX JSON; `spdx` writes SPDX 2.3 JSON. |
-| `--spec-version <1.6\|1.7>` | `1.6` | CycloneDX version to write. `1.7` (ECMA-424 2nd edition) is backward compatible and adds a `citations` entry attributing the inventory to the lockfile; the default stays `1.6` until the common consumers default to 1.7. Only valid with `--format cyclonedx`. |
+| `--spec-version <1.6\|1.7\|2.3\|3.0>` | `1.6` / `2.3` | Specification version: `1.6` or `1.7` for CycloneDX (1.7 adds a `citations` entry), `2.3` or `3.0` for SPDX (3.0 is the JSON-LD graph of SPDX 3.0.1). Defaults stay at 1.6 / 2.3 until the common consumers move. A version of the other format is a usage error. |
 | `--output <PATH>` | `<lockfile dir>/sbom.cdx.json` or `sbom.spdx.json` | File to write; parent directories are created. `-` writes the document to stdout (logs stay on stderr). With `--all-environments` / `--all-platforms` this is a directory instead, and `-` is rejected. |
 | `-e, --environment <NAME>` | `default` | Lock environment to describe. Must exist in the lockfile. |
 | `-p, --platform <PLATFORM>` | host platform | Platform within that environment, e.g. `linux-64`, `osx-arm64`, `win-64`. Must be locked for the environment. |
@@ -136,6 +136,9 @@ pixi sbom --format spdx
 # CycloneDX 1.7 instead of 1.6
 pixi sbom --spec-version 1.7
 
+# SPDX 3.0.1 (JSON-LD) instead of SPDX 2.3
+pixi sbom --format spdx --spec-version 3.0
+
 # Straight into a consumer, nothing written to disk
 pixi sbom --output - | grype
 
@@ -196,7 +199,7 @@ CycloneDX metadata properties; the root package `sourceInfo` in SPDX), so a batc
 | 0 | Document(s) written. |
 | 1 | A runtime error; a diagnostic is printed to stderr. |
 | 3 | The license policy was violated; the documents were written and the violations listed on stderr. |
-| 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments` or `--all-platforms`, or `--spec-version` with `--format spdx`, or a `--allow-license` / `--deny-license` value that is not an SPDX identifier). |
+| 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments` or `--all-platforms`, or a `--spec-version` of the other format, or a `--allow-license` / `--deny-license` value that is not an SPDX identifier). |
 
 Runtime diagnostics carry a stable code you can grep for in CI logs:
 

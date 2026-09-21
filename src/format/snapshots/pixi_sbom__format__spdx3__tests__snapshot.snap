@@ -1,0 +1,336 @@
+---
+source: src/format/spdx3.rs
+expression: json()
+---
+{
+  "@context": "https://spdx.org/rdf/3.0.1/spdx-context.jsonld",
+  "@graph": [
+    {
+      "@id": "_:creationinfo",
+      "type": "CreationInfo",
+      "comment": "Generated from the pixi lockfile pixi.lock (environment default, platform linux-64) before any build",
+      "specVersion": "3.0.1",
+      "created": "2026-09-18T12:00:00Z",
+      "createdBy": [
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#agent-pixi-sbom",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#author-0",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#author-1"
+      ],
+      "createdUsing": [
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#tool-pixi-sbom"
+      ]
+    },
+    {
+      "type": "SoftwareAgent",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#agent-pixi-sbom",
+      "creationInfo": "_:creationinfo",
+      "name": "pixi-sbom 0.0.0-test"
+    },
+    {
+      "type": "Tool",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#tool-pixi-sbom",
+      "creationInfo": "_:creationinfo",
+      "name": "pixi-sbom",
+      "description": "pixi-sbom 0.0.0-test (https://github.com/millsks/pixi-sbom)"
+    },
+    {
+      "type": "Person",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#author-0",
+      "creationInfo": "_:creationinfo",
+      "name": "Ada Lovelace",
+      "externalIdentifier": [
+        {
+          "type": "ExternalIdentifier",
+          "externalIdentifierType": "email",
+          "identifier": "ada@example.org"
+        }
+      ]
+    },
+    {
+      "type": "Person",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#author-1",
+      "creationInfo": "_:creationinfo",
+      "name": "Anonymous"
+    },
+    {
+      "type": "simplelicensing_LicenseExpression",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#license-Apache-2.0",
+      "creationInfo": "_:creationinfo",
+      "simplelicensing_licenseExpression": "Apache-2.0"
+    },
+    {
+      "type": "software_Package",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#package-root",
+      "creationInfo": "_:creationinfo",
+      "name": "demo",
+      "software_packageVersion": "2.0.0",
+      "software_downloadLocation": "https://github.com/example/demo",
+      "software_homePage": "https://demo.example",
+      "software_primaryPurpose": "application",
+      "software_sourceInfo": "pixi workspace; lockfile pixi.lock; environment default; platform linux-64"
+    },
+    {
+      "type": "Organization",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#supplier-conda-forge",
+      "creationInfo": "_:creationinfo",
+      "name": "conda-forge",
+      "externalIdentifier": [
+        {
+          "type": "ExternalIdentifier",
+          "externalIdentifierType": "urlScheme",
+          "identifier": "https://conda.anaconda.org/conda-forge/"
+        }
+      ]
+    },
+    {
+      "type": "simplelicensing_LicenseExpression",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#license-Zlib",
+      "creationInfo": "_:creationinfo",
+      "simplelicensing_licenseExpression": "Zlib"
+    },
+    {
+      "type": "software_Package",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-conda-libzlib-1.3.1",
+      "creationInfo": "_:creationinfo",
+      "name": "libzlib",
+      "summary": "zlib data compression library",
+      "comment": "pixi:channel=conda-forge\npixi:subdir=linux-64\npixi:kind=conda\npixi:license-files=LICENSE.txt",
+      "software_packageVersion": "1.3.1",
+      "software_downloadLocation": "https://conda.anaconda.org/conda-forge/linux-64/libzlib-1.3.1-h1.conda",
+      "software_homePage": "https://zlib.net",
+      "software_packageUrl": "pkg:conda/libzlib@1.3.1?build=h1&channel=conda-forge&subdir=linux-64&type=conda",
+      "software_primaryPurpose": "library",
+      "suppliedBy": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#supplier-conda-forge",
+      "externalIdentifier": [
+        {
+          "type": "ExternalIdentifier",
+          "externalIdentifierType": "urlScheme",
+          "identifier": "https://github.com/madler/zlib"
+        }
+      ],
+      "verifiedUsing": [
+        {
+          "type": "Hash",
+          "algorithm": "sha256",
+          "hashValue": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "type": "Hash",
+          "algorithm": "md5",
+          "hashValue": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    },
+    {
+      "type": "simplelicensing_LicenseExpression",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#license-MIT-OR-Apache-2.0",
+      "creationInfo": "_:creationinfo",
+      "simplelicensing_licenseExpression": "MIT OR Apache-2.0"
+    },
+    {
+      "type": "software_Package",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-conda-zlib-1.3.1",
+      "creationInfo": "_:creationinfo",
+      "name": "zlib",
+      "comment": "pixi:channel=conda-forge\npixi:kind=conda\npixi:license-files=LICENSE-APACHE;LICENSE-MIT",
+      "software_packageVersion": "1.3.1",
+      "software_downloadLocation": "https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-h1.conda",
+      "software_packageUrl": "pkg:conda/zlib@1.3.1?build=h1&channel=conda-forge&subdir=linux-64&type=conda",
+      "software_primaryPurpose": "library",
+      "suppliedBy": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#supplier-conda-forge",
+      "externalIdentifier": [
+        {
+          "type": "ExternalIdentifier",
+          "externalIdentifierType": "packageUrl",
+          "identifier": "pkg:pypi/zlib@1.3.1"
+        }
+      ],
+      "verifiedUsing": [
+        {
+          "type": "Hash",
+          "algorithm": "sha256",
+          "hashValue": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      ]
+    },
+    {
+      "type": "simplelicensing_SimpleLicensingText",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#license-text-Proprietary",
+      "creationInfo": "_:creationinfo",
+      "name": "Proprietary",
+      "simplelicensing_licenseText": "all rights reserved"
+    },
+    {
+      "type": "software_Package",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-conda-source-mylib",
+      "creationInfo": "_:creationinfo",
+      "name": "mylib",
+      "comment": "pixi:kind=conda-source\npixi:license-files=EULA",
+      "software_packageUrl": "pkg:conda/mylib@0.1.0",
+      "software_primaryPurpose": "library",
+      "software_sourceInfo": "built from source at ./packages/mylib"
+    },
+    {
+      "type": "Organization",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#supplier-pypi.org",
+      "creationInfo": "_:creationinfo",
+      "name": "pypi.org",
+      "externalIdentifier": [
+        {
+          "type": "ExternalIdentifier",
+          "externalIdentifierType": "urlScheme",
+          "identifier": "https://pypi.org/simple"
+        }
+      ]
+    },
+    {
+      "type": "software_Package",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-pypi-six-1.17.0",
+      "creationInfo": "_:creationinfo",
+      "name": "six",
+      "comment": "pixi:requires-python=>=2.7\npixi:kind=pypi",
+      "software_packageVersion": "1.17.0",
+      "software_downloadLocation": "https://files.pythonhosted.org/packages/six-1.17.0-py2.py3-none-any.whl",
+      "software_packageUrl": "pkg:pypi/six@1.17.0",
+      "software_primaryPurpose": "library",
+      "suppliedBy": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#supplier-pypi.org",
+      "verifiedUsing": [
+        {
+          "type": "Hash",
+          "algorithm": "sha256",
+          "hashValue": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      ]
+    },
+    {
+      "type": "Relationship",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#relationship-root-license",
+      "creationInfo": "_:creationinfo",
+      "from": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#package-root",
+      "relationshipType": "hasDeclaredLicense",
+      "to": [
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#license-Apache-2.0"
+      ]
+    },
+    {
+      "type": "Relationship",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#relationship-Package-conda-libzlib-1.3.1-license",
+      "creationInfo": "_:creationinfo",
+      "from": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-conda-libzlib-1.3.1",
+      "relationshipType": "hasDeclaredLicense",
+      "to": [
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#license-Zlib"
+      ]
+    },
+    {
+      "type": "Relationship",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#relationship-Package-conda-zlib-1.3.1-license",
+      "creationInfo": "_:creationinfo",
+      "from": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-conda-zlib-1.3.1",
+      "relationshipType": "hasDeclaredLicense",
+      "to": [
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#license-MIT-OR-Apache-2.0"
+      ]
+    },
+    {
+      "type": "Relationship",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#relationship-Package-conda-zlib-1.3.1-depends",
+      "creationInfo": "_:creationinfo",
+      "from": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-conda-zlib-1.3.1",
+      "relationshipType": "dependsOn",
+      "to": [
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-conda-libzlib-1.3.1"
+      ]
+    },
+    {
+      "type": "Relationship",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#relationship-Package-conda-source-mylib-license",
+      "creationInfo": "_:creationinfo",
+      "from": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-conda-source-mylib",
+      "relationshipType": "hasDeclaredLicense",
+      "to": [
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#license-text-Proprietary"
+      ]
+    },
+    {
+      "type": "Relationship",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#relationship-Package-conda-source-mylib-depends",
+      "creationInfo": "_:creationinfo",
+      "from": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-conda-source-mylib",
+      "relationshipType": "dependsOn",
+      "to": [
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-conda-zlib-1.3.1"
+      ]
+    },
+    {
+      "type": "Relationship",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#relationship-root-depends",
+      "creationInfo": "_:creationinfo",
+      "from": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#package-root",
+      "relationshipType": "dependsOn",
+      "to": [
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-conda-source-mylib",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-pypi-six-1.17.0"
+      ]
+    },
+    {
+      "type": "software_Sbom",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#sbom",
+      "creationInfo": "_:creationinfo",
+      "name": "demo-default-linux-64",
+      "profileConformance": [
+        "core",
+        "software",
+        "simpleLicensing"
+      ],
+      "rootElement": [
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#package-root"
+      ],
+      "element": [
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#package-root",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-conda-libzlib-1.3.1",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-conda-zlib-1.3.1",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-conda-source-mylib",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#Package-pypi-six-1.17.0",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#relationship-root-license",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#relationship-Package-conda-libzlib-1.3.1-license",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#relationship-Package-conda-zlib-1.3.1-license",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#relationship-Package-conda-zlib-1.3.1-depends",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#relationship-Package-conda-source-mylib-license",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#relationship-Package-conda-source-mylib-depends",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#relationship-root-depends",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#license-Apache-2.0",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#license-MIT-OR-Apache-2.0",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#license-text-Proprietary",
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#license-Zlib"
+      ],
+      "software_sbomType": [
+        "build"
+      ]
+    },
+    {
+      "type": "simplelicensing_LicenseExpression",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#license-CC0-1.0",
+      "creationInfo": "_:creationinfo",
+      "simplelicensing_licenseExpression": "CC0-1.0"
+    },
+    {
+      "type": "SpdxDocument",
+      "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#document",
+      "creationInfo": "_:creationinfo",
+      "name": "demo-default-linux-64",
+      "profileConformance": [
+        "core",
+        "software",
+        "simpleLicensing"
+      ],
+      "rootElement": [
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#sbom"
+      ],
+      "element": [
+        "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#sbom"
+      ],
+      "dataLicense": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#license-CC0-1.0"
+    }
+  ]
+}
