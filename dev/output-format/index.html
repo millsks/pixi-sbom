@@ -622,6 +622,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#installed-environments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installed environments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#excluded-packages" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -985,6 +996,17 @@
     <span class="md-ellipsis">
       
         Embedded SBOMs (PEP 770)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installed-environments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installed environments
       
     </span>
   </a>
@@ -1560,6 +1582,13 @@ kind <code>embedded</code>:</p>
 separated, when more than one fragment declares the same purl; fragments merge into one package per purl).
 Embedded packages take part in <code>--report</code>, <code>--fetch-licenses</code> (their declared licenses) and the license policy.
 SPDX 3 fragments are not read yet. Conda packages have no equivalent convention.</p>
+<h3 id="installed-environments">Installed environments<a class="headerlink" href="#installed-environments" title="Permanent link">&para;</a></h3>
+<p>With <code>--prefix</code> the document describes an installed environment instead of a lockfile: the metadata property is
+<code>pixi:prefix</code> (the environment directory's name) rather than <code>pixi:lockfile</code>, the SPDX root package's source info
+says <code>prefix &lt;name&gt;</code>, and pip-installed packages are located by a <code>file://</code> URL of their <code>dist-info</code> directory (or
+<code>&lt;vcs&gt;+&lt;url&gt;</code> for direct VCS installs, with <code>pixi:direct-url</code> and <code>pixi:source-rev</code>), carry <code>pixi:installer</code>, and
+have no hashes. Conda packages carry <code>pixi:extracted-package-dir</code>, where the record says the archive was
+unpacked.</p>
 <h3 id="excluded-packages">Excluded packages<a class="headerlink" href="#excluded-packages" title="Permanent link">&para;</a></h3>
 <p>With <code>--exclude</code> / <code>--include</code> / <code>--exclude-kind</code> the document lists only what survived the filter, and the root
 says so: a <code>pixi:excluded</code> metadata property (CycloneDX) or a <code>pixi:excluded=...</code> comment on the root package
