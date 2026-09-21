@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://millsks.github.io/pixi-sbom/latest/github-action/">
+        <link rel="canonical" href="https://millsks.github.io/pixi-sbom/latest/ci-recipes/">
       
       
-        <link rel="prev" href="../cli/">
+        <link rel="prev" href="../github-action/">
       
       
-        <link rel="next" href="../ci-recipes/">
+        <link rel="next" href="../formats/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>GitHub Action - pixi-sbom</title>
+        <title>CI recipes - pixi-sbom</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#github-action" class="md-skip">
+        <a href="#ci-recipes" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              GitHub Action
+              CI recipes
             
           </span>
         </div>
@@ -344,6 +344,33 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../github-action/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Action
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -363,7 +390,7 @@
   <span class="md-ellipsis">
     
   
-    GitHub Action
+    CI recipes
   
 
     
@@ -381,7 +408,7 @@
   <span class="md-ellipsis">
     
   
-    GitHub Action
+    CI recipes
   
 
     
@@ -407,10 +434,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#without-the-action" class="md-nav__link">
+  <a href="#consuming-the-output-with-other-tools" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Without the action
+        Consuming the output with other tools
       
     </span>
   </a>
@@ -418,10 +445,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#vulnerabilities-in-the-security-tab" class="md-nav__link">
+  <a href="#failing-the-build-on-license-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Vulnerabilities in the Security tab
+        Failing the build on license policy
       
     </span>
   </a>
@@ -429,10 +456,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#a-worked-example" class="md-nav__link">
+  <a href="#a-license-table-in-a-pull-request-comment" class="md-nav__link">
     <span class="md-ellipsis">
       
-        A worked example
+        A license table in a pull request comment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diffing-sboms-between-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diffing SBOMs between commits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#air-gapped-runners" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Air-gapped runners
       
     </span>
   </a>
@@ -443,33 +492,6 @@
   
 </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../ci-recipes/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CI recipes
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -697,10 +719,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#without-the-action" class="md-nav__link">
+  <a href="#consuming-the-output-with-other-tools" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Without the action
+        Consuming the output with other tools
       
     </span>
   </a>
@@ -708,10 +730,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#vulnerabilities-in-the-security-tab" class="md-nav__link">
+  <a href="#failing-the-build-on-license-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Vulnerabilities in the Security tab
+        Failing the build on license policy
       
     </span>
   </a>
@@ -719,10 +741,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#a-worked-example" class="md-nav__link">
+  <a href="#a-license-table-in-a-pull-request-comment" class="md-nav__link">
     <span class="md-ellipsis">
       
-        A worked example
+        A license table in a pull request comment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diffing-sboms-between-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diffing SBOMs between commits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#air-gapped-runners" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Air-gapped runners
       
     </span>
   </a>
@@ -746,7 +790,7 @@
 
 
   
-    <a href="https://github.com/millsks/pixi-sbom/edit/main/docs/github-action.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/millsks/pixi-sbom/edit/main/docs/ci-recipes.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -754,160 +798,58 @@
   
 
 
-<h1 id="github-action">GitHub Action<a class="headerlink" href="#github-action" title="Permanent link">&para;</a></h1>
-<p>Listed on the <a href="https://github.com/marketplace/actions/pixi-sbom">GitHub Marketplace</a>; the source is <code>action.yml</code> at
-the root of the <a href="https://github.com/millsks/pixi-sbom">repository</a>.</p>
-<p>This repository doubles as a GitHub Action. It downloads the pinned release binary for the runner (verifying the
-checksum), runs it, and uploads the documents as a workflow artifact; pixi itself is not needed, and neither is
-<code>pixi install</code>, since the lockfile is the only input:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/checkout@v4</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">millsks/pixi-sbom@v0.5.1</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">all-environments</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">fetch-licenses</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">pypi-mapping</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prefix</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nt">primary-purl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pypi</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">deny-license</span><span class="p">:</span><span class="w"> </span><span class="s">"GPL-3.0-only</span><span class="nv"> </span><span class="s">AGPL-3.0-only"</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nt">require-license</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+<h1 id="ci-recipes">CI recipes<a class="headerlink" href="#ci-recipes" title="Permanent link">&para;</a></h1>
+<h2 id="consuming-the-output-with-other-tools">Consuming the output with other tools<a class="headerlink" href="#consuming-the-output-with-other-tools" title="Permanent link">&para;</a></h2>
+<p>The documents validate against the official JSON schemas and load in the usual tooling. Examples:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Convert between formats or inspect</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>syft<span class="w"> </span>convert<span class="w"> </span>sbom.cdx.json<span class="w"> </span>-o<span class="w"> </span>spdx-json
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>cyclonedx-cli<span class="w"> </span>validate<span class="w"> </span>--input-file<span class="w"> </span>sbom.cdx.json<span class="w"> </span>--input-format<span class="w"> </span>json
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Vulnerability scan</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>grype<span class="w"> </span>sbom:sbom.cdx.json
 </code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Input</th>
-<th>Default</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>version</code></td>
-<td>the action's own tag, else the latest release</td>
-<td>pixi-sbom version to run</td>
-</tr>
-<tr>
-<td><code>lockfile</code>, <code>format</code>, <code>spec-version</code>, <code>environment</code>, <code>platform</code>, <code>all-environments</code>, <code>all-platforms</code></td>
-<td>as the CLI</td>
-<td>Selection and format, see the options above</td>
-</tr>
-<tr>
-<td><code>output</code></td>
-<td><code>sboms</code></td>
-<td>Output file (<code>*.json</code>, or <code>-</code> for the log) or directory; a single document lands in the directory as <code>sbom.cdx.json</code> / <code>sbom.spdx.json</code></td>
-</tr>
-<tr>
-<td><code>fetch-licenses</code>, <code>license-texts</code>, <code>embedded-sboms</code>, <code>pypi-mapping</code>, <code>primary-purl</code></td>
-<td>as the CLI</td>
-<td>Enrichment</td>
-</tr>
-<tr>
-<td><code>allow-license</code>, <code>deny-license</code>, <code>require-license</code></td>
-<td></td>
-<td>License policy; whitespace-separated lists</td>
-</tr>
-<tr>
-<td><code>fail-on-policy</code></td>
-<td><code>true</code></td>
-<td>Fail the step on a policy violation; with <code>false</code> it becomes a warning and the <code>policy-violated</code> output is <code>true</code></td>
-</tr>
-<tr>
-<td><code>vulnerabilities</code>, <code>kev</code></td>
-<td></td>
-<td><code>osv</code> looks findings up and records them; <code>kev: "true"</code> marks the known-exploited ones</td>
-</tr>
-<tr>
-<td><code>fail-on-severity</code>, <code>fail-on-kev</code></td>
-<td></td>
-<td>The vulnerability gate (exit code 4)</td>
-</tr>
-<tr>
-<td><code>ignore-vuln</code></td>
-<td></td>
-<td>Accepted findings, one per line: <code>ID</code>, <code>ID:justification</code> or <code>ID:state:justification</code></td>
-</tr>
-<tr>
-<td><code>fail-on-vulnerabilities</code></td>
-<td><code>true</code></td>
-<td>Fail the step when the gate trips; with <code>false</code> it becomes a warning and the <code>vulnerabilities-found</code> output is <code>true</code></td>
-</tr>
-<tr>
-<td><code>upload-sarif</code>, <code>sarif-category</code></td>
-<td><code>false</code>, <code>pixi-sbom</code></td>
-<td>Write the findings as SARIF and upload them to GitHub code scanning (see below)</td>
-</tr>
-<tr>
-<td><code>extra-args</code></td>
-<td></td>
-<td>Any other CLI arguments</td>
-</tr>
-<tr>
-<td><code>upload-artifact</code>, <code>artifact-name</code></td>
-<td><code>true</code>, <code>sboms</code></td>
-<td>Artifact upload</td>
-</tr>
-</tbody>
-</table>
-<p>Outputs: <code>version</code>, <code>output</code>, <code>policy-violated</code>, <code>vulnerabilities-found</code>, <code>sarif</code>. The action runs on Linux (x64, arm64), macOS (Intel, Apple
-Silicon) and Windows runners, and describes any platform in the lockfile regardless of the runner (<code>platform:
-linux-64</code> on a macOS runner is fine).</p>
-<h2 id="without-the-action">Without the action<a class="headerlink" href="#without-the-action" title="Permanent link">&para;</a></h2>
-<p>The binary has no runtime dependencies, so any job can download it from the
-<a href="https://github.com/millsks/pixi-sbom/releases">releases page</a> and run it, or install it with pixi:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prefix-dev/setup-pixi@v0.8.1</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">run-install</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Generate SBOMs</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="no">pixi global install pixi-sbom</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="no">pixi sbom --all-environments -p linux-64 --output sboms/</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/upload-artifact@v4</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sboms</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sboms/</span>
+<p>Conda packages are identified by <code>pkg:conda/...</code> purls with <code>channel</code>, <code>subdir</code>, <code>build</code> and <code>type</code> qualifiers; PyPI
+packages by <code>pkg:pypi/...</code>.</p>
+<p>Scanners have no conda vulnerability data, so by default a conda-only Python environment scans as clean no matter
+what it contains. To get real results, give conda-forge Python packages their PyPI identity and make it the primary
+purl:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--primary-purl<span class="w"> </span>pypi<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
 </code></pre></div>
-<h2 id="vulnerabilities-in-the-security-tab">Vulnerabilities in the Security tab<a class="headerlink" href="#vulnerabilities-in-the-security-tab" title="Permanent link">&para;</a></h2>
-<p>With <code>vulnerabilities: osv</code> the document carries the findings; <code>upload-sarif: "true"</code> additionally renders them as
-SARIF (<code>--report vulnerabilities --report-format sarif</code>, one result per finding and affected package, located at
-the lockfile, <code>security-severity</code> from the CVSS score or 10 for known-exploited findings, accepted findings as
-suppressions) and uploads the file with <code>github/codeql-action/upload-sarif</code>, so they appear under <em>Security →
-Code scanning</em> with the <code>sarif-category</code> you choose. The job needs <code>security-events: write</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">permissions</span><span class="p">:</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">contents</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">read</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">security-events</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">write</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nt">steps</span><span class="p">:</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/checkout@v4</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">millsks/pixi-sbom@v0.6.0</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">with</span><span class="p">:</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="nt">pypi-mapping</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prefix</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">vulnerabilities</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">osv</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="nt">kev</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">      </span><span class="nt">fail-on-severity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">high</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">      </span><span class="nt">fail-on-kev</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">      </span><span class="nt">ignore-vuln</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">        </span><span class="no">GHSA-2xpw-w6gg-jr37:streaming API is not used</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">        </span><span class="no">CVE-2023-43804:false_positive:only reachable through a removed code path</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">      </span><span class="nt">upload-sarif</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+<p><code>--pypi-mapping prefix</code> consults the same conda-forge mapping pixi uses (downloaded once a day into a cache);
+<code>--pypi-mapping-file</code> takes an offline copy. On a typical conda-forge Python environment this gives roughly 60% of the
+components a <code>pkg:pypi</code> purl. See <a href="../output-format/#pypi-identities-for-conda-packages">output-format.md</a> for exactly
+what is recorded.</p>
+<h2 id="failing-the-build-on-license-policy">Failing the build on license policy<a class="headerlink" href="#failing-the-build-on-license-policy" title="Permanent link">&para;</a></h2>
+<p>Any of <code>--allow-license</code>, <code>--deny-license</code> and <code>--require-license</code> turns the run into a gate: the document is still
+written, the violations are listed, and the exit code is 3. In the <a href="../github-action/">action</a> that fails the step
+unless <code>fail-on-policy</code> is <code>false</code>; anywhere else, let the non-zero exit propagate:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--deny-license<span class="w"> </span>GPL-3.0-only<span class="w"> </span>--deny-license<span class="w"> </span>AGPL-3.0-only<span class="w"> </span>--require-license
 </code></pre></div>
-<p>The SARIF report reuses the lookup's cache, so the second run costs no network requests. Outside the action, the
-same file comes from <code>pixi sbom --vulnerabilities osv --report vulnerabilities --report-format sarif &gt; findings.sarif</code>.</p>
-<h2 id="a-worked-example">A worked example<a class="headerlink" href="#a-worked-example" title="Permanent link">&para;</a></h2>
-<p>This repository dogfoods its own action in <code>.github/workflows/ci.yml</code>: every environment of its lockfile is
-described with licenses fetched, PyPI identities from the conda-forge mapping and embedded SBOMs attached, a deny
-list that is known to trip (<code>Python-2.0</code>) proves the <code>policy-violated</code> output with <code>fail-on-policy: "false"</code>, and a
-second step with a satisfiable policy proves exit 0:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">millsks/pixi-sbom@v0.5.1</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sbom</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">all-environments</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">fetch-licenses</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">pypi-mapping</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prefix</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">embedded-sboms</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">deny-license</span><span class="p">:</span><span class="w"> </span><span class="s">"Python-2.0"</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="nt">require-license</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">fail-on-policy</span><span class="p">:</span><span class="w"> </span><span class="s">"false"</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">test "${{ steps.sbom.outputs.policy-violated }}" = "true"</span>
+<p>See <a href="../cli/#enforcing-a-license-policy">the policy semantics</a> for how expressions such as <code>MIT OR GPL-3.0-only</code> are
+evaluated.</p>
+<h2 id="a-license-table-in-a-pull-request-comment">A license table in a pull request comment<a class="headerlink" href="#a-license-table-in-a-pull-request-comment" title="Permanent link">&para;</a></h2>
+<p><code>--report licenses --report-format markdown</code> prints a per-license summary with unlicensed and non-SPDX packages
+called out, ready to paste:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">License report</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi sbom --fetch-licenses --report licenses --report-format markdown &gt; report.md</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">marocchino/sticky-pull-request-comment@v2</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">report.md</span>
 </code></pre></div>
-<p>Every input maps to a <a href="../cli/#options">command-line option</a> of the same name; the action adds nothing the binary
-cannot do.</p>
+<p><code>--report-format csv</code> and <code>json</code> feed spreadsheets and scripts the same way; see
+<a href="../cli/#looking-instead-of-writing">looking instead of writing</a>.</p>
+<h2 id="diffing-sboms-between-commits">Diffing SBOMs between commits<a class="headerlink" href="#diffing-sboms-between-commits" title="Permanent link">&para;</a></h2>
+<p>With <code>SOURCE_DATE_EPOCH</code> set, two runs over the same lockfile are byte-identical (the serial number is derived from
+the lockfile contents and the timestamp is pinned), so a plain <code>diff</code> shows exactly which packages changed:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">SOURCE_DATE_EPOCH</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>sbom.cdx.json
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>git<span class="w"> </span>diff<span class="w"> </span>--no-index<span class="w"> </span>--<span class="w"> </span>sbom-previous.cdx.json<span class="w"> </span>sbom.cdx.json
+</code></pre></div>
+<p>See <a href="../output-format/#reproducibility">reproducibility</a> for what the guarantee covers.</p>
+<h2 id="air-gapped-runners">Air-gapped runners<a class="headerlink" href="#air-gapped-runners" title="Permanent link">&para;</a></h2>
+<p><code>PIXI_SBOM_OFFLINE=1</code> forbids every network request; the PyPI mapping, wheel and archive caches are used when present
+and everything else is skipped with a warning, and the run still succeeds. Pair it with <code>--pypi-mapping-file</code> pointing
+at a saved copy of the conda-forge mapping and a warm <code>PIXI_SBOM_CACHE_DIR</code> from an online run. The
+<a href="../cli/#environment-variables">environment variables</a> page lists every knob, including the PyPI mirror URL.</p>
 
 
 
@@ -943,7 +885,7 @@ cannot do.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../cli/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Command-line reference">
+          <a href="../github-action/" class="md-footer__link md-footer__link--prev" aria-label="Previous: GitHub Action">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -953,20 +895,20 @@ cannot do.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Command-line reference
+                GitHub Action
               </div>
             </div>
           </a>
         
         
           
-          <a href="../ci-recipes/" class="md-footer__link md-footer__link--next" aria-label="Next: CI recipes">
+          <a href="../formats/" class="md-footer__link md-footer__link--next" aria-label="Next: Which format to pick">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                CI recipes
+                Which format to pick
               </div>
             </div>
             <div class="md-footer__button md-icon">
