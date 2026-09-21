@@ -72,8 +72,17 @@ markdown_extensions:
 
 plugins:
   - search
+  # Aliases (`latest`) are real copies so GitHub Pages serves them without symlinks or redirects,
+  # and every version's pages declare the `latest` URL as canonical for search engines.
+  - mike:
+      alias_type: copy
+      canonical_version: latest
 
 extra:
+  # Version selector fed by mike's versions.json; the site root redirects to `latest`.
+  version:
+    provider: mike
+    default: latest
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/millsks/pixi-sbom

@@ -2,6 +2,11 @@ name: Docs site
 
 # Publishes the MkDocs site to GitHub Pages whenever a release is published, so the site
 # always describes the released binary. Dispatch it by hand for a docs-only republish.
+#
+# Versions: mike keeps one copy of the site per MAJOR.MINOR on the gh-pages branch, with
+# `latest` aliased to the newest release (pre-releases deploy under their version only) and the
+# site root redirecting to it. The branch is then published as the Pages artifact, so the Pages
+# source stays "GitHub Actions" and every deployment is recorded in the github-pages environment.
 
 on:
   release:
@@ -15,7 +20,7 @@ on:
         default: ""
 
 permissions:
-  contents: read
+  contents: write # mike pushes to gh-pages
   pages: write
   id-token: write
 
@@ -32,16 +37,39 @@ jobs:
         with:
           # A release event checks out its tag; a manual run takes the ref given, else the default branch.
           ref: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.ref }}
+          fetch-depth: 0 # mike needs the gh-pages branch
       - uses: prefix-dev/setup-pixi@v0.8.1
         with:
           environments: docs
           cache: true
       - name: Build strictly
         run: pixi run -e docs docs-build
+      - name: Deploy this version to gh-pages with mike
+        env:
+          PRERELEASE: ${{ github.event_name == 'release' && github.event.release.prerelease || 'false' }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # The docs describe the version Cargo.toml carries: the tag's on a release, the last release's on main.
+          version=$(sed -n 's/^version = "\([0-9]*\.[0-9]*\)\..*/\1/p' Cargo.toml | head -1)
+          [ -n "$version" ] || { echo "::error::cannot read the version from Cargo.toml"; exit 1; }
+          if [ "$PRERELEASE" = "true" ]; then
+            pixi run -e docs mike deploy --push "$version"
+          else
+            pixi run -e docs mike deploy --push --update-aliases "$version" latest
+            pixi run -e docs mike set-default --push latest
+          fi
+          pixi run -e docs mike list
+      - name: Check out the published branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: gh-pages
 
   deploy:
     name: Deploy to GitHub Pages

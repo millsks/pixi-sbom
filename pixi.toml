@@ -46,6 +46,7 @@ ci = { depends-on = ["pre-commit-run", "build", "check", "lint", "cov"] }
 mkdocs = ">=1.6,<2"
 mkdocs-material = ">=9.6"
 pymdown-extensions = ">=10"
+mike = ">=2.1"
 
 [feature.docs.tasks]
 docs-serve = "mkdocs serve"

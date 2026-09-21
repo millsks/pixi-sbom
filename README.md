@@ -138,22 +138,22 @@ as an artifact; no pixi setup needed:
     deny-license: "GPL-3.0-only AGPL-3.0-only"
 ```
 
-See the [GitHub Action page](https://millsks.github.io/pixi-sbom/github-action/) for every input, or the
+See the [GitHub Action page](https://millsks.github.io/pixi-sbom/latest/github-action/) for every input, or the
 [Marketplace listing](https://github.com/marketplace/actions/pixi-sbom).
 
 ## Documentation
 
 | | |
 |---|---|
-| [Installation](https://millsks.github.io/pixi-sbom/installation/) | pixi global, release binaries, building from source |
-| [Command-line reference](https://millsks.github.io/pixi-sbom/cli/) | Every option, the license policy, terminal reports, batch mode, environment variables, exit codes and error messages |
-| [GitHub Action](https://millsks.github.io/pixi-sbom/github-action/) | The action's inputs and outputs, with a worked example |
-| [CI recipes](https://millsks.github.io/pixi-sbom/ci-recipes/) | Scanning with grype, license tables in PR comments, diffing SBOMs, air-gapped runners |
-| [Which format to pick](https://millsks.github.io/pixi-sbom/formats/) | CycloneDX 1.6 / 1.7 against SPDX 2.3 / 3.0.1 |
-| [Output format reference](https://millsks.github.io/pixi-sbom/output-format/) | Field-by-field reference for the CycloneDX and SPDX documents, purls, licenses, dependency graph |
-| [Architecture](https://millsks.github.io/pixi-sbom/architecture/) | Pipeline, modules, and the design decisions behind them |
-| [Development](https://millsks.github.io/pixi-sbom/development/) | Toolchain, tasks, the change harness, tests and fixtures, conventions, releasing |
-| [Changelog](https://millsks.github.io/pixi-sbom/changelog/) | Every release's notes |
+| [Installation](https://millsks.github.io/pixi-sbom/latest/installation/) | pixi global, release binaries, building from source |
+| [Command-line reference](https://millsks.github.io/pixi-sbom/latest/cli/) | Every option, the license policy, terminal reports, batch mode, environment variables, exit codes and error messages |
+| [GitHub Action](https://millsks.github.io/pixi-sbom/latest/github-action/) | The action's inputs and outputs, with a worked example |
+| [CI recipes](https://millsks.github.io/pixi-sbom/latest/ci-recipes/) | Scanning with grype, license tables in PR comments, diffing SBOMs, air-gapped runners |
+| [Which format to pick](https://millsks.github.io/pixi-sbom/latest/formats/) | CycloneDX 1.6 / 1.7 against SPDX 2.3 / 3.0.1 |
+| [Output format reference](https://millsks.github.io/pixi-sbom/latest/output-format/) | Field-by-field reference for the CycloneDX and SPDX documents, purls, licenses, dependency graph |
+| [Architecture](https://millsks.github.io/pixi-sbom/latest/architecture/) | Pipeline, modules, and the design decisions behind them |
+| [Development](https://millsks.github.io/pixi-sbom/latest/development/) | Toolchain, tasks, the change harness, tests and fixtures, conventions, releasing |
+| [Changelog](https://millsks.github.io/pixi-sbom/latest/changelog/) | Every release's notes |
 
 The pages are the Markdown files in [`docs/`](docs/), so they can be read in the repository too.
 
@@ -170,7 +170,7 @@ pixi run ci             # full gate: pre-commit, build, check, lint, cov
 
 Cargo is never invoked directly; every command is a pixi task so the pinned toolchain is always used. End-to-end
 tests validate generated documents against the official JSON schemas vendored in `tests/schemas/`. See
-the [development page](https://millsks.github.io/pixi-sbom/development/) for the full workflow, test layers, fixtures,
+the [development page](https://millsks.github.io/pixi-sbom/latest/development/) for the full workflow, test layers, fixtures,
 and the release process.
 
 ## License
