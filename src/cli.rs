@@ -226,6 +226,17 @@ pub struct Args {
     #[arg(long, value_enum, value_name = "SOURCE")]
     pub vulnerabilities: Option<VulnerabilitySource>,
 
+    /// Mark findings that are in CISA's Known Exploited Vulnerabilities catalog (matched by CVE
+    /// alias): rated critical, with the catalog's dates and required action recorded. The
+    /// catalog is downloaded once a day. Requires --vulnerabilities.
+    #[arg(long, requires = "vulnerabilities")]
+    pub kev: bool,
+
+    /// Exit with code 4 after writing the document when any open finding is in the KEV
+    /// catalog. Requires --kev.
+    #[arg(long, requires = "kev")]
+    pub fail_on_kev: bool,
+
     /// Exit with code 4 after writing the document when any finding at or above this severity
     /// remains (findings of unknown severity never trip it). Requires --vulnerabilities.
     #[arg(long, value_enum, value_name = "SEVERITY", requires = "vulnerabilities")]

@@ -97,6 +97,20 @@ pub struct VulnerabilityRow {
     /// The justification given with `--ignore-vuln`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub justification: Option<String>,
+    /// The CISA KEV entry, with `--kev`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kev: Option<KevCell>,
+}
+
+/// The KEV facts a report row carries.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct KevCell {
+    pub cve_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date_added: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub due_date: Option<String>,
+    pub ransomware: bool,
 }
 
 /// Summary of the findings in one document.
@@ -110,6 +124,8 @@ pub struct VulnerabilitySummary {
     pub affected_packages: usize,
     /// Findings accepted with `--ignore-vuln`, as `id (state): justification`.
     pub ignored: Vec<String>,
+    /// Open findings in CISA's KEV catalog, as `id (CVE, due date)`.
+    pub known_exploited: Vec<String>,
     /// Packages with no purl the vulnerability database can answer (conda-only identities).
     pub without_identity: Vec<String>,
 }
@@ -186,7 +202,7 @@ impl Report {
             ReportKind::Packages => vec!["Name", "Version", "Kind", "Source", "License", "Purl"],
             ReportKind::Licenses => vec!["Name", "Version", "Kind", "License", "Family", "Source", "Files"],
             ReportKind::Vulnerabilities => vec![
-                "Package", "Version", "Severity", "Score", "ID", "Aliases", "Fixed", "Status", "Summary",
+                "Package", "Version", "Severity", "Score", "KEV", "ID", "Aliases", "Fixed", "Status", "Summary",
             ],
         }
     }
@@ -230,6 +246,11 @@ fn vulnerability_cells(row: &VulnerabilityRow) -> Vec<String> {
         row.version.clone(),
         row.severity.to_string(),
         row.score.map(|s| format!("{s:.1}")).unwrap_or_else(dash),
+        match &row.kev {
+            Some(kev) if kev.ransomware => "ransomware".into(),
+            Some(_) => "yes".into(),
+            None => dash(),
+        },
         row.id.clone(),
         if row.aliases.is_empty() {
             dash()
@@ -274,6 +295,12 @@ fn vulnerability_rows(vuln: &Vulnerability, sbom: &Sbom) -> Vec<VulnerabilityRow
                 url: vuln.url.clone(),
                 ignored: vuln.analysis.as_ref().map(|a| a.state.to_string()),
                 justification: vuln.analysis.as_ref().and_then(|a| a.detail.clone()),
+                kev: vuln.kev.as_ref().map(|k| KevCell {
+                    cve_id: k.cve_id.clone(),
+                    date_added: k.date_added.clone(),
+                    due_date: k.due_date.clone(),
+                    ransomware: k.ransomware,
+                }),
             }
         })
         .collect()
@@ -326,6 +353,18 @@ fn summarize_vulnerabilities(rows: &[VulnerabilityRow], sbom: &Sbom) -> Vulnerab
                 Some(match &analysis.detail {
                     Some(detail) => format!("{} ({}): {detail}", v.id, analysis.state),
                     None => format!("{} ({})", v.id, analysis.state),
+                })
+            })
+            .collect(),
+        known_exploited: sbom
+            .vulnerabilities
+            .iter()
+            .filter(|v| v.analysis.is_none())
+            .filter_map(|v| {
+                let kev = v.kev.as_ref()?;
+                Some(match &kev.due_date {
+                    Some(due) => format!("{} ({}, due {due})", v.id, kev.cve_id),
+                    None => format!("{} ({})", v.id, kev.cve_id),
                 })
             })
             .collect(),
@@ -578,6 +617,12 @@ fn render_vulnerability_summary(
         }
     }
     writeln!(out)?;
+    if !summary.known_exploited.is_empty() {
+        writeln!(out, "Known exploited (CISA KEV) ({}):", summary.known_exploited.len())?;
+        for line in &summary.known_exploited {
+            writeln!(out, "  {line}")?;
+        }
+    }
     if !summary.ignored.is_empty() {
         writeln!(out, "Ignored ({}):", summary.ignored.len())?;
         for line in &summary.ignored {
@@ -659,7 +704,7 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
 fn render_vulnerabilities_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
     writeln!(
         out,
-        "environment,platform,package,version,purl,severity,score,id,aliases,fixed_version,status,summary,url"
+        "environment,platform,package,version,purl,severity,score,kev,kev_due_date,id,aliases,fixed_version,status,summary,url"
     )?;
     for report in reports {
         for row in report.vulnerabilities.iter().flatten() {
@@ -671,6 +716,12 @@ fn render_vulnerabilities_csv(reports: &[Report], out: &mut dyn Write) -> io::Re
                 row.purl.clone(),
                 row.severity.to_string(),
                 row.score.map(|s| format!("{s:.1}")).unwrap_or_default(),
+                match &row.kev {
+                    Some(kev) if kev.ransomware => "ransomware".into(),
+                    Some(_) => "yes".into(),
+                    None => String::new(),
+                },
+                row.kev.as_ref().and_then(|k| k.due_date.clone()).unwrap_or_default(),
                 row.id.clone(),
                 row.aliases.join(";"),
                 row.fixed_version.clone().unwrap_or_default(),
@@ -892,6 +943,14 @@ mod tests {
                     fixed_version: Some("1.26.5".into()),
                 }],
                 analysis: None,
+                kev: Some(crate::model::Kev {
+                    cve_id: "CVE-2021-33503".into(),
+                    name: None,
+                    date_added: Some("2026-09-01".into()),
+                    due_date: Some("2026-09-22".into()),
+                    ransomware: false,
+                    required_action: None,
+                }),
             },
             Vulnerability {
                 id: "PYSEC-2099-1".into(),
@@ -923,6 +982,7 @@ mod tests {
                     state: "false_positive",
                     detail: Some("not the same zlib".into()),
                 }),
+                kev: None,
             },
         ];
         sbom
@@ -953,6 +1013,11 @@ mod tests {
         );
         assert_eq!(summary.findings, 1);
         assert_eq!(summary.ignored, ["PYSEC-2099-1 (false_positive): not the same zlib"]);
+        assert_eq!(
+            summary.known_exploited,
+            ["GHSA-q2q7-5pp4-w6pg (CVE-2021-33503, due 2026-09-22)"]
+        );
+        assert_eq!(rows[0].kev.as_ref().unwrap().due_date.as_deref(), Some("2026-09-22"));
         assert_eq!(rows[1].justification.as_deref(), Some("not the same zlib"));
         assert_eq!(summary.affected_packages, 1);
         assert_eq!(summary.without_identity, ["libzlib", "mylib"]);

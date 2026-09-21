@@ -58,6 +58,8 @@ struct VulnerabilityEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     analysis: Option<AnalysisEntry>,
     affects: Vec<Affects>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    properties: Vec<Property>,
 }
 
 #[derive(Debug, Serialize)]
@@ -341,6 +343,27 @@ fn vulnerability(vuln: &Vulnerability, sbom: &Sbom) -> VulnerabilityEntry {
         })
         .collect();
     upgrades.dedup();
+    let mut properties = Vec::new();
+    if let Some(kev) = &vuln.kev {
+        properties.push(property("pixi:kev", "true"));
+        properties.push(property("pixi:kev-cve", &kev.cve_id));
+        if let Some(date) = &kev.date_added {
+            properties.push(property("pixi:kev-date-added", date));
+        }
+        if let Some(date) = &kev.due_date {
+            properties.push(property("pixi:kev-due-date", date));
+        }
+        properties.push(property(
+            "pixi:kev-ransomware",
+            if kev.ransomware { "true" } else { "false" },
+        ));
+        // With no fix to name, CISA's required action is the best advice there is.
+        if upgrades.is_empty()
+            && let Some(action) = &kev.required_action
+        {
+            upgrades.push(format!("CISA KEV: {action}"));
+        }
+    }
     VulnerabilityEntry {
         bom_ref: format!("vuln-{}", vuln.id),
         id: vuln.id.clone(),
@@ -372,6 +395,7 @@ fn vulnerability(vuln: &Vulnerability, sbom: &Sbom) -> VulnerabilityEntry {
                 reference: a.package_id.clone(),
             })
             .collect(),
+        properties,
     }
 }
 
@@ -941,11 +965,39 @@ mod tests {
                 state: "not_affected",
                 detail: Some("only used at build time".into()),
             }),
+            kev: Some(crate::model::Kev {
+                cve_id: "CVE-2021-33503".into(),
+                name: None,
+                date_added: Some("2026-09-01".into()),
+                due_date: Some("2026-09-22".into()),
+                ransomware: true,
+                required_action: Some("Apply updates per vendor instructions.".into()),
+            }),
         });
         let doc = serde_json::to_value(document(&sbom, &fixed_context())).unwrap();
         let vuln = &doc["vulnerabilities"][0];
         assert_eq!(vuln["analysis"]["state"], "not_affected");
         assert_eq!(vuln["analysis"]["detail"], "only used at build time");
+        let props = vuln["properties"].as_array().unwrap();
+        assert!(props.iter().any(|p| p["name"] == "pixi:kev" && p["value"] == "true"));
+        assert!(
+            props
+                .iter()
+                .any(|p| p["name"] == "pixi:kev-due-date" && p["value"] == "2026-09-22")
+        );
+        assert!(
+            props
+                .iter()
+                .any(|p| p["name"] == "pixi:kev-ransomware" && p["value"] == "true")
+        );
+
+        // Without a fixed version, the KEV required action is the recommendation.
+        sbom.vulnerabilities[0].affects[0].fixed_version = None;
+        let doc = serde_json::to_value(document(&sbom, &fixed_context())).unwrap();
+        assert_eq!(
+            doc["vulnerabilities"][0]["recommendation"],
+            "CISA KEV: Apply updates per vendor instructions."
+        );
         assert_eq!(vuln["bom-ref"], "vuln-GHSA-q2q7-5pp4-w6pg");
         assert_eq!(vuln["id"], "GHSA-q2q7-5pp4-w6pg");
         assert_eq!(vuln["source"]["name"], "OSV");

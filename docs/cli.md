@@ -36,6 +36,8 @@ With no options this means:
 | `--deny-license <LICENSE>` | | Repeatable. These SPDX licenses are unacceptable; a package whose expression cannot be satisfied without them is a violation. |
 | `--require-license` | off | Every package must declare a license that is an SPDX expression. |
 | `--vulnerabilities <osv>` | off | Look up known vulnerabilities of every package with a purl OSV can answer and record them in the document (see below). |
+| `--kev` | off | With `--vulnerabilities`: mark findings whose CVE alias is in CISA's Known Exploited Vulnerabilities catalog (downloaded once a day). They are rated `critical`, sorted first, and carry the catalog's dates and required action. |
+| `--fail-on-kev` | off | With `--kev`: exit **4** after writing the document when any open finding is known exploited, regardless of severity. |
 | `--fail-on-severity <low\|medium\|high\|critical>` | | With `--vulnerabilities`: exit **4** after writing the document when any open finding is at or above the level. Findings of unknown severity never trip it. |
 | `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification), is excluded from `--fail-on-severity` and listed separately in the report. |
 | `--report <packages\|licenses\|vulnerabilities>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`. |
@@ -103,10 +105,29 @@ Severity is the advisory database's own word (`database_specific.severity`) when
 base score computed from the vector; CVSS v4 vectors are recorded but not scored. The rating with the worst
 severity orders the list.
 
+### Known exploited vulnerabilities (CISA KEV)
+
+`--kev` downloads [CISA's Known Exploited Vulnerabilities catalog](https://www.cisa.gov/known-exploited-vulnerabilities-catalog)
+(about a megabyte, cached for a day under the pixi-sbom cache directory; `PIXI_SBOM_KEV_URL` names a mirror and
+`PIXI_SBOM_OFFLINE=1` uses the cached copy) and looks every finding's CVE aliases up in it. A hit is a must-fix
+regardless of its CVSS score: the finding gets a `critical` rating from `CISA KEV`, moves to the top of the list,
+and records the CVE, the date it was added, the BOD 22-01 due date and whether ransomware campaigns are known to
+use it (CycloneDX `pixi:kev*` properties; the `KEV` column and a *Known exploited* list in the report). When the
+advisory names no fixed version, the catalog's required action becomes the recommendation.
+
+```sh
+pixi sbom --pypi-mapping prefix --vulnerabilities osv --kev --report vulnerabilities
+pixi sbom --pypi-mapping prefix --vulnerabilities osv --kev --fail-on-kev
+```
+
+Python library CVEs are rarely in the catalog, so an empty *Known exploited* list is the normal outcome; the
+value is in the run that is not.
+
 ### Gating on vulnerabilities
 
 `--fail-on-severity` turns the lookup into a CI gate, shaped like the license policy: the document (or report) is
 still produced, the open findings at or above the level are listed on stderr, and the run exits with code **4**.
+`--fail-on-kev` does the same for known-exploited findings, independently of severity; the two combine.
 `--ignore-vuln` accepts findings you have assessed, VEX style: the finding stays in the document with an
 `analysis` block, drops out of the gate, and the report lists it under *Ignored* with its justification.
 
@@ -156,10 +177,11 @@ cannot be combined with `--output`. The `table` format fits the terminal width (
 truncating the last column; the other formats are never truncated.
 
 The vulnerabilities report has one row per finding and affected package (package, version, severity, the highest
-CVSS score, id, aliases, fixed version, status, summary; the CSV and JSON forms add the purl, the OSV URL and the
-`--ignore-vuln` justification), open findings worst first and ignored ones last, followed by a count of open
-findings and affected packages, a table of open findings per severity, the ignored findings with their
-justification, and the packages that have no purl the database could answer.
+CVSS score, KEV, id, aliases, fixed version, status, summary; the CSV and JSON forms add the purl, the OSV URL, the
+`--ignore-vuln` justification and the KEV due date), open findings worst first and ignored ones last, followed by
+a count of open findings and affected packages, a table of open findings per severity, the known-exploited
+findings, the ignored findings with their justification, and the packages that have no purl the database could
+answer.
 
 ## One document per environment and platform
 
@@ -189,8 +211,9 @@ CycloneDX metadata properties; the root package `sourceInfo` in SPDX), so a batc
 |---|---|
 | `COLUMNS` | Terminal width for `--report-format table` (default 120). |
 | `PIXI_CACHE_DIR` / `RATTLER_CACHE_DIR` | Where pixi keeps its package cache; `--fetch-licenses` reads extracted conda packages from its `pkgs/` directory. Default: the platform cache directory's `rattler/cache` (`~/.cache/rattler/cache`, `~/Library/Caches/rattler/cache`, `%LOCALAPPDATA%\rattler\cache`). |
-| `PIXI_SBOM_OFFLINE` | Set to `1` to forbid every network request: the mapping, wheel, archive and OSV caches are used when present and everything else is skipped with a warning. The run still succeeds. |
+| `PIXI_SBOM_OFFLINE` | Set to `1` to forbid every network request: the mapping, wheel, archive, OSV and KEV caches are used when present and everything else is skipped with a warning. The run still succeeds. |
 | `PIXI_SBOM_OSV_URL` | Base of the OSV API queried by `--vulnerabilities osv` (default `https://api.osv.dev`). |
+| `PIXI_SBOM_KEV_URL` | Where `--kev` downloads CISA's Known Exploited Vulnerabilities catalog (default `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json`). |
 | `PIXI_SBOM_PYPI_URL` | Base of the PyPI JSON API queried by `--fetch-licenses` (default `https://pypi.org/pypi`); point it at a mirror such as devpi or Artifactory. |
 | `PIXI_SBOM_CACHE_DIR` | Where downloaded data (the PyPI mapping, PyPI metadata, extracted conda `info` directories, wheel `dist-info` files) is cached. Default: `pixi-sbom` inside the pixi cache directory (`PIXI_CACHE_DIR` / `RATTLER_CACHE_DIR`, else `~/.cache/rattler/cache`, `~/Library/Caches/rattler/cache`, `%LOCALAPPDATA%\rattler\cache`), so `pixi clean cache` removes it too. |
 | `HTTPS_PROXY` / `HTTP_PROXY` | Honored for every download. |
@@ -250,7 +273,7 @@ pixi sbom --all-environments --all-platforms --output sboms/
 | 0 | Document(s) written. |
 | 1 | A runtime error; a diagnostic is printed to stderr. |
 | 3 | The license policy was violated; the documents were written and the violations listed on stderr. |
-| 4 | The vulnerability gate (`--fail-on-severity`) failed; the documents were written and the findings listed on stderr. |
+| 4 | The vulnerability gate (`--fail-on-severity` / `--fail-on-kev`) failed; the documents were written and the findings listed on stderr. |
 | 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments` or `--all-platforms`, or a `--spec-version` of the other format, or a `--allow-license` / `--deny-license` value that is not an SPDX identifier). |
 
 Runtime diagnostics carry a stable code you can grep for in CI logs:
