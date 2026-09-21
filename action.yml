@@ -1,0 +1,236 @@
+name: pixi-sbom
+description: >-
+  Generate a CycloneDX or SPDX Software Bill of Materials from a pixi.lock file, optionally
+  enriched with licenses and PyPI identities, and upload it as a workflow artifact. Downloads
+  the pinned release binary; pixi itself is not required.
+author: Kevin Mills
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  version:
+    description: >-
+      pixi-sbom version to run (e.g. 0.5.0). Defaults to the version the action was referenced
+      at (`uses: millsks/pixi-sbom@v0.5.0`), or the latest release when referenced by branch.
+    required: false
+    default: ""
+  lockfile:
+    description: Path to pixi.lock. Defaults to searching upward from the working directory.
+    required: false
+    default: ""
+  format:
+    description: "`cyclonedx` or `spdx`."
+    required: false
+    default: cyclonedx
+  spec-version:
+    description: "CycloneDX specification version, `1.6` or `1.7`."
+    required: false
+    default: ""
+  environment:
+    description: Lock environment to describe.
+    required: false
+    default: ""
+  all-environments:
+    description: Write one document per environment.
+    required: false
+    default: "false"
+  platform:
+    description: Platform within the environment (e.g. linux-64). Defaults to the runner's.
+    required: false
+    default: ""
+  all-platforms:
+    description: Write one document per locked platform.
+    required: false
+    default: "false"
+  output:
+    description: >-
+      Output file, or output directory in batch mode. Defaults to `sboms/` in the working
+      directory so the artifact upload has one place to collect.
+    required: false
+    default: sboms
+  fetch-licenses:
+    description: Fetch licenses for every package (conda archives and wheels by HTTP range, PyPI index).
+    required: false
+    default: "false"
+  license-texts:
+    description: With fetch-licenses, embed the full license texts.
+    required: false
+    default: "false"
+  pypi-mapping:
+    description: "`lock` or `prefix`: where PyPI identities for conda packages come from."
+    required: false
+    default: lock
+  primary-purl:
+    description: "`conda` or `pypi`: which purl is a conda package's primary identity."
+    required: false
+    default: conda
+  allow-license:
+    description: Allowed SPDX licenses, whitespace separated. Violations exit with code 3.
+    required: false
+    default: ""
+  deny-license:
+    description: Denied SPDX licenses, whitespace separated. Violations exit with code 3.
+    required: false
+    default: ""
+  require-license:
+    description: Every package must declare an SPDX license.
+    required: false
+    default: "false"
+  fail-on-policy:
+    description: Fail the step when the license policy is violated (exit code 3).
+    required: false
+    default: "true"
+  extra-args:
+    description: Additional command-line arguments, whitespace separated (e.g. `-v`).
+    required: false
+    default: ""
+  upload-artifact:
+    description: Upload the output as a workflow artifact.
+    required: false
+    default: "true"
+  artifact-name:
+    description: Name of the uploaded artifact.
+    required: false
+    default: sboms
+
+outputs:
+  version:
+    description: The pixi-sbom version that ran.
+    value: ${{ steps.resolve.outputs.version }}
+  output:
+    description: The output file or directory.
+    value: ${{ inputs.output }}
+  policy-violated:
+    description: "`true` when the license policy was violated."
+    value: ${{ steps.run.outputs.policy-violated }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve version and platform
+      id: resolve
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        ACTION_REF: ${{ github.action_ref }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        version="${INPUT_VERSION#v}"
+        if [ -z "$version" ] && [[ "$ACTION_REF" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+          version="${ACTION_REF#v}"
+        fi
+        if [ -z "$version" ]; then
+          version=$(curl -sSfL -H "Authorization: Bearer $GH_TOKEN" \
+            https://api.github.com/repos/millsks/pixi-sbom/releases/latest | \
+            sed -n 's/.*"tag_name": *"v\{0,1\}\([^"]*\)".*/\1/p')
+        fi
+        [ -n "$version" ] || { echo "::error::cannot determine the pixi-sbom version to install"; exit 1; }
+        case "${RUNNER_OS}-${RUNNER_ARCH}" in
+          Linux-X64) platform=linux-64; ext=tar.gz ;;
+          Linux-ARM64) platform=linux-aarch64; ext=tar.gz ;;
+          macOS-X64) platform=osx-64; ext=tar.gz ;;
+          macOS-ARM64) platform=osx-arm64; ext=tar.gz ;;
+          Windows-X64) platform=win-64; ext=zip ;;
+          *) echo "::error::unsupported runner ${RUNNER_OS}-${RUNNER_ARCH}"; exit 1 ;;
+        esac
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "platform=$platform" >> "$GITHUB_OUTPUT"
+        echo "ext=$ext" >> "$GITHUB_OUTPUT"
+        echo "Installing pixi-sbom $version for $platform"
+
+    - name: Download and verify the release binary
+      shell: bash
+      env:
+        VERSION: ${{ steps.resolve.outputs.version }}
+        PLATFORM: ${{ steps.resolve.outputs.platform }}
+        EXT: ${{ steps.resolve.outputs.ext }}
+      run: |
+        set -euo pipefail
+        name="pixi-sbom-v${VERSION}-${PLATFORM}"
+        base="https://github.com/millsks/pixi-sbom/releases/download/v${VERSION}"
+        dir="${RUNNER_TEMP}/pixi-sbom-install"
+        mkdir -p "$dir" && cd "$dir"
+        curl -sSfL -o "$name.$EXT" "$base/$name.$EXT"
+        curl -sSfL -o "$name.$EXT.sha256" "$base/$name.$EXT.sha256"
+        # The checksum file names the archive bare (GNU and BSD spellings); check it here.
+        expected=$(cut -d' ' -f1 "$name.$EXT.sha256")
+        if command -v sha256sum >/dev/null; then actual=$(sha256sum "$name.$EXT" | cut -d' ' -f1); else actual=$(shasum -a 256 "$name.$EXT" | cut -d' ' -f1); fi
+        [ "$expected" = "$actual" ] || { echo "::error::checksum mismatch for $name.$EXT"; exit 1; }
+        if [ "$EXT" = zip ]; then unzip -q "$name.zip"; else tar xzf "$name.tar.gz"; fi
+        mkdir -p "$dir/bin"
+        mv "$name"/pixi-sbom* "$dir/bin/"
+        chmod +x "$dir/bin"/pixi-sbom* || true
+        echo "$dir/bin" >> "$GITHUB_PATH"
+        "$dir/bin"/pixi-sbom* --version
+
+    - name: Generate the SBOM
+      id: run
+      shell: bash
+      env:
+        IN_LOCKFILE: ${{ inputs.lockfile }}
+        IN_FORMAT: ${{ inputs.format }}
+        IN_SPEC_VERSION: ${{ inputs.spec-version }}
+        IN_ENVIRONMENT: ${{ inputs.environment }}
+        IN_ALL_ENVIRONMENTS: ${{ inputs.all-environments }}
+        IN_PLATFORM: ${{ inputs.platform }}
+        IN_ALL_PLATFORMS: ${{ inputs.all-platforms }}
+        IN_OUTPUT: ${{ inputs.output }}
+        IN_FETCH_LICENSES: ${{ inputs.fetch-licenses }}
+        IN_LICENSE_TEXTS: ${{ inputs.license-texts }}
+        IN_PYPI_MAPPING: ${{ inputs.pypi-mapping }}
+        IN_PRIMARY_PURL: ${{ inputs.primary-purl }}
+        IN_ALLOW_LICENSE: ${{ inputs.allow-license }}
+        IN_DENY_LICENSE: ${{ inputs.deny-license }}
+        IN_REQUIRE_LICENSE: ${{ inputs.require-license }}
+        IN_FAIL_ON_POLICY: ${{ inputs.fail-on-policy }}
+        IN_EXTRA_ARGS: ${{ inputs.extra-args }}
+      run: |
+        set -uo pipefail
+        args=()
+        [ -n "$IN_LOCKFILE" ] && args+=(--lockfile "$IN_LOCKFILE")
+        args+=(--format "$IN_FORMAT")
+        [ -n "$IN_SPEC_VERSION" ] && args+=(--spec-version "$IN_SPEC_VERSION")
+        [ -n "$IN_ENVIRONMENT" ] && args+=(--environment "$IN_ENVIRONMENT")
+        [ "$IN_ALL_ENVIRONMENTS" = "true" ] && args+=(--all-environments)
+        [ -n "$IN_PLATFORM" ] && args+=(--platform "$IN_PLATFORM")
+        [ "$IN_ALL_PLATFORMS" = "true" ] && args+=(--all-platforms)
+        # A single document goes into the output directory under the default file name.
+        if [ "$IN_ALL_ENVIRONMENTS" = "true" ] || [ "$IN_ALL_PLATFORMS" = "true" ]; then
+          args+=(--output "$IN_OUTPUT")
+        else
+          case "$IN_OUTPUT" in
+            *.json|-) args+=(--output "$IN_OUTPUT") ;;
+            *) ext=cdx.json; [ "$IN_FORMAT" = spdx ] && ext=spdx.json; args+=(--output "$IN_OUTPUT/sbom.$ext") ;;
+          esac
+        fi
+        [ "$IN_FETCH_LICENSES" = "true" ] && args+=(--fetch-licenses)
+        [ "$IN_LICENSE_TEXTS" = "true" ] && args+=(--license-texts)
+        args+=(--pypi-mapping "$IN_PYPI_MAPPING" --primary-purl "$IN_PRIMARY_PURL")
+        for l in $IN_ALLOW_LICENSE; do args+=(--allow-license "$l"); done
+        for l in $IN_DENY_LICENSE; do args+=(--deny-license "$l"); done
+        [ "$IN_REQUIRE_LICENSE" = "true" ] && args+=(--require-license)
+        for a in $IN_EXTRA_ARGS; do args+=("$a"); done
+        echo "pixi-sbom ${args[*]}"
+        pixi-sbom "${args[@]}"
+        code=$?
+        if [ "$code" -eq 3 ]; then
+          echo "policy-violated=true" >> "$GITHUB_OUTPUT"
+          if [ "$IN_FAIL_ON_POLICY" = "true" ]; then
+            echo "::error::license policy violated (see the log above)"
+            exit 3
+          fi
+          echo "::warning::license policy violated (see the log above)"
+          exit 0
+        fi
+        echo "policy-violated=false" >> "$GITHUB_OUTPUT"
+        exit "$code"
+
+    - name: Upload the SBOM artifact
+      if: ${{ inputs.upload-artifact == 'true' && inputs.output != '-' && !cancelled() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.output }}
+        if-no-files-found: error

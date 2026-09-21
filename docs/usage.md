@@ -218,8 +218,43 @@ lockfile's directory name and a warning is logged.
 
 ## Running in CI
 
-The binary has no runtime dependencies, so any job that can install pixi can produce SBOMs. With GitHub Actions and
-[`setup-pixi`](https://github.com/prefix-dev/setup-pixi):
+### GitHub Action
+
+This repository doubles as a GitHub Action. It downloads the pinned release binary for the runner (verifying the
+checksum), runs it, and uploads the documents as a workflow artifact; pixi itself is not needed, and neither is
+`pixi install`, since the lockfile is the only input:
+
+```yaml
+- uses: actions/checkout@v4
+- uses: millsks/pixi-sbom@v0.5.0
+  with:
+    all-environments: "true"
+    fetch-licenses: "true"
+    pypi-mapping: prefix
+    primary-purl: pypi
+    deny-license: "GPL-3.0-only AGPL-3.0-only"
+    require-license: "true"
+```
+
+| Input | Default | Meaning |
+|---|---|---|
+| `version` | the action's own tag, else the latest release | pixi-sbom version to run |
+| `lockfile`, `format`, `spec-version`, `environment`, `platform`, `all-environments`, `all-platforms` | as the CLI | Selection and format, see the options above |
+| `output` | `sboms` | Output file (`*.json`, or `-` for the log) or directory; a single document lands in the directory as `sbom.cdx.json` / `sbom.spdx.json` |
+| `fetch-licenses`, `license-texts`, `pypi-mapping`, `primary-purl` | as the CLI | Enrichment |
+| `allow-license`, `deny-license`, `require-license` | | License policy; whitespace-separated lists |
+| `fail-on-policy` | `true` | Fail the step on a policy violation; with `false` it becomes a warning and the `policy-violated` output is `true` |
+| `extra-args` | | Any other CLI arguments |
+| `upload-artifact`, `artifact-name` | `true`, `sboms` | Artifact upload |
+
+Outputs: `version`, `output`, `policy-violated`. The action runs on Linux (x64, arm64), macOS (Intel, Apple
+Silicon) and Windows runners, and describes any platform in the lockfile regardless of the runner (`platform:
+linux-64` on a macOS runner is fine).
+
+### Without the action
+
+The binary has no runtime dependencies, so any job can download it from the
+[releases page](https://github.com/millsks/pixi-sbom/releases) and run it, or install it with pixi:
 
 ```yaml
 - uses: prefix-dev/setup-pixi@v0.8.1
@@ -234,9 +269,6 @@ The binary has no runtime dependencies, so any job that can install pixi can pro
     name: sboms
     path: sboms/
 ```
-
-The lockfile is the only input, so this step does not need `pixi install` to have run first, and it works on a
-different platform from the one being described (`-p linux-64` on a macOS runner is fine).
 
 ## Consuming the output
 
