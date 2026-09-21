@@ -2,7 +2,7 @@
 # Fill in the sha256 from the tagged source tarball before submitting.
 context:
   name: pixi-sbom
-  version: "0.7.0"
+  version: "0.8.0"
 
 package:
   name: ${{ name }}
