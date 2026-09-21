@@ -115,3 +115,15 @@ list fields but jq-made fixtures write `null` (accept both); a `--report` run in
 `sbom.cdx.json` once (never commit generated output); `git add -A` leaked an unrelated new file into a PR (add
 paths explicitly). Test workspace with vulnerable pins: `/tmp/pixi-sbom-test-vulns` (84 OSV findings).
 After the release: dogfood job gets `vulnerabilities: osv`, `kev`, `upload-sarif` (+ `security-events: write`).
+
+## 0.7.0 (2026-09-21): inputs and configuration
+
+PRs #90 (#57 `--exclude` / `--include` / `--exclude-kind` / `--keep-orphans`, graph re-closure from the original
+roots, `pixi:excluded`), #91 (#58 config file: `[tool.pixi-sbom]` in pyproject.toml wins over `pixi-sbom.toml`,
+`--config` / `--no-config`; clap `requires` on the vulnerability flags replaced by `main::validate` so the file can
+supply either side; action `config` input, `pypi-mapping` / `primary-purl` inputs now empty by default), #92 (#56
+`--report diff --against`, all four document flavours read back; new-side licenses normalized before comparing),
+#93 (#55 `--prefix`: conda-meta + dist-info, `lock::link_dependencies` shared, `pixi:prefix`, `--name` /
+`--root-version` because `--version` is clap's). Lessons: `git stash -u` + rebase conflicts twice (branch from an
+up-to-date main, or rebase before writing); a typos-flagged word in a test string ("fromat") fails the gate, use a
+neutral unknown key; the user's `pixi global` pixi-sbom env was still 0.3.0.
