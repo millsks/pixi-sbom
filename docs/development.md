@@ -161,6 +161,12 @@ release containing them exists; keep `action.yml` inputs and the CLI in step at 
 | Build | same three | `pixi run build` and `--version` smoke test |
 | Docs | ubuntu | `pixi run docs-build`: the site must build with `--strict` |
 
+`.github/workflows/docs.yml` publishes the site to GitHub Pages (https://millsks.github.io/pixi-sbom/) every time
+a release is published, building from the release tag so the site matches the released binary. A docs-only fix
+reaches the site at the next release, or sooner by dispatching the workflow by hand (`gh workflow run docs.yml`,
+optionally with `-f ref=<branch or tag>`). The repository's Pages source is "GitHub Actions"; the `github-pages`
+environment records every deployment.
+
 All jobs use `prefix-dev/setup-pixi` with caching, so they run the same pinned toolchain as local development. CI
 sticks to the `-latest` labels (x64 Linux and Windows, arm64 macOS); the code has no platform-specific paths, so the
 remaining architectures are only exercised by the release build, which must produce a native binary for each of the
