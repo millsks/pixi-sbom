@@ -2,6 +2,7 @@
 
 mod cli;
 mod condaarchive;
+mod config;
 mod cvss;
 mod discover;
 mod embedded;
@@ -28,18 +29,27 @@ mod zipread;
 use std::io::{IsTerminal, Write};
 use std::path::Path;
 
-use clap::{CommandFactory, Parser};
+use clap::{CommandFactory, FromArgMatches};
 use miette::{Context, IntoDiagnostic, Result};
 use tracing_subscriber::EnvFilter;
 
 fn main() -> Result<()> {
-    let args = cli::Args::parse();
+    let matches = cli::Args::command().get_matches();
+    let mut args = cli::Args::from_arg_matches(&matches).into_diagnostic()?;
     init_tracing(&args);
     init_error_reporting()?;
-    tracing::debug!(?args, "parsed arguments");
 
     let cwd = std::env::current_dir().into_diagnostic()?;
     let lockfile = discover::resolve_lockfile(args.lockfile.as_deref(), &cwd)?;
+    if !args.no_config {
+        let dir = lockfile.parent().unwrap_or(Path::new("."));
+        if let Some(loaded) = config::load(dir, args.config.as_deref())? {
+            config::apply(&loaded, &mut args, &matches)?;
+            tracing::info!(path = %loaded.path.display(), "applied the configuration file");
+        }
+    }
+    tracing::debug!(?args, "effective arguments");
+    validate(&args);
     let lock::LoadedLock { lock, contents } = lock::load(&lockfile)?;
     let root = manifest::root_for_lockfile(&lockfile);
 
@@ -47,30 +57,6 @@ fn main() -> Result<()> {
     let fetch_licenses = args.fetch_licenses || args.pypi_licenses;
     if args.pypi_licenses {
         tracing::warn!("--pypi-licenses is deprecated and now behaves as --fetch-licenses; use that instead");
-    }
-    if args.license_texts && !fetch_licenses {
-        cli::Args::command()
-            .error(
-                clap::error::ErrorKind::MissingRequiredArgument,
-                "'--license-texts' only applies together with '--fetch-licenses'",
-            )
-            .exit();
-    }
-    if args.report_format == report::ReportFormat::Sarif && args.report != Some(report::ReportKind::Vulnerabilities) {
-        cli::Args::command()
-            .error(
-                clap::error::ErrorKind::ArgumentConflict,
-                "'--report-format sarif' only applies to '--report vulnerabilities'",
-            )
-            .exit();
-    }
-    if args.report == Some(report::ReportKind::Vulnerabilities) && args.vulnerabilities.is_none() {
-        cli::Args::command()
-            .error(
-                clap::error::ErrorKind::MissingRequiredArgument,
-                "'--report vulnerabilities' needs '--vulnerabilities <SOURCE>' to look them up",
-            )
-            .exit();
     }
     let targets = resolve_targets(&args, &lock, &lockfile)?;
     let pypi_mapping = load_pypi_mapping(&args)?;
@@ -309,6 +295,46 @@ fn main() -> Result<()> {
         std::process::exit(vulnpolicy::GATE_EXIT_CODE);
     }
     Ok(())
+}
+
+/// The relationships between settings that clap cannot check, because a configuration file
+/// may supply either side. Every violation is a usage error (exit 2).
+fn validate(args: &cli::Args) {
+    let usage = |kind: clap::error::ErrorKind, message: &str| -> ! { cli::Args::command().error(kind, message).exit() };
+    use clap::error::ErrorKind::{ArgumentConflict, MissingRequiredArgument};
+    if args.license_texts && !(args.fetch_licenses || args.pypi_licenses) {
+        usage(
+            MissingRequiredArgument,
+            "'--license-texts' only applies together with '--fetch-licenses'",
+        );
+    }
+    if args.vulnerabilities.is_none() {
+        for (set, flag) in [
+            (args.kev, "--kev"),
+            (args.fail_on_severity.is_some(), "--fail-on-severity"),
+            (!args.ignore_vuln.is_empty(), "--ignore-vuln"),
+            (
+                args.report == Some(report::ReportKind::Vulnerabilities),
+                "--report vulnerabilities",
+            ),
+        ] {
+            if set {
+                usage(
+                    MissingRequiredArgument,
+                    &format!("'{flag}' needs '--vulnerabilities <SOURCE>' to look them up"),
+                );
+            }
+        }
+    }
+    if args.fail_on_kev && !args.kev {
+        usage(MissingRequiredArgument, "'--fail-on-kev' needs '--kev'");
+    }
+    if args.report_format == report::ReportFormat::Sarif && args.report != Some(report::ReportKind::Vulnerabilities) {
+        usage(
+            ArgumentConflict,
+            "'--report-format sarif' only applies to '--report vulnerabilities'",
+        );
+    }
 }
 
 /// Parse `--include` / `--exclude` patterns; a bad one is a usage error.

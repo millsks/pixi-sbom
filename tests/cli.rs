@@ -1793,6 +1793,81 @@ fn excluding_pre_commit_from_this_repository() {
 }
 
 #[test]
+fn configuration_file_is_read_before_the_command_line() {
+    let dir = workspace("with-pypi");
+    std::fs::write(
+        dir.path().join("pixi-sbom.toml"),
+        "format = \"spdx\"\nexclude = [\"requests\"]\nrequire-license = true\n",
+    )
+    .unwrap();
+    let run = |args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .args(["-e", "web", "-p", "linux-64", "--output", "-"])
+            .args(args)
+            .assert()
+    };
+    // The file decides the format and the filter; the policy it enables trips (exit 3).
+    let assert = run(&[])
+        .code(3)
+        .stderr(predicate::str::contains("applied the configuration file"))
+        .stderr(predicate::str::contains("filtered packages excluded=1"));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&spdx_validator(), &doc);
+    // The command line wins where it speaks: CycloneDX, and no policy.
+    let assert = run(&["--format", "cyclonedx", "--no-config"]).success();
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_eq!(doc["bomFormat"], "CycloneDX");
+    assert!(
+        doc["metadata"]["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|p| p["name"] != "pixi:excluded")
+    );
+    let assert = run(&["--format", "cyclonedx"]).code(3);
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_eq!(doc["bomFormat"], "CycloneDX", "the flag wins over the file");
+    assert!(
+        doc["metadata"]["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["name"] == "pixi:excluded"),
+        "the file's filter still applies"
+    );
+
+    // [tool.pixi-sbom] in pyproject.toml takes precedence over pixi-sbom.toml.
+    std::fs::write(
+        dir.path().join("pyproject.toml"),
+        "[project]\nname = \"x\"\n[tool.pixi-sbom]\nformat = \"cyclonedx\"\n",
+    )
+    .unwrap();
+    let assert = run(&[]).success().stderr(predicate::str::contains("pyproject.toml"));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_eq!(doc["bomFormat"], "CycloneDX");
+
+    // --config points elsewhere; a bad file is a diagnostic, not a silent default.
+    std::fs::write(dir.path().join("ci.toml"), "colour = \"spdx\"\n").unwrap();
+    run(&["--config", "ci.toml"])
+        .code(1)
+        .stderr(predicate::str::contains("pixi_sbom::config::parse"))
+        .stderr(predicate::str::contains("unknown field `colour`"));
+    std::fs::write(
+        dir.path().join("ci.toml"),
+        "vulnerabilities = \"osv\"\nfail-on-kev = true\n",
+    )
+    .unwrap();
+    // Relationships are checked after the file applies: fail-on-kev needs kev.
+    run(&["--config", "ci.toml"])
+        .code(2)
+        .stderr(predicate::str::contains("'--fail-on-kev' needs '--kev'"));
+    run(&["--config", "missing.toml"])
+        .code(1)
+        .stderr(predicate::str::contains("cannot read the configuration file"));
+}
+
+#[test]
 fn fetch_licenses_reads_wheel_metadata_and_license_files() {
     // The with-pypi fixture with the six wheel pointed at the local copy; everything else offline.
     let dir = workspace("with-pypi");

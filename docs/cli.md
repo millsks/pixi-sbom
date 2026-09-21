@@ -19,6 +19,8 @@ With no options this means:
 | Option | Default | Effect |
 |---|---|---|
 | `--lockfile <PATH>` | upward search from cwd | Lockfile to read. The file must exist; there is no fallback search when this is given. |
+| `--config <PATH>` | see below | Configuration file to read before the command line. |
+| `--no-config` | off | Ignore any configuration file. |
 | `--format <cyclonedx\|spdx>` | `cyclonedx` | `cyclonedx` writes CycloneDX JSON; `spdx` writes SPDX 2.3 JSON. |
 | `--spec-version <1.6\|1.7\|2.3\|3.0>` | `1.6` / `2.3` | Specification version: `1.6` or `1.7` for CycloneDX (1.7 adds a `citations` entry), `2.3` or `3.0` for SPDX (3.0 is the JSON-LD graph of SPDX 3.0.1). Defaults stay at 1.6 / 2.3 until the common consumers move. A version of the other format is a usage error. |
 | `--output <PATH>` | `<lockfile dir>/sbom.cdx.json` or `sbom.spdx.json` | File to write; parent directories are created. `-` writes the document to stdout (logs stay on stderr). With `--all-environments` / `--all-platforms` this is a directory instead, and `-` is rejected. |
@@ -52,6 +54,40 @@ With no options this means:
 | `-h, --help`, `-V, --version` | | Usual meanings. |
 
 `RUST_LOG` is also honored and overrides `-v`/`-q` (for example `RUST_LOG=pixi_sbom::lock=debug`).
+
+## Configuration file
+
+The settings that make CI invocations long can live with the project. Before the command line is applied,
+`pixi sbom` reads `[tool.pixi-sbom]` from the `pyproject.toml` next to the lockfile when that table exists, else a
+`pixi-sbom.toml` next to the lockfile; `--config <PATH>` names another file (either layout), `--no-config` reads
+none. Keys mirror the long flags:
+
+```toml
+# pixi-sbom.toml
+format = "cyclonedx"
+spec-version = "1.6"
+pypi-mapping = "prefix"          # or pypi-mapping-file = "mirrors/mapping.json" (relative to this file)
+primary-purl = "pypi"
+fetch-licenses = true
+license-texts = false
+embedded-sboms = true
+exclude = ["pre-commit*", "compilers"]
+exclude-kind = ["conda-source"]
+keep-orphans = false
+allow-license = []                # or deny-license = ["GPL-3.0-only", "AGPL-3.0-only"]
+require-license = true
+vulnerabilities = "osv"
+kev = true
+fail-on-severity = "high"
+fail-on-kev = true
+ignore-vuln = ["GHSA-2xpw-w6gg-jr37:streaming API is not used"]
+```
+
+The command line wins wherever it says something, list flags included: `--deny-license MIT` replaces the file's
+`deny-license` list rather than extending it. Selection (`--environment`, `--platform`, the `--all-*` flags),
+`--output` and `--report` are per invocation and have no file keys. An unknown key, a misspelt value or invalid
+TOML is an error (`pixi_sbom::config::parse`), never a silent default, and the relationships between settings
+(`fail-on-kev` needs `kev`, `license-texts` needs `fetch-licenses`, ...) are checked after the file applies.
 
 ## Leaving packages out
 

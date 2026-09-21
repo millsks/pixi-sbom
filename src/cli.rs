@@ -165,6 +165,15 @@ pub struct Args {
     #[arg(long, value_name = "PATH")]
     pub lockfile: Option<PathBuf>,
 
+    /// Configuration file to read before the command line (the command line wins). Defaults to
+    /// `[tool.pixi-sbom]` in the pyproject.toml next to the lockfile, else pixi-sbom.toml there.
+    #[arg(long, value_name = "PATH", conflicts_with = "no_config")]
+    pub config: Option<PathBuf>,
+
+    /// Ignore any configuration file.
+    #[arg(long)]
+    pub no_config: bool,
+
     /// SBOM format to generate.
     #[arg(long, value_enum, default_value_t = Format::Cyclonedx)]
     pub format: Format,
@@ -272,17 +281,17 @@ pub struct Args {
     /// Mark findings that are in CISA's Known Exploited Vulnerabilities catalog (matched by CVE
     /// alias): rated critical, with the catalog's dates and required action recorded. The
     /// catalog is downloaded once a day. Requires --vulnerabilities.
-    #[arg(long, requires = "vulnerabilities")]
+    #[arg(long)]
     pub kev: bool,
 
     /// Exit with code 4 after writing the document when any open finding is in the KEV
     /// catalog. Requires --kev.
-    #[arg(long, requires = "kev")]
+    #[arg(long)]
     pub fail_on_kev: bool,
 
     /// Exit with code 4 after writing the document when any finding at or above this severity
     /// remains (findings of unknown severity never trip it). Requires --vulnerabilities.
-    #[arg(long, value_enum, value_name = "SEVERITY", requires = "vulnerabilities")]
+    #[arg(long, value_enum, value_name = "SEVERITY")]
     pub fail_on_severity: Option<FailOnSeverity>,
 
     /// Accept a finding deliberately (repeatable): `ID`, `ID:justification` or
@@ -290,7 +299,7 @@ pub struct Args {
     /// a CycloneDX analysis state (default `not_affected`). The finding stays in the document
     /// with an `analysis` block, is excluded from --fail-on-severity and listed separately in
     /// the report. Requires --vulnerabilities.
-    #[arg(long, value_name = "ID[:STATE][:TEXT]", requires = "vulnerabilities")]
+    #[arg(long, value_name = "ID[:STATE][:TEXT]")]
     pub ignore_vuln: Vec<String>,
 
     /// Print a report to the terminal instead of writing an SBOM document: `packages` is the

@@ -18,6 +18,12 @@ inputs:
     description: Path to pixi.lock. Defaults to searching upward from the working directory.
     required: false
     default: ""
+  config:
+    description: >-
+      Configuration file to read before the inputs (`[tool.pixi-sbom]` in pyproject.toml or
+      pixi-sbom.toml next to the lockfile are read by default; `none` ignores them).
+    required: false
+    default: ""
   format:
     description: "`cyclonedx` or `spdx`."
     required: false
@@ -61,13 +67,13 @@ inputs:
     required: false
     default: "false"
   pypi-mapping:
-    description: "`lock` or `prefix`: where PyPI identities for conda packages come from."
+    description: "`lock` (the default) or `prefix`: where PyPI identities for conda packages come from."
     required: false
-    default: lock
+    default: ""
   primary-purl:
-    description: "`conda` or `pypi`: which purl is a conda package's primary identity."
+    description: "`conda` (the default) or `pypi`: which purl is a conda package's primary identity."
     required: false
-    default: conda
+    default: ""
   allow-license:
     description: Allowed SPDX licenses, whitespace separated. Violations exit with code 3.
     required: false
@@ -223,6 +229,7 @@ runs:
       shell: bash
       env:
         IN_LOCKFILE: ${{ inputs.lockfile }}
+        IN_CONFIG: ${{ inputs.config }}
         IN_FORMAT: ${{ inputs.format }}
         IN_SPEC_VERSION: ${{ inputs.spec-version }}
         IN_ENVIRONMENT: ${{ inputs.environment }}
@@ -259,6 +266,13 @@ runs:
         printf '%s\n' ${vuln[@]+"${vuln[@]}"} > "$RUNNER_TEMP/pixi-sbom-vuln-args"
         args=()
         [ -n "$IN_LOCKFILE" ] && args+=(--lockfile "$IN_LOCKFILE")
+        # `format` is always passed (the output file is named after it) and so wins over the
+        # configuration file; the other inputs are passed only when set.
+        case "$IN_CONFIG" in
+          "") ;;
+          none) args+=(--no-config) ;;
+          *) args+=(--config "$IN_CONFIG") ;;
+        esac
         args+=(--format "$IN_FORMAT")
         [ -n "$IN_SPEC_VERSION" ] && args+=(--spec-version "$IN_SPEC_VERSION")
         [ -n "$IN_ENVIRONMENT" ] && args+=(--environment "$IN_ENVIRONMENT")
@@ -277,7 +291,8 @@ runs:
         [ "$IN_FETCH_LICENSES" = "true" ] && args+=(--fetch-licenses)
         [ "$IN_LICENSE_TEXTS" = "true" ] && args+=(--license-texts)
         [ "$IN_EMBEDDED_SBOMS" = "true" ] && args+=(--embedded-sboms)
-        args+=(--pypi-mapping "$IN_PYPI_MAPPING" --primary-purl "$IN_PRIMARY_PURL")
+        [ -n "$IN_PYPI_MAPPING" ] && args+=(--pypi-mapping "$IN_PYPI_MAPPING")
+        [ -n "$IN_PRIMARY_PURL" ] && args+=(--primary-purl "$IN_PRIMARY_PURL")
         for l in $IN_ALLOW_LICENSE; do args+=(--allow-license "$l"); done
         for l in $IN_DENY_LICENSE; do args+=(--deny-license "$l"); done
         [ "$IN_REQUIRE_LICENSE" = "true" ] && args+=(--require-license)
@@ -317,6 +332,7 @@ runs:
       shell: bash
       env:
         IN_LOCKFILE: ${{ inputs.lockfile }}
+        IN_CONFIG: ${{ inputs.config }}
         IN_ENVIRONMENT: ${{ inputs.environment }}
         IN_ALL_ENVIRONMENTS: ${{ inputs.all-environments }}
         IN_PLATFORM: ${{ inputs.platform }}
@@ -327,11 +343,17 @@ runs:
         set -uo pipefail
         args=(--report vulnerabilities --report-format sarif)
         [ -n "$IN_LOCKFILE" ] && args+=(--lockfile "$IN_LOCKFILE")
+        case "$IN_CONFIG" in
+          "") ;;
+          none) args+=(--no-config) ;;
+          *) args+=(--config "$IN_CONFIG") ;;
+        esac
         [ -n "$IN_ENVIRONMENT" ] && args+=(--environment "$IN_ENVIRONMENT")
         [ "$IN_ALL_ENVIRONMENTS" = "true" ] && args+=(--all-environments)
         [ -n "$IN_PLATFORM" ] && args+=(--platform "$IN_PLATFORM")
         [ "$IN_ALL_PLATFORMS" = "true" ] && args+=(--all-platforms)
-        args+=(--pypi-mapping "$IN_PYPI_MAPPING" --primary-purl "$IN_PRIMARY_PURL")
+        [ -n "$IN_PYPI_MAPPING" ] && args+=(--pypi-mapping "$IN_PYPI_MAPPING")
+        [ -n "$IN_PRIMARY_PURL" ] && args+=(--primary-purl "$IN_PRIMARY_PURL")
         while IFS= read -r line; do [ -n "$line" ] && args+=("$line"); done < "$RUNNER_TEMP/pixi-sbom-vuln-args"
         path="$RUNNER_TEMP/pixi-sbom-vulnerabilities.sarif"
         echo "pixi-sbom ${args[*]} > $path"
