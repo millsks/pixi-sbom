@@ -93,3 +93,11 @@ MkDocs Material site for `docs/` at https://millsks.github.io/pixi-sbom, deploye
 CI job), #67 content restructure, #68 Pages deploy (enabling Pages is a repo setting: confirm first), #69 `mike`
 versioning, #70 links from README / Cargo.toml / action.yml / feedstock. User chose 0.5.5 (not 0.8.5) so the
 milestone number keeps release order; it runs before 0.6.0.
+
+Outcome (2026-09-21): PRs #72 (#66), #73 (#67), #75 (#68), #76 (#70 + #74 Marketplace: description cut to 116
+chars), #77 (#69). Palette stays teal (user choice; light mode default). Pages enabled via API with source
+"GitHub Actions"; mike deploys each MAJOR.MINOR to gh-pages with `latest` as a *copy* (Pages does not serve
+symlinks) and the branch is uploaded as the Pages artifact. Links use `/latest/...`. Feedstock metadata PR
+conda-forge/pixi-sbom-feedstock#7 points `about` at the site. The Marketplace listing is a one-time UI step the
+user does on the 0.5.5 release. Lesson: `gh repo clone` of a fork already adds `upstream`; and `mkdocs_hooks.py`
+publishes CHANGELOG.md as a page without copying it into docs/.
