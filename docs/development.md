@@ -95,7 +95,7 @@ discovery, every option including `--all-environments`, both formats, and each e
 
 `tests/schemas/` contains the official CycloneDX 1.6 and 1.7 schemas (with the `spdx.schema.json`,
 `jsf-0.82.schema.json` and `cryptography-defs.schema.json` they reference, registered under their canonical `$id`s so
-no network access happens), the SPDX 2.3 schema and the SPDX 3.0.1 JSON schema. Both the sample model and every end-to-end document are validated,
+no network access happens), the SPDX 2.3 schema, the SPDX 3.0.1 JSON schema and the SARIF 2.1.0 schema. Both the sample model and every end-to-end document are validated,
 CycloneDX against the schema of the version written. When adding a spec version, vendor its schema and extend
 `cli::SpecVersion` and the writer's `schema_url` / `number` tables.
 

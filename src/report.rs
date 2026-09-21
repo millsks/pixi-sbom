@@ -36,6 +36,9 @@ pub enum ReportFormat {
     Csv,
     /// JSON: an object per document, or an array of them in batch mode.
     Json,
+    /// SARIF 2.1.0 for the vulnerabilities report: one run per document, one result per
+    /// finding and affected package, for GitHub code scanning and other SARIF consumers.
+    Sarif,
 }
 
 /// Terminal width used to fit the `table` format: `COLUMNS` when set, else this.
@@ -137,6 +140,9 @@ pub struct Report {
     pub workspace: String,
     pub environment: String,
     pub platform: String,
+    /// The lockfile the document describes, relative to the workspace (SARIF's location).
+    #[serde(skip)]
+    pub lockfile: String,
     /// Package rows (the packages and licenses reports).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub packages: Option<Vec<Row>>,
@@ -161,6 +167,7 @@ impl Report {
             workspace: sbom.root.name.clone(),
             environment: sbom.environment.clone(),
             platform: sbom.platform.clone(),
+            lockfile: sbom.lockfile.clone(),
             packages: None,
             summary: None,
             vulnerabilities: None,
@@ -445,6 +452,7 @@ pub fn render_with_width(
         ReportFormat::Json if reports.len() == 1 => writeln!(out, "{}", serde_json::to_string_pretty(&reports[0])?),
         ReportFormat::Json => writeln!(out, "{}", serde_json::to_string_pretty(reports)?),
         ReportFormat::Csv => render_csv(reports, out),
+        ReportFormat::Sarif => writeln!(out, "{}", serde_json::to_string_pretty(&sarif(reports))?),
         ReportFormat::Table | ReportFormat::Markdown => {
             for (i, report) in reports.iter().enumerate() {
                 if i > 0 {
@@ -699,6 +707,170 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
         }
     }
     Ok(())
+}
+
+/// GitHub's `security-severity` score for a finding: its CVSS score, 10 for known exploited,
+/// else a representative value for the severity word.
+fn security_severity(row: &VulnerabilityRow) -> Option<f64> {
+    if row.kev.is_some() {
+        return Some(10.0);
+    }
+    row.score.or(match row.severity {
+        "critical" => Some(9.5),
+        "high" => Some(8.0),
+        "medium" => Some(5.5),
+        "low" => Some(2.5),
+        "none" => Some(0.0),
+        _ => None,
+    })
+}
+
+/// The SARIF 2.1.0 log for the vulnerabilities reports: one run per document, one rule per
+/// advisory, one result per finding and affected package, located at the lockfile.
+fn sarif(reports: &[Report]) -> serde_json::Value {
+    use serde_json::json;
+    let runs: Vec<serde_json::Value> = reports
+        .iter()
+        .map(|report| {
+            let rows = report.vulnerabilities.as_deref().unwrap_or(&[]);
+            let mut rules: Vec<serde_json::Value> = Vec::new();
+            let mut rule_index: BTreeMap<&str, usize> = BTreeMap::new();
+            let mut results = Vec::new();
+            for row in rows {
+                let index = *rule_index.entry(&row.id).or_insert_with(|| {
+                    let mut tags = vec!["security".to_string(), "vulnerability".to_string()];
+                    tags.push(row.severity.to_string());
+                    if row.kev.is_some() {
+                        tags.push("known-exploited".into());
+                    }
+                    let mut properties = json!({ "tags": tags });
+                    if let Some(score) = security_severity(row) {
+                        properties["security-severity"] = json!(format!("{score:.1}"));
+                    }
+                    let title = row
+                        .summary
+                        .clone()
+                        .unwrap_or_else(|| format!("{} in {}", row.id, row.package));
+                    let mut help = format!(
+                        "{}\n\nSeverity: {}",
+                        row.summary.as_deref().unwrap_or(&row.id),
+                        row.severity
+                    );
+                    if !row.aliases.is_empty() {
+                        help.push_str(&format!("\nAliases: {}", row.aliases.join(", ")));
+                    }
+                    if let Some(kev) = &row.kev {
+                        help.push_str(&format!(
+                            "\nCISA KEV: {} (due {})",
+                            kev.cve_id,
+                            kev.due_date.as_deref().unwrap_or("-")
+                        ));
+                    }
+                    help.push_str(&format!("\n{}", row.url));
+                    rules.push(json!({
+                        "id": row.id,
+                        "name": row.id.replace('-', ""),
+                        "shortDescription": { "text": title },
+                        "fullDescription": { "text": help.lines().next().unwrap_or(&row.id) },
+                        "helpUri": row.url,
+                        "help": { "text": help, "markdown": help.replace('\n', "  \n") },
+                        "properties": properties,
+                    }));
+                    rules.len() - 1
+                });
+                let mut message = format!(
+                    "{} {} is affected by {} ({})",
+                    row.package, row.version, row.id, row.severity
+                );
+                if let Some(summary) = &row.summary {
+                    message.push_str(&format!(": {summary}"));
+                }
+                match &row.fixed_version {
+                    Some(fixed) => message.push_str(&format!(". Upgrade to {fixed}.")),
+                    None => message.push('.'),
+                }
+                let level = match (row.ignored.is_some(), row.severity) {
+                    (true, _) => "note",
+                    (_, "critical" | "high") => "error",
+                    (_, "medium") => "warning",
+                    _ => "note",
+                };
+                let mut result = json!({
+                    "ruleId": row.id,
+                    "ruleIndex": index,
+                    "level": level,
+                    "message": { "text": message },
+                    "locations": [{
+                        "physicalLocation": {
+                            "artifactLocation": { "uri": report.lockfile, "uriBaseId": "%SRCROOT%" }
+                        },
+                        "logicalLocations": [{ "name": row.purl, "kind": "package" }]
+                    }],
+                    "partialFingerprints": {
+                        "pixi-sbom/purl": row.purl,
+                        "pixi-sbom/environment": report.environment,
+                        "pixi-sbom/platform": report.platform
+                    },
+                    "properties": {
+                        "package": row.package,
+                        "version": row.version,
+                        "purl": row.purl,
+                        "severity": row.severity,
+                        "aliases": row.aliases,
+                    }
+                });
+                if let Some(score) = row.score {
+                    result["properties"]["score"] = json!(score);
+                }
+                if let Some(fixed) = &row.fixed_version {
+                    result["properties"]["fixedVersion"] = json!(fixed);
+                }
+                if let Some(kev) = &row.kev {
+                    result["properties"]["kev"] = json!({
+                        "cveId": kev.cve_id,
+                        "dateAdded": kev.date_added,
+                        "dueDate": kev.due_date,
+                        "knownRansomwareCampaignUse": kev.ransomware,
+                    });
+                }
+                if let Some(state) = &row.ignored {
+                    let mut suppression = json!({ "kind": "external", "status": "accepted" });
+                    let justification = match &row.justification {
+                        Some(text) => format!("{state}: {text}"),
+                        None => state.clone(),
+                    };
+                    suppression["justification"] = json!(justification);
+                    result["suppressions"] = json!([suppression]);
+                }
+                results.push(result);
+            }
+            json!({
+                "tool": {
+                    "driver": {
+                        "name": "pixi-sbom",
+                        "version": env!("CARGO_PKG_VERSION"),
+                        "informationUri": "https://millsks.github.io/pixi-sbom/",
+                        "rules": rules,
+                    }
+                },
+                "automationDetails": {
+                    "id": format!("pixi-sbom/{}/{}", report.environment, report.platform)
+                },
+                "results": results,
+                "properties": {
+                    "workspace": report.workspace,
+                    "environment": report.environment,
+                    "platform": report.platform,
+                    "summary": report.vulnerability_summary,
+                }
+            })
+        })
+        .collect();
+    json!({
+        "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+        "version": "2.1.0",
+        "runs": runs,
+    })
 }
 
 fn render_vulnerabilities_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
@@ -1048,6 +1220,76 @@ mod tests {
             ReportFormat::Csv,
             &[vulnerable_sbom()]
         ));
+    }
+
+    #[test]
+    fn sarif_has_a_run_per_document_with_rules_results_and_suppressions() {
+        let mut other = vulnerable_sbom();
+        other.platform = "osx-arm64".into();
+        let text = render_string(
+            ReportKind::Vulnerabilities,
+            ReportFormat::Sarif,
+            &[vulnerable_sbom(), other],
+        );
+        let log: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(log["version"], "2.1.0");
+        let runs = log["runs"].as_array().unwrap();
+        assert_eq!(runs.len(), 2);
+        let run = &runs[0];
+        assert_eq!(run["tool"]["driver"]["name"], "pixi-sbom");
+        assert_eq!(run["automationDetails"]["id"], "pixi-sbom/default/linux-64");
+        let rules = run["tool"]["driver"]["rules"].as_array().unwrap();
+        assert_eq!(rules.len(), 2, "one rule per advisory, not per affected package");
+        assert_eq!(rules[0]["id"], "GHSA-q2q7-5pp4-w6pg");
+        assert_eq!(
+            rules[0]["properties"]["security-severity"], "10.0",
+            "known exploited scores 10"
+        );
+        assert!(
+            rules[0]["properties"]["tags"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|t| t == "known-exploited")
+        );
+        assert!(
+            rules[1]["properties"].get("security-severity").is_none(),
+            "unknown severity has no score"
+        );
+        let results = run["results"].as_array().unwrap();
+        assert_eq!(results.len(), 3);
+        assert_eq!(results[0]["level"], "error");
+        assert_eq!(results[0]["ruleIndex"], 0);
+        assert!(
+            results[0]["message"]["text"]
+                .as_str()
+                .unwrap()
+                .starts_with("six 1.17.0 is affected by GHSA-q2q7-5pp4-w6pg (high): Catastrophic")
+        );
+        assert!(
+            results[0]["message"]["text"]
+                .as_str()
+                .unwrap()
+                .ends_with("Upgrade to 1.26.5.")
+        );
+        assert_eq!(
+            results[0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"],
+            "pixi.lock"
+        );
+        assert_eq!(
+            results[0]["partialFingerprints"]["pixi-sbom/purl"],
+            "pkg:pypi/six@1.17.0"
+        );
+        assert_eq!(results[0]["properties"]["kev"]["cveId"], "CVE-2021-33503");
+        assert!(results[0].get("suppressions").is_none());
+        // Ignored findings are notes with a suppression carrying the justification.
+        assert_eq!(results[1]["level"], "note");
+        assert_eq!(results[1]["suppressions"][0]["kind"], "external");
+        assert_eq!(
+            results[1]["suppressions"][0]["justification"],
+            "false_positive: not the same zlib"
+        );
+        assert_eq!(runs[1]["automationDetails"]["id"], "pixi-sbom/default/osx-arm64");
     }
 
     #[test]

@@ -41,7 +41,7 @@ With no options this means:
 | `--fail-on-severity <low\|medium\|high\|critical>` | | With `--vulnerabilities`: exit **4** after writing the document when any open finding is at or above the level. Findings of unknown severity never trip it. |
 | `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification), is excluded from `--fail-on-severity` and listed separately in the report. |
 | `--report <packages\|licenses\|vulnerabilities>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`. |
-| `--report-format <table\|markdown\|csv\|json>` | `table` | How to render the report. |
+| `--report-format <table\|markdown\|csv\|json\|sarif>` | `table` | How to render the report; `sarif` (2.1.0, for GitHub code scanning) applies to `--report vulnerabilities` only. |
 | `--pypi-licenses` | | Deprecated alias for `--fetch-licenses` (hidden from `--help`; removed in a future release). |
 | `-v`, `-vv` | info | Raise the log level to debug / trace. Logs go to stderr; the SBOM never goes to stdout. |
 | `-q`, `-qq`, `-qqq` | info | Lower it to warnings only / errors only / silent. Error diagnostics are printed regardless. |
@@ -181,7 +181,9 @@ CVSS score, KEV, id, aliases, fixed version, status, summary; the CSV and JSON f
 `--ignore-vuln` justification and the KEV due date), open findings worst first and ignored ones last, followed by
 a count of open findings and affected packages, a table of open findings per severity, the known-exploited
 findings, the ignored findings with their justification, and the packages that have no purl the database could
-answer.
+answer. `--report-format sarif` renders it as a SARIF 2.1.0 log instead: one run per document, one rule per
+advisory (with `security-severity` for GitHub code scanning: the CVSS score, or 10 for known-exploited findings),
+one result per finding and affected package located at the lockfile, and accepted findings as suppressions.
 
 ## One document per environment and platform
 

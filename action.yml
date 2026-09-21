@@ -84,6 +84,42 @@ inputs:
     description: Fail the step when the license policy is violated (exit code 3).
     required: false
     default: "true"
+  vulnerabilities:
+    description: "`osv` to look up known vulnerabilities and record them in the document."
+    required: false
+    default: ""
+  kev:
+    description: With vulnerabilities, mark findings in CISA's Known Exploited Vulnerabilities catalog.
+    required: false
+    default: "false"
+  fail-on-severity:
+    description: "`low`, `medium`, `high` or `critical`: fail the step on open findings at or above it (exit code 4)."
+    required: false
+    default: ""
+  fail-on-kev:
+    description: With kev, fail the step on open known-exploited findings (exit code 4).
+    required: false
+    default: "false"
+  ignore-vuln:
+    description: >-
+      Findings to accept, one per line, as `ID`, `ID:justification` or `ID:state:justification`
+      (advisory id or CVE alias).
+    required: false
+    default: ""
+  fail-on-vulnerabilities:
+    description: Fail the step when the vulnerability gate trips (exit code 4).
+    required: false
+    default: "true"
+  upload-sarif:
+    description: >-
+      With vulnerabilities, also write the findings as SARIF and upload them to GitHub code scanning
+      (needs `security-events: write`).
+    required: false
+    default: "false"
+  sarif-category:
+    description: Code scanning category for the SARIF upload; distinguishes several uploads per commit.
+    required: false
+    default: pixi-sbom
   extra-args:
     description: Additional command-line arguments, whitespace separated (e.g. `-v`).
     required: false
@@ -107,6 +143,12 @@ outputs:
   policy-violated:
     description: "`true` when the license policy was violated."
     value: ${{ steps.run.outputs.policy-violated }}
+  vulnerabilities-found:
+    description: "`true` when the vulnerability gate tripped."
+    value: ${{ steps.run.outputs.vulnerabilities-found }}
+  sarif:
+    description: Path of the SARIF file, when upload-sarif is set.
+    value: ${{ steps.sarif.outputs.path }}
 
 runs:
   using: composite
@@ -195,9 +237,24 @@ runs:
         IN_DENY_LICENSE: ${{ inputs.deny-license }}
         IN_REQUIRE_LICENSE: ${{ inputs.require-license }}
         IN_FAIL_ON_POLICY: ${{ inputs.fail-on-policy }}
+        IN_VULNERABILITIES: ${{ inputs.vulnerabilities }}
+        IN_KEV: ${{ inputs.kev }}
+        IN_FAIL_ON_SEVERITY: ${{ inputs.fail-on-severity }}
+        IN_FAIL_ON_KEV: ${{ inputs.fail-on-kev }}
+        IN_IGNORE_VULN: ${{ inputs.ignore-vuln }}
+        IN_FAIL_ON_VULNERABILITIES: ${{ inputs.fail-on-vulnerabilities }}
         IN_EXTRA_ARGS: ${{ inputs.extra-args }}
       run: |
         set -uo pipefail
+        # Flags shared by the document run and the SARIF report, kept for the next step.
+        vuln=()
+        [ -n "$IN_VULNERABILITIES" ] && vuln+=(--vulnerabilities "$IN_VULNERABILITIES")
+        [ "$IN_KEV" = "true" ] && vuln+=(--kev)
+        while IFS= read -r line; do
+          [ -n "${line// }" ] && vuln+=(--ignore-vuln "$line")
+        done <<< "$IN_IGNORE_VULN"
+        # ${arr[@]+"${arr[@]}"} keeps an empty array from tripping `set -u` on older bash.
+        printf '%s\n' ${vuln[@]+"${vuln[@]}"} > "$RUNNER_TEMP/pixi-sbom-vuln-args"
         args=()
         [ -n "$IN_LOCKFILE" ] && args+=(--lockfile "$IN_LOCKFILE")
         args+=(--format "$IN_FORMAT")
@@ -222,11 +279,16 @@ runs:
         for l in $IN_ALLOW_LICENSE; do args+=(--allow-license "$l"); done
         for l in $IN_DENY_LICENSE; do args+=(--deny-license "$l"); done
         [ "$IN_REQUIRE_LICENSE" = "true" ] && args+=(--require-license)
+        args+=(${vuln[@]+"${vuln[@]}"})
+        [ -n "$IN_FAIL_ON_SEVERITY" ] && args+=(--fail-on-severity "$IN_FAIL_ON_SEVERITY")
+        [ "$IN_FAIL_ON_KEV" = "true" ] && args+=(--fail-on-kev)
         for a in $IN_EXTRA_ARGS; do args+=("$a"); done
         echo "pixi-sbom ${args[*]}"
         # GitHub runs bash steps with -e; capture the status instead of dying on exit code 3.
         code=0
         pixi-sbom "${args[@]}" || code=$?
+        echo "policy-violated=false" >> "$GITHUB_OUTPUT"
+        echo "vulnerabilities-found=false" >> "$GITHUB_OUTPUT"
         if [ "$code" -eq 3 ]; then
           echo "policy-violated=true" >> "$GITHUB_OUTPUT"
           if [ "$IN_FAIL_ON_POLICY" = "true" ]; then
@@ -236,8 +298,51 @@ runs:
           echo "::warning::license policy violated (see the log above)"
           exit 0
         fi
-        echo "policy-violated=false" >> "$GITHUB_OUTPUT"
+        if [ "$code" -eq 4 ]; then
+          echo "vulnerabilities-found=true" >> "$GITHUB_OUTPUT"
+          if [ "$IN_FAIL_ON_VULNERABILITIES" = "true" ]; then
+            echo "::error::vulnerability gate failed (see the log above)"
+            exit 4
+          fi
+          echo "::warning::vulnerability gate failed (see the log above)"
+          exit 0
+        fi
         exit "$code"
+
+    - name: Write the findings as SARIF
+      id: sarif
+      if: ${{ inputs.upload-sarif == 'true' && inputs.vulnerabilities != '' && !cancelled() }}
+      shell: bash
+      env:
+        IN_LOCKFILE: ${{ inputs.lockfile }}
+        IN_ENVIRONMENT: ${{ inputs.environment }}
+        IN_ALL_ENVIRONMENTS: ${{ inputs.all-environments }}
+        IN_PLATFORM: ${{ inputs.platform }}
+        IN_ALL_PLATFORMS: ${{ inputs.all-platforms }}
+        IN_PYPI_MAPPING: ${{ inputs.pypi-mapping }}
+        IN_PRIMARY_PURL: ${{ inputs.primary-purl }}
+      run: |
+        set -uo pipefail
+        args=(--report vulnerabilities --report-format sarif)
+        [ -n "$IN_LOCKFILE" ] && args+=(--lockfile "$IN_LOCKFILE")
+        [ -n "$IN_ENVIRONMENT" ] && args+=(--environment "$IN_ENVIRONMENT")
+        [ "$IN_ALL_ENVIRONMENTS" = "true" ] && args+=(--all-environments)
+        [ -n "$IN_PLATFORM" ] && args+=(--platform "$IN_PLATFORM")
+        [ "$IN_ALL_PLATFORMS" = "true" ] && args+=(--all-platforms)
+        args+=(--pypi-mapping "$IN_PYPI_MAPPING" --primary-purl "$IN_PRIMARY_PURL")
+        while IFS= read -r line; do [ -n "$line" ] && args+=("$line"); done < "$RUNNER_TEMP/pixi-sbom-vuln-args"
+        path="$RUNNER_TEMP/pixi-sbom-vulnerabilities.sarif"
+        echo "pixi-sbom ${args[*]} > $path"
+        # Everything is cached from the run above, so this is quick and needs no gate flags.
+        pixi-sbom "${args[@]}" > "$path"
+        echo "path=$path" >> "$GITHUB_OUTPUT"
+
+    - name: Upload the SARIF to code scanning
+      if: ${{ inputs.upload-sarif == 'true' && inputs.vulnerabilities != '' && !cancelled() }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ steps.sarif.outputs.path }}
+        category: ${{ inputs.sarif-category }}
 
     - name: Upload the SBOM artifact
       if: ${{ inputs.upload-artifact == 'true' && inputs.output != '-' && !cancelled() }}
