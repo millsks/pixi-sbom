@@ -132,6 +132,19 @@ inputs:
     description: Additional command-line arguments, whitespace separated (e.g. `-v`).
     required: false
     default: ""
+  attest:
+    description: >-
+      Sign the documents with a GitHub artifact attestation (needs `id-token: write` and
+      `attestations: write`). With `attest-subject`, the SBOM is attached to that artifact as an
+      SBOM attestation; without it, the documents themselves get a build provenance attestation.
+    required: false
+    default: "false"
+  attest-subject:
+    description: >-
+      Path of the built artifact the SBOM describes, for an SBOM attestation
+      (`actions/attest-sbom`). Single-document mode only.
+    required: false
+    default: ""
   upload-artifact:
     description: Upload the output as a workflow artifact.
     required: false
@@ -157,6 +170,12 @@ outputs:
   sarif:
     description: Path of the SARIF file, when upload-sarif is set.
     value: ${{ steps.sarif.outputs.path }}
+  document:
+    description: Path of the document in single-document mode (empty in batch mode).
+    value: ${{ steps.run.outputs.document }}
+  attestation-url:
+    description: URL of the attestation, when attest is set.
+    value: ${{ steps.attest-sbom.outputs.attestation-url || steps.attest-provenance.outputs.attestation-url }}
 
 runs:
   using: composite
@@ -280,14 +299,17 @@ runs:
         [ -n "$IN_PLATFORM" ] && args+=(--platform "$IN_PLATFORM")
         [ "$IN_ALL_PLATFORMS" = "true" ] && args+=(--all-platforms)
         # A single document goes into the output directory under the default file name.
+        document=""
         if [ "$IN_ALL_ENVIRONMENTS" = "true" ] || [ "$IN_ALL_PLATFORMS" = "true" ]; then
           args+=(--output "$IN_OUTPUT")
         else
           case "$IN_OUTPUT" in
-            *.json|-) args+=(--output "$IN_OUTPUT") ;;
-            *) ext=cdx.json; [ "$IN_FORMAT" = spdx ] && ext=spdx.json; args+=(--output "$IN_OUTPUT/sbom.$ext") ;;
+            *.json) document="$IN_OUTPUT"; args+=(--output "$IN_OUTPUT") ;;
+            -) args+=(--output "$IN_OUTPUT") ;;
+            *) ext=cdx.json; [ "$IN_FORMAT" = spdx ] && ext=spdx.json; document="$IN_OUTPUT/sbom.$ext"; args+=(--output "$document") ;;
           esac
         fi
+        echo "document=$document" >> "$GITHUB_OUTPUT"
         [ "$IN_FETCH_LICENSES" = "true" ] && args+=(--fetch-licenses)
         [ "$IN_LICENSE_TEXTS" = "true" ] && args+=(--license-texts)
         [ "$IN_EMBEDDED_SBOMS" = "true" ] && args+=(--embedded-sboms)
@@ -367,6 +389,28 @@ runs:
       with:
         sarif_file: ${{ steps.sarif.outputs.path }}
         category: ${{ inputs.sarif-category }}
+
+    - name: Check the attestation inputs
+      if: ${{ inputs.attest == 'true' && inputs.attest-subject != '' && steps.run.outputs.document == '' && !cancelled() }}
+      shell: bash
+      run: |
+        echo "::error::attest-subject needs a single document; drop all-environments / all-platforms or the subject"
+        exit 1
+
+    - name: Attest the SBOM for the built artifact
+      id: attest-sbom
+      if: ${{ inputs.attest == 'true' && inputs.attest-subject != '' && steps.run.outputs.document != '' && !cancelled() }}
+      uses: actions/attest-sbom@v4
+      with:
+        subject-path: ${{ inputs.attest-subject }}
+        sbom-path: ${{ steps.run.outputs.document }}
+
+    - name: Attest the provenance of the documents
+      id: attest-provenance
+      if: ${{ inputs.attest == 'true' && inputs.attest-subject == '' && inputs.output != '-' && !cancelled() }}
+      uses: actions/attest-build-provenance@v4
+      with:
+        subject-path: ${{ steps.run.outputs.document != '' && steps.run.outputs.document || format('{0}/*.json', inputs.output) }}
 
     - name: Upload the SBOM artifact
       if: ${{ inputs.upload-artifact == 'true' && inputs.output != '-' && !cancelled() }}

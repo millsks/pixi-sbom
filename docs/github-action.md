@@ -33,10 +33,12 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 | `ignore-vuln` | | Accepted findings, one per line: `ID`, `ID:justification` or `ID:state:justification` |
 | `fail-on-vulnerabilities` | `true` | Fail the step when the gate trips; with `false` it becomes a warning and the `vulnerabilities-found` output is `true` |
 | `upload-sarif`, `sarif-category` | `false`, `pixi-sbom` | Write the findings as SARIF and upload them to GitHub code scanning (see below) |
+| `attest`, `attest-subject` | `false`, | Sign the documents with a GitHub artifact attestation (see below) |
 | `extra-args` | | Any other CLI arguments |
 | `upload-artifact`, `artifact-name` | `true`, `sboms` | Artifact upload |
 
-Outputs: `version`, `output`, `policy-violated`, `vulnerabilities-found`, `sarif`. The action runs on Linux (x64, arm64), macOS (Intel, Apple
+Outputs: `version`, `output`, `document` (the file, in single-document mode), `policy-violated`,
+`vulnerabilities-found`, `sarif`, `attestation-url`. The action runs on Linux (x64, arm64), macOS (Intel, Apple
 Silicon) and Windows runners, and describes any platform in the lockfile regardless of the runner (`platform:
 linux-64` on a macOS runner is fine).
 
@@ -90,6 +92,39 @@ Each document is a SARIF run with its own automation id, so code scanning files 
 `pixi-sbom/<environment>` (or `pixi-sbom/<environment>/<platform>` in batch mode) rather than under
 `sarif-category`. The SARIF report reuses the lookup's cache, so the second run costs no network requests. Outside the action, the
 same file comes from `pixi sbom --vulnerabilities osv --report vulnerabilities --report-format sarif > findings.sarif`.
+
+## Signed SBOMs
+
+An SBOM published from CI is only as trustworthy as its provenance. `attest: "true"` signs the documents with a
+GitHub artifact attestation (Sigstore, bound to the workflow run, listed on the repository's *Attestations* page)
+and needs `id-token: write` and `attestations: write`:
+
+- with `attest-subject`, the path of the artifact the SBOM describes (a wheel, a container image tarball, an
+  archive), the SBOM is attached to that artifact as an SBOM attestation through `actions/attest-sbom`, single-
+  document mode only;
+- without it, the documents themselves get a build provenance attestation through
+  `actions/attest-build-provenance` (every `*.json` in the output directory in batch mode).
+
+```yaml
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+steps:
+  - uses: actions/checkout@v4
+  - uses: millsks/pixi-sbom@v0.7.0
+    with:
+      attest: "true"
+```
+
+Anyone can then verify a downloaded document against the repository:
+
+```sh
+gh attestation verify sbom.cdx.json --repo <owner>/<repo>
+```
+
+Pull requests from forks have no `id-token`, so attest on pushes only (`attest: ${{ github.event_name == 'push' &&
+'true' || 'false' }}`), as this repository's own workflow does.
 
 ## A worked example
 

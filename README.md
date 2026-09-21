@@ -162,7 +162,9 @@ as an artifact; no pixi setup needed:
     deny-license: "GPL-3.0-only AGPL-3.0-only"
 ```
 
-See the [GitHub Action page](https://millsks.github.io/pixi-sbom/latest/github-action/) for every input, or the
+Add `attest: "true"` (with `id-token: write` and `attestations: write`) to sign the documents; verify one with
+`gh attestation verify sbom.cdx.json --repo <owner>/<repo>`. See the
+[GitHub Action page](https://millsks.github.io/pixi-sbom/latest/github-action/) for every input, or the
 [Marketplace listing](https://github.com/marketplace/actions/pixi-sbom).
 
 ## Documentation
