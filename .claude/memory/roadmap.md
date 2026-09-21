@@ -127,3 +127,14 @@ supply either side; action `config` input, `pypi-mapping` / `primary-purl` input
 `--root-version` because `--version` is clap's). Lessons: `git stash -u` + rebase conflicts twice (branch from an
 up-to-date main, or rebase before writing); a typos-flagged word in a test string ("fromat") fails the gate, use a
 neutral unknown key; the user's `pixi global` pixi-sbom env was still 0.3.0.
+
+## 0.8.0 (2026-09-21): supply chain and install paths
+
+PRs #95 (#59 action `attest` / `attest-subject`: attest-sbom with a subject, attest-build-provenance otherwise;
+dogfood attests on pushes to main and runs `gh attestation verify`), #99 (#61 rescoped to cargo binstall:
+`[package.metadata.binstall]` per-target overrides for the pixi-platform-named archives, crate `exclude` list,
+`cargo publish --locked` in release.yml guarded by `CARGO_REGISTRY_TOKEN`, which the user added 2026-09-21).
+#60 spike closed: conda-forge serves no attestations, CEP 27 defines the statement, conda/ceps#142 (open) the
+`.sigs` sidecars, rattler_sigstore unreleased; implementation deferred to #96 (no milestone). Backlog: #97
+Homebrew tap, #98 winget. Lesson: `cargo-binstall --manifest-path . --dry-run` validates the metadata against a
+real release before publishing.
