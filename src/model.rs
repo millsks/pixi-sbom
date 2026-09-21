@@ -134,6 +134,22 @@ pub struct Vulnerability {
     /// Set when the finding was accepted with `--ignore-vuln`: it stays in the document but
     /// does not trip the gate.
     pub analysis: Option<Analysis>,
+    /// Set with `--kev` when a CVE alias is in CISA's Known Exploited Vulnerabilities catalog.
+    pub kev: Option<Kev>,
+}
+
+/// A CISA Known Exploited Vulnerabilities catalog entry.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Kev {
+    pub cve_id: String,
+    pub name: Option<String>,
+    /// `YYYY-MM-DD` the entry was added to the catalog.
+    pub date_added: Option<String>,
+    /// `YYYY-MM-DD` federal agencies must remediate by (BOD 22-01).
+    pub due_date: Option<String>,
+    /// Whether the catalog records known use in ransomware campaigns.
+    pub ransomware: bool,
+    pub required_action: Option<String>,
 }
 
 /// A VEX-style assessment of a finding (CycloneDX `vulnerabilities[].analysis`).

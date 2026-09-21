@@ -80,6 +80,8 @@ impl Ignore {
 pub struct Hit {
     pub id: String,
     pub severity: Severity,
+    /// Whether it is in CISA's KEV catalog.
+    pub known_exploited: bool,
     /// `name version` of each affected package.
     pub packages: Vec<String>,
 }
@@ -88,9 +90,10 @@ impl std::fmt::Display for Hit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} ({}): {}",
+            "{} ({}{}): {}",
             self.id,
             self.severity.name(),
+            if self.known_exploited { ", known exploited" } else { "" },
             self.packages.join(", ")
         )
     }
@@ -117,14 +120,17 @@ pub fn apply_ignores(sbom: &mut Sbom, ignores: &[Ignore]) -> usize {
     marked
 }
 
-/// The findings at or above `threshold` that are not ignored, worst first.
-pub fn check(sbom: &Sbom, threshold: Severity) -> Vec<Hit> {
+/// The open findings that trip the gate: at or above `threshold` when one is given, or known
+/// exploited when `kev` is set. Worst first.
+pub fn check(sbom: &Sbom, threshold: Option<Severity>, kev: bool) -> Vec<Hit> {
     sbom.vulnerabilities
         .iter()
-        .filter(|v| v.analysis.is_none() && v.severity >= threshold)
+        .filter(|v| v.analysis.is_none())
+        .filter(|v| threshold.is_some_and(|t| v.severity >= t) || (kev && v.kev.is_some()))
         .map(|v| Hit {
             id: v.id.clone(),
             severity: v.severity,
+            known_exploited: v.kev.is_some(),
             packages: v
                 .affects
                 .iter()
@@ -166,6 +172,7 @@ mod tests {
                 fixed_version: None,
             }],
             analysis: None,
+            kev: None,
         }
     }
 
@@ -229,14 +236,29 @@ mod tests {
         );
         assert_eq!(sbom.vulnerabilities[1].analysis, None);
 
-        let hits = check(&sbom, Severity::High);
+        let hits = check(&sbom, Some(Severity::High), false);
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].to_string(), "GHSA-b (high): six 1.17.0");
         assert_eq!(
-            check(&sbom, Severity::Low).len(),
+            check(&sbom, Some(Severity::Low), false).len(),
             2,
             "unknown severity never trips the gate"
         );
-        assert!(check(&sbom, Severity::Critical).is_empty());
+        assert!(check(&sbom, Some(Severity::Critical), false).is_empty());
+
+        // The KEV gate is independent of severity and also respects ignores.
+        sbom.vulnerabilities[2].kev = Some(crate::model::Kev {
+            cve_id: "CVE-2".into(),
+            name: None,
+            date_added: None,
+            due_date: None,
+            ransomware: true,
+            required_action: None,
+        });
+        sbom.vulnerabilities[0].kev = sbom.vulnerabilities[2].kev.clone();
+        let hits = check(&sbom, None, true);
+        assert_eq!(hits.len(), 1, "GHSA-a is ignored, GHSA-c is known exploited");
+        assert_eq!(hits[0].to_string(), "GHSA-c (medium, known exploited): six 1.17.0");
+        assert_eq!(check(&sbom, Some(Severity::High), true).len(), 2);
     }
 }

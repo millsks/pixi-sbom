@@ -258,6 +258,7 @@ have been merged:
 | `published`, `updated` | The record's timestamps |
 | `affects[]` | `{ ref }` for every affected component (`bom-ref` = the package's purl); a conda package matched through its PyPI purl is listed under its own `bom-ref` |
 | `analysis` | Only for findings accepted with `--ignore-vuln`: `{ state, detail }`, the CycloneDX impact-analysis (VEX) block |
+| `properties[]` | With `--kev`, for known-exploited findings: `pixi:kev=true`, `pixi:kev-cve`, `pixi:kev-date-added`, `pixi:kev-due-date`, `pixi:kev-ransomware`; the rating from `CISA KEV` is `critical` and, without a fixed version, `recommendation` carries the catalog's required action |
 
 Entries are ordered by the worst rating, then id.
 

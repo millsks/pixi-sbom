@@ -1339,9 +1339,12 @@ fn vulnerabilities_report_lists_findings_worst_first() {
             .success()
     };
     let table = String::from_utf8(run("table").get_output().stdout.clone()).unwrap();
-    assert!(table.starts_with("Package  Version  Severity  Score  ID"), "{table}");
     assert!(
-        table.contains("urllib3  1.26.4   high      7.5    GHSA-q2q7-5pp4-w6pg"),
+        table.starts_with("Package  Version  Severity  Score  KEV  ID"),
+        "{table}"
+    );
+    assert!(
+        table.contains("urllib3  1.26.4   high      7.5    -    GHSA-q2q7-5pp4-w6pg"),
         "{table}"
     );
     assert!(table.contains("Summary: 9 findings in 1 packages"), "{table}");
@@ -1353,7 +1356,7 @@ fn vulnerabilities_report_lists_findings_worst_first() {
 
     let csv = String::from_utf8(run("csv").get_output().stdout.clone()).unwrap();
     assert!(csv.starts_with(
-        "environment,platform,package,version,purl,severity,score,id,aliases,fixed_version,status,summary,url\n"
+        "environment,platform,package,version,purl,severity,score,kev,kev_due_date,id,aliases,fixed_version,status,summary,url\n"
     ));
     assert_eq!(csv.lines().count(), 10);
 
@@ -1480,6 +1483,100 @@ fn fail_on_severity_exits_4_after_writing_and_ignores_are_recorded() {
         .assert()
         .code(2)
         .stderr(predicate::str::contains("--ignore-vuln"));
+}
+
+#[test]
+fn kev_marks_known_exploited_findings_and_gates_on_them() {
+    let dir = workspace_with_vulnerable_urllib3();
+    // The recorded catalog excerpt stands in for CISA's feed.
+    let kev_dir = dir.path().join("cache").join("kev");
+    std::fs::create_dir_all(&kev_dir).unwrap();
+    std::fs::copy(
+        tests_dir()
+            .join("fixtures")
+            .join("kev")
+            .join("known_exploited_vulnerabilities.json"),
+        kev_dir.join("known_exploited_vulnerabilities.json"),
+    )
+    .unwrap();
+    let base = |args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "220")
+            .args(["-e", "web", "-p", "linux-64", "--vulnerabilities", "osv", "--kev"])
+            .args(args)
+            .assert()
+    };
+    let assert = base(&["--output", "-"])
+        .success()
+        .stderr(predicate::str::contains("loaded the CISA KEV catalog entries=2"))
+        .stderr(predicate::str::contains(
+            "matched findings against the CISA KEV catalog known_exploited=1",
+        ));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let vulns = doc["vulnerabilities"].as_array().unwrap();
+    // Known exploited: rated critical, first in the list, with the catalog facts as properties.
+    assert_eq!(vulns[0]["id"], "GHSA-q2q7-5pp4-w6pg");
+    assert!(
+        vulns[0]["ratings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["source"]["name"] == "CISA KEV" && r["severity"] == "critical")
+    );
+    let props = vulns[0]["properties"].as_array().unwrap();
+    assert!(
+        props
+            .iter()
+            .any(|p| p["name"] == "pixi:kev-due-date" && p["value"] == "2026-09-22")
+    );
+    assert!(vulns[1].get("properties").is_none());
+
+    // The KEV gate: exit 4 naming the finding; ignoring it passes.
+    base(&["--fail-on-kev", "--output", "-"])
+        .code(4)
+        .stderr(predicate::str::contains(
+            "Vulnerability gate failed: 1 finding(s) known exploited:",
+        ))
+        .stderr(predicate::str::contains(
+            "GHSA-q2q7-5pp4-w6pg (critical, known exploited): urllib3 1.26.4",
+        ));
+    base(&[
+        "--fail-on-kev",
+        "--ignore-vuln",
+        "CVE-2021-33503:mitigated",
+        "--output",
+        "-",
+    ])
+    .success();
+
+    // The report carries a KEV column and the known-exploited list.
+    let table = String::from_utf8(
+        base(&["--report", "vulnerabilities"])
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(table.contains("  KEV  "), "{table}");
+    assert!(table.contains("critical  7.5    yes  GHSA-q2q7-5pp4-w6pg"), "{table}");
+    assert!(
+        table.contains("Known exploited (CISA KEV) (1):\n  GHSA-q2q7-5pp4-w6pg (CVE-2021-33503, due 2026-09-22)"),
+        "{table}"
+    );
+
+    // --kev needs --vulnerabilities; --fail-on-kev needs --kev.
+    pixi_sbom().current_dir(dir.path()).args(["--kev"]).assert().code(2);
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--vulnerabilities", "osv", "--fail-on-kev"])
+        .assert()
+        .code(2);
 }
 
 #[test]

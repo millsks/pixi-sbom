@@ -7,6 +7,7 @@ mod discover;
 mod embedded;
 mod format;
 mod http;
+mod kev;
 mod license;
 mod lock;
 mod manifest;
@@ -84,6 +85,17 @@ fn main() -> Result<()> {
                 .exit()
         });
     let mut gate_hits: Vec<(String, String, vulnpolicy::Hit)> = Vec::new();
+    let kev_catalog = if args.kev {
+        let catalog = kev::Catalog::load(&mapping::cache_dir())?;
+        tracing::info!(
+            entries = catalog.len(),
+            version = catalog.version.as_deref().unwrap_or("?"),
+            "loaded the CISA KEV catalog"
+        );
+        Some(catalog)
+    } else {
+        None
+    };
 
     for Target {
         environment,
@@ -182,13 +194,19 @@ fn main() -> Result<()> {
                     "SPDX documents do not record vulnerabilities; use --format cyclonedx or --report vulnerabilities"
                 );
             }
+            if let Some(catalog) = &kev_catalog {
+                let known_exploited = kev::apply(&mut sbom, catalog);
+                tracing::info!(known_exploited, "matched findings against the CISA KEV catalog");
+            }
             let ignored = vulnpolicy::apply_ignores(&mut sbom, &ignores);
-            if let Some(threshold) = args.fail_on_severity {
-                let hits = vulnpolicy::check(&sbom, threshold.severity());
+            if args.fail_on_severity.is_some() || args.fail_on_kev {
+                let threshold = args.fail_on_severity.map(|s| s.severity());
+                let hits = vulnpolicy::check(&sbom, threshold, args.fail_on_kev);
                 tracing::info!(
                     ignored,
                     hits = hits.len(),
-                    threshold = threshold.severity().name(),
+                    threshold = threshold.map(|s| s.name()).unwrap_or("-"),
+                    kev = args.fail_on_kev,
                     "checked the vulnerability gate"
                 );
                 gate_hits.extend(
@@ -230,11 +248,15 @@ fn main() -> Result<()> {
     }
     if !gate_hits.is_empty() {
         let mut stderr = std::io::stderr().lock();
+        let rule = match (args.fail_on_severity, args.fail_on_kev) {
+            (Some(s), true) => format!("at or above {} or known exploited", s.severity().name()),
+            (Some(s), false) => format!("at or above {}", s.severity().name()),
+            (None, _) => "known exploited".to_string(),
+        };
         let _ = writeln!(
             stderr,
-            "Vulnerability gate failed: {} finding(s) at or above {}:",
-            gate_hits.len(),
-            args.fail_on_severity.map(|s| s.severity().name()).unwrap_or("?")
+            "Vulnerability gate failed: {} finding(s) {rule}:",
+            gate_hits.len()
         );
         for (environment, platform, hit) in &gate_hits {
             let _ = if targets.len() > 1 {
