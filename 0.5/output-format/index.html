@@ -1,0 +1,1723 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="CycloneDX and SPDX Software Bills of Materials from pixi.lock">
+      
+      
+      
+        <link rel="canonical" href="https://millsks.github.io/pixi-sbom/latest/output-format/">
+      
+      
+        <link rel="prev" href="../formats/">
+      
+      
+        <link rel="next" href="../architecture/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Output format reference - pixi-sbom</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#output-format-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="pixi-sbom" class="md-header__button md-logo" aria-label="pixi-sbom" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            pixi-sbom
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Output format reference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/millsks/pixi-sbom" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    millsks/pixi-sbom
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="pixi-sbom" class="md-nav__button md-logo" aria-label="pixi-sbom" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    pixi-sbom
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/millsks/pixi-sbom" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    millsks/pixi-sbom
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Command-line reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../github-action/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Action
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ci-recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../formats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Which format to pick
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Output format reference
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Output format reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#document-header" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document header
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Document header">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#reproducibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproducibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-root-component" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The root component
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packages
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Packages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pixi-properties" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pixi:* properties
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#package-urls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Package URLs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypi-identities-for-conda-packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PyPI identities for conda packages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#licenses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Licenses
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Licenses">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#license-details-with-fetch-licenses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        License details with --fetch-licenses
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypi-license-lookup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PyPI license lookup
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#embedded-sboms-pep-770" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embedded SBOMs (PEP 770)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependency-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependency graph
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#spdx-301" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SPDX 3.0.1
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contributing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#document-header" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document header
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Document header">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#reproducibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproducibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-root-component" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The root component
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packages
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Packages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pixi-properties" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pixi:* properties
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#package-urls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Package URLs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypi-identities-for-conda-packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PyPI identities for conda packages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#licenses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Licenses
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Licenses">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#license-details-with-fetch-licenses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        License details with --fetch-licenses
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypi-license-lookup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PyPI license lookup
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#embedded-sboms-pep-770" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embedded SBOMs (PEP 770)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependency-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependency graph
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#spdx-301" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SPDX 3.0.1
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/millsks/pixi-sbom/edit/main/docs/output-format.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="output-format-reference">Output format reference<a class="headerlink" href="#output-format-reference" title="Permanent link">&para;</a></h1>
+<p>Both formats are produced from the same intermediate model (see <a href="../architecture/">architecture.md</a>), so they carry
+the same information; only the spelling differs. Output is pretty-printed JSON with keys in the order the
+specifications list them, followed by a trailing newline.</p>
+<h2 id="document-header">Document header<a class="headerlink" href="#document-header" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>CycloneDX 1.6 / 1.7</th>
+<th>SPDX 2.3</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Identity</td>
+<td><code>bomFormat: CycloneDX</code>, <code>specVersion: 1.6</code> or <code>1.7</code> (<code>--spec-version</code>), matching <code>$schema</code></td>
+<td><code>spdxVersion: SPDX-2.3</code>, <code>dataLicense: CC0-1.0</code>, <code>SPDXID: SPDXRef-DOCUMENT</code> (for <code>--spec-version 3.0</code> see <a href="#spdx-301">SPDX 3.0.1</a>)</td>
+</tr>
+<tr>
+<td>Unique id</td>
+<td><code>serialNumber: urn:uuid:&lt;v5&gt;</code></td>
+<td><code>documentNamespace: https://spdx.org/spdxdocs/pixi-sbom/&lt;name&gt;/&lt;uuid&gt;</code></td>
+</tr>
+<tr>
+<td>Timestamp (UTC, seconds)</td>
+<td><code>metadata.timestamp</code></td>
+<td><code>creationInfo.created</code></td>
+</tr>
+<tr>
+<td>Generator</td>
+<td><code>metadata.tools.components[]</code>: <code>pixi-sbom</code> with version and repository link</td>
+<td><code>creationInfo.creators[]</code>: <code>Tool: pixi-sbom-&lt;version&gt;</code></td>
+</tr>
+<tr>
+<td>Author</td>
+<td><code>metadata.authors[]</code> (<code>name</code>, <code>email</code>) from the manifest's <code>authors</code></td>
+<td><code>creationInfo.creators[]</code>: <code>Person: &lt;name&gt; (&lt;email&gt;)</code></td>
+</tr>
+<tr>
+<td>Generation context</td>
+<td><code>metadata.lifecycles[]</code>: <code>phase: pre-build</code> (derived from resolved inputs, before any build)</td>
+<td><code>creationInfo.comment</code> saying the same</td>
+</tr>
+<tr>
+<td>Data origin (1.7 only)</td>
+<td><code>citations[]</code>: one entry attributing <code>/metadata/component</code>, <code>/components</code> and <code>/dependencies</code> to the pixi-sbom tool component, with a note naming the lockfile, environment and platform</td>
+<td>(none)</td>
+</tr>
+<tr>
+<td>Document name</td>
+<td>(none; the root component carries it)</td>
+<td><code>name: &lt;workspace&gt;-&lt;environment&gt;-&lt;platform&gt;</code></td>
+</tr>
+<tr>
+<td>What was described</td>
+<td><code>metadata.properties[]</code>: <code>pixi:environment</code>, <code>pixi:platform</code>, <code>pixi:lockfile</code></td>
+<td>root package <code>sourceInfo</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>pixi:lockfile</code> is the lockfile's name relative to the workspace root (normally <code>pixi.lock</code>), never the absolute path
+it was read from, so a document does not reveal or depend on the layout of the machine that generated it.</p>
+<h3 id="reproducibility">Reproducibility<a class="headerlink" href="#reproducibility" title="Permanent link">&para;</a></h3>
+<p>Documents are deterministic. The identifier is a UUIDv5 derived from the lockfile text, the environment, the
+platform, the format, and the pixi-sbom version, so the same input always yields the same <code>serialNumber</code> /
+<code>documentNamespace</code>, and any change to the lockfile yields a new one. The timestamp is the only value that varies
+between runs; set <a href="https://reproducible-builds.org/specs/source-date-epoch/"><code>SOURCE_DATE_EPOCH</code></a> (seconds since the
+Unix epoch) to pin it, and two runs produce byte-identical files. An unparsable <code>SOURCE_DATE_EPOCH</code> is ignored with a
+warning.</p>
+<h2 id="the-root-component">The root component<a class="headerlink" href="#the-root-component" title="Permanent link">&para;</a></h2>
+<p>The workspace itself is the subject of the document.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>CycloneDX</th>
+<th>SPDX</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Element</td>
+<td><code>metadata.component</code> (<code>type: application</code>, <code>bom-ref: root</code>)</td>
+<td><code>packages[0]</code> with <code>SPDXID: SPDXRef-Package-root</code>, <code>primaryPackagePurpose: APPLICATION</code></td>
+</tr>
+<tr>
+<td>Name / version</td>
+<td><code>name</code>, <code>version</code> from the manifest</td>
+<td><code>name</code>, <code>versionInfo</code></td>
+</tr>
+<tr>
+<td>License</td>
+<td><code>licenses[]</code> (same rules as packages, see below)</td>
+<td><code>licenseDeclared</code></td>
+</tr>
+<tr>
+<td>Homepage / repository</td>
+<td><code>externalReferences[]</code> of type <code>website</code> / <code>vcs</code></td>
+<td><code>homepage</code> / <code>downloadLocation</code></td>
+</tr>
+<tr>
+<td>Link to document</td>
+<td>implicit</td>
+<td>relationship <code>SPDXRef-DOCUMENT DESCRIBES SPDXRef-Package-root</code></td>
+</tr>
+</tbody>
+</table>
+<p>Name, version, authors, license, homepage and repository come from <code>pixi.toml</code> (<code>[workspace]</code>, or the legacy
+<code>[project]</code> table) or from <code>pyproject.toml</code> (<code>[tool.pixi.workspace]</code>, with the PEP 621 <code>[project]</code> table filling in
+whatever is missing: <code>authors</code> entries as <code>{ name, email }</code>, <code>license</code> as an expression string or <code>{ text = ... }</code>,
+<code>[project.urls]</code> keys <code>Homepage</code> and <code>Repository</code> / <code>Source</code>). With no manifest, the name is the lockfile's directory
+and everything else is absent.</p>
+<h2 id="packages">Packages<a class="headerlink" href="#packages" title="Permanent link">&para;</a></h2>
+<p>Every package locked for the selected environment and platform becomes one entry, sorted by kind (conda binary,
+conda source, PyPI), then name, then version.</p>
+<table>
+<thead>
+<tr>
+<th>Lockfile data</th>
+<th>CycloneDX <code>components[]</code></th>
+<th>SPDX <code>packages[]</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Kind</td>
+<td><code>type: library</code>; property <code>pixi:kind</code> = <code>conda</code>, <code>conda-source</code>, <code>pypi</code> or <code>embedded</code></td>
+<td><code>primaryPackagePurpose: LIBRARY</code>; kind is part of the <code>SPDXID</code></td>
+</tr>
+<tr>
+<td>Identifier</td>
+<td><code>bom-ref</code> = purl</td>
+<td><code>SPDXID: SPDXRef-Package-&lt;kind&gt;-&lt;name&gt;-&lt;version&gt;</code> (sanitized, de-duplicated with a numeric suffix)</td>
+</tr>
+<tr>
+<td>Name, version</td>
+<td><code>name</code>, <code>version</code></td>
+<td><code>name</code>, <code>versionInfo</code></td>
+</tr>
+<tr>
+<td>Package URL</td>
+<td><code>purl</code></td>
+<td><code>externalRefs[]</code> with <code>referenceCategory: PACKAGE-MANAGER</code>, <code>referenceType: purl</code></td>
+</tr>
+<tr>
+<td>Supplier</td>
+<td><code>supplier</code> (<code>name</code>, <code>url[]</code>): the conda channel (e.g. <code>conda-forge</code>) or the PyPI index host (e.g. <code>pypi.org</code>); absent for source packages</td>
+<td><code>supplier</code>: <code>Organization: &lt;name&gt; (&lt;url&gt;)</code></td>
+</tr>
+<tr>
+<td>Extra purls (see below)</td>
+<td>property <code>pixi:purl</code> per purl</td>
+<td>additional <code>externalRefs[]</code> entries</td>
+</tr>
+<tr>
+<td>Download location</td>
+<td><code>externalReferences[]</code> of type <code>distribution</code>, or <code>vcs</code> for <code>git+</code> locations</td>
+<td><code>downloadLocation</code> (URL or <code>git+&lt;url&gt;@&lt;rev&gt;</code>); <code>NOASSERTION</code> plus <code>sourceInfo</code> for local paths</td>
+</tr>
+<tr>
+<td>SHA-256, MD5</td>
+<td><code>hashes[]</code> (<code>SHA-256</code>, <code>MD5</code>)</td>
+<td><code>checksums[]</code> (<code>SHA256</code>, <code>MD5</code>)</td>
+</tr>
+<tr>
+<td>License</td>
+<td><code>licenses[]</code> (see below)</td>
+<td><code>licenseDeclared</code> (see below); <code>licenseConcluded</code> and <code>copyrightText</code> are <code>NOASSERTION</code></td>
+</tr>
+<tr>
+<td>License file names, summary, URLs (<code>--fetch-licenses</code>)</td>
+<td><code>pixi:license-file</code> properties, <code>description</code>, <code>externalReferences[]</code></td>
+<td><code>licenseComments</code>, <code>summary</code>, <code>homepage</code></td>
+</tr>
+<tr>
+<td>License texts (<code>--license-texts</code>)</td>
+<td><code>licenses[].license.text</code></td>
+<td><code>hasExtractedLicensingInfos</code> for <code>LicenseRef-</code> licenses</td>
+</tr>
+<tr>
+<td>Everything else</td>
+<td><code>properties[]</code> with <code>pixi:</code> names</td>
+<td><code>comment</code>: one <code>key=value</code> per line</td>
+</tr>
+<tr>
+<td><code>filesAnalyzed</code></td>
+<td></td>
+<td>always <code>false</code> (no archive is opened)</td>
+</tr>
+</tbody>
+</table>
+<p>Version is omitted only for pixi-build source packages whose metadata has not been evaluated yet (a "partial" lock
+entry).</p>
+<h3 id="pixi-properties"><code>pixi:*</code> properties<a class="headerlink" href="#pixi-properties" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Set for</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pixi:kind</code></td>
+<td>all</td>
+<td><code>conda</code>, <code>conda-source</code>, <code>pypi</code></td>
+</tr>
+<tr>
+<td><code>pixi:channel</code></td>
+<td>conda binary</td>
+<td>Channel name, e.g. <code>conda-forge</code> (last path segment of the channel URL)</td>
+</tr>
+<tr>
+<td><code>pixi:channel-url</code></td>
+<td>conda binary</td>
+<td>Full channel base URL</td>
+</tr>
+<tr>
+<td><code>pixi:subdir</code></td>
+<td>conda</td>
+<td><code>linux-64</code>, <code>noarch</code>, ...</td>
+</tr>
+<tr>
+<td><code>pixi:build</code></td>
+<td>conda</td>
+<td>Build string</td>
+</tr>
+<tr>
+<td><code>pixi:build-number</code></td>
+<td>conda</td>
+<td>Build number</td>
+</tr>
+<tr>
+<td><code>pixi:file-name</code></td>
+<td>conda binary</td>
+<td>Archive file name</td>
+</tr>
+<tr>
+<td><code>pixi:size</code></td>
+<td>conda</td>
+<td>Archive size in bytes</td>
+</tr>
+<tr>
+<td><code>pixi:license-family</code></td>
+<td>conda</td>
+<td>Channel-declared license family</td>
+</tr>
+<tr>
+<td><code>pixi:noarch</code></td>
+<td>conda</td>
+<td><code>true</code> when the package is noarch</td>
+</tr>
+<tr>
+<td><code>pixi:purl</code></td>
+<td>conda</td>
+<td>Additional purls the channel declares (typically the PyPI purl of a Python package)</td>
+</tr>
+<tr>
+<td><code>pixi:identifier-hash</code></td>
+<td>conda source</td>
+<td>pixi-build identifier hash from the lock entry</td>
+</tr>
+<tr>
+<td><code>pixi:source-git</code>, <code>pixi:source-rev</code>, <code>pixi:source-tag</code> / <code>pixi:source-branch</code>, <code>pixi:source-subdirectory</code></td>
+<td>conda source (git)</td>
+<td>The pinned build source</td>
+</tr>
+<tr>
+<td><code>pixi:source-url</code>, <code>pixi:source-subdirectory</code></td>
+<td>conda source (archive)</td>
+<td>The pinned build source; its SHA-256 goes into the hashes</td>
+</tr>
+<tr>
+<td><code>pixi:source-path</code></td>
+<td>conda source (path)</td>
+<td>Local path</td>
+</tr>
+<tr>
+<td><code>pixi:index-url</code></td>
+<td>PyPI</td>
+<td>Index the wheel was resolved from</td>
+</tr>
+<tr>
+<td><code>pixi:requires-python</code></td>
+<td>PyPI</td>
+<td><code>Requires-Python</code> of the distribution</td>
+</tr>
+<tr>
+<td><code>pixi:source</code></td>
+<td>PyPI</td>
+<td><code>true</code> for sdists / source trees</td>
+</tr>
+</tbody>
+</table>
+<p>In SPDX these appear in the package <code>comment</code> because SPDX 2.3 has no free-form property field.</p>
+<h3 id="package-urls">Package URLs<a class="headerlink" href="#package-urls" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>conda binary</td>
+<td><code>pkg:conda/&lt;name&gt;@&lt;version&gt;?build=&lt;build&gt;&amp;channel=&lt;channel&gt;&amp;subdir=&lt;subdir&gt;&amp;type=&lt;conda\|tar.bz2&gt;</code></td>
+</tr>
+<tr>
+<td>conda source</td>
+<td><code>pkg:conda/&lt;name&gt;@&lt;version&gt;?build=&lt;build&gt;&amp;subdir=&lt;subdir&gt;</code> (no channel; qualifiers present only when known)</td>
+</tr>
+<tr>
+<td>PyPI</td>
+<td><code>pkg:pypi/&lt;normalized-name&gt;@&lt;version&gt;</code> with PEP 503 normalization (lower-case, runs of <code>-_.</code> collapsed to <code>-</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Purls double as the CycloneDX <code>bom-ref</code>, which is why they must be unique within a document; within one environment
+and platform they always are. The <code>bom-ref</code> / <code>SPDXID</code> is always derived from the conda purl, even when
+<code>--primary-purl pypi</code> (below) makes a PyPI purl the component's <code>purl</code>.</p>
+<h3 id="pypi-identities-for-conda-packages">PyPI identities for conda packages<a class="headerlink" href="#pypi-identities-for-conda-packages" title="Permanent link">&para;</a></h3>
+<p>Vulnerability databases (OSV, GHSA) and the scanners built on them have no conda ecosystem: a <code>pkg:conda/numpy@...</code>
+purl matches nothing, so a conda-only Python environment scans as clean whatever it contains. Three sources supply a
+<code>pkg:pypi/...</code> purl for a conda package:</p>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>When</th>
+<th>Recorded as</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lockfile <code>purls:</code></td>
+<td>pixi writes them for environments that have <code>pypi-dependencies</code>; an empty list means "not on PyPI"</td>
+<td><code>pixi:purl</code> property / extra <code>externalRefs</code> entry</td>
+</tr>
+<tr>
+<td><code>--pypi-mapping prefix</code></td>
+<td>the <a href="https://conda-mapping.prefix.dev/compressed-v0/compressed_mapping.json">conda-forge mapping</a> pixi itself uses, downloaded and cached for a day</td>
+<td>as above, plus <code>pixi:pypi-mapping=prefix</code></td>
+</tr>
+<tr>
+<td><code>--pypi-mapping-file &lt;PATH&gt;</code></td>
+<td>an offline copy of that mapping (<code>{"&lt;conda name&gt;": "&lt;pypi name&gt;" \| ["..."] \| null}</code>)</td>
+<td>as above, plus <code>pixi:pypi-mapping=file</code></td>
+</tr>
+</tbody>
+</table>
+<p>The mapping is applied only to conda-forge binary packages whose lock entry has no <code>purls:</code> at all; the lockfile's own
+answer, including an explicit empty list, is authoritative. The PyPI purl carries the conda package's version.</p>
+<p><code>--primary-purl pypi</code> then makes that PyPI purl the component's <code>purl</code> (first <code>externalRefs</code> entry in SPDX) and moves
+the conda purl to <code>pixi:purl</code>, because scanners only read the primary identity. With it, <code>grype</code> / <code>trivy</code> /
+<code>osv-scanner</code> report advisories for conda-installed Python packages.</p>
+<h3 id="licenses">Licenses<a class="headerlink" href="#licenses" title="Permanent link">&para;</a></h3>
+<p>Package license strings are whatever the channel or index declared; conda-forge is mostly SPDX-clean but not
+entirely, and PyPI wheels in a pixi lockfile carry no license at all unless <code>--fetch-licenses</code> looks them up (below).
+The rules:</p>
+<ol>
+<li>A valid SPDX expression is kept verbatim. Deprecated identifiers such as <code>GPL-3.0</code> or <code>LGPL-2.1</code> count as valid
+   because conda-forge still uses them widely.</li>
+<li>Common non-conforming spellings are parsed leniently and rewritten: <code>MIT/Apache-2.0</code> becomes <code>MIT OR Apache-2.0</code>,
+   <code>mit</code> becomes <code>MIT</code>. Operator precedence follows the SPDX rules (<code>AND</code> binds tighter than <code>OR</code>) and parentheses are
+   emitted only where needed.</li>
+<li>Anything else is treated as free text and preserved:</li>
+<li>CycloneDX: <code>licenses[].license.name</code> instead of <code>licenses[].expression</code>.</li>
+<li>SPDX: <code>licenseDeclared</code> becomes <code>LicenseRef-pixi-&lt;sanitized text&gt;</code> and a matching entry is added to
+     <code>hasExtractedLicensingInfos</code> with the original text, so nothing is lost.</li>
+<li>No license → no <code>licenses</code> entry (CycloneDX) / <code>NOASSERTION</code> (SPDX).</li>
+</ol>
+<p>conda-forge spells a few toolchain licenses with a clause that is not an SPDX exception, e.g.
+<code>LGPL-2.0-or-later WITH exceptions</code> (kernel-headers, sysroot, the glibc family). Such a clause is rewritten to
+<code>WITH AdditionRef-exceptions</code>, which SPDX allows for a reference to an exception text, so the expression remains
+evaluable by consumers and by the license policy; the original spelling is kept in a <code>pixi:license-raw</code> property. A
+genuine SPDX exception (<code>WITH Classpath-exception-2.0</code>) is never rewritten.</p>
+<h4 id="license-details-with-fetch-licenses">License details with <code>--fetch-licenses</code><a class="headerlink" href="#license-details-with-fetch-licenses" title="Permanent link">&para;</a></h4>
+<p><code>--fetch-licenses</code> works for every package kind. For conda packages it reads the extracted package in the local
+package cache (<code>&lt;pixi cache&gt;/pkgs/&lt;name&gt;-&lt;version&gt;-&lt;build&gt;/info/</code>): <code>about.json</code> supplies the license expression when
+the lockfile has none (recorded as <code>pixi:license-source=package-cache</code>), the license family, the summary and the
+project URLs, and <code>info/licenses/</code> supplies the names of the license files (<code>pixi:license-files-source=package-cache</code>).
+Packages that are not in the local cache are read from the archive on the channel without downloading it: a <code>.conda</code>
+file is a zip whose <code>info-*.tar.zst</code> member holds the same files, so one or two HTTP range requests (the archive's
+tail, then the member when it is not already in the tail) fetch a few kilobytes per package. The extracted files are
+cached under the pixi-sbom cache directory by the archive's SHA-256, so repeated runs are offline. Provenance is
+recorded as <code>conda-archive</code>. Legacy <code>.tar.bz2</code> archives have no central directory, so one whose lockfile <code>size</code> is
+at most 2 MiB is downloaded whole and read the same way; larger ones (or ones without a recorded size) are skipped,
+with the size in the debug log. A package whose archive cannot be reached keeps the lockfile's license and the run
+continues. For PyPI packages it asks the index as
+described next, and reads each wheel's <code>dist-info</code> the same way (the <code>METADATA</code> member and the license files, by
+HTTP range, cached by SHA-256): the PEP 639 <code>License-Expression</code> or the older <code>License</code> header fills a missing
+license (<code>pixi:license-source=wheel</code>), <code>Summary</code> and the project URLs fill the description and references, and the
+<code>License-File</code> names (PEP 639 <code>licenses/</code> directory, or files next to <code>METADATA</code> in older wheels) become the license
+files. Sdists are skipped.</p>
+<p>By default only the license <em>type</em> is recorded: the expression as always, plus the file names as <code>pixi:license-file</code>
+properties (CycloneDX) / <code>licenseComments</code> (SPDX). <code>--license-texts</code> additionally embeds the file contents:</p>
+<table>
+<thead>
+<tr>
+<th>Declared license</th>
+<th>CycloneDX <code>licenses[]</code></th>
+<th>SPDX 2.3</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>single SPDX identifier, e.g. <code>Zlib</code></td>
+<td><code>{ license: { id, text, acknowledgement: declared } }</code> for the first file, then <code>{ license: { name: &lt;file&gt;, text } }</code> per additional file</td>
+<td><code>licenseDeclared: Zlib</code>; <code>licenseComments: License files: ...</code> (the spec has no per-package text for known identifiers)</td>
+</tr>
+<tr>
+<td>compound expression, e.g. <code>MIT OR Apache-2.0</code></td>
+<td><code>{ expression }</code> only, since CycloneDX cannot put texts next to an expression; file names as <code>pixi:license-file</code> properties</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>free text, e.g. <code>Proprietary</code></td>
+<td><code>{ license: { name, text, acknowledgement: declared } }</code> plus named entries for further files</td>
+<td><code>LicenseRef-pixi-&lt;name&gt;-&lt;hash&gt;</code> whose <code>hasExtractedLicensingInfos</code> entry carries the file text</td>
+</tr>
+<tr>
+<td>none, but files exist</td>
+<td>one <code>{ license: { name: &lt;file&gt;, text } }</code> per file</td>
+<td><code>NOASSERTION</code>; <code>licenseComments</code> lists the files</td>
+</tr>
+</tbody>
+</table>
+<p>Texts can add a few megabytes to a large environment, which is why they are opt-in. Summary and URLs from
+<code>about.json</code> become the component <code>description</code> and <code>externalReferences</code> of type <code>website</code> / <code>vcs</code> /
+<code>documentation</code> (SPDX: <code>summary</code>, <code>homepage</code>).</p>
+<h4 id="pypi-license-lookup">PyPI license lookup<a class="headerlink" href="#pypi-license-lookup" title="Permanent link">&para;</a></h4>
+<p>With <code>--fetch-licenses</code>, PyPI packages that still have no license after their wheel was read (sdists, unreachable
+wheels, wheels that declare only classifiers) are looked up on the index JSON API (<code>https://pypi.org/pypi/&lt;name&gt;/&lt;version&gt;/json</code>, or <code>PIXI_SBOM_PYPI_URL</code>)
+for every PyPI package that has no license and takes, in order: the PEP 639 <code>license_expression</code>; the classic
+<code>license</code> field when it is a short single line (it sometimes holds a whole license text, which is ignored); and the
+<code>License ::</code> trove classifiers, mapped to SPDX identifiers for the common unambiguous ones (<code>MIT License</code> → <code>MIT</code>,
+<code>Apache Software License</code> → <code>Apache-2.0</code>, <code>BSD License</code> → <code>BSD-3-Clause</code>, ...) and joined with <code>OR</code> when several are
+listed. The result goes through the same normalization as conda licenses and the package gets
+<code>pixi:license-source=pypi</code>. Responses are cached under the cache directory (a release's metadata never changes). A
+lookup that fails is logged and the package is left without a license; once the index looks unreachable the remaining
+lookups are skipped.</p>
+<h3 id="embedded-sboms-pep-770">Embedded SBOMs (PEP 770)<a class="headerlink" href="#embedded-sboms-pep-770" title="Permanent link">&para;</a></h3>
+<p>Wheels may ship their own SBOM fragments under <code>*.dist-info/sboms/</code> (PEP 770): maturin records the Rust crates it
+compiled into a wheel as a CycloneDX document, and some projects add hand-written SPDX fragments for vendored
+libraries. With <code>--embedded-sboms</code> those files are read out of each wheel the same way its license details are
+(by HTTP range, cached), parsed as CycloneDX 1.4 – 1.7 or SPDX 2.x JSON, and their components become packages of
+kind <code>embedded</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Fragment data</th>
+<th>Package</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>name, version, purl (<code>pkg:cargo/...</code>, <code>pkg:generic/...</code>)</td>
+<td><code>name</code>, <code>version</code>, <code>purl</code> (a component without a purl gets <code>&lt;wheel purl&gt;#&lt;name&gt;@&lt;version&gt;</code>)</td>
+</tr>
+<tr>
+<td>license (<code>expression</code>, <code>license.id</code> / <code>name</code>; SPDX <code>licenseDeclared</code> else <code>licenseConcluded</code>)</td>
+<td><code>license</code>, normalized like every other</td>
+</tr>
+<tr>
+<td>SHA-256, distribution / VCS reference, description</td>
+<td><code>hashes</code>, <code>externalReferences</code>, <code>description</code></td>
+</tr>
+<tr>
+<td><code>dependencies</code> / <code>DEPENDS_ON</code></td>
+<td>edges between the embedded packages</td>
+</tr>
+<tr>
+<td>the fragment root's direct dependencies (<code>metadata.component</code> + <code>dependencies</code>, or <code>DESCRIBES</code>), else its undepended components</td>
+<td>edges from the <strong>wheel</strong> to them</td>
+</tr>
+</tbody>
+</table>
+<p>Every embedded package carries <code>pixi:kind=embedded</code> and <code>pixi:embedded-sbom=&lt;wheel&gt;/&lt;file&gt;</code> (several, <code>;</code>
+separated, when more than one fragment declares the same purl; fragments merge into one package per purl).
+Embedded packages take part in <code>--report</code>, <code>--fetch-licenses</code> (their declared licenses) and the license policy.
+SPDX 3 fragments are not read yet. Conda packages have no equivalent convention.</p>
+<h2 id="dependency-graph">Dependency graph<a class="headerlink" href="#dependency-graph" title="Permanent link">&para;</a></h2>
+<p>Each conda package's <code>depends</code> (matchspecs) and each PyPI package's <code>requires_dist</code> (PEP 508) are resolved by
+normalized package name against the packages present in the same environment and platform. The solver has already
+chosen one package per name, so name matching is exact and version constraints do not need re-evaluating. PyPI
+requirements may resolve to conda packages (pixi satisfies PyPI requirements from conda when it can). Virtual packages
+(<code>__glibc</code>, <code>__osx</code>, ...) and requirements not present in the environment (unused extras, other-platform markers) are
+dropped. Self-references are removed. Every PyPI package additionally depends on the environment's conda <code>python</code>
+package: wheels never declare the interpreter, but cannot run without it, and the edge keeps PyPI packages attached
+to the graph instead of floating as extra roots.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>CycloneDX</th>
+<th>SPDX</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Package → package</td>
+<td><code>dependencies[]</code>: <code>{ ref, dependsOn[] }</code> for every component</td>
+<td><code>DEPENDS_ON</code> relationship per edge</td>
+</tr>
+<tr>
+<td>Root → packages</td>
+<td><code>dependencies[0]</code> (<code>ref: root</code>) lists the packages that nothing else depends on</td>
+<td><code>SPDXRef-Package-root DEPENDS_ON ...</code> for the same set</td>
+</tr>
+</tbody>
+</table>
+<p>The root's edges are a graph-root heuristic, not the manifest's declared dependencies: the lockfile does not record
+what was requested directly, so a declared dependency that is also depended on by something else (<code>python</code> is the
+usual example) is reachable transitively rather than listed on the root.</p>
+<h2 id="spdx-301">SPDX 3.0.1<a class="headerlink" href="#spdx-301" title="Permanent link">&para;</a></h2>
+<p><code>--format spdx --spec-version 3.0</code> writes the SPDX 3.0.1 JSON-LD serialization: a <code>@context</code> of
+<code>https://spdx.org/rdf/3.0.1/spdx-context.jsonld</code> and a <code>@graph</code> of typed elements, each with an IRI <code>spdxId</code> under
+<code>https://spdx.org/spdxdocs/pixi-sbom/&lt;name&gt;/&lt;uuid&gt;#...</code> and a reference to one shared <code>CreationInfo</code> blank node.</p>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CreationInfo</code></td>
+<td><code>specVersion: 3.0.1</code>, <code>created</code>, <code>createdBy</code> (a <code>SoftwareAgent</code> for pixi-sbom plus a <code>Person</code> per manifest author), <code>createdUsing</code> (the <code>Tool</code>), a comment naming the lockfile, environment and platform</td>
+</tr>
+<tr>
+<td><code>SpdxDocument</code></td>
+<td><code>rootElement</code> = the <code>software_Sbom</code>; <code>dataLicense</code> = a <code>CC0-1.0</code> license element; profile conformance <code>core</code>, <code>software</code>, <code>simpleLicensing</code></td>
+</tr>
+<tr>
+<td><code>software_Sbom</code></td>
+<td><code>software_sbomType: [build]</code>, <code>rootElement</code> = the workspace package, <code>element</code> = every package, relationship and license element</td>
+</tr>
+<tr>
+<td><code>software_Package</code> (workspace)</td>
+<td><code>software_primaryPurpose: application</code>, name, version, homepage, repository as download location, <code>software_sourceInfo</code></td>
+</tr>
+<tr>
+<td><code>software_Package</code> (each locked package)</td>
+<td><code>software_primaryPurpose: library</code>, name, version, <code>software_packageUrl</code>, <code>software_downloadLocation</code> (or <code>software_sourceInfo</code> for local paths), <code>software_homePage</code>, <code>summary</code>, <code>suppliedBy</code> (an <code>Organization</code> per channel or index), <code>verifiedUsing</code> (<code>Hash</code> sha256 / md5), <code>externalIdentifier</code> (extra purls, repository URL), and the <code>pixi:*</code> properties as <code>comment</code> lines</td>
+</tr>
+<tr>
+<td><code>simplelicensing_LicenseExpression</code> / <code>simplelicensing_SimpleLicensingText</code></td>
+<td>one element per distinct license expression, or per free-text license (carrying the license file text when fetched); packages point at them with <code>hasDeclaredLicense</code> relationships</td>
+</tr>
+<tr>
+<td><code>Relationship</code></td>
+<td><code>dependsOn</code> from each package to its dependencies and from the workspace package to the top level; <code>hasDeclaredLicense</code> from packages to license elements</td>
+</tr>
+</tbody>
+</table>
+<p>The document is validated against the official 3.0.1 JSON schema in the tests and parses with the reference
+<code>spdx-python-model</code> deserializer. SPDX 2.3 remains the default because most consumers still read only 2.x.</p>
+<h2 id="validation">Validation<a class="headerlink" href="#validation" title="Permanent link">&para;</a></h2>
+<p><code>tests/schemas/</code> holds the official JSON schemas (<code>bom-1.6.schema.json</code> and the <code>spdx.schema.json</code> /
+<code>jsf-0.82.schema.json</code> it references, plus SPDX's <code>spdx-2.3.schema.json</code>). The end-to-end tests validate every
+generated document against them, and the unit tests validate a hand-built model that exercises the edge cases (source
+packages, missing versions, non-SPDX licenses). Both documents also round-trip through <code>syft convert</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../formats/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Which format to pick">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Which format to pick
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../architecture/" class="md-footer__link md-footer__link--next" aria-label="Next: Architecture">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Architecture
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      MIT licensed
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/millsks/pixi-sbom" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
