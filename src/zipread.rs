@@ -90,9 +90,19 @@ impl RangeSource for HttpSource {
 
 /// Open `location`, which is an `http(s)://` URL, a `file://` URL, or a filesystem path.
 pub fn open(location: &str) -> io::Result<Box<dyn RangeSource>> {
-    if location.starts_with("http://") || location.starts_with("https://") {
+    if is_http(location) {
         return Ok(Box::new(HttpSource::open(location)?));
     }
+    Ok(Box::new(FileSource::open(local_path(location))?))
+}
+
+/// Whether `location` is an `http(s)://` URL rather than a local file.
+pub fn is_http(location: &str) -> bool {
+    location.starts_with("http://") || location.starts_with("https://")
+}
+
+/// The filesystem path named by a `file://` URL or a plain path.
+pub fn local_path(location: &str) -> &Path {
     let mut path = location.strip_prefix("file://").unwrap_or(location);
     // `file:///D:/x` names a Windows drive path; drop the leading slash there.
     if cfg!(windows)
@@ -101,7 +111,7 @@ pub fn open(location: &str) -> io::Result<Box<dyn RangeSource>> {
     {
         path = rest;
     }
-    Ok(Box::new(FileSource::open(Path::new(path))?))
+    Path::new(path)
 }
 
 /// One member of the archive, as listed in the central directory.

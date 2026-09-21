@@ -6,7 +6,9 @@
 //! central directory and fetched with HTTP range requests, decompressed, and the relevant
 //! files are written to `<cache>/conda-info/<sha256>/info/` in the same layout the rattler
 //! package cache uses, so [`crate::pkgcache::read_extracted`] reads both and repeated runs
-//! are offline. Legacy `.tar.bz2` archives cannot be read partially and are skipped.
+//! are offline. Legacy `.tar.bz2` archives have no central directory, so they are downloaded
+//! whole when the lockfile says they are small ([`MAX_LEGACY_ARCHIVE_BYTES`]) and skipped
+//! otherwise.
 
 use std::collections::HashSet;
 use std::io::{self, Read};
@@ -22,6 +24,9 @@ pub const LICENSE_SOURCE: &str = "conda-archive";
 /// Decompressed size cap for the info member; real ones are kilobytes.
 const MAX_INFO_BYTES: u64 = 256 * 1024 * 1024;
 
+/// Largest `.tar.bz2` archive downloaded whole for its `info/` directory.
+pub const MAX_LEGACY_ARCHIVE_BYTES: u64 = 2 * 1024 * 1024;
+
 /// Fetches in flight at once.
 const CONCURRENCY: usize = 10;
 
@@ -32,7 +37,7 @@ pub struct Outcome {
     pub fetched: usize,
     /// Packages whose archive could not be read.
     pub failed: usize,
-    /// Legacy `.tar.bz2` packages, skipped.
+    /// Legacy `.tar.bz2` packages too large (or of unknown size) to download whole, skipped.
     pub skipped: usize,
 }
 
@@ -54,10 +59,29 @@ pub fn enrich(sbom: &mut Sbom, indexes: &[usize], cache_dir: &Path, texts: bool)
         if package.kind != PackageKind::CondaBinary {
             continue;
         }
-        if package.location.ends_with(".tar.bz2") {
-            tracing::debug!(package = %package.name, "legacy .tar.bz2 archive; license details skipped");
-            outcome.skipped += 1;
-            continue;
+        if is_legacy(&package.location) {
+            let size = package.properties.get("pixi:size").and_then(|s| s.parse::<u64>().ok());
+            match size {
+                Some(size) if size <= MAX_LEGACY_ARCHIVE_BYTES => {}
+                Some(size) => {
+                    tracing::debug!(
+                        package = %package.name,
+                        size,
+                        limit = MAX_LEGACY_ARCHIVE_BYTES,
+                        "legacy .tar.bz2 archive is too large to download whole; license details skipped"
+                    );
+                    outcome.skipped += 1;
+                    continue;
+                }
+                None => {
+                    tracing::debug!(
+                        package = %package.name,
+                        "legacy .tar.bz2 archive of unknown size; license details skipped"
+                    );
+                    outcome.skipped += 1;
+                    continue;
+                }
+            }
         }
         let key = package
             .sha256
@@ -101,9 +125,21 @@ fn info_for(location: &str, key: &str, cache_dir: &Path, texts: bool) -> io::Res
     pkgcache::read_extracted(&dir, texts).ok_or_else(|| io::Error::other("archive has no info/index.json"))
 }
 
-/// Pull the `info-*.tar.zst` member out of the archive at `location` and write `about.json`,
-/// `index.json` and `licenses/` under `dir/info/`.
+/// Whether `location` names a legacy `.tar.bz2` archive rather than a `.conda` zip.
+fn is_legacy(location: &str) -> bool {
+    location.ends_with(".tar.bz2")
+}
+
+/// Pull the `info/` files out of the archive at `location` and write `about.json`,
+/// `index.json` and `licenses/` under `dir/info/`: from the `info-*.tar.zst` member of a
+/// `.conda` zip by range, or from a whole `.tar.bz2` archive of at most
+/// [`MAX_LEGACY_ARCHIVE_BYTES`].
 pub fn extract_info(location: &str, dir: &Path) -> io::Result<()> {
+    if is_legacy(location) {
+        let compressed = read_whole(location, MAX_LEGACY_ARCHIVE_BYTES)?;
+        let decoder = bzip2::read::MultiBzDecoder::new(compressed.as_slice()).take(MAX_INFO_BYTES);
+        return write_info_files(decoder, dir);
+    }
     let source = zipread::open(location)?;
     let entries = zipread::central_directory(source.as_ref())?;
     let info_entry = entries
@@ -118,6 +154,24 @@ pub fn extract_info(location: &str, dir: &Path) -> io::Result<()> {
     let compressed = zipread::read_entry(source.as_ref(), info_entry)?;
     let decoder = zstd::stream::read::Decoder::new(compressed.as_slice())?.take(MAX_INFO_BYTES);
     write_info_files(decoder, dir)
+}
+
+/// The whole archive at `location`, refusing anything larger than `limit` bytes.
+fn read_whole(location: &str, limit: u64) -> io::Result<Vec<u8>> {
+    if zipread::is_http(location) {
+        // ureq's limit errors on the read that follows exactly `limit` bytes, so allow one more.
+        let bytes = crate::http::get_bytes(location, limit + 1).map_err(io::Error::other)?;
+        if bytes.len() as u64 > limit {
+            return Err(io::Error::other(format!("archive is larger than {limit} bytes")));
+        }
+        return Ok(bytes);
+    }
+    let path = zipread::local_path(location);
+    let len = std::fs::metadata(path)?.len();
+    if len > limit {
+        return Err(io::Error::other(format!("archive is {len} bytes, larger than {limit}")));
+    }
+    std::fs::read(path)
 }
 
 /// Write the files we care about from an `info` tar stream into `dir/info/`.
@@ -203,6 +257,77 @@ mod tests {
         assert!(!target.with_extension("partial").exists(), "staging cleaned up");
     }
 
+    fn legacy_archive() -> String {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/archives/zlib-1.3.2-h25fd6f3_3.tar.bz2")
+            .display()
+            .to_string()
+    }
+
+    #[test]
+    fn extracts_info_from_a_whole_legacy_archive() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("zlib-legacy");
+        extract_info(&legacy_archive(), &target).unwrap();
+        let mut files: Vec<_> = walk(&target.join("info"));
+        files.sort();
+        assert_eq!(files, ["about.json", "index.json", "licenses/LICENSE"]);
+        let info = pkgcache::read_extracted(&target, true).unwrap();
+        assert_eq!(info.about.license.as_deref(), Some("Zlib"));
+        assert!(
+            info.license_files[0]
+                .text
+                .as_deref()
+                .unwrap()
+                .contains("Jean-loup Gailly")
+        );
+
+        // The same file under a file:// URL, and a legacy archive that is not bzip2 at all.
+        let url = format!("file://{}", legacy_archive());
+        extract_info(&url, &dir.path().join("via-url")).unwrap();
+        let bogus = dir.path().join("bogus.tar.bz2");
+        std::fs::write(&bogus, b"not bzip2").unwrap();
+        assert!(extract_info(&bogus.display().to_string(), &dir.path().join("bogus")).is_err());
+    }
+
+    #[test]
+    fn read_whole_refuses_archives_over_the_limit() {
+        let err = read_whole(&legacy_archive(), 100).unwrap_err();
+        assert!(err.to_string().contains("larger than 100"));
+        assert!(read_whole(&legacy_archive(), MAX_LEGACY_ARCHIVE_BYTES).is_ok());
+        assert!(read_whole("/missing/pkg.tar.bz2", MAX_LEGACY_ARCHIVE_BYTES).is_err());
+    }
+
+    #[test]
+    fn enrich_reads_small_legacy_archives_and_skips_large_or_unsized_ones() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut sbom = sample_sbom();
+        for package in &mut sbom.packages {
+            package.license_files.clear();
+            package.homepage = None;
+        }
+        // libzlib: the legacy fixture with its size; zlib: a legacy archive said to be huge.
+        sbom.packages[0].location = legacy_archive();
+        sbom.packages[0].sha256 = None;
+        sbom.packages[0].properties.insert("pixi:size".into(), "4762".into());
+        sbom.packages[1].location = "https://example.invalid/zlib.tar.bz2".into();
+        sbom.packages[1]
+            .properties
+            .insert("pixi:size".into(), (MAX_LEGACY_ARCHIVE_BYTES + 1).to_string());
+        let outcome = enrich(&mut sbom, &[0, 1], dir.path(), false);
+        assert_eq!(
+            outcome,
+            Outcome {
+                fetched: 1,
+                failed: 0,
+                skipped: 1
+            }
+        );
+        assert_eq!(sbom.packages[0].license_files[0].name, "LICENSE");
+        assert_eq!(sbom.packages[0].homepage.as_deref(), Some("http://zlib.net/"));
+        assert!(sbom.packages[1].license_files.is_empty());
+    }
+
     fn walk(dir: &Path) -> Vec<String> {
         let mut out = Vec::new();
         for entry in std::fs::read_dir(dir).unwrap().flatten() {
@@ -278,7 +403,7 @@ mod tests {
             package.homepage = None;
             package.repository = None;
         }
-        // libzlib: points at the real archive; zlib: legacy tar.bz2; mylib: source package (ignored).
+        // libzlib: points at the real archive; zlib: legacy tar.bz2 of unknown size; mylib: source package (ignored).
         sbom.packages[0].location = archive();
         sbom.packages[0].sha256 = Some("f".repeat(64));
         sbom.packages[1].location = "https://example.invalid/zlib.tar.bz2".into();

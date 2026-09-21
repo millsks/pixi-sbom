@@ -46,6 +46,22 @@ pub fn get_text(url: &str, limit: u64) -> Result<String, Box<ureq::Error>> {
         .map_err(Box::new)
 }
 
+/// GET `url` whole, refusing bodies larger than `limit` bytes.
+pub fn get_bytes(url: &str, limit: u64) -> Result<Vec<u8>, Box<ureq::Error>> {
+    if offline() {
+        return Err(offline_error());
+    }
+    agent()
+        .get(url)
+        .call()
+        .map_err(Box::new)?
+        .into_body()
+        .with_config()
+        .limit(limit)
+        .read_to_vec()
+        .map_err(Box::new)
+}
+
 /// Whether an error means the network itself is unavailable, as opposed to one URL failing,
 /// so that further requests are pointless.
 pub fn is_connectivity_error(err: &ureq::Error) -> bool {
