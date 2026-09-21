@@ -158,6 +158,12 @@ pub struct Args {
     #[arg(long)]
     pub license_texts: bool,
 
+    /// Add the components declared by SBOMs embedded in wheels (PEP 770, e.g. the Rust crates
+    /// maturin compiled in) as dependencies of the wheel. Reads each wheel's dist-info like
+    /// --fetch-licenses does.
+    #[arg(long)]
+    pub embedded_sboms: bool,
+
     /// Deprecated alias for --fetch-licenses (it used to cover PyPI packages only).
     #[arg(long, hide = true)]
     pub pypi_licenses: bool,

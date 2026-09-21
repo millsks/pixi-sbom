@@ -10,7 +10,7 @@ use clap::ValueEnum;
 use serde::Serialize;
 
 use crate::license::{self, License};
-use crate::model::{Package, PackageKind, Sbom};
+use crate::model::{Package, Sbom};
 
 /// Which report to print.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -154,11 +154,7 @@ fn row(package: &Package) -> Row {
     Row {
         name: package.name.clone(),
         version: package.version.clone().unwrap_or_else(|| "-".into()),
-        kind: match package.kind {
-            PackageKind::CondaBinary => "conda",
-            PackageKind::CondaSource => "conda-source",
-            PackageKind::Pypi => "pypi",
-        },
+        kind: package.kind.name(),
         source: package
             .supplier
             .as_ref()

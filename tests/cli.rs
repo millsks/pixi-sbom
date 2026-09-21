@@ -1334,6 +1334,137 @@ fn bad_licensee_is_a_usage_error() {
 }
 
 #[test]
+fn embedded_sboms_attach_wheel_components_in_every_format() {
+    // The with-pypi fixture with six pointed at the local wheel that carries PEP 770 fragments.
+    let dir = workspace("with-pypi");
+    let wheel = tests_dir()
+        .join("fixtures")
+        .join("archives")
+        .join("six-1.17.0-py2.py3-none-any.sbom.whl");
+    let path = wheel.display().to_string().replace('\\', "/");
+    let url = format!("file://{}{path}", if path.starts_with('/') { "" } else { "/" });
+    let lock = std::fs::read_to_string(dir.path().join("pixi.lock"))
+        .unwrap()
+        .replace("\r\n", "\n")
+        .replace(
+            "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl",
+            &url,
+        );
+    std::fs::write(dir.path().join("pixi.lock"), lock).unwrap();
+    let run = |extra: &[&str]| {
+        let mut args = vec!["-e", "web", "-p", "linux-64", "--embedded-sboms", "--output", "-"];
+        args.extend_from_slice(extra);
+        let assert = pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(&args)
+            .assert()
+            .success()
+            .stderr(predicate::str::contains(
+                "attached embedded SBOM components files=2 unreadable=0 added=4 merged=0",
+            ));
+        serde_json::from_slice::<Value>(&assert.get_output().stdout).unwrap()
+    };
+
+    let doc = run(&[]);
+    assert_valid(&cyclonedx_validator(), &doc);
+    let components = doc["components"].as_array().unwrap();
+    let by_name = |name: &str| components.iter().find(|c| c["name"] == name).unwrap();
+    let pyo3 = by_name("pyo3");
+    assert_eq!(pyo3["purl"], "pkg:cargo/pyo3@0.27.2");
+    assert_eq!(pyo3["licenses"][0]["expression"], "MIT OR Apache-2.0");
+    let props = pyo3["properties"].as_array().unwrap();
+    assert!(
+        props
+            .iter()
+            .any(|p| p["name"] == "pixi:kind" && p["value"] == "embedded")
+    );
+    assert!(
+        props
+            .iter()
+            .any(|p| p["name"] == "pixi:embedded-sbom" && p["value"] == "six/six.cyclonedx.json")
+    );
+    let vendored_openssl = components
+        .iter()
+        .find(|c| c["purl"] == "pkg:generic/openssl@4.0.2")
+        .unwrap();
+    assert_eq!(
+        vendored_openssl["hashes"][0]["content"],
+        "736b467530f916737b7031310ccb21d8218c6229e61e8e160cd1d3458cd543a8"
+    );
+    assert!(
+        by_name("openssl")["purl"].as_str().unwrap().starts_with("pkg:conda/"),
+        "the conda openssl is untouched"
+    );
+    let deps = doc["dependencies"].as_array().unwrap();
+    let six_deps: Vec<_> = deps.iter().find(|d| d["ref"] == "pkg:pypi/six@1.17.0").unwrap()["dependsOn"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d.as_str().unwrap().split('?').next().unwrap().to_string())
+        .collect();
+    assert!(six_deps.contains(&"pkg:cargo/pyo3@0.27.2".to_string()), "{six_deps:?}");
+    assert!(
+        six_deps.contains(&"pkg:generic/openssl@4.0.2".to_string()),
+        "{six_deps:?}"
+    );
+    assert!(
+        six_deps.contains(&"pkg:conda/python@3.12.14".to_string()),
+        "{six_deps:?}"
+    );
+    let pyo3_deps = deps.iter().find(|d| d["ref"] == "pkg:cargo/pyo3@0.27.2").unwrap()["dependsOn"]
+        .as_array()
+        .unwrap()
+        .len();
+    assert_eq!(pyo3_deps, 2, "libc and memoffset");
+
+    let doc = run(&["--format", "spdx"]);
+    assert_valid(&spdx_validator(), &doc);
+    let libc = doc["packages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "libc")
+        .unwrap();
+    assert_eq!(libc["SPDXID"], "SPDXRef-Package-embedded-libc-0.2.177");
+    assert_eq!(libc["licenseDeclared"], "MIT OR Apache-2.0");
+
+    let doc = run(&["--format", "spdx", "--spec-version", "3.0"]);
+    assert_valid(&spdx3_validator(), &doc);
+    assert!(
+        doc["@graph"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|n| n["type"] == "software_Package" && n["software_packageUrl"] == "pkg:cargo/memoffset@0.9.1")
+    );
+
+    // The report shows the kind, and the policy sees the crates' licenses.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args([
+            "-e",
+            "web",
+            "-p",
+            "linux-64",
+            "--embedded-sboms",
+            "--report",
+            "packages",
+            "--deny-license",
+            "Apache-2.0",
+        ])
+        .assert()
+        .code(3)
+        .stdout(predicate::str::is_match(r"memoffset\s+0\.9\.1\s+embedded").unwrap())
+        .stderr(predicate::str::contains("openssl 4.0.2: denied license (Apache-2.0)"));
+}
+
+#[test]
 fn spdx_format_writes_valid_spdx_document() {
     let dir = workspace("conda-only");
 

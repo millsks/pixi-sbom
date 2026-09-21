@@ -38,6 +38,9 @@ pixi sbom --output - | grype
 # Licenses for every package, conda and PyPI alike (add --license-texts for the full texts)
 pixi sbom --fetch-licenses
 
+# Include what maturin compiled into the wheels (PEP 770 embedded SBOMs)
+pixi sbom --embedded-sboms
+
 # Fail CI on copyleft or unlicensed packages (exit code 3, document still written)
 pixi sbom --fetch-licenses --deny-license GPL-3.0-only --require-license
 
@@ -81,6 +84,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--fetch-licenses` | off | Licenses for every package, conda and PyPI alike (conda from the local package cache or the channel archive, PyPI from the wheel or the index), plus license file names, summary and URLs |
 | `--license-texts` | off | With `--fetch-licenses`, embed the full license texts |
 | `--allow-license` / `--deny-license` / `--require-license` | | License policy; violations are listed and the run exits 3 after writing the document |
+| `--embedded-sboms` | off | Attach the components declared by SBOMs embedded in wheels (PEP 770, e.g. Rust crates) under the wheel |
 | `--report <packages\|licenses>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`) |
 | `-v` / `-q` | info | More / less logging on stderr |
 
