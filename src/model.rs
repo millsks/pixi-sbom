@@ -23,6 +23,9 @@ pub struct Sbom {
     /// Known vulnerabilities of the packages, when looked up. Sorted by severity (worst
     /// first), then id.
     pub vulnerabilities: Vec<Vulnerability>,
+    /// Names of packages left out by `--include` / `--exclude`, so the omission is visible in
+    /// the document. Sorted, deduplicated.
+    pub excluded: Vec<String>,
 }
 
 /// How bad a vulnerability is, on the CycloneDX / common scanner scale.

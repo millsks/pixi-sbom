@@ -96,6 +96,31 @@ pub enum PrimaryPurl {
     Pypi,
 }
 
+/// A package kind, as `--exclude-kind` names it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum Kind {
+    /// A prebuilt `.conda` / `.tar.bz2` archive from a channel.
+    Conda,
+    /// A pixi-build source package.
+    CondaSource,
+    /// A PyPI wheel or sdist.
+    Pypi,
+    /// A component declared by an SBOM embedded in a wheel.
+    Embedded,
+}
+
+impl Kind {
+    /// The model kind.
+    pub fn package_kind(self) -> crate::model::PackageKind {
+        match self {
+            Kind::Conda => crate::model::PackageKind::CondaBinary,
+            Kind::CondaSource => crate::model::PackageKind::CondaSource,
+            Kind::Pypi => crate::model::PackageKind::Pypi,
+            Kind::Embedded => crate::model::PackageKind::Embedded,
+        }
+    }
+}
+
 /// Where known vulnerabilities are looked up.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum VulnerabilitySource {
@@ -203,6 +228,24 @@ pub struct Args {
     /// Deprecated alias for --fetch-licenses (it used to cover PyPI packages only).
     #[arg(long, hide = true)]
     pub pypi_licenses: bool,
+
+    /// Leave packages whose name matches this shell-style pattern out of the document
+    /// (repeatable; `*` and `?`, case-insensitive, `-` and `_` alike). What only they needed
+    /// is dropped too, and the root records the omission in `pixi:excluded`.
+    #[arg(long, value_name = "GLOB")]
+    pub exclude: Vec<String>,
+
+    /// Keep only packages whose name matches one of these patterns (repeatable).
+    #[arg(long, value_name = "GLOB")]
+    pub include: Vec<String>,
+
+    /// Leave every package of this kind out (repeatable).
+    #[arg(long, value_enum, value_name = "KIND")]
+    pub exclude_kind: Vec<Kind>,
+
+    /// With --exclude / --include: keep the packages that only excluded packages needed.
+    #[arg(long)]
+    pub keep_orphans: bool,
 
     /// Only these SPDX licenses (repeatable) are acceptable; a package whose license expression
     /// cannot be satisfied with them alone is a violation. An `-or-later` requirement is

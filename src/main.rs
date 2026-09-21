@@ -5,6 +5,7 @@ mod condaarchive;
 mod cvss;
 mod discover;
 mod embedded;
+mod filter;
 mod format;
 mod http;
 mod kev;
@@ -93,6 +94,12 @@ fn main() -> Result<()> {
                 .exit()
         });
     let mut gate_hits: Vec<(String, String, vulnpolicy::Hit)> = Vec::new();
+    let package_filter = filter::Filter {
+        include: parse_globs(&args.include, "--include"),
+        exclude: parse_globs(&args.exclude, "--exclude"),
+        exclude_kinds: args.exclude_kind.iter().map(|k| k.package_kind()).collect(),
+        keep_orphans: args.keep_orphans,
+    };
     let kev_catalog = if args.kev {
         let catalog = kev::Catalog::load(&mapping::cache_dir())?;
         tracing::info!(
@@ -116,6 +123,16 @@ fn main() -> Result<()> {
             platform: platform.as_deref(),
         };
         let mut sbom = lock::sbom_from_lock(&lock, selection, root.clone(), &discover::lockfile_name(&lockfile))?;
+        if !package_filter.is_empty() {
+            let filter::Outcome { excluded, orphans } = package_filter.apply(&mut sbom);
+            tracing::info!(
+                excluded = excluded.len(),
+                orphans = orphans.len(),
+                remaining = sbom.packages.len(),
+                "filtered packages"
+            );
+            tracing::debug!(?excluded, ?orphans, "filtered package names");
+        }
         if let Some(mapping) = &pypi_mapping {
             let enriched = mapping::enrich(&mut sbom, mapping);
             tracing::info!(enriched, "added PyPI purls to conda packages");
@@ -292,6 +309,20 @@ fn main() -> Result<()> {
         std::process::exit(vulnpolicy::GATE_EXIT_CODE);
     }
     Ok(())
+}
+
+/// Parse `--include` / `--exclude` patterns; a bad one is a usage error.
+fn parse_globs(patterns: &[String], flag: &str) -> Vec<filter::Glob> {
+    patterns
+        .iter()
+        .map(|p| {
+            filter::Glob::parse(p).unwrap_or_else(|err| {
+                cli::Args::command()
+                    .error(clap::error::ErrorKind::InvalidValue, format!("{flag} '{p}': {err}"))
+                    .exit()
+            })
+        })
+        .collect()
 }
 
 /// The specification version to write: the format's default unless `--spec-version` names a

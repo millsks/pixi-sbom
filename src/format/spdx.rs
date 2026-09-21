@@ -237,8 +237,13 @@ fn root_package(sbom: &Sbom, extracted: &mut BTreeMap<String, ExtractedLicense>)
             "pixi workspace; lockfile {}; environment {}; platform {}",
             sbom.lockfile, sbom.environment, sbom.platform
         )),
-        comment: None,
+        comment: excluded_comment(sbom),
     }
+}
+
+/// The root package's note about packages left out by `--include` / `--exclude`.
+pub(crate) fn excluded_comment(sbom: &Sbom) -> Option<String> {
+    (!sbom.excluded.is_empty()).then(|| format!("pixi:excluded={}", sbom.excluded.join(", ")))
 }
 
 fn spdx_package(

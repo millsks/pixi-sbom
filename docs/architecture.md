@@ -10,6 +10,7 @@ once no matter how many output formats exist.
                  │             │       └──▶ format/spdx3.rs     ──▶ sbom.spdx.json (3.0.1)
    purl.rs ──────┘             │
    manifest.rs ────────────────┘   (workspace metadata)
+   filter.rs ───── --include/--exclude/--exclude-kind: drops packages and re-closes the graph first
    mapping.rs ──── enriches model::Sbom with PyPI purls (optional, via http.rs)
    pypi.rs ─────── fills PyPI licenses from the index (optional, via http.rs)
    pkgcache.rs ─── conda license files and metadata from the package cache (optional, offline)
@@ -43,6 +44,7 @@ once no matter how many output formats exist.
 | `parallel.rs` | A bounded scoped-thread pool for the fetchers; no async runtime. | — |
 | `condaarchive.rs` | The network fallback for conda license details: pulls the `info-*.tar.zst` member through `zipread`, decompresses it and writes `about.json`, `index.json` and `licenses/` into the pixi-sbom cache in the rattler layout, on a small thread pool. | zstd, tar, zipread.rs, pkgcache.rs |
 | `pkgcache.rs` | Conda license details from the local rattler package cache: `about.json` and `info/licenses/` of extracted packages, and the cache directory rule (`PIXI_CACHE_DIR`, `RATTLER_CACHE_DIR`, platform default). Offline. | serde_json |
+| `filter.rs` | `--include` / `--exclude` / `--exclude-kind`: a small glob matcher over package names, removal before any enrichment, and graph re-closure from the original roots (orphans go unless `--keep-orphans`); records the omission in `Sbom::excluded` for the writers. | model.rs |
 | `pypi.rs` | License lookup for PyPI packages from the index JSON API (part of `--fetch-licenses`): field precedence, classifier-to-SPDX table, per-release cache, and the "stop when the network is down" rule. | serde_json, http.rs |
 | `http.rs` | The one `ureq` agent (system certificate store, proxies from the environment) and the connectivity-error test. | ureq |
 | `model.rs` | `Sbom`, `Root`, `Package`, `PackageKind`: plain data with no serde and no knowledge of any SBOM spec. | — |

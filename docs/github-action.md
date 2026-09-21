@@ -85,7 +85,9 @@ steps:
       upload-sarif: "true"
 ```
 
-The SARIF report reuses the lookup's cache, so the second run costs no network requests. Outside the action, the
+Each document is a SARIF run with its own automation id, so code scanning files the alerts under
+`pixi-sbom/<environment>` (or `pixi-sbom/<environment>/<platform>` in batch mode) rather than under
+`sarif-category`. The SARIF report reuses the lookup's cache, so the second run costs no network requests. Outside the action, the
 same file comes from `pixi sbom --vulnerabilities osv --report vulnerabilities --report-format sarif > findings.sarif`.
 
 ## A worked example

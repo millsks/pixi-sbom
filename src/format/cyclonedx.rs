@@ -289,11 +289,14 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Bom {
             },
             authors: sbom.root.authors.iter().map(contact).collect(),
             component: root_component(sbom),
-            properties: vec![
+            properties: [
                 property("pixi:environment", &sbom.environment),
                 property("pixi:platform", &sbom.platform),
                 property("pixi:lockfile", &sbom.lockfile),
-            ],
+            ]
+            .into_iter()
+            .chain((!sbom.excluded.is_empty()).then(|| property("pixi:excluded", &sbom.excluded.join(", "))))
+            .collect(),
         },
         components: sbom.packages.iter().map(component).collect(),
         dependencies,

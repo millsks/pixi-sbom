@@ -1672,6 +1672,127 @@ fn vulnerabilities_without_a_cache_fail_offline_only_when_the_query_is_missing()
 }
 
 #[test]
+fn exclude_drops_packages_and_what_only_they_needed() {
+    let dir = workspace("with-pypi");
+    let run = |args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .args(["-e", "web", "-p", "linux-64", "--output", "-"])
+            .args(args)
+            .assert()
+            .success()
+    };
+    let names = |doc: &Value| -> Vec<String> {
+        doc["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["name"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let full: Value = serde_json::from_slice(&run(&[]).get_output().stdout).unwrap();
+    assert!(names(&full).contains(&"requests".to_string()));
+
+    // requests is a root; its four PyPI dependencies were only there for it.
+    let assert =
+        run(&["--exclude", "requests"]).stderr(predicate::str::contains("filtered packages excluded=1 orphans=4"));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let kept = names(&doc);
+    for gone in ["requests", "certifi", "charset-normalizer", "idna", "urllib3"] {
+        assert!(!kept.contains(&gone.to_string()), "{gone} should be gone: {kept:?}");
+    }
+    assert!(kept.contains(&"six".to_string()));
+    assert!(kept.contains(&"python".to_string()), "python is needed by six");
+    let excluded = doc["metadata"]["properties"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "pixi:excluded")
+        .unwrap()["value"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert_eq!(excluded, "certifi, charset-normalizer, idna, requests, urllib3");
+    // No dangling edges: every dependsOn names a component.
+    let refs: std::collections::HashSet<&str> = doc["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["bom-ref"].as_str().unwrap())
+        .collect();
+    for dep in doc["dependencies"].as_array().unwrap() {
+        for on in dep["dependsOn"].as_array().unwrap() {
+            assert!(refs.contains(on.as_str().unwrap()), "dangling {on}");
+        }
+    }
+
+    // --keep-orphans keeps the four; --exclude-kind pypi drops every wheel; --include narrows.
+    let doc: Value =
+        serde_json::from_slice(&run(&["--exclude", "requests", "--keep-orphans"]).get_output().stdout).unwrap();
+    assert!(names(&doc).contains(&"urllib3".to_string()));
+    let doc: Value = serde_json::from_slice(&run(&["--exclude-kind", "pypi"]).get_output().stdout).unwrap();
+    assert!(names(&doc).iter().all(|n| n != "six" && n != "requests"));
+    let doc: Value = serde_json::from_slice(
+        &run(&["--include", "python", "--include", "lib*", "--keep-orphans"])
+            .get_output()
+            .stdout,
+    )
+    .unwrap();
+    assert!(
+        names(&doc).iter().all(|n| n == "python" || n.starts_with("lib")),
+        "{:?}",
+        names(&doc)
+    );
+
+    // SPDX documents carry the same note on the root package.
+    let doc: Value =
+        serde_json::from_slice(&run(&["--exclude", "requests", "--format", "spdx"]).get_output().stdout).unwrap();
+    assert_valid(&spdx_validator(), &doc);
+    let root = doc["packages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["SPDXID"] == "SPDXRef-Package-root")
+        .unwrap();
+    assert!(root["comment"].as_str().unwrap().starts_with("pixi:excluded=certifi"));
+
+    // A bad pattern is a usage error.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--exclude", " "])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("--exclude ' ': empty pattern"));
+}
+
+#[test]
+fn excluding_pre_commit_from_this_repository() {
+    let lockfile = tests_dir().parent().unwrap().join("pixi.lock");
+    let assert = pixi_sbom()
+        .args(["--lockfile", lockfile.to_str().unwrap(), "-p", "linux-64"])
+        .args([
+            "--exclude",
+            "pre-commit*",
+            "--report",
+            "packages",
+            "--report-format",
+            "json",
+        ])
+        .assert()
+        .success();
+    let report: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let names: Vec<&str> = report["packages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["name"].as_str().unwrap())
+        .collect();
+    assert!(!names.iter().any(|n| n.starts_with("pre-commit")), "{names:?}");
+    assert!(names.contains(&"rust"), "the toolchain itself stays");
+}
+
+#[test]
 fn fetch_licenses_reads_wheel_metadata_and_license_files() {
     // The with-pypi fixture with the six wheel pointed at the local copy; everything else offline.
     let dir = workspace("with-pypi");

@@ -297,6 +297,7 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
         "pixi workspace; lockfile {}; environment {}; platform {}",
         sbom.lockfile, sbom.environment, sbom.platform
     ));
+    root.comment = super::spdx::excluded_comment(sbom);
     if let Some(license) = sbom.root.license.as_deref().and_then(|raw| b.license(raw, None)) {
         relationships.push((
             root_id.clone(),

@@ -29,6 +29,10 @@ With no options this means:
 | `--pypi-mapping <lock\|prefix>` | `lock` | Where PyPI identities for conda packages come from. `prefix` downloads the conda-forge mapping (cached for a day) so conda-installed Python packages get a `pkg:pypi` purl. |
 | `--pypi-mapping-file <PATH>` | | Offline copy of that mapping; implies the same enrichment with no network. Cannot be combined with `--pypi-mapping`. |
 | `--primary-purl <conda\|pypi>` | `conda` | With `pypi`, a conda package that has a PyPI purl uses it as its primary `purl` so vulnerability scanners can match it. |
+| `--exclude <GLOB>` | | Repeatable. Leave packages whose name matches the shell-style pattern (`*`, `?`; case-insensitive, `-` and `_` alike) out of the document, together with whatever only they needed (see below). |
+| `--include <GLOB>` | | Repeatable. Keep only packages whose name matches one of the patterns. |
+| `--exclude-kind <conda\|conda-source\|pypi\|embedded>` | | Repeatable. Leave every package of that kind out. |
+| `--keep-orphans` | off | With the filters above: keep the packages that only excluded packages needed. |
 | `--fetch-licenses` | off | Fetch the license of every package, conda and PyPI alike, where the lockfile has none, plus the names of the license files it ships and its summary and project URLs. Conda details come from the local package cache pixi filled at install time, or from the archive on the channel via HTTP range requests (a few KB per package, cached); PyPI details from the wheel's `dist-info` the same way, then the index JSON API for what is still missing. Failures are logged and the run continues. |
 | `--license-texts` | off | With `--fetch-licenses`, also embed the full text of every license file. |
 | `--embedded-sboms` | off | Add the components declared by SBOMs embedded in wheels (PEP 770, e.g. the Rust crates maturin compiled in) as dependencies of the wheel. Reads each wheel's `dist-info` like `--fetch-licenses`. |
@@ -48,6 +52,27 @@ With no options this means:
 | `-h, --help`, `-V, --version` | | Usual meanings. |
 
 `RUST_LOG` is also honored and overrides `-v`/`-q` (for example `RUST_LOG=pixi_sbom::lock=debug`).
+
+## Leaving packages out
+
+A shipped SBOM often should not list build-only tooling, and a license policy may reasonably exempt it.
+`--exclude`, `--include` and `--exclude-kind` drop packages before anything is fetched or checked, so nothing is
+looked up for them and the policy, the vulnerability gate and the reports all see the filtered set:
+
+```sh
+# The toolchain is not part of the product
+pixi sbom --exclude 'pre-commit*' --exclude compilers --exclude rust
+
+# Only the wheels
+pixi sbom --exclude-kind conda --exclude-kind conda-source
+```
+
+Dropping a package also drops what only it needed: the graph is re-closed from the remaining roots (the packages
+nothing depends on), and everything no longer reachable goes too (`orphans` in the log). `--keep-orphans` turns
+that off. Either way the root records what was left out, matched packages and orphans alike, in a
+`pixi:excluded` property (CycloneDX metadata) or comment (SPDX root package), so a reader can tell the document
+is deliberately partial. Excluding every root (for example `--exclude-kind pypi` on a PyPI-only project) empties
+the document unless orphans are kept.
 
 ## Enforcing a license policy
 
