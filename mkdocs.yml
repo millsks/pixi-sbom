@@ -7,6 +7,9 @@ edit_uri: edit/main/docs/
 copyright: MIT licensed
 
 docs_dir: docs
+# The theme override lives under docs/ for the strict build's sake; it is not a page.
+exclude_docs: |
+  overrides/
 strict: true
 validation:
   omitted_files: warn
@@ -32,6 +35,7 @@ hooks:
 
 theme:
   name: material
+  custom_dir: docs/overrides
   features:
     - navigation.sections
     - navigation.top
