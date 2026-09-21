@@ -271,8 +271,10 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
             created_by: Some(created_by),
             created_using: Some(vec![tool_id]),
             comment: Some(format!(
-                "Generated from the pixi lockfile {} (environment {}, platform {}) before any build",
-                sbom.lockfile, sbom.environment, sbom.platform
+                "Generated from the pixi {} (environment {}, platform {}) before any build",
+                sbom.input_description(),
+                sbom.environment,
+                sbom.platform
             )),
             ..Node::default()
         },
@@ -294,8 +296,10 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
     root.home_page = sbom.root.homepage.clone();
     root.download_location = sbom.root.repository.clone();
     root.source_info = Some(format!(
-        "pixi workspace; lockfile {}; environment {}; platform {}",
-        sbom.lockfile, sbom.environment, sbom.platform
+        "pixi workspace; {}; environment {}; platform {}",
+        sbom.input_description(),
+        sbom.environment,
+        sbom.platform
     ));
     root.comment = super::spdx::excluded_comment(sbom);
     if let Some(license) = sbom.root.license.as_deref().and_then(|raw| b.license(raw, None)) {

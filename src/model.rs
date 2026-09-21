@@ -16,8 +16,11 @@ pub struct Sbom {
     pub platform: String,
     /// Name of the lockfile the SBOM was generated from, relative to the workspace root
     /// (normally `pixi.lock`). Never an absolute path, so documents do not depend on where
-    /// they were generated.
+    /// they were generated. Empty when the input was an installed environment (`prefix`).
     pub lockfile: String,
+    /// Name of the installed environment the SBOM was generated from with `--prefix` (its
+    /// directory name, never a path), in place of a lockfile.
+    pub prefix: Option<String>,
     /// Packages sorted by kind, then name, then version. Order is stable across runs.
     pub packages: Vec<Package>,
     /// Known vulnerabilities of the packages, when looked up. Sorted by severity (worst
@@ -162,6 +165,25 @@ pub struct Analysis {
     pub state: &'static str,
     /// Free-text justification.
     pub detail: Option<String>,
+}
+
+impl Sbom {
+    /// What the document was generated from, for provenance notes: `lockfile pixi.lock` or
+    /// `prefix <name>`.
+    pub fn input_description(&self) -> String {
+        match &self.prefix {
+            Some(prefix) => format!("prefix {prefix}"),
+            None => format!("lockfile {}", self.lockfile),
+        }
+    }
+
+    /// The `pixi:*` property naming the input and its value.
+    pub fn input_property(&self) -> (&'static str, &str) {
+        match &self.prefix {
+            Some(prefix) => ("pixi:prefix", prefix),
+            None => ("pixi:lockfile", &self.lockfile),
+        }
+    }
 }
 
 /// The workspace described by the SBOM.

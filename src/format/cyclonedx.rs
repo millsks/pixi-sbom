@@ -269,8 +269,10 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Bom {
             timestamp: timestamp.clone(),
             attributed_to: tool_ref(ctx),
             note: format!(
-                "Derived from the pixi lockfile {} (environment {}, platform {}) and the workspace manifest",
-                sbom.lockfile, sbom.environment, sbom.platform
+                "Derived from the pixi {} (environment {}, platform {}) and the workspace manifest",
+                sbom.input_description(),
+                sbom.environment,
+                sbom.platform
             ),
         }],
     };
@@ -292,7 +294,7 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Bom {
             properties: [
                 property("pixi:environment", &sbom.environment),
                 property("pixi:platform", &sbom.platform),
-                property("pixi:lockfile", &sbom.lockfile),
+                property(sbom.input_property().0, sbom.input_property().1),
             ]
             .into_iter()
             .chain((!sbom.excluded.is_empty()).then(|| property("pixi:excluded", &sbom.excluded.join(", "))))

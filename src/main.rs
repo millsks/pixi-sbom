@@ -20,6 +20,7 @@ mod osv;
 mod parallel;
 mod pkgcache;
 mod policy;
+mod prefix;
 mod purl;
 mod pypi;
 mod report;
@@ -41,7 +42,12 @@ fn main() -> Result<()> {
     init_error_reporting()?;
 
     let cwd = std::env::current_dir().into_diagnostic()?;
-    let lockfile = discover::resolve_lockfile(args.lockfile.as_deref(), &cwd)?;
+    // With --prefix there is no lockfile; a stand-in path in the working directory keeps the
+    // output and configuration lookups (which are relative to the lockfile) working.
+    let lockfile = match &args.prefix {
+        Some(_) => cwd.join("pixi.lock"),
+        None => discover::resolve_lockfile(args.lockfile.as_deref(), &cwd)?,
+    };
     if !args.no_config {
         let dir = lockfile.parent().unwrap_or(Path::new("."));
         if let Some(loaded) = config::load(dir, args.config.as_deref())? {
@@ -51,8 +57,24 @@ fn main() -> Result<()> {
     }
     tracing::debug!(?args, "effective arguments");
     validate(&args);
-    let lock::LoadedLock { lock, contents } = lock::load(&lockfile)?;
-    let root = manifest::root_for_lockfile(&lockfile);
+    let input = match &args.prefix {
+        Some(dir) => Input::Prefix {
+            dir: dir.clone(),
+            root: model::Root {
+                name: args.name.clone().unwrap_or_else(|| prefix::environment_name(dir)),
+                version: args.root_version.clone(),
+                ..model::Root::default()
+            },
+        },
+        None => {
+            let lock::LoadedLock { lock, contents } = lock::load(&lockfile)?;
+            Input::Lock {
+                lock,
+                contents,
+                root: manifest::root_for_lockfile(&lockfile),
+            }
+        }
+    };
 
     let spec_version = resolve_spec_version(&args);
     let fetch_licenses = args.fetch_licenses || args.pypi_licenses;
@@ -63,7 +85,14 @@ fn main() -> Result<()> {
         Some(path) => Some((path.clone(), diff::read_previous(path)?)),
         None => None,
     };
-    let targets = resolve_targets(&args, &lock, &lockfile)?;
+    let targets = match &input {
+        Input::Lock { lock, .. } => resolve_targets(&args, lock, &lockfile)?,
+        Input::Prefix { dir, .. } => vec![Target {
+            environment: prefix::environment_name(dir),
+            platform: args.platform.clone(),
+            output: discover::resolve_output(args.output.as_deref(), &lockfile, args.format),
+        }],
+    };
     let pypi_mapping = load_pypi_mapping(&args)?;
     tracing::debug!(lockfile = %lockfile.display(), ?targets, format = ?args.format, "resolved targets");
     let mut reports = Vec::new();
@@ -109,11 +138,29 @@ fn main() -> Result<()> {
         output,
     } in &targets
     {
-        let selection = lock::Selection {
-            environment,
-            platform: platform.as_deref(),
+        let (mut sbom, contents) = match &input {
+            Input::Lock { lock, contents, root } => {
+                let selection = lock::Selection {
+                    environment,
+                    platform: platform.as_deref(),
+                };
+                let sbom = lock::sbom_from_lock(lock, selection, root.clone(), &discover::lockfile_name(&lockfile))?;
+                (sbom, contents.clone())
+            }
+            Input::Prefix { dir, root } => {
+                let sbom = prefix::build_sbom(dir, root.clone(), platform.as_deref())?;
+                // Stands in for the lockfile text as the document's identity: the installed
+                // packages, in order.
+                let contents = sbom
+                    .packages
+                    .iter()
+                    .map(|p| p.id.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                tracing::info!(prefix = %dir.display(), packages = sbom.packages.len(), "read the installed environment");
+                (sbom, contents)
+            }
         };
-        let mut sbom = lock::sbom_from_lock(&lock, selection, root.clone(), &discover::lockfile_name(&lockfile))?;
         if !package_filter.is_empty() {
             let filter::Outcome { excluded, orphans } = package_filter.apply(&mut sbom);
             tracing::info!(
@@ -412,6 +459,18 @@ fn load_pypi_mapping(args: &cli::Args) -> Result<Option<mapping::PypiMapping>> {
     };
     tracing::debug!(entries = mapping.len(), "loaded PyPI mapping");
     Ok(Some(mapping))
+}
+
+/// Where the packages come from.
+enum Input {
+    /// A `pixi.lock`, with its text (the document identity) and the workspace it belongs to.
+    Lock {
+        lock: rattler_lock::LockFile,
+        contents: String,
+        root: model::Root,
+    },
+    /// An installed environment (`--prefix`).
+    Prefix { dir: std::path::PathBuf, root: model::Root },
 }
 
 /// One document to write: an environment, a platform (`None` = host), and where it goes.

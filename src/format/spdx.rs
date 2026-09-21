@@ -234,8 +234,10 @@ fn root_package(sbom: &Sbom, extracted: &mut BTreeMap<String, ExtractedLicense>)
         checksums: vec![],
         external_refs: vec![],
         source_info: Some(format!(
-            "pixi workspace; lockfile {}; environment {}; platform {}",
-            sbom.lockfile, sbom.environment, sbom.platform
+            "pixi workspace; {}; environment {}; platform {}",
+            sbom.input_description(),
+            sbom.environment,
+            sbom.platform
         )),
         comment: excluded_comment(sbom),
     }

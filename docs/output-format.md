@@ -219,6 +219,15 @@ separated, when more than one fragment declares the same purl; fragments merge i
 Embedded packages take part in `--report`, `--fetch-licenses` (their declared licenses) and the license policy.
 SPDX 3 fragments are not read yet. Conda packages have no equivalent convention.
 
+### Installed environments
+
+With `--prefix` the document describes an installed environment instead of a lockfile: the metadata property is
+`pixi:prefix` (the environment directory's name) rather than `pixi:lockfile`, the SPDX root package's source info
+says `prefix <name>`, and pip-installed packages are located by a `file://` URL of their `dist-info` directory (or
+`<vcs>+<url>` for direct VCS installs, with `pixi:direct-url` and `pixi:source-rev`), carry `pixi:installer`, and
+have no hashes. Conda packages carry `pixi:extracted-package-dir`, where the record says the archive was
+unpacked.
+
 ### Excluded packages
 
 With `--exclude` / `--include` / `--exclude-kind` the document lists only what survived the filter, and the root

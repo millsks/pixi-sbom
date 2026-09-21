@@ -1,0 +1,14 @@
+{
+  "name": "tzdata",
+  "version": "2026b",
+  "build": "h78e105d_0",
+  "build_number": 0,
+  "channel": "https://conda.anaconda.org/conda-forge/",
+  "subdir": "noarch",
+  "noarch": "generic",
+  "fn": "tzdata-2026b-h78e105d_0.conda",
+  "url": "https://conda.anaconda.org/conda-forge/noarch/tzdata-2026b-h78e105d_0.conda",
+  "license": "LicenseRef-Public-Domain",
+  "depends": [],
+  "size": 122000
+}

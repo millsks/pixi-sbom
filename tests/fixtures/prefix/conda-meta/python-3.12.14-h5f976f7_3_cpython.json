@@ -1,0 +1,19 @@
+{
+  "name": "python",
+  "version": "3.12.14",
+  "build": "h5f976f7_3_cpython",
+  "build_number": 3,
+  "channel": "https://conda.anaconda.org/conda-forge/",
+  "subdir": "linux-64",
+  "fn": "python-3.12.14-h5f976f7_3_cpython.conda",
+  "url": "https://conda.anaconda.org/conda-forge/linux-64/python-3.12.14-h5f976f7_3_cpython.conda",
+  "sha256": "5c0a1d8e2c2d9d1f7a4d3b9e0b6d1a2c3e4f5061728394a5b6c7d8e9f0a1b2c3",
+  "md5": "0de0122d9570a8ab637c6b73db268389",
+  "license": "Python-2.0",
+  "license_family": "PSF",
+  "depends": ["__glibc >=2.17,<3.0.a0", "libzlib >=1.3.2,<2.0a0", "tzdata"],
+  "size": 31000000,
+  "timestamp": 1785362952714,
+  "extracted_package_dir": "/opt/pkgs/python-3.12.14-h5f976f7_3_cpython",
+  "files": ["bin/python3.12"]
+}
