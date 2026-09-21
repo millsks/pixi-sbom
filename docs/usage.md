@@ -234,7 +234,7 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: millsks/pixi-sbom@v0.5.0
+- uses: millsks/pixi-sbom@v0.5.1
   with:
     all-environments: "true"
     fetch-licenses: "true"

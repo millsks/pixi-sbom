@@ -128,7 +128,7 @@ as an artifact; no pixi setup needed:
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: millsks/pixi-sbom@v0.5.0
+- uses: millsks/pixi-sbom@v0.5.1
   with:
     all-environments: "true"
     fetch-licenses: "true"
