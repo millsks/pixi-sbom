@@ -15,8 +15,9 @@ Full documentation: **https://millsks.github.io/pixi-sbom/**
 pixi global install pixi-sbom
 ```
 
-Or download a binary from the [releases page](https://github.com/millsks/pixi-sbom/releases) and put it on your
-`PATH`, or build from source:
+Outside the conda ecosystem, `cargo binstall pixi-sbom` fetches the same release binary (and `cargo install
+pixi-sbom` builds it from crates.io). Or download a binary from the
+[releases page](https://github.com/millsks/pixi-sbom/releases) and put it on your `PATH`, or build from source:
 
 ```sh
 pixi run build

@@ -10,6 +10,7 @@ runs it when you type `pixi <name>`. There is no plugin registration; installing
 |---|---|
 | pixi global (recommended) | `pixi global install pixi-sbom` |
 | Prebuilt binary | Download `pixi-sbom-<version>-<platform>.tar.gz` (or `.zip` on Windows) from the [releases page](https://github.com/millsks/pixi-sbom/releases), verify the `.sha256` next to it, and put `pixi-sbom` on your `PATH` |
+| cargo binstall | `cargo binstall pixi-sbom` downloads the release binary for your platform from GitHub (no compiler needed); `cargo install pixi-sbom` builds it from crates.io instead |
 | From source | `pixi run build` in a clone, then copy `target/release/pixi-sbom` to `~/.pixi/bin/` |
 
 Check it is picked up:
