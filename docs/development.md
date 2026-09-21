@@ -172,6 +172,10 @@ deployment. A docs-only fix reaches the site at the next release, or sooner by d
 (`gh workflow run docs.yml`, optionally with `-f ref=<branch or tag>`); it redeploys the version `Cargo.toml`
 carries on that ref. `pixi run -e docs mike serve` previews every deployed version locally from `gh-pages`.
 
+The `github-pages` environment's deployment branch policy must allow the `v*` tag pattern as well as `main`
+(Settings → Environments → github-pages), because a release event runs on the tag; without it the deploy job fails
+with "Branch ... is not allowed to deploy to github-pages".
+
 All jobs use `prefix-dev/setup-pixi` with caching, so they run the same pinned toolchain as local development. CI
 sticks to the `-latest` labels (x64 Linux and Windows, arm64 macOS); the code has no platform-specific paths, so the
 remaining architectures are only exercised by the release build, which must produce a native binary for each of the
