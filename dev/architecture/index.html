@@ -817,10 +817,11 @@ once no matter how many output formats exist.</p>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>   embedded.rs ──── PEP 770 embedded SBOMs from the same wheels (optional)
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>   report.rs ───── --report: renders the model as a terminal table instead of a document
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>   policy.rs ───── --allow/--deny/--require-license: violations -&gt; exit 3 after writing
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>   license.rs ◀── used by both writers
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>   discover.rs ── finds the lockfile, decides output paths
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>   cli.rs ──────── clap definitions
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>   main.rs ─────── wires it together, logging, error reporting
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>   osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>   license.rs ◀── used by both writers
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>   discover.rs ── finds the lockfile, decides output paths
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>   cli.rs ──────── clap definitions
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>   main.rs ─────── wires it together, logging, error reporting
 </code></pre></div>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <table>
@@ -931,6 +932,16 @@ once no matter how many output formats exist.</p>
 <td><code>format/spdx.rs</code></td>
 <td>Same for SPDX 2.3, including <code>SPDXRef</code> id assignment and <code>LicenseRef</code> extraction.</td>
 <td>serde</td>
+</tr>
+<tr>
+<td><code>osv.rs</code></td>
+<td><code>--vulnerabilities osv</code>: collects every queryable purl (conda purls excluded), asks OSV's <code>querybatch</code> in thousands, fetches each record in parallel, caches queries (one hour) and records (until <code>modified</code> moves), merges GHSA / PYSEC twins by alias, picks the fixed version above the installed one, and fills <code>Sbom::vulnerabilities</code>. A failed query is fatal; a failed record is not.</td>
+<td>serde_json, http.rs, cvss.rs, parallel.rs</td>
+</tr>
+<tr>
+<td><code>cvss.rs</code></td>
+<td>CVSS v3.0 / v3.1 base scores from vector strings, for advisories that carry a vector but no qualitative severity.</td>
+<td></td>
 </tr>
 <tr>
 <td><code>policy.rs</code></td>

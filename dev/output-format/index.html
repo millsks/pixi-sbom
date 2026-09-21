@@ -638,6 +638,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#vulnerabilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vulnerabilities
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#spdx-301" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -979,6 +990,17 @@
     <span class="md-ellipsis">
       
         Dependency graph
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vulnerabilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vulnerabilities
       
     </span>
   </a>
@@ -1549,6 +1571,61 @@ to the graph instead of floating as extra roots.</p>
 <p>The root's edges are a graph-root heuristic, not the manifest's declared dependencies: the lockfile does not record
 what was requested directly, so a declared dependency that is also depended on by something else (<code>python</code> is the
 usual example) is reachable transitively rather than listed on the root.</p>
+<h2 id="vulnerabilities">Vulnerabilities<a class="headerlink" href="#vulnerabilities" title="Permanent link">&para;</a></h2>
+<p>With <code>--vulnerabilities osv</code> the CycloneDX document carries a <code>vulnerabilities[]</code> array (1.6 and 1.7 alike); SPDX
+2.3 and 3.0.1 documents do not record them. One entry per finding, after records describing the same vulnerability
+have been merged:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bom-ref</code></td>
+<td><code>vuln-&lt;id&gt;</code></td>
+</tr>
+<tr>
+<td><code>id</code>, <code>source</code></td>
+<td>The OSV record id (<code>GHSA-...</code>, <code>PYSEC-...</code>, <code>RUSTSEC-...</code>) and <code>{ name: OSV, url: https://osv.dev/vulnerability/&lt;id&gt; }</code></td>
+</tr>
+<tr>
+<td><code>references[]</code></td>
+<td>Every alias with where it is published: <code>CVE-*</code> → NVD, <code>GHSA-*</code> → GitHub Advisory Database, others → OSV</td>
+</tr>
+<tr>
+<td><code>ratings[]</code></td>
+<td>The database's qualitative severity (<code>method: other</code>, source e.g. <code>GitHub Advisory Database</code>) and every CVSS vector the record carries (<code>method: CVSSv31</code> / <code>CVSSv3</code> / <code>CVSSv4</code>, with the v3 base score computed from the vector)</td>
+</tr>
+<tr>
+<td><code>cwes[]</code></td>
+<td>CWE numbers from the record</td>
+</tr>
+<tr>
+<td><code>description</code>, <code>detail</code></td>
+<td>The record's <code>summary</code> and <code>details</code></td>
+</tr>
+<tr>
+<td><code>recommendation</code></td>
+<td><code>Upgrade &lt;package&gt; to &lt;version&gt;</code> for each affected package with a fixed version, the smallest fix above the installed version</td>
+</tr>
+<tr>
+<td><code>advisories[]</code></td>
+<td>The record's reference URLs</td>
+</tr>
+<tr>
+<td><code>published</code>, <code>updated</code></td>
+<td>The record's timestamps</td>
+</tr>
+<tr>
+<td><code>affects[]</code></td>
+<td><code>{ ref }</code> for every affected component (<code>bom-ref</code> = the package's purl); a conda package matched through its PyPI purl is listed under its own <code>bom-ref</code></td>
+</tr>
+</tbody>
+</table>
+<p>Entries are ordered by the worst rating, then id.</p>
 <h2 id="spdx-301">SPDX 3.0.1<a class="headerlink" href="#spdx-301" title="Permanent link">&para;</a></h2>
 <p><code>--format spdx --spec-version 3.0</code> writes the SPDX 3.0.1 JSON-LD serialization: a <code>@context</code> of
 <code>https://spdx.org/rdf/3.0.1/spdx-context.jsonld</code> and a <code>@graph</code> of typed elements, each with an IRI <code>spdxId</code> under
