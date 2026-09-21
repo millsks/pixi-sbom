@@ -93,6 +93,8 @@ jobs:
     permissions:
       contents: read
       security-events: write # SARIF upload to code scanning
+      id-token: write # attestations
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -117,6 +119,8 @@ jobs:
           fail-on-vulnerabilities: "false"
           upload-sarif: ${{ matrix.os == 'ubuntu-latest' && 'true' || 'false' }}
           sarif-category: pixi-sbom-${{ matrix.os }}
+          # Attest the documents on main (pull requests have no id-token), from Linux only.
+          attest: ${{ github.event_name == 'push' && matrix.os == 'ubuntu-latest' && 'true' || 'false' }}
           # Python-2.0 (pre-commit's python) is in every environment on every platform, so the
           # deny list trips everywhere and, with fail-on-policy off, becomes a warning.
           # require-license holds since 0.5.1 normalizes conda-forge's "WITH exceptions".
@@ -134,6 +138,13 @@ jobs:
           echo "pixi-sbom ${{ steps.sbom.outputs.version }} wrote to ${{ steps.sbom.outputs.output }}"
           # Every document carries the lookup's outcome even when it found nothing.
           test -s sboms/sbom-default.cdx.json
+      - name: Verify the attestation
+        if: ${{ github.event_name == 'push' && matrix.os == 'ubuntu-latest' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "attested: ${{ steps.sbom.outputs.attestation-url }}"
+          gh attestation verify sboms/sbom-default.cdx.json --repo "$GITHUB_REPOSITORY"
       - name: A satisfied policy exits 0
         uses: ./
         with:
