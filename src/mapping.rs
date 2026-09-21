@@ -189,8 +189,9 @@ fn download(url: &str) -> Result<String, Box<ureq::Error>> {
     crate::http::get_text(url, MAX_MAPPING_BYTES)
 }
 
-/// Directory for cached downloads: `PIXI_SBOM_CACHE_DIR`, else `pixi-sbom` under
-/// `PIXI_CACHE_DIR`, else the platform cache directory.
+/// Directory for cached downloads: `PIXI_SBOM_CACHE_DIR`, else `pixi-sbom` inside the pixi
+/// cache directory (`PIXI_CACHE_DIR`, `RATTLER_CACHE_DIR`, or the platform default), so that
+/// `pixi clean cache` removes it along with everything else pixi caches.
 pub fn cache_dir() -> PathBuf {
     cache_dir_from(|name| std::env::var_os(name).map(PathBuf::from))
 }
@@ -199,17 +200,7 @@ fn cache_dir_from(env: impl Fn(&str) -> Option<PathBuf>) -> PathBuf {
     if let Some(dir) = env(CACHE_DIR_ENV) {
         return dir;
     }
-    if let Some(dir) = env("PIXI_CACHE_DIR") {
-        return dir.join("pixi-sbom");
-    }
-    let base = if cfg!(windows) {
-        env("LOCALAPPDATA").map(|d| d.join("cache"))
-    } else if cfg!(target_os = "macos") {
-        env("HOME").map(|d| d.join("Library").join("Caches"))
-    } else {
-        env("XDG_CACHE_HOME").or_else(|| env("HOME").map(|d| d.join(".cache")))
-    };
-    base.unwrap_or_else(std::env::temp_dir).join("pixi-sbom")
+    crate::pkgcache::pixi_cache_dir_from(env).join("pixi-sbom")
 }
 
 /// Add a `pkg:pypi` purl to every conda-forge package the mapping knows and whose lockfile
@@ -479,12 +470,16 @@ mod tests {
             Path::new("/explicit")
         );
         assert_eq!(with(&[("PIXI_CACHE_DIR", "/pixi")]), Path::new("/pixi/pixi-sbom"));
+        assert_eq!(
+            with(&[("RATTLER_CACHE_DIR", "/rattler")]),
+            Path::new("/rattler/pixi-sbom")
+        );
         let platform = with(&[
             ("HOME", "/home/u"),
             ("XDG_CACHE_HOME", "/xdg"),
             ("LOCALAPPDATA", "/lad"),
         ]);
-        assert!(platform.ends_with("pixi-sbom"), "{platform:?}");
-        assert!(with(&[]).ends_with("pixi-sbom"));
+        assert!(platform.ends_with(Path::new("rattler/cache/pixi-sbom")), "{platform:?}");
+        assert!(with(&[]).ends_with(Path::new("rattler/cache/pixi-sbom")));
     }
 }
