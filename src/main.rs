@@ -53,6 +53,14 @@ fn main() -> Result<()> {
             )
             .exit();
     }
+    if args.report == Some(report::ReportKind::Vulnerabilities) && args.vulnerabilities.is_none() {
+        cli::Args::command()
+            .error(
+                clap::error::ErrorKind::MissingRequiredArgument,
+                "'--report vulnerabilities' needs '--vulnerabilities <SOURCE>' to look them up",
+            )
+            .exit();
+    }
     let targets = resolve_targets(&args, &lock, &lockfile)?;
     let pypi_mapping = load_pypi_mapping(&args)?;
     tracing::debug!(lockfile = %lockfile.display(), ?targets, format = ?args.format, "resolved targets");
@@ -159,7 +167,7 @@ fn main() -> Result<()> {
             if args.format == cli::Format::Spdx && args.report.is_none() && findings > 0 {
                 tracing::warn!(
                     findings,
-                    "SPDX documents do not record vulnerabilities; use --format cyclonedx to keep them"
+                    "SPDX documents do not record vulnerabilities; use --format cyclonedx or --report vulnerabilities"
                 );
             }
         }

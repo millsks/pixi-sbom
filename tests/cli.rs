@@ -1324,6 +1324,59 @@ fn vulnerabilities_from_osv_are_recorded_in_cyclonedx() {
 }
 
 #[test]
+fn vulnerabilities_report_lists_findings_worst_first() {
+    let dir = workspace_with_vulnerable_urllib3();
+    let run = |format: &str| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "200")
+            .args(["-e", "web", "-p", "linux-64", "--vulnerabilities", "osv"])
+            .args(["--report", "vulnerabilities", "--report-format", format])
+            .assert()
+            .success()
+    };
+    let table = String::from_utf8(run("table").get_output().stdout.clone()).unwrap();
+    assert!(table.starts_with("Package  Version  Severity  Score  ID"), "{table}");
+    assert!(
+        table.contains("urllib3  1.26.4   high      7.5    GHSA-q2q7-5pp4-w6pg"),
+        "{table}"
+    );
+    assert!(table.contains("Summary: 9 findings in 1 packages"), "{table}");
+    assert!(table.contains("high      6\nmedium    3"), "{table}");
+    assert!(table.contains("No queryable identity (24):"), "{table}");
+    let first_medium = table.find("medium").unwrap();
+    let last_high = table.rfind("  high  ").unwrap();
+    assert!(last_high < first_medium, "worst first");
+
+    let csv = String::from_utf8(run("csv").get_output().stdout.clone()).unwrap();
+    assert!(csv.starts_with(
+        "environment,platform,package,version,purl,severity,score,id,aliases,fixed_version,summary,url\n"
+    ));
+    assert_eq!(csv.lines().count(), 10);
+
+    let markdown = String::from_utf8(run("markdown").get_output().stdout.clone()).unwrap();
+    assert!(markdown.contains("## vulnerabilities (with-pypi, environment web, platform linux-64)"));
+    assert!(markdown.contains("| Severity | Findings |"));
+
+    let json: Value = serde_json::from_slice(&run("json").get_output().stdout).unwrap();
+    assert_eq!(json["report"], "vulnerabilities");
+    assert_eq!(json["vulnerabilities"].as_array().unwrap().len(), 9);
+    assert_eq!(json["summary"]["findings"], 9);
+    assert_eq!(json["summary"]["without_identity"].as_array().unwrap().len(), 24);
+
+    // The report needs something to report on.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--report", "vulnerabilities"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("needs '--vulnerabilities <SOURCE>'"));
+}
+
+#[test]
 fn vulnerabilities_without_a_cache_fail_offline_only_when_the_query_is_missing() {
     // The clean fixture pins have cached "no findings" answers; nothing is looked up.
     let dir = workspace_with_vulnerable_urllib3();

@@ -36,7 +36,7 @@ With no options this means:
 | `--deny-license <LICENSE>` | | Repeatable. These SPDX licenses are unacceptable; a package whose expression cannot be satisfied without them is a violation. |
 | `--require-license` | off | Every package must declare a license that is an SPDX expression. |
 | `--vulnerabilities <osv>` | off | Look up known vulnerabilities of every package with a purl OSV can answer and record them in the document (see below). |
-| `--report <packages\|licenses>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`. |
+| `--report <packages\|licenses\|vulnerabilities>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`. |
 | `--report-format <table\|markdown\|csv\|json>` | `table` | How to render the report. |
 | `--pypi-licenses` | | Deprecated alias for `--fetch-licenses` (hidden from `--help`; removed in a future release). |
 | `-v`, `-vv` | info | Raise the log level to debug / trace. Logs go to stderr; the SBOM never goes to stdout. |
@@ -83,8 +83,8 @@ them, so `--format spdx` writes the document and warns.
 # Conda-installed Python packages are matched through their PyPI purl, so add the mapping
 pixi sbom --pypi-mapping prefix --vulnerabilities osv
 
-# Straight into a scanner-free triage: which findings, worst first
-pixi sbom --pypi-mapping prefix --vulnerabilities osv --output - | jq '.vulnerabilities[] | {id, severity: .ratings[0].severity, recommendation}'
+# Or as a table, worst first, with a summary by severity
+pixi sbom --pypi-mapping prefix --vulnerabilities osv --report vulnerabilities
 ```
 
 One `querybatch` request per thousand purls yields the advisory ids, then each record is fetched (ten at a time).
@@ -113,6 +113,9 @@ pixi sbom --report packages
 # (each non-SPDX license names the token the parser rejected, e.g. "unknown term: 'PSF'")
 pixi sbom --fetch-licenses --report licenses
 
+# The findings of --vulnerabilities, one row per finding and affected package, worst first
+pixi sbom --pypi-mapping prefix --vulnerabilities osv --report vulnerabilities
+
 # For a PR comment, a spreadsheet, or a script
 pixi sbom --report licenses --report-format markdown
 pixi sbom --report licenses --report-format csv > licenses.csv
@@ -123,6 +126,11 @@ Reports respect every selection and enrichment flag, so they show exactly what a
 `--all-environments` / `--all-platforms` there is one section (or JSON array element) per document. `--report`
 cannot be combined with `--output`. The `table` format fits the terminal width (`COLUMNS`, default 120) by
 truncating the last column; the other formats are never truncated.
+
+The vulnerabilities report has one row per finding and affected package (package, version, severity, the highest
+CVSS score, id, aliases, fixed version, summary; the CSV and JSON forms add the purl and the OSV URL), ordered worst
+first, followed by a count of distinct findings and affected packages, a table of findings per severity, and the
+packages that have no purl the database could answer.
 
 ## One document per environment and platform
 
