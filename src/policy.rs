@@ -212,7 +212,10 @@ impl Policy {
                 License::Expression(expression) => expression,
                 License::Text(text) => {
                     if self.require_license {
-                        violations.push(violation(Reason::NotSpdx, Some(text)));
+                        let detail = license::rejection_reason(raw)
+                            .map(|why| format!("{text} ({why})"))
+                            .unwrap_or(text);
+                        violations.push(violation(Reason::NotSpdx, Some(detail)));
                     }
                     continue;
                 }
@@ -388,7 +391,7 @@ mod tests {
         assert_eq!(v[1].to_string(), "six 1.17.0: no license declared");
         assert_eq!(
             v[0].to_string(),
-            "mylib: license is not an SPDX expression (Proprietary)"
+            "mylib: license is not an SPDX expression (Proprietary (unknown term: 'Proprietary'))"
         );
     }
 }

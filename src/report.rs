@@ -50,6 +50,9 @@ pub struct Row {
     pub license: Option<String>,
     /// Whether `license` is a valid SPDX expression.
     pub spdx: bool,
+    /// Why it is not, when it is not.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spdx_reason: Option<String>,
     pub license_family: Option<String>,
     /// Where the license came from: `lockfile`, `package-cache`, `pypi`, or `None`.
     pub license_source: Option<String>,
@@ -64,7 +67,7 @@ pub struct LicenseSummary {
     pub by_license: Vec<(String, usize)>,
     /// Packages that declare no license.
     pub unlicensed: Vec<String>,
-    /// Packages whose license is not a valid SPDX expression.
+    /// Packages whose license is not a valid SPDX expression, with the parser's reason.
     pub non_spdx: Vec<String>,
 }
 
@@ -146,6 +149,10 @@ fn row(package: &Package) -> Row {
         Some(License::Text(text)) if !text.is_empty() => (Some(text), false),
         _ => (None, false),
     };
+    let spdx_reason = match (&license, spdx) {
+        (Some(_), false) => package.license.as_deref().and_then(license::rejection_reason),
+        _ => None,
+    };
     let license_source = package
         .properties
         .get("pixi:license-source")
@@ -162,6 +169,7 @@ fn row(package: &Package) -> Row {
             .unwrap_or_else(|| "-".into()),
         license,
         spdx,
+        spdx_reason,
         license_family: package.properties.get("pixi:license-family").cloned(),
         license_source,
         license_files: package.license_files.iter().map(|f| f.name.clone()).collect(),
@@ -177,7 +185,10 @@ fn summarize(rows: &[Row]) -> LicenseSummary {
             Some(license) => {
                 *counts.entry(license).or_default() += 1;
                 if !row.spdx {
-                    summary.non_spdx.push(row.name.clone());
+                    summary.non_spdx.push(match &row.spdx_reason {
+                        Some(reason) => format!("{} ({reason})", row.name),
+                        None => row.name.clone(),
+                    });
                 }
             }
             None => summary.unlicensed.push(row.name.clone()),
@@ -350,6 +361,7 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
             "kind",
             "license",
             "spdx",
+            "spdx_reason",
             "license_family",
             "license_source",
             "license_files",
@@ -375,6 +387,7 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
                     row.kind.to_string(),
                     row.license.clone().unwrap_or_default(),
                     row.spdx.to_string(),
+                    row.spdx_reason.clone().unwrap_or_default(),
                     row.license_family.clone().unwrap_or_default(),
                     row.license_source.clone().unwrap_or_default(),
                     row.license_files.join(";"),
@@ -437,7 +450,10 @@ mod tests {
             ]
         );
         assert_eq!(summary.unlicensed, ["six"]);
-        assert_eq!(summary.non_spdx, ["mylib"]);
+        assert_eq!(summary.non_spdx.len(), 1);
+        assert!(summary.non_spdx[0].starts_with("mylib ("), "{:?}", summary.non_spdx);
+        assert!(by_name("mylib").spdx_reason.as_deref().unwrap().contains("Proprietary"));
+        assert_eq!(by_name("zlib").spdx_reason, None);
     }
 
     #[test]

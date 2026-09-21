@@ -20,4 +20,4 @@ expression: "render_string(ReportKind::Licenses, ReportFormat::Markdown, &[sampl
 | Zlib | 1 |
 
 No license (1): six
-Not an SPDX expression (1): mylib
+Not an SPDX expression (1): mylib (unknown term: 'Proprietary')
