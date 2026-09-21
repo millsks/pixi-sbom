@@ -257,6 +257,7 @@ have been merged:
 | `advisories[]` | The record's reference URLs |
 | `published`, `updated` | The record's timestamps |
 | `affects[]` | `{ ref }` for every affected component (`bom-ref` = the package's purl); a conda package matched through its PyPI purl is listed under its own `bom-ref` |
+| `analysis` | Only for findings accepted with `--ignore-vuln`: `{ state, detail }`, the CycloneDX impact-analysis (VEX) block |
 
 Entries are ordered by the worst rating, then id.
 

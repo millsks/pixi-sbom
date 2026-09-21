@@ -2,7 +2,7 @@
 source: src/report.rs
 expression: "render_string(ReportKind::Vulnerabilities, ReportFormat::Csv,\n&[vulnerable_sbom()])"
 ---
-environment,platform,package,version,purl,severity,score,id,aliases,fixed_version,summary,url
-default,linux-64,six,1.17.0,pkg:pypi/six@1.17.0,high,7.5,GHSA-q2q7-5pp4-w6pg,CVE-2021-33503;PYSEC-2021-108,1.26.5,Catastrophic backtracking in URL authority parser,https://osv.dev/vulnerability/GHSA-q2q7-5pp4-w6pg
-default,linux-64,zlib,1.3.1,pkg:pypi/zlib@1.3.1,unknown,,PYSEC-2099-1,,,,https://osv.dev/vulnerability/PYSEC-2099-1
-default,linux-64,six,1.17.0,pkg:pypi/six@1.17.0,unknown,,PYSEC-2099-1,,,,https://osv.dev/vulnerability/PYSEC-2099-1
+environment,platform,package,version,purl,severity,score,id,aliases,fixed_version,status,summary,url
+default,linux-64,six,1.17.0,pkg:pypi/six@1.17.0,high,7.5,GHSA-q2q7-5pp4-w6pg,CVE-2021-33503;PYSEC-2021-108,1.26.5,open,Catastrophic backtracking in URL authority parser,https://osv.dev/vulnerability/GHSA-q2q7-5pp4-w6pg
+default,linux-64,zlib,1.3.1,pkg:pypi/zlib@1.3.1,unknown,,PYSEC-2099-1,,,ignored (false_positive),,https://osv.dev/vulnerability/PYSEC-2099-1
+default,linux-64,six,1.17.0,pkg:pypi/six@1.17.0,unknown,,PYSEC-2099-1,,,ignored (false_positive),,https://osv.dev/vulnerability/PYSEC-2099-1

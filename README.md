@@ -53,6 +53,9 @@ pixi sbom --pypi-mapping prefix --vulnerabilities osv
 # ... or as a table, worst first
 pixi sbom --pypi-mapping prefix --vulnerabilities osv --report vulnerabilities
 
+# Fail CI on anything high or critical, except a finding assessed as not affecting you (exit code 4)
+pixi sbom --pypi-mapping prefix --vulnerabilities osv --fail-on-severity high --ignore-vuln "CVE-2023-43804:not reachable"
+
 # Just look: an inventory or license table in the terminal, nothing written
 pixi sbom --report packages
 pixi sbom --fetch-licenses --report licenses --report-format markdown
@@ -94,6 +97,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--license-texts` | off | With `--fetch-licenses`, embed the full license texts |
 | `--allow-license` / `--deny-license` / `--require-license` | | License policy; violations are listed and the run exits 3 after writing the document |
 | `--vulnerabilities osv` | off | Look every package with a PyPI / crates.io / npm purl up on [OSV](https://osv.dev) and record the findings in CycloneDX `vulnerabilities[]` (severity, CVSS, fixed version, aliases) |
+| `--fail-on-severity` / `--ignore-vuln` | | Vulnerability gate: exit 4 on open findings at or above a severity; accepted findings keep a VEX-style `analysis` block |
 | `--embedded-sboms` | off | Attach the components declared by SBOMs embedded in wheels (PEP 770, e.g. Rust crates) under the wheel |
 | `--report <packages\|licenses\|vulnerabilities>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`) |
 | `-v` / `-q` | info | More / less logging on stderr |

@@ -565,6 +565,7 @@ fn vulnerability(record: Record, mut affects: Vec<Affected>) -> Vulnerability {
         published: record.published,
         modified: record.modified,
         affects,
+        analysis: None,
     }
 }
 

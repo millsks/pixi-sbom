@@ -91,6 +91,12 @@ pub struct VulnerabilityRow {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
     pub url: String,
+    /// The analysis state when the finding was accepted with `--ignore-vuln`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ignored: Option<String>,
+    /// The justification given with `--ignore-vuln`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub justification: Option<String>,
 }
 
 /// Summary of the findings in one document.
@@ -100,8 +106,10 @@ pub struct VulnerabilitySummary {
     pub findings: usize,
     /// Findings per severity, worst first; only severities that occur.
     pub by_severity: Vec<(String, usize)>,
-    /// Distinct packages with at least one finding.
+    /// Distinct packages with at least one finding that is not ignored.
     pub affected_packages: usize,
+    /// Findings accepted with `--ignore-vuln`, as `id (state): justification`.
+    pub ignored: Vec<String>,
     /// Packages with no purl the vulnerability database can answer (conda-only identities).
     pub without_identity: Vec<String>,
 }
@@ -150,9 +158,12 @@ impl Report {
                 report.packages = Some(packages);
             }
             ReportKind::Vulnerabilities => {
+                // Ignored findings go last, so the table reads worst-open first.
                 let rows: Vec<VulnerabilityRow> = sbom
                     .vulnerabilities
                     .iter()
+                    .filter(|v| v.analysis.is_none())
+                    .chain(sbom.vulnerabilities.iter().filter(|v| v.analysis.is_some()))
                     .flat_map(|v| vulnerability_rows(v, sbom))
                     .collect();
                 report.vulnerability_summary = Some(summarize_vulnerabilities(&rows, sbom));
@@ -175,7 +186,7 @@ impl Report {
             ReportKind::Packages => vec!["Name", "Version", "Kind", "Source", "License", "Purl"],
             ReportKind::Licenses => vec!["Name", "Version", "Kind", "License", "Family", "Source", "Files"],
             ReportKind::Vulnerabilities => vec![
-                "Package", "Version", "Severity", "Score", "ID", "Aliases", "Fixed", "Summary",
+                "Package", "Version", "Severity", "Score", "ID", "Aliases", "Fixed", "Status", "Summary",
             ],
         }
     }
@@ -226,6 +237,7 @@ fn vulnerability_cells(row: &VulnerabilityRow) -> Vec<String> {
             row.aliases.join(", ")
         },
         row.fixed_version.clone().unwrap_or_else(dash),
+        if row.ignored.is_some() { "ignored" } else { "open" }.to_string(),
         row.summary.clone().unwrap_or_else(dash),
     ]
 }
@@ -252,8 +264,16 @@ fn vulnerability_rows(vuln: &Vulnerability, sbom: &Sbom) -> Vec<VulnerabilityRow
                 id: vuln.id.clone(),
                 aliases: vuln.aliases.clone(),
                 fixed_version: affected.fixed_version.clone(),
-                summary: vuln.summary.clone(),
+                // A record without a summary usually still has details; its first line will do.
+                summary: vuln.summary.clone().or_else(|| {
+                    vuln.details
+                        .as_deref()
+                        .and_then(|d| d.lines().find(|l| !l.trim().is_empty()))
+                        .map(|l| l.trim().to_string())
+                }),
                 url: vuln.url.clone(),
+                ignored: vuln.analysis.as_ref().map(|a| a.state.to_string()),
+                justification: vuln.analysis.as_ref().and_then(|a| a.detail.clone()),
             }
         })
         .collect()
@@ -269,13 +289,18 @@ fn summarize_vulnerabilities(rows: &[VulnerabilityRow], sbom: &Sbom) -> Vulnerab
         Severity::None,
         Severity::Unknown,
     ] {
-        let count = sbom.vulnerabilities.iter().filter(|v| v.severity == severity).count();
+        let count = sbom
+            .vulnerabilities
+            .iter()
+            .filter(|v| v.analysis.is_none() && v.severity == severity)
+            .count();
         if count > 0 {
             by_severity.push((severity.name().to_string(), count));
         }
     }
     let affected_packages = rows
         .iter()
+        .filter(|r| r.ignored.is_none())
         .map(|r| &r.purl)
         .collect::<std::collections::BTreeSet<_>>()
         .len();
@@ -290,9 +315,20 @@ fn summarize_vulnerabilities(rows: &[VulnerabilityRow], sbom: &Sbom) -> Vulnerab
         .map(|p| p.name.clone())
         .collect();
     VulnerabilitySummary {
-        findings: sbom.vulnerabilities.len(),
+        findings: sbom.vulnerabilities.iter().filter(|v| v.analysis.is_none()).count(),
         by_severity,
         affected_packages,
+        ignored: sbom
+            .vulnerabilities
+            .iter()
+            .filter_map(|v| {
+                let analysis = v.analysis.as_ref()?;
+                Some(match &analysis.detail {
+                    Some(detail) => format!("{} ({}): {detail}", v.id, analysis.state),
+                    None => format!("{} ({})", v.id, analysis.state),
+                })
+            })
+            .collect(),
         without_identity,
     }
 }
@@ -513,10 +549,19 @@ fn render_vulnerability_summary(
     out: &mut dyn Write,
 ) -> io::Result<()> {
     writeln!(out)?;
-    let heading = format!(
-        "Summary: {} findings in {} packages",
-        summary.findings, summary.affected_packages
-    );
+    let heading = if !summary.ignored.is_empty() {
+        format!(
+            "Summary: {} open findings in {} packages, {} ignored",
+            summary.findings,
+            summary.affected_packages,
+            summary.ignored.len()
+        )
+    } else {
+        format!(
+            "Summary: {} findings in {} packages",
+            summary.findings, summary.affected_packages
+        )
+    };
     match format {
         ReportFormat::Markdown => writeln!(out, "### {heading}\n")?,
         _ => writeln!(out, "{heading}")?,
@@ -533,6 +578,12 @@ fn render_vulnerability_summary(
         }
     }
     writeln!(out)?;
+    if !summary.ignored.is_empty() {
+        writeln!(out, "Ignored ({}):", summary.ignored.len())?;
+        for line in &summary.ignored {
+            writeln!(out, "  {line}")?;
+        }
+    }
     if summary.without_identity.is_empty() {
         writeln!(out, "No queryable identity: none")?;
     } else {
@@ -608,7 +659,7 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
 fn render_vulnerabilities_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
     writeln!(
         out,
-        "environment,platform,package,version,purl,severity,score,id,aliases,fixed_version,summary,url"
+        "environment,platform,package,version,purl,severity,score,id,aliases,fixed_version,status,summary,url"
     )?;
     for report in reports {
         for row in report.vulnerabilities.iter().flatten() {
@@ -623,6 +674,10 @@ fn render_vulnerabilities_csv(reports: &[Report], out: &mut dyn Write) -> io::Re
                 row.id.clone(),
                 row.aliases.join(";"),
                 row.fixed_version.clone().unwrap_or_default(),
+                row.ignored
+                    .as_deref()
+                    .map(|s| format!("ignored ({s})"))
+                    .unwrap_or_else(|| "open".into()),
                 row.summary.clone().unwrap_or_default(),
                 row.url.clone(),
             ];
@@ -836,6 +891,7 @@ mod tests {
                     purl: "pkg:pypi/six@1.17.0".into(),
                     fixed_version: Some("1.26.5".into()),
                 }],
+                analysis: None,
             },
             Vulnerability {
                 id: "PYSEC-2099-1".into(),
@@ -863,6 +919,10 @@ mod tests {
                         fixed_version: None,
                     },
                 ],
+                analysis: Some(crate::model::Analysis {
+                    state: "false_positive",
+                    detail: Some("not the same zlib".into()),
+                }),
             },
         ];
         sbom
@@ -874,6 +934,8 @@ mod tests {
         assert!(report.packages.is_none());
         let rows = report.vulnerabilities.as_ref().unwrap();
         assert_eq!(rows.len(), 3, "one row per finding and affected package");
+        assert_eq!(rows[0].ignored, None);
+        assert_eq!(rows[1].ignored.as_deref(), Some("false_positive"));
         assert_eq!(rows[0].package, "six");
         assert_eq!(rows[0].version, "1.17.0");
         assert_eq!(rows[0].severity, "high");
@@ -886,10 +948,13 @@ mod tests {
         let summary = report.vulnerability_summary.as_ref().unwrap();
         assert_eq!(
             summary.by_severity,
-            [("high".to_string(), 1), ("unknown".to_string(), 1)]
+            [("high".to_string(), 1)],
+            "ignored findings are not counted"
         );
-        assert_eq!(summary.findings, 2);
-        assert_eq!(summary.affected_packages, 2);
+        assert_eq!(summary.findings, 1);
+        assert_eq!(summary.ignored, ["PYSEC-2099-1 (false_positive): not the same zlib"]);
+        assert_eq!(rows[1].justification.as_deref(), Some("not the same zlib"));
+        assert_eq!(summary.affected_packages, 1);
         assert_eq!(summary.without_identity, ["libzlib", "mylib"]);
     }
 
@@ -928,7 +993,9 @@ mod tests {
         assert!(value.get("packages").is_none());
         assert_eq!(value["vulnerabilities"].as_array().unwrap().len(), 3);
         assert_eq!(value["vulnerabilities"][0]["aliases"][0], "CVE-2021-33503");
-        assert_eq!(value["summary"]["affected_packages"], 2);
+        assert_eq!(value["summary"]["affected_packages"], 1);
+        assert_eq!(value["summary"]["ignored"].as_array().unwrap().len(), 1);
+        assert_eq!(value["vulnerabilities"][1]["ignored"], "false_positive");
         assert_eq!(value["summary"]["by_severity"][0][0], "high");
 
         // No findings at all still renders a summary.

@@ -19,6 +19,7 @@ mod policy;
 mod purl;
 mod pypi;
 mod report;
+mod vulnpolicy;
 mod wheel;
 mod zipread;
 
@@ -72,6 +73,17 @@ fn main() -> Result<()> {
                 .exit()
         });
     let mut violations: Vec<(String, String, policy::Violation)> = Vec::new();
+    let ignores: Vec<vulnpolicy::Ignore> = args
+        .ignore_vuln
+        .iter()
+        .map(|text| vulnpolicy::Ignore::parse(text))
+        .collect::<Result<_, _>>()
+        .unwrap_or_else(|err| {
+            cli::Args::command()
+                .error(clap::error::ErrorKind::InvalidValue, format!("--ignore-vuln: {err}"))
+                .exit()
+        });
+    let mut gate_hits: Vec<(String, String, vulnpolicy::Hit)> = Vec::new();
 
     for Target {
         environment,
@@ -170,6 +182,20 @@ fn main() -> Result<()> {
                     "SPDX documents do not record vulnerabilities; use --format cyclonedx or --report vulnerabilities"
                 );
             }
+            let ignored = vulnpolicy::apply_ignores(&mut sbom, &ignores);
+            if let Some(threshold) = args.fail_on_severity {
+                let hits = vulnpolicy::check(&sbom, threshold.severity());
+                tracing::info!(
+                    ignored,
+                    hits = hits.len(),
+                    threshold = threshold.severity().name(),
+                    "checked the vulnerability gate"
+                );
+                gate_hits.extend(
+                    hits.into_iter()
+                        .map(|h| (sbom.environment.clone(), sbom.platform.clone(), h)),
+                );
+            }
         }
         if let Some(policy) = &policy {
             let found = policy.check(&sbom);
@@ -202,6 +228,23 @@ fn main() -> Result<()> {
             .into_diagnostic()
             .wrap_err("cannot write the report to stdout")?;
     }
+    if !gate_hits.is_empty() {
+        let mut stderr = std::io::stderr().lock();
+        let _ = writeln!(
+            stderr,
+            "Vulnerability gate failed: {} finding(s) at or above {}:",
+            gate_hits.len(),
+            args.fail_on_severity.map(|s| s.severity().name()).unwrap_or("?")
+        );
+        for (environment, platform, hit) in &gate_hits {
+            let _ = if targets.len() > 1 {
+                writeln!(stderr, "  [{environment}/{platform}] {hit}")
+            } else {
+                writeln!(stderr, "  {hit}")
+            };
+        }
+        let _ = stderr.flush();
+    }
     if !violations.is_empty() {
         let mut stderr = std::io::stderr().lock();
         let _ = writeln!(stderr, "License policy violated by {} package(s):", violations.len());
@@ -214,6 +257,9 @@ fn main() -> Result<()> {
         }
         let _ = stderr.flush();
         std::process::exit(policy::VIOLATION_EXIT_CODE);
+    }
+    if !gate_hits.is_empty() {
+        std::process::exit(vulnpolicy::GATE_EXIT_CODE);
     }
     Ok(())
 }
