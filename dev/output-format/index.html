@@ -1627,6 +1627,10 @@ have been merged:</p>
 <td><code>analysis</code></td>
 <td>Only for findings accepted with <code>--ignore-vuln</code>: <code>{ state, detail }</code>, the CycloneDX impact-analysis (VEX) block</td>
 </tr>
+<tr>
+<td><code>properties[]</code></td>
+<td>With <code>--kev</code>, for known-exploited findings: <code>pixi:kev=true</code>, <code>pixi:kev-cve</code>, <code>pixi:kev-date-added</code>, <code>pixi:kev-due-date</code>, <code>pixi:kev-ransomware</code>; the rating from <code>CISA KEV</code> is <code>critical</code> and, without a fixed version, <code>recommendation</code> carries the catalog's required action</td>
+</tr>
 </tbody>
 </table>
 <p>Entries are ordered by the worst rating, then id.</p>
