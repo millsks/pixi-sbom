@@ -96,6 +96,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--pypi-mapping <lock\|prefix>` | `lock` | `prefix` adds `pkg:pypi` purls to conda-forge packages from the mapping pixi uses (cached daily) |
 | `--pypi-mapping-file <PATH>` | | Offline copy of that mapping |
 | `--primary-purl <conda\|pypi>` | `conda` | `pypi` makes the PyPI purl primary so grype / trivy / osv-scanner can match |
+| `--config` / `--no-config` | auto | Read `[tool.pixi-sbom]` in `pyproject.toml` or `pixi-sbom.toml` next to the lockfile before the command line; keys mirror the flags, the command line wins |
 | `--exclude` / `--include` / `--exclude-kind` | | Leave packages out (shell-style name patterns or a kind); what only they needed goes too, and the root records `pixi:excluded` |
 | `--fetch-licenses` | off | Licenses for every package, conda and PyPI alike (conda from the local package cache or the channel archive, PyPI from the wheel or the index), plus license file names, summary and URLs |
 | `--license-texts` | off | With `--fetch-licenses`, embed the full license texts |
