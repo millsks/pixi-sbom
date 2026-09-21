@@ -154,15 +154,21 @@ runs:
         set -euo pipefail
         name="pixi-sbom-v${VERSION}-${PLATFORM}"
         base="https://github.com/millsks/pixi-sbom/releases/download/v${VERSION}"
-        dir="${RUNNER_TEMP}/pixi-sbom-install"
-        mkdir -p "$dir" && cd "$dir"
+        dir="${RUNNER_TEMP}/pixi-sbom-install/${name}"
+        # The action may run several times in one job; reuse an install of the same version.
+        if ls "$dir/bin"/pixi-sbom* >/dev/null 2>&1; then
+          echo "$dir/bin" >> "$GITHUB_PATH"
+          "$dir/bin"/pixi-sbom* --version
+          exit 0
+        fi
+        rm -rf "$dir" && mkdir -p "$dir" && cd "$dir"
         curl -sSfL -o "$name.$EXT" "$base/$name.$EXT"
         curl -sSfL -o "$name.$EXT.sha256" "$base/$name.$EXT.sha256"
         # The checksum file names the archive bare (GNU and BSD spellings); check it here.
         expected=$(cut -d' ' -f1 "$name.$EXT.sha256")
         if command -v sha256sum >/dev/null; then actual=$(sha256sum "$name.$EXT" | cut -d' ' -f1); else actual=$(shasum -a 256 "$name.$EXT" | cut -d' ' -f1); fi
         [ "$expected" = "$actual" ] || { echo "::error::checksum mismatch for $name.$EXT"; exit 1; }
-        if [ "$EXT" = zip ]; then unzip -q "$name.zip"; else tar xzf "$name.tar.gz"; fi
+        if [ "$EXT" = zip ]; then unzip -q -o "$name.zip"; else tar xzf "$name.tar.gz"; fi
         mkdir -p "$dir/bin"
         mv "$name"/pixi-sbom* "$dir/bin/"
         chmod +x "$dir/bin"/pixi-sbom* || true
