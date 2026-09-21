@@ -429,6 +429,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#signed-sboms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signed SBOMs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#a-worked-example" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -719,6 +730,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#signed-sboms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signed SBOMs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#a-worked-example" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -840,6 +862,11 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 <td>Write the findings as SARIF and upload them to GitHub code scanning (see below)</td>
 </tr>
 <tr>
+<td><code>attest</code>, <code>attest-subject</code></td>
+<td><code>false</code>,</td>
+<td>Sign the documents with a GitHub artifact attestation (see below)</td>
+</tr>
+<tr>
 <td><code>extra-args</code></td>
 <td></td>
 <td>Any other CLI arguments</td>
@@ -851,7 +878,8 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 </tr>
 </tbody>
 </table>
-<p>Outputs: <code>version</code>, <code>output</code>, <code>policy-violated</code>, <code>vulnerabilities-found</code>, <code>sarif</code>. The action runs on Linux (x64, arm64), macOS (Intel, Apple
+<p>Outputs: <code>version</code>, <code>output</code>, <code>document</code> (the file, in single-document mode), <code>policy-violated</code>,
+<code>vulnerabilities-found</code>, <code>sarif</code>, <code>attestation-url</code>. The action runs on Linux (x64, arm64), macOS (Intel, Apple
 Silicon) and Windows runners, and describes any platform in the lockfile regardless of the runner (<code>platform:
 linux-64</code> on a macOS runner is fine).</p>
 <h2 id="without-the-action">Without the action<a class="headerlink" href="#without-the-action" title="Permanent link">&para;</a></h2>
@@ -896,22 +924,48 @@ Code scanning</em> with the <code>sarif-category</code> you choose. The job need
 <code>pixi-sbom/&lt;environment&gt;</code> (or <code>pixi-sbom/&lt;environment&gt;/&lt;platform&gt;</code> in batch mode) rather than under
 <code>sarif-category</code>. The SARIF report reuses the lookup's cache, so the second run costs no network requests. Outside the action, the
 same file comes from <code>pixi sbom --vulnerabilities osv --report vulnerabilities --report-format sarif &gt; findings.sarif</code>.</p>
+<h2 id="signed-sboms">Signed SBOMs<a class="headerlink" href="#signed-sboms" title="Permanent link">&para;</a></h2>
+<p>An SBOM published from CI is only as trustworthy as its provenance. <code>attest: "true"</code> signs the documents with a
+GitHub artifact attestation (Sigstore, bound to the workflow run, listed on the repository's <em>Attestations</em> page)
+and needs <code>id-token: write</code> and <code>attestations: write</code>:</p>
+<ul>
+<li>with <code>attest-subject</code>, the path of the artifact the SBOM describes (a wheel, a container image tarball, an
+  archive), the SBOM is attached to that artifact as an SBOM attestation through <code>actions/attest-sbom</code>, single-
+  document mode only;</li>
+<li>without it, the documents themselves get a build provenance attestation through
+  <code>actions/attest-build-provenance</code> (every <code>*.json</code> in the output directory in batch mode).</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">permissions</span><span class="p">:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">contents</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">read</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">id-token</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">write</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">attestations</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">write</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">steps</span><span class="p">:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/checkout@v4</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">millsks/pixi-sbom@v0.7.0</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">with</span><span class="p">:</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">      </span><span class="nt">attest</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+</code></pre></div>
+<p>Anyone can then verify a downloaded document against the repository:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>gh<span class="w"> </span>attestation<span class="w"> </span>verify<span class="w"> </span>sbom.cdx.json<span class="w"> </span>--repo<span class="w"> </span>&lt;owner&gt;/&lt;repo&gt;
+</code></pre></div>
+<p>Pull requests from forks have no <code>id-token</code>, so attest on pushes only (<code>attest: ${{ github.event_name == 'push' &amp;&amp;
+'true' || 'false' }}</code>), as this repository's own workflow does.</p>
 <h2 id="a-worked-example">A worked example<a class="headerlink" href="#a-worked-example" title="Permanent link">&para;</a></h2>
 <p>This repository dogfoods its own action in <code>.github/workflows/ci.yml</code>: every environment of its lockfile is
 described with licenses fetched, PyPI identities from the conda-forge mapping and embedded SBOMs attached, a deny
 list that is known to trip (<code>Python-2.0</code>) proves the <code>policy-violated</code> output with <code>fail-on-policy: "false"</code>, and a
 second step with a satisfiable policy proves exit 0:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">millsks/pixi-sbom@v0.5.1</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sbom</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">all-environments</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">fetch-licenses</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">pypi-mapping</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prefix</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">embedded-sboms</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">deny-license</span><span class="p">:</span><span class="w"> </span><span class="s">"Python-2.0"</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="nt">require-license</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">fail-on-policy</span><span class="p">:</span><span class="w"> </span><span class="s">"false"</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">test "${{ steps.sbom.outputs.policy-violated }}" = "true"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">millsks/pixi-sbom@v0.5.1</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sbom</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nt">all-environments</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="nt">fetch-licenses</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="nt">pypi-mapping</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prefix</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="nt">embedded-sboms</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="nt">deny-license</span><span class="p">:</span><span class="w"> </span><span class="s">"Python-2.0"</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="nt">require-license</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="nt">fail-on-policy</span><span class="p">:</span><span class="w"> </span><span class="s">"false"</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">test "${{ steps.sbom.outputs.policy-violated }}" = "true"</span>
 </code></pre></div>
 <p>Every input maps to a <a href="../cli/#options">command-line option</a> of the same name; the action adds nothing the binary
 cannot do.</p>
