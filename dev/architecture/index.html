@@ -818,10 +818,11 @@ once no matter how many output formats exist.</p>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>   report.rs ───── --report: renders the model as a terminal table instead of a document
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>   policy.rs ───── --allow/--deny/--require-license: violations -&gt; exit 3 after writing
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>   osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>   license.rs ◀── used by both writers
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>   discover.rs ── finds the lockfile, decides output paths
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>   cli.rs ──────── clap definitions
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>   main.rs ─────── wires it together, logging, error reporting
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>   vulnpolicy.rs ─ --fail-on-severity / --ignore-vuln: analysis blocks and exit 4 after writing
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>   license.rs ◀── used by both writers
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>   discover.rs ── finds the lockfile, decides output paths
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>   cli.rs ──────── clap definitions
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>   main.rs ─────── wires it together, logging, error reporting
 </code></pre></div>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <table>
@@ -937,6 +938,11 @@ once no matter how many output formats exist.</p>
 <td><code>osv.rs</code></td>
 <td><code>--vulnerabilities osv</code>: collects every queryable purl (conda purls excluded), asks OSV's <code>querybatch</code> in thousands, fetches each record in parallel, caches queries (one hour) and records (until <code>modified</code> moves), merges GHSA / PYSEC twins by alias, picks the fixed version above the installed one, and fills <code>Sbom::vulnerabilities</code>. A failed query is fatal; a failed record is not.</td>
 <td>serde_json, http.rs, cvss.rs, parallel.rs</td>
+</tr>
+<tr>
+<td><code>vulnpolicy.rs</code></td>
+<td><code>--fail-on-severity</code> / <code>--ignore-vuln</code>: parses ignore entries (<code>ID[:STATE][:TEXT]</code>), marks matching findings (by id or alias) with an <code>Analysis</code>, and lists the open findings at or above the threshold; exit code 4 is applied in <code>main</code>.</td>
+<td>model.rs</td>
 </tr>
 <tr>
 <td><code>cvss.rs</code></td>

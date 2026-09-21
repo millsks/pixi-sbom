@@ -1623,6 +1623,10 @@ have been merged:</p>
 <td><code>affects[]</code></td>
 <td><code>{ ref }</code> for every affected component (<code>bom-ref</code> = the package's purl); a conda package matched through its PyPI purl is listed under its own <code>bom-ref</code></td>
 </tr>
+<tr>
+<td><code>analysis</code></td>
+<td>Only for findings accepted with <code>--ignore-vuln</code>: <code>{ state, detail }</code>, the CycloneDX impact-analysis (VEX) block</td>
+</tr>
 </tbody>
 </table>
 <p>Entries are ordered by the worst rating, then id.</p>
