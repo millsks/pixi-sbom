@@ -94,9 +94,9 @@ jobs:
           embedded-sboms: "true"
           # Python-2.0 (pre-commit's python) is in every environment on every platform, so the
           # deny list trips everywhere and, with fail-on-policy off, becomes a warning.
-          # (require-license would rightly fail on Linux: kernel-headers and sysroot declare
-          # "... WITH exceptions", which is not an SPDX expression.)
+          # require-license holds since 0.5.1 normalizes conda-forge's "WITH exceptions".
           deny-license: "Python-2.0"
+          require-license: "true"
           fail-on-policy: "false"
           artifact-name: sboms-${{ matrix.os }}
       - name: Check the documents and the policy outcome
@@ -113,4 +113,5 @@ jobs:
           platform: linux-64
           output: sboms-policy
           deny-license: "AGPL-3.0-only"
+          require-license: "true"
           upload-artifact: "false"

@@ -11,8 +11,8 @@ branding:
 inputs:
   version:
     description: >-
-      pixi-sbom version to run (e.g. 0.5.0). Defaults to the version the action was referenced
-      at (`uses: millsks/pixi-sbom@v0.5.0`), or the latest release when referenced by branch.
+      pixi-sbom version to run (e.g. 0.5.1). Defaults to the version the action was referenced
+      at (`uses: millsks/pixi-sbom@v0.5.1`), or the latest release when referenced by branch.
     required: false
     default: ""
   lockfile:
