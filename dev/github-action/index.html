@@ -790,6 +790,11 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 <td>Selection and format, see the options above</td>
 </tr>
 <tr>
+<td><code>config</code></td>
+<td></td>
+<td>Configuration file; the <code>pyproject.toml</code> table or <code>pixi-sbom.toml</code> next to the lockfile are read by default, <code>none</code> reads nothing. <code>format</code> is always passed and wins over the file; the other inputs are passed only when set</td>
+</tr>
+<tr>
 <td><code>output</code></td>
 <td><code>sboms</code></td>
 <td>Output file (<code>*.json</code>, or <code>-</code> for the log) or directory; a single document lands in the directory as <code>sbom.cdx.json</code> / <code>sbom.spdx.json</code></td>
