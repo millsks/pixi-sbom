@@ -103,7 +103,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--kev` / `--fail-on-kev` | off | Mark findings in CISA's Known Exploited Vulnerabilities catalog (rated critical, with due dates); optionally exit 4 on them |
 | `--fail-on-severity` / `--ignore-vuln` | | Vulnerability gate: exit 4 on open findings at or above a severity; accepted findings keep a VEX-style `analysis` block |
 | `--embedded-sboms` | off | Attach the components declared by SBOMs embedded in wheels (PEP 770, e.g. Rust crates) under the wheel |
-| `--report <packages\|licenses\|vulnerabilities>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`) |
+| `--report <packages\|licenses\|vulnerabilities>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`, plus `sarif` for vulnerabilities) |
 | `-v` / `-q` | info | More / less logging on stderr |
 
 Output is reproducible: the document identifier is derived from the lockfile, and setting `SOURCE_DATE_EPOCH` pins

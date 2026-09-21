@@ -27,10 +27,15 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 | `fetch-licenses`, `license-texts`, `embedded-sboms`, `pypi-mapping`, `primary-purl` | as the CLI | Enrichment |
 | `allow-license`, `deny-license`, `require-license` | | License policy; whitespace-separated lists |
 | `fail-on-policy` | `true` | Fail the step on a policy violation; with `false` it becomes a warning and the `policy-violated` output is `true` |
+| `vulnerabilities`, `kev` | | `osv` looks findings up and records them; `kev: "true"` marks the known-exploited ones |
+| `fail-on-severity`, `fail-on-kev` | | The vulnerability gate (exit code 4) |
+| `ignore-vuln` | | Accepted findings, one per line: `ID`, `ID:justification` or `ID:state:justification` |
+| `fail-on-vulnerabilities` | `true` | Fail the step when the gate trips; with `false` it becomes a warning and the `vulnerabilities-found` output is `true` |
+| `upload-sarif`, `sarif-category` | `false`, `pixi-sbom` | Write the findings as SARIF and upload them to GitHub code scanning (see below) |
 | `extra-args` | | Any other CLI arguments |
 | `upload-artifact`, `artifact-name` | `true`, `sboms` | Artifact upload |
 
-Outputs: `version`, `output`, `policy-violated`. The action runs on Linux (x64, arm64), macOS (Intel, Apple
+Outputs: `version`, `output`, `policy-violated`, `vulnerabilities-found`, `sarif`. The action runs on Linux (x64, arm64), macOS (Intel, Apple
 Silicon) and Windows runners, and describes any platform in the lockfile regardless of the runner (`platform:
 linux-64` on a macOS runner is fine).
 
@@ -52,6 +57,36 @@ The binary has no runtime dependencies, so any job can download it from the
     name: sboms
     path: sboms/
 ```
+
+## Vulnerabilities in the Security tab
+
+With `vulnerabilities: osv` the document carries the findings; `upload-sarif: "true"` additionally renders them as
+SARIF (`--report vulnerabilities --report-format sarif`, one result per finding and affected package, located at
+the lockfile, `security-severity` from the CVSS score or 10 for known-exploited findings, accepted findings as
+suppressions) and uploads the file with `github/codeql-action/upload-sarif`, so they appear under *Security →
+Code scanning* with the `sarif-category` you choose. The job needs `security-events: write`:
+
+```yaml
+permissions:
+  contents: read
+  security-events: write
+steps:
+  - uses: actions/checkout@v4
+  - uses: millsks/pixi-sbom@v0.6.0
+    with:
+      pypi-mapping: prefix
+      vulnerabilities: osv
+      kev: "true"
+      fail-on-severity: high
+      fail-on-kev: "true"
+      ignore-vuln: |
+        GHSA-2xpw-w6gg-jr37:streaming API is not used
+        CVE-2023-43804:false_positive:only reachable through a removed code path
+      upload-sarif: "true"
+```
+
+The SARIF report reuses the lookup's cache, so the second run costs no network requests. Outside the action, the
+same file comes from `pixi sbom --vulnerabilities osv --report vulnerabilities --report-format sarif > findings.sarif`.
 
 ## A worked example
 

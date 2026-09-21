@@ -696,6 +696,13 @@ fn spec_version_must_belong_to_the_format() {
         ));
 }
 
+fn sarif_validator() -> Validator {
+    jsonschema::options()
+        .offline()
+        .build(&schema("sarif-schema-2.1.0.json"))
+        .unwrap()
+}
+
 fn spdx3_validator() -> Validator {
     jsonschema::options()
         .offline()
@@ -1569,6 +1576,44 @@ fn kev_marks_known_exploited_findings_and_gates_on_them() {
         table.contains("Known exploited (CISA KEV) (1):\n  GHSA-q2q7-5pp4-w6pg (CVE-2021-33503, due 2026-09-22)"),
         "{table}"
     );
+
+    // SARIF for code scanning: one run, rules and results, valid against the 2.1.0 schema.
+    let assert = base(&[
+        "--ignore-vuln",
+        "GHSA-q2q7-5pp4-w6pg:mitigated upstream",
+        "--report",
+        "vulnerabilities",
+        "--report-format",
+        "sarif",
+    ])
+    .success();
+    let log: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&sarif_validator(), &log);
+    let run = &log["runs"][0];
+    assert_eq!(run["tool"]["driver"]["rules"].as_array().unwrap().len(), 9);
+    let results = run["results"].as_array().unwrap();
+    assert_eq!(results.len(), 9);
+    let regex = results.iter().find(|r| r["ruleId"] == "GHSA-q2q7-5pp4-w6pg").unwrap();
+    assert_eq!(regex["level"], "note");
+    assert_eq!(
+        regex["suppressions"][0]["justification"],
+        "not_affected: mitigated upstream"
+    );
+    assert_eq!(
+        regex["locations"][0]["physicalLocation"]["artifactLocation"]["uri"],
+        "pixi.lock"
+    );
+    let open = results.iter().find(|r| r["ruleId"] == "GHSA-v845-jxx5-vc9f").unwrap();
+    assert_eq!(open["level"], "error");
+    assert_eq!(open["properties"]["fixedVersion"], "1.26.17");
+
+    // SARIF is a vulnerabilities-only format.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--report", "licenses", "--report-format", "sarif"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("only applies to '--report vulnerabilities'"));
 
     // --kev needs --vulnerabilities; --fail-on-kev needs --kev.
     pixi_sbom().current_dir(dir.path()).args(["--kev"]).assert().code(2);

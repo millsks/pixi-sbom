@@ -55,6 +55,14 @@ fn main() -> Result<()> {
             )
             .exit();
     }
+    if args.report_format == report::ReportFormat::Sarif && args.report != Some(report::ReportKind::Vulnerabilities) {
+        cli::Args::command()
+            .error(
+                clap::error::ErrorKind::ArgumentConflict,
+                "'--report-format sarif' only applies to '--report vulnerabilities'",
+            )
+            .exit();
+    }
     if args.report == Some(report::ReportKind::Vulnerabilities) && args.vulnerabilities.is_none() {
         cli::Args::command()
             .error(
