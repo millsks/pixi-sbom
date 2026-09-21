@@ -754,6 +754,10 @@ runs it when you type <code>pixi &lt;name&gt;</code>. There is no plugin registr
 <td>Download <code>pixi-sbom-&lt;version&gt;-&lt;platform&gt;.tar.gz</code> (or <code>.zip</code> on Windows) from the <a href="https://github.com/millsks/pixi-sbom/releases">releases page</a>, verify the <code>.sha256</code> next to it, and put <code>pixi-sbom</code> on your <code>PATH</code></td>
 </tr>
 <tr>
+<td>cargo binstall</td>
+<td><code>cargo binstall pixi-sbom</code> downloads the release binary for your platform from GitHub (no compiler needed); <code>cargo install pixi-sbom</code> builds it from crates.io instead</td>
+</tr>
+<tr>
 <td>From source</td>
 <td><code>pixi run build</code> in a clone, then copy <code>target/release/pixi-sbom</code> to <code>~/.pixi/bin/</code></td>
 </tr>
