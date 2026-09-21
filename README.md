@@ -38,6 +38,9 @@ pixi sbom --output - | grype
 # Licenses for every package, conda and PyPI alike (add --license-texts for the full texts)
 pixi sbom --fetch-licenses
 
+# Fail CI on copyleft or unlicensed packages (exit code 3, document still written)
+pixi sbom --fetch-licenses --deny-license GPL-3.0-only --require-license
+
 # Just look: an inventory or license table in the terminal, nothing written
 pixi sbom --report packages
 pixi sbom --fetch-licenses --report licenses --report-format markdown
@@ -77,6 +80,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--primary-purl <conda\|pypi>` | `conda` | `pypi` makes the PyPI purl primary so grype / trivy / osv-scanner can match |
 | `--fetch-licenses` | off | Licenses for every package, conda and PyPI alike (conda from the local package cache or the channel archive, PyPI from the wheel or the index), plus license file names, summary and URLs |
 | `--license-texts` | off | With `--fetch-licenses`, embed the full license texts |
+| `--allow-license` / `--deny-license` / `--require-license` | | License policy; violations are listed and the run exits 3 after writing the document |
 | `--report <packages\|licenses>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`) |
 | `-v` / `-q` | info | More / less logging on stderr |
 

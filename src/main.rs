@@ -12,6 +12,7 @@ mod mapping;
 mod model;
 mod parallel;
 mod pkgcache;
+mod policy;
 mod purl;
 mod pypi;
 mod report;
@@ -53,6 +54,13 @@ fn main() -> Result<()> {
     let pypi_mapping = load_pypi_mapping(&args)?;
     tracing::debug!(lockfile = %lockfile.display(), ?targets, format = ?args.format, "resolved targets");
     let mut reports = Vec::new();
+    let policy =
+        policy::Policy::new(&args.allow_license, &args.deny_license, args.require_license).unwrap_or_else(|err| {
+            cli::Args::command()
+                .error(clap::error::ErrorKind::InvalidValue, err.to_string())
+                .exit()
+        });
+    let mut violations: Vec<(String, String, policy::Violation)> = Vec::new();
 
     for Target {
         environment,
@@ -109,6 +117,15 @@ fn main() -> Result<()> {
             let pypi::Outcome { found, missing, failed } = lookup.run(&mut sbom);
             tracing::info!(found, missing, failed, "looked up PyPI licenses");
         }
+        if let Some(policy) = &policy {
+            let found = policy.check(&sbom);
+            tracing::info!(violations = found.len(), "checked the license policy");
+            violations.extend(
+                found
+                    .into_iter()
+                    .map(|v| (sbom.environment.clone(), sbom.platform.clone(), v)),
+            );
+        }
         if let Some(kind) = args.report {
             reports.push(report::Report::new(kind, &sbom));
             continue;
@@ -130,6 +147,19 @@ fn main() -> Result<()> {
             .and_then(|()| stdout.flush())
             .into_diagnostic()
             .wrap_err("cannot write the report to stdout")?;
+    }
+    if !violations.is_empty() {
+        let mut stderr = std::io::stderr().lock();
+        let _ = writeln!(stderr, "License policy violated by {} package(s):", violations.len());
+        for (environment, platform, violation) in &violations {
+            let _ = if targets.len() > 1 {
+                writeln!(stderr, "  [{environment}/{platform}] {violation}")
+            } else {
+                writeln!(stderr, "  {violation}")
+            };
+        }
+        let _ = stderr.flush();
+        std::process::exit(policy::VIOLATION_EXIT_CODE);
     }
     Ok(())
 }

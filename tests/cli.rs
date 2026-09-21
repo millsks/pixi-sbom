@@ -1127,6 +1127,118 @@ fn fetch_licenses_reads_wheel_metadata_and_license_files() {
 }
 
 #[test]
+fn license_policy_violations_exit_3_after_writing_the_document() {
+    let dir = workspace("with-pypi");
+
+    // ld_impl_linux-64 and readline are GPL-3.0-only in the fixture; python and libpython are Python-2.0.
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .args([
+            "-p",
+            "linux-64",
+            "--deny-license",
+            "GPL-3.0-only",
+            "--deny-license",
+            "Python-2.0",
+        ])
+        .assert()
+        .code(3)
+        .stderr(predicate::str::contains("License policy violated by 4 package(s):"))
+        .stderr(predicate::str::contains(
+            "  ld_impl_linux-64 2.46.1: denied license (GPL-3.0-only)",
+        ))
+        .stderr(predicate::str::contains(
+            "  readline 8.3: denied license (GPL-3.0-only)",
+        ))
+        .stderr(predicate::str::contains(
+            "  python 3.12.14: denied license (Python-2.0)",
+        ));
+    assert!(
+        dir.path().join("sbom.cdx.json").exists(),
+        "the document is still written"
+    );
+    assert_valid(&cyclonedx_validator(), &read_json(&dir.path().join("sbom.cdx.json")));
+    let _ = assert;
+
+    // Allow-list: everything in the environment except the GPL linker is permissive.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args([
+            "-p",
+            "linux-64",
+            "--allow-license",
+            "MIT",
+            "--allow-license",
+            "BSD-3-Clause",
+            "--allow-license",
+            "GPL-3.0-only",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .code(3)
+        .stderr(predicate::str::contains("not in the allowed licenses"))
+        .stdout(predicate::str::contains("\"bomFormat\": \"CycloneDX\""));
+
+    // A policy that everything satisfies exits 0.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--deny-license", "AGPL-3.0-only", "--output", "-"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("checked the license policy violations=0"));
+}
+
+#[test]
+fn require_license_flags_pypi_packages_without_one_and_batch_runs_label_violations() {
+    let dir = workspace("with-pypi");
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-e", "web", "-p", "linux-64", "--require-license", "--output", "-"])
+        .assert()
+        .code(3)
+        .stderr(predicate::str::contains("  six 1.17.0: no license declared"))
+        .stderr(predicate::str::contains("  requests"));
+
+    // Two documents: violations are prefixed with the environment/platform.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--all-environments", "-p", "linux-64", "--deny-license", "GPL-3.0-only"])
+        .assert()
+        .code(3)
+        .stderr(predicate::str::contains("[default/linux-64] ld_impl_linux-64"))
+        .stderr(predicate::str::contains("[web/linux-64] ld_impl_linux-64"));
+
+    // Works with --report too: the table prints and the exit code is still 3.
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .args([
+            "-p",
+            "linux-64",
+            "--report",
+            "licenses",
+            "--deny-license",
+            "GPL-3.0-only",
+        ])
+        .assert()
+        .code(3);
+    assert!(String::from_utf8_lossy(&assert.get_output().stdout).contains("Summary:"));
+}
+
+#[test]
+fn bad_licensee_is_a_usage_error() {
+    let dir = workspace("conda-only");
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--allow-license", "not a license"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("is not an SPDX license identifier"));
+}
+
+#[test]
 fn spdx_format_writes_valid_spdx_document() {
     let dir = workspace("conda-only");
 
