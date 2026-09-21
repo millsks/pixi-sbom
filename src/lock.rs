@@ -169,6 +169,13 @@ pub fn sbom_from_lock(
         .map(|package| convert_package(package))
         .collect::<Result<Vec<_>, _>>()?;
     resolve_dependencies(&locked, &mut packages);
+    for package in &mut packages {
+        if let Some(raw) = &package.license
+            && crate::license::is_rewritten(raw)
+        {
+            package.properties.insert("pixi:license-raw".into(), raw.clone());
+        }
+    }
     packages.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
 
     Ok(Sbom {

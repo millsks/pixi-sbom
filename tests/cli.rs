@@ -1465,6 +1465,58 @@ fn embedded_sboms_attach_wheel_components_in_every_format() {
 }
 
 #[test]
+fn non_spdx_exception_clauses_stay_evaluable_expressions() {
+    let dir = workspace("conda-only");
+    let lock = std::fs::read_to_string(dir.path().join("pixi.lock"))
+        .unwrap()
+        .replace("\r\n", "\n")
+        .replace(
+            "  license: Zlib\n  license_family: Other\n  run_exports:\n    weak:\n    - libzlib >=1.3.2,<2.0a0\n  size: 63713",
+            "  license: LGPL-2.0-or-later AND LGPL-2.0-or-later WITH exceptions AND GPL-2.0-or-later\n  license_family: Other\n  run_exports:\n    weak:\n    - libzlib >=1.3.2,<2.0a0\n  size: 63713",
+        );
+    assert!(lock.contains("WITH exceptions"), "fixture edit applied");
+    std::fs::write(dir.path().join("pixi.lock"), lock).unwrap();
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .args([
+            "-p",
+            "linux-64",
+            "--require-license",
+            "--deny-license",
+            "AGPL-3.0-only",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .success();
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let libzlib = doc["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "libzlib")
+        .unwrap();
+    assert_eq!(
+        libzlib["licenses"][0]["expression"],
+        "LGPL-2.0-or-later AND LGPL-2.0-or-later WITH AdditionRef-exceptions AND GPL-2.0-or-later"
+    );
+    assert!(libzlib["properties"].as_array().unwrap().iter().any(|p| {
+        p["name"] == "pixi:license-raw"
+            && p["value"] == "LGPL-2.0-or-later AND LGPL-2.0-or-later WITH exceptions AND GPL-2.0-or-later"
+    }));
+
+    // Denying the LGPL part now works, because the expression is evaluable.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--deny-license", "GPL-2.0-or-later", "--output", "-"])
+        .assert()
+        .code(3)
+        .stderr(predicate::str::contains("libzlib 1.3.2: denied license"));
+}
+
+#[test]
 fn spdx_format_writes_valid_spdx_document() {
     let dir = workspace("conda-only");
 

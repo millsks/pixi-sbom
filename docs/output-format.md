@@ -145,6 +145,12 @@ The rules:
      `hasExtractedLicensingInfos` with the original text, so nothing is lost.
 4. No license → no `licenses` entry (CycloneDX) / `NOASSERTION` (SPDX).
 
+conda-forge spells a few toolchain licenses with a clause that is not an SPDX exception, e.g.
+`LGPL-2.0-or-later WITH exceptions` (kernel-headers, sysroot, the glibc family). Such a clause is rewritten to
+`WITH AdditionRef-exceptions`, which SPDX allows for a reference to an exception text, so the expression remains
+evaluable by consumers and by the license policy; the original spelling is kept in a `pixi:license-raw` property. A
+genuine SPDX exception (`WITH Classpath-exception-2.0`) is never rewritten.
+
 #### License details with `--fetch-licenses`
 
 `--fetch-licenses` works for every package kind. For conda packages it reads the extracted package in the local
