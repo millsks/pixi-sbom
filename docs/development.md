@@ -138,7 +138,7 @@ explicit `version` input, or the latest release), downloads the matching release
 verifies it, puts the binary on `PATH`, maps the inputs to CLI flags and runs it, then uploads the output with
 `actions/upload-artifact`. The `sbom` job in `ci.yml` dogfoods it on Linux and Windows with the latest release,
 so a change to the action is exercised by CI before it is tagged: one step runs every environment with license
-fetching, embedded SBOMs and a policy that this repository's own `readline` (GPL-3.0-only) violates, with
+fetching, embedded SBOMs and a deny list that pre-commit's `python` (Python-2.0) violates on every platform, with
 `fail-on-policy` off, and asserts the `policy-violated` output; a second step runs a policy that passes. New CLI flags reach the action only once a
 release containing them exists; keep `action.yml` inputs and the CLI in step at release time.
 
