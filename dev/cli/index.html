@@ -1058,9 +1058,9 @@
 <td>Print a report to the terminal instead of writing a document (see below). Cannot be combined with <code>--output</code>; <code>vulnerabilities</code> needs <code>--vulnerabilities</code>.</td>
 </tr>
 <tr>
-<td><code>--report-format &lt;table\|markdown\|csv\|json&gt;</code></td>
+<td><code>--report-format &lt;table\|markdown\|csv\|json\|sarif&gt;</code></td>
 <td><code>table</code></td>
-<td>How to render the report.</td>
+<td>How to render the report; <code>sarif</code> (2.1.0, for GitHub code scanning) applies to <code>--report vulnerabilities</code> only.</td>
 </tr>
 <tr>
 <td><code>--pypi-licenses</code></td>
@@ -1190,7 +1190,9 @@ CVSS score, KEV, id, aliases, fixed version, status, summary; the CSV and JSON f
 <code>--ignore-vuln</code> justification and the KEV due date), open findings worst first and ignored ones last, followed by
 a count of open findings and affected packages, a table of open findings per severity, the known-exploited
 findings, the ignored findings with their justification, and the packages that have no purl the database could
-answer.</p>
+answer. <code>--report-format sarif</code> renders it as a SARIF 2.1.0 log instead: one run per document, one rule per
+advisory (with <code>security-severity</code> for GitHub code scanning: the CVSS score, or 10 for known-exploited findings),
+one result per finding and affected package located at the lockfile, and accepted findings as suppressions.</p>
 <h2 id="one-document-per-environment-and-platform">One document per environment and platform<a class="headerlink" href="#one-document-per-environment-and-platform" title="Permanent link">&para;</a></h2>
 <p>A pixi lockfile can hold many environments, each locked for several platforms. An SBOM, by contrast, is expected to
 describe one deliverable, so <code>pixi sbom</code> never merges environments or platforms into one document:</p>

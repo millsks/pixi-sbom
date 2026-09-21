@@ -1120,7 +1120,7 @@ discovery, every option including <code>--all-environments</code>, both formats,
 <h3 id="schema-validation">Schema validation<a class="headerlink" href="#schema-validation" title="Permanent link">&para;</a></h3>
 <p><code>tests/schemas/</code> contains the official CycloneDX 1.6 and 1.7 schemas (with the <code>spdx.schema.json</code>,
 <code>jsf-0.82.schema.json</code> and <code>cryptography-defs.schema.json</code> they reference, registered under their canonical <code>$id</code>s so
-no network access happens), the SPDX 2.3 schema and the SPDX 3.0.1 JSON schema. Both the sample model and every end-to-end document are validated,
+no network access happens), the SPDX 2.3 schema, the SPDX 3.0.1 JSON schema and the SARIF 2.1.0 schema. Both the sample model and every end-to-end document are validated,
 CycloneDX against the schema of the version written. When adding a spec version, vendor its schema and extend
 <code>cli::SpecVersion</code> and the writer's <code>schema_url</code> / <code>number</code> tables.</p>
 <h3 id="fixtures-testsfixtures">Fixtures (<code>tests/fixtures/</code>)<a class="headerlink" href="#fixtures-testsfixtures" title="Permanent link">&para;</a></h3>

@@ -418,6 +418,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#vulnerabilities-in-the-security-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vulnerabilities in the Security tab
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#a-worked-example" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -697,6 +708,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#vulnerabilities-in-the-security-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vulnerabilities in the Security tab
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#a-worked-example" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -788,6 +810,31 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 <td>Fail the step on a policy violation; with <code>false</code> it becomes a warning and the <code>policy-violated</code> output is <code>true</code></td>
 </tr>
 <tr>
+<td><code>vulnerabilities</code>, <code>kev</code></td>
+<td></td>
+<td><code>osv</code> looks findings up and records them; <code>kev: "true"</code> marks the known-exploited ones</td>
+</tr>
+<tr>
+<td><code>fail-on-severity</code>, <code>fail-on-kev</code></td>
+<td></td>
+<td>The vulnerability gate (exit code 4)</td>
+</tr>
+<tr>
+<td><code>ignore-vuln</code></td>
+<td></td>
+<td>Accepted findings, one per line: <code>ID</code>, <code>ID:justification</code> or <code>ID:state:justification</code></td>
+</tr>
+<tr>
+<td><code>fail-on-vulnerabilities</code></td>
+<td><code>true</code></td>
+<td>Fail the step when the gate trips; with <code>false</code> it becomes a warning and the <code>vulnerabilities-found</code> output is <code>true</code></td>
+</tr>
+<tr>
+<td><code>upload-sarif</code>, <code>sarif-category</code></td>
+<td><code>false</code>, <code>pixi-sbom</code></td>
+<td>Write the findings as SARIF and upload them to GitHub code scanning (see below)</td>
+</tr>
+<tr>
 <td><code>extra-args</code></td>
 <td></td>
 <td>Any other CLI arguments</td>
@@ -799,7 +846,7 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 </tr>
 </tbody>
 </table>
-<p>Outputs: <code>version</code>, <code>output</code>, <code>policy-violated</code>. The action runs on Linux (x64, arm64), macOS (Intel, Apple
+<p>Outputs: <code>version</code>, <code>output</code>, <code>policy-violated</code>, <code>vulnerabilities-found</code>, <code>sarif</code>. The action runs on Linux (x64, arm64), macOS (Intel, Apple
 Silicon) and Windows runners, and describes any platform in the lockfile regardless of the runner (<code>platform:
 linux-64</code> on a macOS runner is fine).</p>
 <h2 id="without-the-action">Without the action<a class="headerlink" href="#without-the-action" title="Permanent link">&para;</a></h2>
@@ -817,22 +864,47 @@ linux-64</code> on a macOS runner is fine).</p>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sboms</span>
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sboms/</span>
 </code></pre></div>
+<h2 id="vulnerabilities-in-the-security-tab">Vulnerabilities in the Security tab<a class="headerlink" href="#vulnerabilities-in-the-security-tab" title="Permanent link">&para;</a></h2>
+<p>With <code>vulnerabilities: osv</code> the document carries the findings; <code>upload-sarif: "true"</code> additionally renders them as
+SARIF (<code>--report vulnerabilities --report-format sarif</code>, one result per finding and affected package, located at
+the lockfile, <code>security-severity</code> from the CVSS score or 10 for known-exploited findings, accepted findings as
+suppressions) and uploads the file with <code>github/codeql-action/upload-sarif</code>, so they appear under <em>Security →
+Code scanning</em> with the <code>sarif-category</code> you choose. The job needs <code>security-events: write</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">permissions</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">contents</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">read</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">security-events</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">write</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nt">steps</span><span class="p">:</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/checkout@v4</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">millsks/pixi-sbom@v0.6.0</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">with</span><span class="p">:</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="nt">pypi-mapping</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prefix</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">vulnerabilities</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">osv</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="nt">kev</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">      </span><span class="nt">fail-on-severity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">high</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">      </span><span class="nt">fail-on-kev</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">      </span><span class="nt">ignore-vuln</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">        </span><span class="no">GHSA-2xpw-w6gg-jr37:streaming API is not used</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">        </span><span class="no">CVE-2023-43804:false_positive:only reachable through a removed code path</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">      </span><span class="nt">upload-sarif</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+</code></pre></div>
+<p>The SARIF report reuses the lookup's cache, so the second run costs no network requests. Outside the action, the
+same file comes from <code>pixi sbom --vulnerabilities osv --report vulnerabilities --report-format sarif &gt; findings.sarif</code>.</p>
 <h2 id="a-worked-example">A worked example<a class="headerlink" href="#a-worked-example" title="Permanent link">&para;</a></h2>
 <p>This repository dogfoods its own action in <code>.github/workflows/ci.yml</code>: every environment of its lockfile is
 described with licenses fetched, PyPI identities from the conda-forge mapping and embedded SBOMs attached, a deny
 list that is known to trip (<code>Python-2.0</code>) proves the <code>policy-violated</code> output with <code>fail-on-policy: "false"</code>, and a
 second step with a satisfiable policy proves exit 0:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">millsks/pixi-sbom@v0.5.1</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sbom</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">all-environments</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">fetch-licenses</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">pypi-mapping</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prefix</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">embedded-sboms</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">deny-license</span><span class="p">:</span><span class="w"> </span><span class="s">"Python-2.0"</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">require-license</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">fail-on-policy</span><span class="p">:</span><span class="w"> </span><span class="s">"false"</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">test "${{ steps.sbom.outputs.policy-violated }}" = "true"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">millsks/pixi-sbom@v0.5.1</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sbom</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">all-environments</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">fetch-licenses</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">pypi-mapping</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prefix</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">embedded-sboms</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">deny-license</span><span class="p">:</span><span class="w"> </span><span class="s">"Python-2.0"</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="nt">require-license</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">fail-on-policy</span><span class="p">:</span><span class="w"> </span><span class="s">"false"</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">test "${{ steps.sbom.outputs.policy-violated }}" = "true"</span>
 </code></pre></div>
 <p>Every input maps to a <a href="../cli/#options">command-line option</a> of the same name; the action adds nothing the binary
 cannot do.</p>
