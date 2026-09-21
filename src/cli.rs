@@ -206,7 +206,8 @@ pub struct Args {
     pub vulnerabilities: Option<VulnerabilitySource>,
 
     /// Print a report to the terminal instead of writing an SBOM document: `packages` is the
-    /// inventory, `licenses` the license view with a summary. Nothing is written to disk.
+    /// inventory, `licenses` the license view with a summary, `vulnerabilities` the findings
+    /// of --vulnerabilities worst first. Nothing is written to disk.
     #[arg(long, value_enum, value_name = "REPORT", conflicts_with_all = ["output", "spec_version"])]
     pub report: Option<crate::report::ReportKind>,
 
