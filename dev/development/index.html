@@ -1298,10 +1298,12 @@ five pixi platforms and therefore uses <code>ubuntu-24.04-arm</code> and <code>m
 <li><strong>Build.</strong> Checks out the tag on five runners and builds <code>pixi-sbom</code> for linux-64, linux-aarch64, osx-64,
    osx-arm64 and win-64, packaged with <code>LICENSE</code>, <code>README.md</code>, <code>CHANGELOG.md</code> and a <code>.sha256</code> each.</li>
 <li><strong>Publish.</strong> Creates the GitHub release with this version's changelog section (from <code>git-cliff --latest</code>) plus an
-   artifact table as the notes and the packages as assets, then publishes the crate to crates.io (<code>cargo publish
-   --locked</code>, skipped with a warning while the <code>CARGO_REGISTRY_TOKEN</code> secret is missing; the
-   <code>[package.metadata.binstall]</code> table in <code>Cargo.toml</code> points <code>cargo binstall</code> at the release archives). The job
-   summary prints the source tarball's SHA-256 for <code>recipe/recipe.yaml</code>.</li>
+   artifact table as the notes and the packages as assets. The job summary prints the source tarball's SHA-256 for
+   <code>recipe/recipe.yaml</code>.</li>
+<li><strong>Crate.</strong> <code>publish-crate.yml</code> (reusable, also dispatchable by hand with a <code>tag</code> input to republish) checks the
+   tag out clean and runs <code>cargo publish --locked</code> (skipped with a warning while the <code>CARGO_REGISTRY_TOKEN</code> secret
+   is missing). The <code>[package.metadata.binstall]</code> table in <code>Cargo.toml</code> points <code>cargo binstall</code> at the release
+   archives.</li>
 </ol>
 <p>For <code>pixi global install pixi-sbom</code>, put that SHA-256 into <code>recipe/recipe.yaml</code> and submit it to conda-forge
 <code>staged-recipes</code> once; after that the feedstock bot handles version bumps.</p>
