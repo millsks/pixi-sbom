@@ -185,14 +185,20 @@ fn archive_stem(file_name: &str) -> String {
         .to_string()
 }
 
-/// The rattler package cache (`pkgs/` under the pixi cache): `PIXI_CACHE_DIR`, then
-/// `RATTLER_CACHE_DIR`, then the platform cache directory's `rattler/cache`.
+/// The rattler package cache (`pkgs/` under the pixi cache).
 pub fn package_cache_dir() -> PathBuf {
-    package_cache_dir_from(|name| std::env::var_os(name).map(PathBuf::from))
+    pixi_cache_dir().join("pkgs")
 }
 
-fn package_cache_dir_from(env: impl Fn(&str) -> Option<PathBuf>) -> PathBuf {
-    let base = env("PIXI_CACHE_DIR")
+/// The pixi cache directory, resolved the way pixi does: `PIXI_CACHE_DIR`, then
+/// `RATTLER_CACHE_DIR`, then the platform cache directory's `rattler/cache`. This is what
+/// `pixi clean cache` removes.
+pub fn pixi_cache_dir() -> PathBuf {
+    pixi_cache_dir_from(|name| std::env::var_os(name).map(PathBuf::from))
+}
+
+pub(crate) fn pixi_cache_dir_from(env: impl Fn(&str) -> Option<PathBuf>) -> PathBuf {
+    env("PIXI_CACHE_DIR")
         .or_else(|| env("RATTLER_CACHE_DIR"))
         .unwrap_or_else(|| {
             let platform = if cfg!(windows) {
@@ -206,8 +212,7 @@ fn package_cache_dir_from(env: impl Fn(&str) -> Option<PathBuf>) -> PathBuf {
                 .unwrap_or_else(std::env::temp_dir)
                 .join("rattler")
                 .join("cache")
-        });
-    base.join("pkgs")
+        })
 }
 
 #[cfg(test)]
@@ -392,7 +397,7 @@ mod tests {
     fn package_cache_dir_precedence() {
         let with = |vars: &[(&str, &str)]| {
             let vars: Vec<(String, PathBuf)> = vars.iter().map(|(k, v)| (k.to_string(), PathBuf::from(v))).collect();
-            package_cache_dir_from(move |name| vars.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone()))
+            pixi_cache_dir_from(move |name| vars.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone())).join("pkgs")
         };
         assert_eq!(
             with(&[("PIXI_CACHE_DIR", "/pixi"), ("RATTLER_CACHE_DIR", "/rattler")]),
