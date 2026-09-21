@@ -22,6 +22,9 @@ pub enum ReportKind {
     /// Vulnerabilities: one row per finding and affected package, worst first, plus a summary
     /// by severity. Requires --vulnerabilities.
     Vulnerabilities,
+    /// Diff: what changed since the document given with --against (added, removed, version
+    /// and license changes).
+    Diff,
 }
 
 /// How to render a report.
@@ -153,16 +156,27 @@ pub struct Report {
     pub vulnerabilities: Option<Vec<VulnerabilityRow>>,
     #[serde(rename = "summary", skip_serializing_if = "Option::is_none")]
     pub vulnerability_summary: Option<VulnerabilitySummary>,
+    /// The comparison (the diff report).
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub diff: Option<crate::diff::Diff>,
 }
 
 impl Report {
-    /// Build the report for `sbom`.
+    /// The diff report for `sbom` against a previous document.
+    pub fn diff(sbom: &Sbom, diff: crate::diff::Diff) -> Self {
+        let mut report = Self::new(ReportKind::Diff, sbom);
+        report.diff = Some(diff);
+        report
+    }
+
+    /// Build the report for `sbom` (for [`ReportKind::Diff`] use [`Report::diff`]).
     pub fn new(kind: ReportKind, sbom: &Sbom) -> Self {
         let mut report = Self {
             report: match kind {
                 ReportKind::Packages => "packages",
                 ReportKind::Licenses => "licenses",
                 ReportKind::Vulnerabilities => "vulnerabilities",
+                ReportKind::Diff => "diff",
             },
             workspace: sbom.root.name.clone(),
             environment: sbom.environment.clone(),
@@ -172,6 +186,7 @@ impl Report {
             summary: None,
             vulnerabilities: None,
             vulnerability_summary: None,
+            diff: None,
         };
         match kind {
             ReportKind::Packages => report.packages = Some(sbom.packages.iter().map(row).collect()),
@@ -192,6 +207,7 @@ impl Report {
                 report.vulnerability_summary = Some(summarize_vulnerabilities(&rows, sbom));
                 report.vulnerabilities = Some(rows);
             }
+            ReportKind::Diff => {}
         }
         report
     }
@@ -200,6 +216,7 @@ impl Report {
         match self.report {
             "licenses" => ReportKind::Licenses,
             "vulnerabilities" => ReportKind::Vulnerabilities,
+            "diff" => ReportKind::Diff,
             _ => ReportKind::Packages,
         }
     }
@@ -211,12 +228,14 @@ impl Report {
             ReportKind::Vulnerabilities => vec![
                 "Package", "Version", "Severity", "Score", "KEV", "ID", "Aliases", "Fixed", "Status", "Summary",
             ],
+            ReportKind::Diff => vec!["Change", "Package", "Kind", "Before", "After"],
         }
     }
 
     /// The body rows in display form.
     fn rows(&self) -> Vec<Vec<String>> {
         match self.kind() {
+            ReportKind::Diff => self.diff.as_ref().map(diff_rows).unwrap_or_default(),
             ReportKind::Vulnerabilities => self.vulnerabilities.iter().flatten().map(vulnerability_cells).collect(),
             _ => self.packages.iter().flatten().map(|r| self.cells(r)).collect(),
         }
@@ -244,6 +263,49 @@ impl Report {
             ],
         }
     }
+}
+
+/// The diff as rows: additions, removals, version changes, license changes, in that order.
+fn diff_rows(diff: &crate::diff::Diff) -> Vec<Vec<String>> {
+    let dash = || "-".to_string();
+    let mut rows = Vec::new();
+    for p in &diff.added {
+        rows.push(vec![
+            "added".into(),
+            p.name.clone(),
+            p.kind.clone(),
+            dash(),
+            p.version.clone().unwrap_or_else(dash),
+        ]);
+    }
+    for p in &diff.removed {
+        rows.push(vec![
+            "removed".into(),
+            p.name.clone(),
+            p.kind.clone(),
+            p.version.clone().unwrap_or_else(dash),
+            dash(),
+        ]);
+    }
+    for c in &diff.version_changed {
+        rows.push(vec![
+            "version".into(),
+            c.name.clone(),
+            c.kind.clone(),
+            c.old_version.clone().unwrap_or_else(dash),
+            c.new_version.clone().unwrap_or_else(dash),
+        ]);
+    }
+    for c in &diff.license_changed {
+        rows.push(vec![
+            "license".into(),
+            c.name.clone(),
+            c.kind.clone(),
+            c.old_license.clone().unwrap_or_else(dash),
+            c.new_license.clone().unwrap_or_else(dash),
+        ]);
+    }
+    rows
 }
 
 fn vulnerability_cells(row: &VulnerabilityRow) -> Vec<String> {
@@ -480,6 +542,27 @@ pub fn render_with_width(
                 if let Some(summary) = &report.vulnerability_summary {
                     render_vulnerability_summary(summary, format, out)?;
                 }
+                if let Some(diff) = &report.diff {
+                    writeln!(out)?;
+                    let line = if diff.is_empty() {
+                        format!(
+                            "No changes against {} ({}); {} packages unchanged",
+                            diff.against, diff.against_format, diff.unchanged
+                        )
+                    } else {
+                        format!(
+                            "Against {} ({}): {} added, {} removed, {} version changes, {} license changes, {} unchanged",
+                            diff.against,
+                            diff.against_format,
+                            diff.added.len(),
+                            diff.removed.len(),
+                            diff.version_changed.len(),
+                            diff.license_changed.len(),
+                            diff.unchanged
+                        )
+                    };
+                    writeln!(out, "{line}")?;
+                }
             }
             Ok(())
         }
@@ -655,9 +738,24 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
     if kind == ReportKind::Vulnerabilities {
         return render_vulnerabilities_csv(reports, out);
     }
+    if kind == ReportKind::Diff {
+        writeln!(out, "environment,platform,change,package,kind,before,after")?;
+        for report in reports {
+            for row in report.diff.as_ref().map(diff_rows).unwrap_or_default() {
+                let mut cells = vec![report.environment.clone(), report.platform.clone()];
+                cells.extend(row);
+                writeln!(
+                    out,
+                    "{}",
+                    cells.iter().map(|c| csv_field(c)).collect::<Vec<_>>().join(",")
+                )?;
+            }
+        }
+        return Ok(());
+    }
     let mut columns = vec!["environment", "platform"];
     columns.extend(match kind {
-        ReportKind::Packages | ReportKind::Vulnerabilities => {
+        ReportKind::Packages | ReportKind::Vulnerabilities | ReportKind::Diff => {
             vec!["name", "version", "kind", "source", "license", "purl"]
         }
         ReportKind::Licenses => vec![
@@ -678,7 +776,7 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
         for row in report.packages.iter().flatten() {
             let mut cells = vec![report.environment.clone(), report.platform.clone()];
             cells.extend(match kind {
-                ReportKind::Packages | ReportKind::Vulnerabilities => vec![
+                ReportKind::Packages | ReportKind::Vulnerabilities | ReportKind::Diff => vec![
                     row.name.clone(),
                     row.version.clone(),
                     row.kind.to_string(),
@@ -1290,6 +1388,101 @@ mod tests {
             "false_positive: not the same zlib"
         );
         assert_eq!(runs[1]["automationDetails"]["id"], "pixi-sbom/default/osx-arm64");
+    }
+
+    fn diffed() -> Report {
+        use crate::diff::{Change, Diff, Presence};
+        Report::diff(
+            &sample_sbom(),
+            Diff {
+                against: "old.cdx.json".into(),
+                against_format: "CycloneDX 1.6".into(),
+                added: vec![Presence {
+                    name: "requests".into(),
+                    kind: "pypi".into(),
+                    version: Some("2.32.4".into()),
+                    license: Some("Apache-2.0".into()),
+                    purl: Some("pkg:pypi/requests@2.32.4".into()),
+                }],
+                removed: vec![Presence {
+                    name: "mylib".into(),
+                    kind: "conda".into(),
+                    version: None,
+                    license: None,
+                    purl: None,
+                }],
+                version_changed: vec![Change {
+                    name: "zlib".into(),
+                    kind: "conda".into(),
+                    old_version: Some("1.3.1".into()),
+                    new_version: Some("1.3.2".into()),
+                    old_license: Some("Zlib".into()),
+                    new_license: Some("Zlib".into()),
+                }],
+                license_changed: vec![Change {
+                    name: "libzlib".into(),
+                    kind: "conda".into(),
+                    old_version: Some("1.3.1".into()),
+                    new_version: Some("1.3.1".into()),
+                    old_license: Some("Zlib".into()),
+                    new_license: Some("MIT".into()),
+                }],
+                unchanged: 1,
+            },
+        )
+    }
+
+    #[test]
+    fn diff_table_snapshot() {
+        let mut out = Vec::new();
+        render_with_width(&[diffed()], ReportFormat::Table, DEFAULT_WIDTH, &mut out).unwrap();
+        insta::assert_snapshot!(String::from_utf8(out).unwrap());
+    }
+
+    #[test]
+    fn diff_markdown_snapshot() {
+        let mut out = Vec::new();
+        render_with_width(&[diffed()], ReportFormat::Markdown, DEFAULT_WIDTH, &mut out).unwrap();
+        insta::assert_snapshot!(String::from_utf8(out).unwrap());
+    }
+
+    #[test]
+    fn diff_csv_and_json() {
+        let mut out = Vec::new();
+        render_with_width(&[diffed()], ReportFormat::Csv, DEFAULT_WIDTH, &mut out).unwrap();
+        let csv = String::from_utf8(out).unwrap();
+        assert!(csv.starts_with("environment,platform,change,package,kind,before,after\n"));
+        assert!(csv.contains("default,linux-64,version,zlib,conda,1.3.1,1.3.2\n"));
+        assert!(csv.contains("default,linux-64,license,libzlib,conda,Zlib,MIT\n"));
+        assert_eq!(csv.lines().count(), 5);
+
+        let mut out = Vec::new();
+        render_with_width(&[diffed()], ReportFormat::Json, DEFAULT_WIDTH, &mut out).unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&out).unwrap();
+        assert_eq!(value["report"], "diff");
+        assert_eq!(value["against"], "old.cdx.json");
+        assert_eq!(value["added"][0]["name"], "requests");
+        assert_eq!(value["removed"][0]["name"], "mylib");
+        assert_eq!(value["version_changed"][0]["new_version"], "1.3.2");
+        assert_eq!(value["license_changed"][0]["new_license"], "MIT");
+        assert_eq!(value["unchanged"], 1);
+        assert!(value.get("packages").is_none());
+
+        // Nothing changed reads as such.
+        let mut same = diffed();
+        same.diff = Some(crate::diff::Diff {
+            against: "old.cdx.json".into(),
+            against_format: "CycloneDX 1.6".into(),
+            unchanged: 4,
+            ..Default::default()
+        });
+        let mut out = Vec::new();
+        render_with_width(&[same], ReportFormat::Table, DEFAULT_WIDTH, &mut out).unwrap();
+        let text = String::from_utf8(out).unwrap();
+        assert!(
+            text.contains("No changes against old.cdx.json (CycloneDX 1.6); 4 packages unchanged"),
+            "{text}"
+        );
     }
 
     #[test]

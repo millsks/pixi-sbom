@@ -304,13 +304,19 @@ pub struct Args {
 
     /// Print a report to the terminal instead of writing an SBOM document: `packages` is the
     /// inventory, `licenses` the license view with a summary, `vulnerabilities` the findings
-    /// of --vulnerabilities worst first. Nothing is written to disk.
+    /// of --vulnerabilities worst first, `diff` what changed since --against. Nothing is
+    /// written to disk.
     #[arg(long, value_enum, value_name = "REPORT", conflicts_with_all = ["output", "spec_version"])]
     pub report: Option<crate::report::ReportKind>,
 
     /// How to render the report.
     #[arg(long, value_enum, default_value_t = crate::report::ReportFormat::Table, requires = "report")]
     pub report_format: crate::report::ReportFormat,
+
+    /// With --report diff: the previous document to compare against (CycloneDX, SPDX 2.3 or
+    /// SPDX 3.0 JSON, as written by pixi-sbom or another tool).
+    #[arg(long, value_name = "PATH", conflicts_with_all = ["all_environments", "all_platforms"])]
+    pub against: Option<PathBuf>,
 
     #[command(flatten)]
     pub verbosity: Verbosity<InfoLevel>,

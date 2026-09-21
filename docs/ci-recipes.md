@@ -58,6 +58,20 @@ called out, ready to paste:
 `--report-format csv` and `json` feed spreadsheets and scripts the same way; see
 [looking instead of writing](cli.md#looking-instead-of-writing).
 
+## What changed in the environment
+
+`--report diff --against <previous>` answers the pull-request question directly: which packages were added,
+removed or bumped since the document on `main`, as a Markdown table ready for a comment.
+
+```yaml
+- uses: actions/download-artifact@v4   # the sboms artifact the main branch uploaded
+  with: { name: sboms, path: previous }
+- name: Environment changes
+  run: pixi sbom --report diff --against previous/sbom-default.cdx.json --report-format markdown > diff.md
+- uses: marocchino/sticky-pull-request-comment@v2
+  with: { path: diff.md }
+```
+
 ## Diffing SBOMs between commits
 
 With `SOURCE_DATE_EPOCH` set, two runs over the same lockfile are byte-identical (the serial number is derived from

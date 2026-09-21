@@ -4,6 +4,7 @@ mod cli;
 mod condaarchive;
 mod config;
 mod cvss;
+mod diff;
 mod discover;
 mod embedded;
 mod filter;
@@ -58,6 +59,10 @@ fn main() -> Result<()> {
     if args.pypi_licenses {
         tracing::warn!("--pypi-licenses is deprecated and now behaves as --fetch-licenses; use that instead");
     }
+    let previous = match &args.against {
+        Some(path) => Some((path.clone(), diff::read_previous(path)?)),
+        None => None,
+    };
     let targets = resolve_targets(&args, &lock, &lockfile)?;
     let pypi_mapping = load_pypi_mapping(&args)?;
     tracing::debug!(lockfile = %lockfile.display(), ?targets, format = ?args.format, "resolved targets");
@@ -236,7 +241,21 @@ fn main() -> Result<()> {
             );
         }
         if let Some(kind) = args.report {
-            reports.push(report::Report::new(kind, &sbom));
+            reports.push(match (kind, &previous) {
+                (report::ReportKind::Diff, Some((path, previous))) => {
+                    let diff = diff::compare(&sbom, previous, path);
+                    tracing::info!(
+                        added = diff.added.len(),
+                        removed = diff.removed.len(),
+                        version_changed = diff.version_changed.len(),
+                        license_changed = diff.license_changed.len(),
+                        unchanged = diff.unchanged,
+                        "compared with the previous document"
+                    );
+                    report::Report::diff(&sbom, diff)
+                }
+                _ => report::Report::new(kind, &sbom),
+            });
             continue;
         }
         let ctx = format::WriteContext::for_document(&contents, &sbom, args.format, spec_version);
@@ -334,6 +353,16 @@ fn validate(args: &cli::Args) {
             ArgumentConflict,
             "'--report-format sarif' only applies to '--report vulnerabilities'",
         );
+    }
+    match (args.report, &args.against) {
+        (Some(report::ReportKind::Diff), None) => usage(
+            MissingRequiredArgument,
+            "'--report diff' needs '--against <PATH>' to compare with",
+        ),
+        (kind, Some(_)) if kind != Some(report::ReportKind::Diff) => {
+            usage(ArgumentConflict, "'--against' only applies to '--report diff'")
+        }
+        _ => {}
     }
 }
 

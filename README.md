@@ -53,6 +53,9 @@ pixi sbom --pypi-mapping prefix --vulnerabilities osv
 # ... or as a table, worst first
 pixi sbom --pypi-mapping prefix --vulnerabilities osv --report vulnerabilities
 
+# What changed since a previous document (added, removed, version and license changes)
+pixi sbom --report diff --against previous.cdx.json --report-format markdown
+
 # Fail CI on anything high or critical, except a finding assessed as not affecting you (exit code 4)
 pixi sbom --pypi-mapping prefix --vulnerabilities osv --fail-on-severity high --ignore-vuln "CVE-2023-43804:not reachable"
 
@@ -105,7 +108,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--kev` / `--fail-on-kev` | off | Mark findings in CISA's Known Exploited Vulnerabilities catalog (rated critical, with due dates); optionally exit 4 on them |
 | `--fail-on-severity` / `--ignore-vuln` | | Vulnerability gate: exit 4 on open findings at or above a severity; accepted findings keep a VEX-style `analysis` block |
 | `--embedded-sboms` | off | Attach the components declared by SBOMs embedded in wheels (PEP 770, e.g. Rust crates) under the wheel |
-| `--report <packages\|licenses\|vulnerabilities>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`, plus `sarif` for vulnerabilities) |
+| `--report <packages\|licenses\|vulnerabilities\|diff>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`, plus `sarif` for vulnerabilities); `diff --against <previous>` lists what changed |
 | `-v` / `-q` | info | More / less logging on stderr |
 
 Output is reproducible: the document identifier is derived from the lockfile, and setting `SOURCE_DATE_EPOCH` pins
