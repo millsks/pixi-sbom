@@ -133,7 +133,15 @@ pub fn enrich(sbom: &mut Sbom, pkgs_dir: &Path, texts: bool) -> Outcome {
         let Some(dir_name) = package.properties.get("pixi:file-name").map(|f| archive_stem(f)) else {
             continue;
         };
-        let Some(info) = read_extracted(&pkgs_dir.join(dir_name), texts) else {
+        // An installed environment's record says where its package was extracted; that
+        // directory wins over the default cache location.
+        let recorded = package
+            .properties
+            .get(crate::prefix::EXTRACTED_DIR_PROPERTY)
+            .map(std::path::PathBuf::from)
+            .filter(|dir| dir.is_dir());
+        let dir = recorded.unwrap_or_else(|| pkgs_dir.join(dir_name));
+        let Some(info) = read_extracted(&dir, texts) else {
             outcome.missing.push(index);
             continue;
         };

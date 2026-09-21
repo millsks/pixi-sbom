@@ -181,7 +181,9 @@ impl Report {
             workspace: sbom.root.name.clone(),
             environment: sbom.environment.clone(),
             platform: sbom.platform.clone(),
-            lockfile: sbom.lockfile.clone(),
+            // SARIF locates results at the lockfile; an installed environment has none, so its
+            // name stands in.
+            lockfile: sbom.prefix.clone().unwrap_or_else(|| sbom.lockfile.clone()),
             packages: None,
             summary: None,
             vulnerabilities: None,

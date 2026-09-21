@@ -1867,6 +1867,165 @@ fn configuration_file_is_read_before_the_command_line() {
         .stderr(predicate::str::contains("cannot read the configuration file"));
 }
 
+/// A copy of the prefix fixture whose python record points at an extracted package directory
+/// inside the temp dir (with `info/about.json` and a license file), as a real environment's does.
+fn installed_prefix() -> tempfile::TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    let prefix = dir.path().join("envs").join("demo");
+    copy_dir(&tests_dir().join("fixtures").join("prefix"), &prefix);
+    let extracted = dir.path().join("pkgs").join("python-3.12.14-h5f976f7_3_cpython");
+    std::fs::create_dir_all(extracted.join("info").join("licenses")).unwrap();
+    std::fs::write(
+        extracted.join("info").join("about.json"),
+        r#"{"home":"https://www.python.org/","summary":"General purpose programming language","license":"Python-2.0"}"#,
+    )
+    .unwrap();
+    std::fs::write(extracted.join("info").join("index.json"), r#"{"name":"python"}"#).unwrap();
+    std::fs::write(
+        extracted.join("info").join("licenses").join("LICENSE"),
+        "PSF LICENSE AGREEMENT",
+    )
+    .unwrap();
+    let record = prefix.join("conda-meta").join("python-3.12.14-h5f976f7_3_cpython.json");
+    let text = std::fs::read_to_string(&record).unwrap().replace(
+        "/opt/pkgs/python-3.12.14-h5f976f7_3_cpython",
+        &extracted.display().to_string().replace('\\', "/"),
+    );
+    std::fs::write(&record, text).unwrap();
+    dir
+}
+
+fn copy_dir(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let target = to.join(entry.file_name());
+        if entry.path().is_dir() {
+            copy_dir(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), target).unwrap();
+        }
+    }
+}
+
+#[test]
+fn prefix_describes_an_installed_environment_in_every_format() {
+    let dir = installed_prefix();
+    let prefix = dir.path().join("envs").join("demo");
+    let run = |args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("sbom-cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .arg("--prefix")
+            .arg(&prefix)
+            .args(["--output", "-"])
+            .args(args)
+            .assert()
+            .success()
+    };
+    let assert = run(&["--fetch-licenses", "--license-texts"])
+        .stderr(predicate::str::contains("read the installed environment"));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    assert_eq!(doc["metadata"]["component"]["name"], "demo");
+    let props = doc["metadata"]["properties"].as_array().unwrap();
+    assert!(props.iter().any(|p| p["name"] == "pixi:prefix" && p["value"] == "demo"));
+    assert!(props.iter().all(|p| p["name"] != "pixi:lockfile"));
+    assert!(
+        props
+            .iter()
+            .any(|p| p["name"] == "pixi:platform" && p["value"] == "linux-64")
+    );
+    let components = doc["components"].as_array().unwrap();
+    let names: Vec<&str> = components.iter().map(|c| c["name"].as_str().unwrap()).collect();
+    assert_eq!(names, ["libzlib", "python", "tzdata", "six"]);
+    // The license file came from the record's extracted package directory, with no network.
+    let python = components.iter().find(|c| c["name"] == "python").unwrap();
+    assert_eq!(python["licenses"][0]["license"]["id"], "Python-2.0");
+    assert_eq!(
+        python["licenses"][0]["license"]["text"]["content"],
+        "PSF LICENSE AGREEMENT"
+    );
+    assert_eq!(python["description"], "General purpose programming language");
+    let six = components.iter().find(|c| c["name"] == "six").unwrap();
+    assert_eq!(six["purl"], "pkg:pypi/six@1.17.0");
+    assert_eq!(six["licenses"][0]["expression"], "MIT");
+    // The graph: python depends on libzlib and tzdata, six on python.
+    let deps = doc["dependencies"].as_array().unwrap();
+    let python_deps = deps.iter().find(|d| d["ref"] == python["bom-ref"]).unwrap()["dependsOn"]
+        .as_array()
+        .unwrap()
+        .len();
+    assert_eq!(python_deps, 2);
+
+    // SPDX 2.3 and 3.0.1 validate and carry the prefix in the root's source info.
+    let assert = run(&["--format", "spdx", "--name", "My App", "--root-version", "1.2.3"]);
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&spdx_validator(), &doc);
+    let root = doc["packages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["SPDXID"] == "SPDXRef-Package-root")
+        .unwrap();
+    assert_eq!(root["name"], "My App");
+    assert_eq!(root["versionInfo"], "1.2.3");
+    assert!(root["sourceInfo"].as_str().unwrap().contains("prefix demo"));
+    let assert = run(&["--format", "spdx", "--spec-version", "3.0"]);
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&spdx3_validator(), &doc);
+
+    // Reproducible: two runs are byte-identical under SOURCE_DATE_EPOCH.
+    let one = pixi_sbom()
+        .current_dir(dir.path())
+        .env("SOURCE_DATE_EPOCH", "0")
+        .arg("--prefix")
+        .arg(&prefix)
+        .args(["--output", "-"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let two = pixi_sbom()
+        .current_dir(dir.path())
+        .env("SOURCE_DATE_EPOCH", "0")
+        .arg("--prefix")
+        .arg(&prefix)
+        .args(["--output", "-"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    assert_eq!(one, two);
+
+    // Default output lands in the working directory; a non-environment is a diagnostic.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .arg("--prefix")
+        .arg(&prefix)
+        .assert()
+        .success();
+    assert!(dir.path().join("sbom.cdx.json").exists());
+    pixi_sbom()
+        .current_dir(dir.path())
+        .arg("--prefix")
+        .arg(dir.path())
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("not a conda environment"));
+    pixi_sbom()
+        .current_dir(dir.path())
+        .arg("--prefix")
+        .arg(&prefix)
+        .args(["--all-environments"])
+        .assert()
+        .code(2);
+}
+
 #[test]
 fn diff_report_shows_what_changed_since_a_previous_document() {
     // Yesterday's document: the with-pypi web environment with urllib3 1.26.4.

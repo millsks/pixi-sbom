@@ -183,6 +183,7 @@ pub fn sbom_from_lock(
         environment: selection.environment.to_string(),
         platform: platform_name,
         lockfile: lockfile_name.to_string(),
+        prefix: None,
         packages,
         vulnerabilities: Vec::new(),
         excluded: Vec::new(),
@@ -461,7 +462,36 @@ const PYTHON: &str = "python";
 /// already picked one package per name, so resolution is by normalized name. Every
 /// PyPI package additionally depends on the environment's conda `python` package,
 /// which wheels never declare but cannot run without.
+/// The dependency names one package declares, before they are matched to packages present in
+/// the same environment.
+pub(crate) enum DeclaredDeps {
+    /// Conda matchspecs (`libzlib >=1.3`, `__glibc >=2.17`).
+    Conda(Vec<String>),
+    /// PEP 508 requirement names.
+    Pypi(Vec<String>),
+}
+
 fn resolve_dependencies(locked: &[&LockedPackage], packages: &mut [Package]) {
+    let declared: Vec<DeclaredDeps> = locked
+        .iter()
+        .map(|package| match package {
+            LockedPackage::Conda(conda) => DeclaredDeps::Conda(conda.depends().to_vec()),
+            LockedPackage::Pypi(pypi) => DeclaredDeps::Pypi(
+                pypi.requires_dist()
+                    .iter()
+                    .map(|req| req.name.as_ref().to_string())
+                    .collect(),
+            ),
+        })
+        .collect();
+    link_dependencies(packages, &declared);
+}
+
+/// Match each package's declared dependencies (same order as `packages`) to the packages
+/// present: conda names against conda packages, PyPI names against PyPI then conda packages
+/// (pixi satisfies PyPI requirements from conda when it can), virtual packages dropped, and
+/// every PyPI package attached to the environment's `python`. Self-edges are removed.
+pub(crate) fn link_dependencies(packages: &mut [Package], declared: &[DeclaredDeps]) {
     let conda_ids: HashMap<String, &str> = packages
         .iter()
         .filter(|p| p.kind != PackageKind::Pypi)
@@ -480,11 +510,10 @@ fn resolve_dependencies(locked: &[&LockedPackage], packages: &mut [Package]) {
         .map(|p| (purl::normalize_pypi_name(&p.name), p.id.as_str()))
         .collect();
 
-    let resolved: Vec<Vec<String>> = locked
+    let resolved: Vec<Vec<String>> = declared
         .iter()
-        .map(|package| match package {
-            LockedPackage::Conda(conda) => conda
-                .depends()
+        .map(|deps| match deps {
+            DeclaredDeps::Conda(specs) => specs
                 .iter()
                 .map(|spec| PackageName::normalized_name_from_matchspec_str(spec).into_owned())
                 .filter(|dep| !dep.starts_with("__"))
@@ -492,10 +521,9 @@ fn resolve_dependencies(locked: &[&LockedPackage], packages: &mut [Package]) {
                 .collect::<BTreeSet<_>>()
                 .into_iter()
                 .collect(),
-            LockedPackage::Pypi(pypi) => pypi
-                .requires_dist()
+            DeclaredDeps::Pypi(names) => names
                 .iter()
-                .map(|req| purl::normalize_pypi_name(req.name.as_ref()))
+                .map(|name| purl::normalize_pypi_name(name))
                 .filter_map(|dep| pypi_ids.get(&dep).or_else(|| conda_ids.get(&dep)))
                 .chain(conda_ids.get(PYTHON))
                 .map(|id| (*id).to_string())

@@ -162,8 +162,23 @@ impl FailOnSeverity {
 )]
 pub struct Args {
     /// Path to the pixi.lock file. Defaults to searching from the current directory upward.
-    #[arg(long, value_name = "PATH")]
+    #[arg(long, value_name = "PATH", conflicts_with = "prefix")]
     pub lockfile: Option<PathBuf>,
+
+    /// Describe an installed environment instead of a lockfile: a `pixi global` environment
+    /// (~/.pixi/envs/<name>), a conda / mamba environment, or one inside a container. Conda
+    /// packages come from its conda-meta records, pip-installed ones from site-packages.
+    #[arg(long, value_name = "DIR", conflicts_with_all = ["environment", "all_environments", "all_platforms"])]
+    pub prefix: Option<PathBuf>,
+
+    /// With --prefix: the name recorded for the described application (default: the
+    /// environment directory's name).
+    #[arg(long, value_name = "NAME", requires = "prefix")]
+    pub name: Option<String>,
+
+    /// With --prefix: the version recorded for the described application.
+    #[arg(long, value_name = "VERSION", requires = "prefix")]
+    pub root_version: Option<String>,
 
     /// Configuration file to read before the command line (the command line wins). Defaults to
     /// `[tool.pixi-sbom]` in the pyproject.toml next to the lockfile, else pixi-sbom.toml there.

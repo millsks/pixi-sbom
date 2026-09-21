@@ -19,6 +19,8 @@ With no options this means:
 | Option | Default | Effect |
 |---|---|---|
 | `--lockfile <PATH>` | upward search from cwd | Lockfile to read. The file must exist; there is no fallback search when this is given. |
+| `--prefix <DIR>` | | Describe an installed environment instead of a lockfile (see below). Cannot be combined with `--lockfile`, `--environment` or the `--all-*` flags. |
+| `--name <NAME>`, `--root-version <VERSION>` | directory name, none | With `--prefix`: what the described application is called. |
 | `--config <PATH>` | see below | Configuration file to read before the command line. |
 | `--no-config` | off | Ignore any configuration file. |
 | `--format <cyclonedx\|spdx>` | `cyclonedx` | `cyclonedx` writes CycloneDX JSON; `spdx` writes SPDX 2.3 JSON. |
@@ -55,6 +57,27 @@ With no options this means:
 | `-h, --help`, `-V, --version` | | Usual meanings. |
 
 `RUST_LOG` is also honored and overrides `-v`/`-q` (for example `RUST_LOG=pixi_sbom::lock=debug`).
+
+## Describing an installed environment
+
+Not every environment has a lockfile: `pixi global` environments, plain conda / mamba / micromamba environments,
+environments inside containers. `--prefix <DIR>` describes one of those from what it keeps on disk:
+
+```sh
+pixi sbom --prefix ~/.pixi/envs/pixi-sbom
+pixi sbom --prefix /opt/conda/envs/app --name app --root-version 1.4.0 --fetch-licenses
+```
+
+Conda packages come from `conda-meta/<name>-<version>-<build>.json`, which carries the same facts as a lock record
+(name, version, build, channel, subdir, hashes, license, dependencies); pip-installed packages come from the
+`site-packages/*.dist-info` directories (`METADATA` for name, version, license, summary and requirements;
+`direct_url.json` for VCS installs), skipping the ones whose `INSTALLER` is `conda`, since their conda package is
+already listed. The dependency graph is resolved as for a lockfile. The environment is named after the directory,
+the platform is the one the records name (`--platform` overrides it), and the document records `pixi:prefix`
+instead of `pixi:lockfile`. `--fetch-licenses` reads the license files from the directory each record says the
+package was extracted to (`extracted_package_dir`, the package cache), so it needs no network on the machine
+that installed the environment. The default output is `sbom.cdx.json` in the working directory, and the
+configuration file is looked up there too.
 
 ## Configuration file
 
