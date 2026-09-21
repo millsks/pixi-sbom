@@ -467,6 +467,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#what-changed-in-the-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What changed in the environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#diffing-sboms-between-commits" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -752,6 +763,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#what-changed-in-the-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What changed in the environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#diffing-sboms-between-commits" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -838,11 +860,21 @@ called out, ready to paste:</p>
 </code></pre></div>
 <p><code>--report-format csv</code> and <code>json</code> feed spreadsheets and scripts the same way; see
 <a href="../cli/#looking-instead-of-writing">looking instead of writing</a>.</p>
+<h2 id="what-changed-in-the-environment">What changed in the environment<a class="headerlink" href="#what-changed-in-the-environment" title="Permanent link">&para;</a></h2>
+<p><code>--report diff --against &lt;previous&gt;</code> answers the pull-request question directly: which packages were added,
+removed or bumped since the document on <code>main</code>, as a Markdown table ready for a comment.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/download-artifact@v4</span><span class="w">   </span><span class="c1"># the sboms artifact the main branch uploaded</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">sboms</span><span class="p p-Indicator">,</span><span class="nt"> path</span><span class="p">:</span><span class="w"> </span><span class="nv">previous</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Environment changes</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi sbom --report diff --against previous/sbom-default.cdx.json --report-format markdown &gt; diff.md</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">marocchino/sticky-pull-request-comment@v2</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> path</span><span class="p">:</span><span class="w"> </span><span class="nv">diff.md</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</code></pre></div>
 <h2 id="diffing-sboms-between-commits">Diffing SBOMs between commits<a class="headerlink" href="#diffing-sboms-between-commits" title="Permanent link">&para;</a></h2>
 <p>With <code>SOURCE_DATE_EPOCH</code> set, two runs over the same lockfile are byte-identical (the serial number is derived from
 the lockfile contents and the timestamp is pinned), so a plain <code>diff</code> shows exactly which packages changed:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">SOURCE_DATE_EPOCH</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>sbom.cdx.json
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>git<span class="w"> </span>diff<span class="w"> </span>--no-index<span class="w"> </span>--<span class="w"> </span>sbom-previous.cdx.json<span class="w"> </span>sbom.cdx.json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">SOURCE_DATE_EPOCH</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>sbom.cdx.json
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>git<span class="w"> </span>diff<span class="w"> </span>--no-index<span class="w"> </span>--<span class="w"> </span>sbom-previous.cdx.json<span class="w"> </span>sbom.cdx.json
 </code></pre></div>
 <p>See <a href="../output-format/#reproducibility">reproducibility</a> for what the guarantee covers.</p>
 <h2 id="air-gapped-runners">Air-gapped runners<a class="headerlink" href="#air-gapped-runners" title="Permanent link">&para;</a></h2>

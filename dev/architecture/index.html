@@ -818,14 +818,15 @@ once no matter how many output formats exist.</p>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>   wheel.rs ─────── PyPI license details from the wheel's dist-info (optional, via zipread.rs)
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>   embedded.rs ──── PEP 770 embedded SBOMs from the same wheels (optional)
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>   report.rs ───── --report: renders the model as a terminal table instead of a document
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>   policy.rs ───── --allow/--deny/--require-license: violations -&gt; exit 3 after writing
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>   osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>   kev.rs ──────── --kev: CISA's Known Exploited Vulnerabilities catalog onto the findings (via http.rs)
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>   vulnpolicy.rs ─ --fail-on-severity / --fail-on-kev / --ignore-vuln: analysis blocks and exit 4 after writing
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>   license.rs ◀── used by both writers
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>   discover.rs ── finds the lockfile, decides output paths
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>   cli.rs ──────── clap definitions
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>   main.rs ─────── wires it together, logging, error reporting
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>   diff.rs ─────── --report diff --against: reads a previous document (any family) and compares
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>   policy.rs ───── --allow/--deny/--require-license: violations -&gt; exit 3 after writing
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>   osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>   kev.rs ──────── --kev: CISA's Known Exploited Vulnerabilities catalog onto the findings (via http.rs)
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>   vulnpolicy.rs ─ --fail-on-severity / --fail-on-kev / --ignore-vuln: analysis blocks and exit 4 after writing
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>   license.rs ◀── used by both writers
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>   discover.rs ── finds the lockfile, decides output paths
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>   cli.rs ──────── clap definitions
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>   main.rs ─────── wires it together, logging, error reporting
 </code></pre></div>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <table>
@@ -966,6 +967,11 @@ once no matter how many output formats exist.</p>
 <td><code>cvss.rs</code></td>
 <td>CVSS v3.0 / v3.1 base scores from vector strings, for advisories that carry a vector but no qualitative severity.</td>
 <td></td>
+</tr>
+<tr>
+<td><code>diff.rs</code></td>
+<td><code>--report diff --against</code>: reads a previous CycloneDX / SPDX 2.x document through <code>embedded::parse</code> or an SPDX 3.0.1 graph directly, reduces both sides to (purl type, normalized name, version, normalized license) and lists added, removed, version- and license-changed packages.</td>
+<td>embedded.rs, license.rs</td>
 </tr>
 <tr>
 <td><code>policy.rs</code></td>

@@ -1127,9 +1127,14 @@
 <td>Repeatable, with <code>--vulnerabilities</code>. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX <code>analysis</code> block (<code>state</code> defaults to <code>not_affected</code>; <code>TEXT</code> is the justification), is excluded from <code>--fail-on-severity</code> and listed separately in the report.</td>
 </tr>
 <tr>
-<td><code>--report &lt;packages\|licenses\|vulnerabilities&gt;</code></td>
+<td><code>--report &lt;packages\|licenses\|vulnerabilities\|diff&gt;</code></td>
 <td></td>
-<td>Print a report to the terminal instead of writing a document (see below). Cannot be combined with <code>--output</code>; <code>vulnerabilities</code> needs <code>--vulnerabilities</code>.</td>
+<td>Print a report to the terminal instead of writing a document (see below). Cannot be combined with <code>--output</code>; <code>vulnerabilities</code> needs <code>--vulnerabilities</code>, <code>diff</code> needs <code>--against</code>.</td>
+</tr>
+<tr>
+<td><code>--against &lt;PATH&gt;</code></td>
+<td></td>
+<td>With <code>--report diff</code>: the previous document to compare with (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON).</td>
 </tr>
 <tr>
 <td><code>--report-format &lt;table\|markdown\|csv\|json\|sarif&gt;</code></td>
@@ -1295,10 +1300,13 @@ license policy and the vulnerability gate fail, both lists are printed and the e
 <a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="c1"># The findings of --vulnerabilities, one row per finding and affected package, worst first</span>
 <a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--report<span class="w"> </span>vulnerabilities
 <a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="c1"># For a PR comment, a spreadsheet, or a script</span>
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>markdown
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>csv<span class="w"> </span>&gt;<span class="w"> </span>licenses.csv
-<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>packages<span class="w"> </span>--report-format<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.packages[] | select(.license == null)'</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="c1"># What changed since the last release's document: added, removed, version and license changes</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>diff<span class="w"> </span>--against<span class="w"> </span>release/sbom.cdx.json<span class="w"> </span>--report-format<span class="w"> </span>markdown
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="c1"># For a PR comment, a spreadsheet, or a script</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>markdown
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>csv<span class="w"> </span>&gt;<span class="w"> </span>licenses.csv
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>packages<span class="w"> </span>--report-format<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.packages[] | select(.license == null)'</span>
 </code></pre></div>
 <p>Reports respect every selection and enrichment flag, so they show exactly what a document would contain; with
 <code>--all-environments</code> / <code>--all-platforms</code> there is one section (or JSON array element) per document. <code>--report</code>
@@ -1312,6 +1320,13 @@ findings, the ignored findings with their justification, and the packages that h
 answer. <code>--report-format sarif</code> renders it as a SARIF 2.1.0 log instead: one run per document, one rule per
 advisory (with <code>security-severity</code> for GitHub code scanning: the CVSS score, or 10 for known-exploited findings),
 one result per finding and affected package located at the lockfile, and accepted findings as suppressions.</p>
+<p>The diff report compares the document this run would write with a previous one (<code>--against</code>, any of the formats
+pixi-sbom writes, from this tool or another). Packages are matched by purl type and normalized name, so a version
+bump is one <code>version</code> row (before and after) rather than a removal plus an addition; the sections are <code>added</code>,
+<code>removed</code>, <code>version</code> and <code>license</code> (same package and version, different declared license), and a summary line
+counts each plus the unchanged packages. Filters, mapping and license fetching apply to the new side as usual.
+The exit code is always 0; a document that is none of the three families is an error
+(<code>pixi_sbom::diff::parse</code>). <code>--against</code> does not combine with <code>--all-environments</code> / <code>--all-platforms</code>.</p>
 <h2 id="one-document-per-environment-and-platform">One document per environment and platform<a class="headerlink" href="#one-document-per-environment-and-platform" title="Permanent link">&para;</a></h2>
 <p>A pixi lockfile can hold many environments, each locked for several platforms. An SBOM, by contrast, is expected to
 describe one deliverable, so <code>pixi sbom</code> never merges environments or platforms into one document:</p>
