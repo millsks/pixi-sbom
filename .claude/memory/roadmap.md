@@ -62,3 +62,17 @@ rewrite lockfiles); a `file://` package location comes back from rattler as a pa
 must pin `PIXI_CACHE_DIR` to an empty dir; CycloneDX `license.id` rejects `LicenseRef-*` (use `name`);
 files.pythonhosted.org answers 416 to a suffix range longer than the file; ureq's body `limit(n)` errors on a body
 of exactly n bytes (use n+1). `PIXI_SBOM_OFFLINE=1` forbids all network access and keeps e2e tests deterministic.
+
+## 0.5.0 (released 2026-09-20)
+
+PRs #41 (#29 policy gate), #42 (#32 GitHub Action, `action.yml` at the repo root, dogfooded by the `sbom` CI job),
+#43 (#31 SPDX 3.0.1 JSON-LD, `--spec-version` now spans both formats), #44 (#30 PEP 770 embedded SBOMs,
+`PackageKind::Embedded`). No new dependencies. Lessons: `Licensee` in the `spdx` crate rejects the `+` shorthand
+and keeps deprecated ids distinct from `-only` forms (policy.rs canonicalizes both sides); the real `with-pypi`
+fixture already has a conda `openssl`, so look embedded components up by purl in tests; an action referenced by
+`uses: ./` has an empty `github.action_ref` and resolves to the latest release, so new CLI flags reach the
+dogfood job only after the release that ships them.
+
+Follow-up after the 0.5.0 release: add policy inputs to the action dogfood job and bump the `@v0.5.0` examples.
+Candidate 0.6.0 themes: VEX / vulnerability annotations from a scanner run, `pixi global` manifests, conda
+package-level SBOM convention once one exists, SPDX 3 embedded fragments.
