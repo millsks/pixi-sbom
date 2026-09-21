@@ -2,6 +2,7 @@
 
 pub mod cyclonedx;
 pub mod spdx;
+pub mod spdx3;
 
 use std::ffi::OsStr;
 use std::io::Write;
@@ -116,9 +117,10 @@ pub fn write(format: Format, sbom: &Sbom, ctx: &WriteContext, out: &mut dyn Writ
 
 /// Build the JSON document for `format` without writing it anywhere.
 pub fn to_value(format: Format, sbom: &Sbom, ctx: &WriteContext) -> Result<serde_json::Value, WriteError> {
-    let value = match format {
-        Format::Cyclonedx => serde_json::to_value(cyclonedx::document(sbom, ctx))?,
-        Format::Spdx => serde_json::to_value(spdx::document(sbom, ctx))?,
+    let value = match (format, ctx.spec_version) {
+        (Format::Cyclonedx, _) => serde_json::to_value(cyclonedx::document(sbom, ctx))?,
+        (Format::Spdx, SpecVersion::V3_0) => serde_json::to_value(spdx3::document(sbom, ctx))?,
+        (Format::Spdx, _) => serde_json::to_value(spdx::document(sbom, ctx))?,
     };
     Ok(value)
 }
@@ -159,6 +161,14 @@ pub(crate) mod testing {
     pub fn fixed_context_1_7() -> WriteContext {
         WriteContext {
             spec_version: SpecVersion::V1_7,
+            ..fixed_context()
+        }
+    }
+
+    /// The fixed context, writing SPDX 3.0.
+    pub fn fixed_context_3_0() -> WriteContext {
+        WriteContext {
+            spec_version: SpecVersion::V3_0,
             ..fixed_context()
         }
     }
@@ -429,6 +439,22 @@ mod schema_tests {
         assert_valid(&cyclonedx_validator("1.7"), &doc);
         // and is not accepted by 1.6 (the citations element is new), proving the version matters
         assert!(cyclonedx_validator("1.6").iter_errors(&doc).next().is_some());
+    }
+
+    #[test]
+    fn sample_spdx_3_document_is_schema_valid() {
+        let validator = jsonschema::options()
+            .offline()
+            .build(&schema("spdx-3.0.1.schema.json"))
+            .unwrap();
+        let doc = to_value(
+            Format::Spdx,
+            &sample_sbom(),
+            &crate::format::testing::fixed_context_3_0(),
+        )
+        .unwrap();
+        assert_valid(&validator, &doc);
+        assert_eq!(doc["@context"], "https://spdx.org/rdf/3.0.1/spdx-context.jsonld");
     }
 
     #[test]

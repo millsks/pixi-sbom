@@ -674,7 +674,7 @@ fn spec_version_1_7_writes_a_valid_cyclonedx_1_7_document() {
 }
 
 #[test]
-fn spec_version_conflicts_with_spdx() {
+fn spec_version_must_belong_to_the_format() {
     let dir = workspace("conda-only");
 
     pixi_sbom()
@@ -682,7 +682,102 @@ fn spec_version_conflicts_with_spdx() {
         .args(["-p", "linux-64", "--format", "spdx", "--spec-version", "1.7"])
         .assert()
         .code(2)
-        .stderr(predicate::str::contains("cannot be used with '--format spdx'"));
+        .stderr(predicate::str::contains(
+            "'--spec-version 1.7' is not a version of '--format spdx'",
+        ));
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--spec-version", "3.0"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains(
+            "'--spec-version 3.0' is not a version of '--format cyclonedx'",
+        ));
+}
+
+fn spdx3_validator() -> Validator {
+    jsonschema::options()
+        .offline()
+        .build(&schema("spdx-3.0.1.schema.json"))
+        .unwrap()
+}
+
+#[test]
+fn spec_version_3_0_writes_a_valid_spdx_3_document() {
+    let dir = workspace("with-pypi");
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .args([
+            "-e",
+            "web",
+            "-p",
+            "linux-64",
+            "--format",
+            "spdx",
+            "--spec-version",
+            "3.0",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .success();
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&spdx3_validator(), &doc);
+    assert_eq!(doc["@context"], "https://spdx.org/rdf/3.0.1/spdx-context.jsonld");
+    let graph = doc["@graph"].as_array().unwrap();
+    let packages: Vec<_> = graph.iter().filter(|n| n["type"] == "software_Package").collect();
+    assert_eq!(packages.len(), 1 + 30, "root + every locked package");
+    assert!(packages.iter().any(|p| p["name"] == "requests"));
+    let sbom = graph.iter().find(|n| n["type"] == "software_Sbom").unwrap();
+    assert_eq!(sbom["name"], "with-pypi-web-linux-64");
+    assert!(
+        graph
+            .iter()
+            .any(|n| n["type"] == "Relationship" && n["relationshipType"] == "dependsOn")
+    );
+
+    // The default SPDX version is still 2.3.
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-e", "web", "-p", "linux-64", "--format", "spdx", "--output", "-"])
+        .assert()
+        .success();
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_eq!(doc["spdxVersion"], "SPDX-2.3");
+
+    // Reproducible like the others.
+    let a = pixi_sbom()
+        .current_dir(dir.path())
+        .env("SOURCE_DATE_EPOCH", "1700000000")
+        .args([
+            "-p",
+            "linux-64",
+            "--format",
+            "spdx",
+            "--spec-version",
+            "3.0",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .success();
+    let b = pixi_sbom()
+        .current_dir(dir.path())
+        .env("SOURCE_DATE_EPOCH", "1700000000")
+        .args([
+            "-p",
+            "linux-64",
+            "--format",
+            "spdx",
+            "--spec-version",
+            "3.0",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .success();
+    assert_eq!(a.get_output().stdout, b.get_output().stdout);
 }
 
 #[test]

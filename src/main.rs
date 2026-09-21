@@ -164,20 +164,23 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-/// The CycloneDX version to write; `--spec-version` is a usage error with any other format.
+/// The specification version to write: the format's default unless `--spec-version` names a
+/// version of that format; naming another format's version is a usage error.
 fn resolve_spec_version(args: &cli::Args) -> cli::SpecVersion {
-    match (args.format, args.spec_version) {
-        (cli::Format::Cyclonedx, version) => version.unwrap_or_default(),
-        (_, None) => cli::SpecVersion::default(),
-        (format, Some(_)) => {
-            let name = clap::ValueEnum::to_possible_value(&format).map(|v| v.get_name().to_string());
+    match args.spec_version {
+        None => cli::SpecVersion::default_for(args.format),
+        Some(version) if version.applies_to(args.format) => version,
+        Some(version) => {
+            let version_name = clap::ValueEnum::to_possible_value(&version)
+                .map(|p| p.get_name().to_string())
+                .unwrap_or_default();
+            let format_name = clap::ValueEnum::to_possible_value(&args.format)
+                .map(|p| p.get_name().to_string())
+                .unwrap_or_default();
             cli::Args::command()
                 .error(
                     clap::error::ErrorKind::ArgumentConflict,
-                    format!(
-                        "'--spec-version' selects a CycloneDX version and cannot be used with '--format {}'",
-                        name.unwrap_or_default()
-                    ),
+                    format!("'--spec-version {version_name}' is not a version of '--format {format_name}'"),
                 )
                 .exit()
         }
