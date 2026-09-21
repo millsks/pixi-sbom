@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://millsks.github.io/pixi-sbom/latest/installation/">
+        <link rel="canonical" href="https://millsks.github.io/pixi-sbom/latest/formats/">
       
       
-        <link rel="prev" href="..">
+        <link rel="prev" href="../ci-recipes/">
       
       
-        <link rel="next" href="../cli/">
+        <link rel="next" href="../output-format/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Installation - pixi-sbom</title>
+        <title>Which format to pick - pixi-sbom</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#installation" class="md-skip">
+        <a href="#which-format-to-pick" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Installation
+              Which format to pick
             
           </span>
         </div>
@@ -290,37 +290,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Installation
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
         
   
   
@@ -336,48 +309,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#methods" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Methods
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#upgrading" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Upgrading
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -467,10 +398,19 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../formats/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -486,6 +426,7 @@
   
 
       </a>
+      
     </li>
   
 
@@ -679,36 +620,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#methods" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Methods
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#upgrading" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Upgrading
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -724,7 +635,7 @@
 
 
   
-    <a href="https://github.com/millsks/pixi-sbom/edit/main/docs/installation.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/millsks/pixi-sbom/edit/main/docs/formats.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -732,47 +643,75 @@
   
 
 
-<h1 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h1>
-<p><code>pixi-sbom</code> is a <a href="https://pixi.sh/latest/integration/extensions/introduction/">pixi extension</a>: a standalone
-executable named <code>pixi-sbom</code>. Pixi finds any <code>pixi-&lt;name&gt;</code> binary on <code>PATH</code> (or in its own global bin directory) and
-runs it when you type <code>pixi &lt;name&gt;</code>. There is no plugin registration; installing the binary is the whole setup.</p>
-<h2 id="methods">Methods<a class="headerlink" href="#methods" title="Permanent link">&para;</a></h2>
+<h1 id="which-format-to-pick">Which format to pick<a class="headerlink" href="#which-format-to-pick" title="Permanent link">&para;</a></h1>
+<p><code>pixi sbom</code> writes one of four document flavours from the same model, so the choice is about who reads the file, not
+what goes into it. The <a href="../output-format/">output format reference</a> covers every field.</p>
 <table>
 <thead>
 <tr>
-<th>Method</th>
-<th>Command</th>
+<th></th>
+<th>CycloneDX 1.6</th>
+<th>CycloneDX 1.7</th>
+<th>SPDX 2.3</th>
+<th>SPDX 3.0.1</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>pixi global (recommended)</td>
-<td><code>pixi global install pixi-sbom</code></td>
+<td>Flags</td>
+<td>(default)</td>
+<td><code>--spec-version 1.7</code></td>
+<td><code>--format spdx</code></td>
+<td><code>--format spdx --spec-version 3.0</code></td>
 </tr>
 <tr>
-<td>Prebuilt binary</td>
-<td>Download <code>pixi-sbom-&lt;version&gt;-&lt;platform&gt;.tar.gz</code> (or <code>.zip</code> on Windows) from the <a href="https://github.com/millsks/pixi-sbom/releases">releases page</a>, verify the <code>.sha256</code> next to it, and put <code>pixi-sbom</code> on your <code>PATH</code></td>
+<td>File</td>
+<td><code>sbom.cdx.json</code></td>
+<td><code>sbom.cdx.json</code></td>
+<td><code>sbom.spdx.json</code></td>
+<td><code>sbom.spdx.json</code></td>
 </tr>
 <tr>
-<td>cargo binstall</td>
-<td><code>cargo binstall pixi-sbom</code> downloads the release binary for your platform from GitHub (no compiler needed); <code>cargo install pixi-sbom</code> builds it from crates.io instead</td>
+<td>Shape</td>
+<td>components + dependency graph</td>
+<td>same, plus <code>citations</code></td>
+<td>packages + relationships</td>
+<td>JSON-LD graph of elements</td>
 </tr>
 <tr>
-<td>From source</td>
-<td><code>pixi run build</code> in a clone, then copy <code>target/release/pixi-sbom</code> to <code>~/.pixi/bin/</code></td>
+<td>Best for</td>
+<td>vulnerability scanners (grype, trivy, OSV), most SBOM tooling</td>
+<td>consumers that already read 1.7</td>
+<td>procurement, NTIA / CISA minimum-elements checklists, legacy SPDX tooling</td>
+<td>SPDX 3 native tooling, linking into larger SPDX 3 graphs</td>
+</tr>
+<tr>
+<td>License texts (<code>--license-texts</code>)</td>
+<td><code>licenses[].license.text</code></td>
+<td>same</td>
+<td>extracted licensing infos</td>
+<td><code>SimpleLicensingText</code> elements</td>
+</tr>
+<tr>
+<td>Validated against</td>
+<td>CycloneDX 1.6 schema</td>
+<td>1.7 schema</td>
+<td>SPDX 2.3 schema</td>
+<td>SPDX 3.0.1 schema</td>
 </tr>
 </tbody>
 </table>
-<p>Check it is picked up:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pixi<span class="w"> </span>--list<span class="w">          </span><span class="c1"># ...  sbom  (via pixi-sbom)</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--version
-</code></pre></div>
-<p><code>pixi-sbom --help</code> and <code>pixi sbom --help</code> are equivalent; the binary can be run directly without pixi.</p>
-<h2 id="upgrading">Upgrading<a class="headerlink" href="#upgrading" title="Permanent link">&para;</a></h2>
-<p><code>pixi global update pixi-sbom</code> follows the conda-forge feedstock, which tracks releases within a day or two; a
-downloaded binary is replaced by the next one from the releases page. <code>pixi sbom --version</code> prints the running
-version, and every release is listed in the <a href="../changelog/">changelog</a>.</p>
-<p>Next: <a href="../cli/">run it</a>, <a href="../github-action/">use it in CI</a>, or see <a href="../formats/">which format to pick</a>.</p>
+<p>Rules of thumb:</p>
+<ul>
+<li><strong>Scanning for vulnerabilities</strong>: CycloneDX 1.6, piped straight in (<code>pixi sbom --output - | grype</code>). Add
+  <code>--pypi-mapping prefix --primary-purl pypi</code> so conda-installed Python packages match PyPI advisories.</li>
+<li><strong>Handing a bill of materials to a customer or auditor</strong>: SPDX 2.3 is the most widely accepted interchange, and its
+  <code>licenseDeclared</code> / <code>licenseConcluded</code> split maps onto compliance workflows.</li>
+<li><strong>A newer consumer that reads it</strong>: CycloneDX 1.7 or SPDX 3.0.1. The defaults stay at 1.6 / 2.3 until the common
+  consumers move; a version of the other format is a usage error.</li>
+</ul>
+<p>Every flavour records which environment and platform it describes and carries the same purls, licenses and
+dependency edges, so converting later with <code>syft convert</code> loses nothing that <code>pixi sbom</code> put in.</p>
 
 
 
@@ -808,7 +747,7 @@ version, and every release is listed in the <a href="../changelog/">changelog</a
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href=".." class="md-footer__link md-footer__link--prev" aria-label="Previous: Overview">
+          <a href="../ci-recipes/" class="md-footer__link md-footer__link--prev" aria-label="Previous: CI recipes">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -818,20 +757,20 @@ version, and every release is listed in the <a href="../changelog/">changelog</a
                 Previous
               </span>
               <div class="md-ellipsis">
-                Overview
+                CI recipes
               </div>
             </div>
           </a>
         
         
           
-          <a href="../cli/" class="md-footer__link md-footer__link--next" aria-label="Next: Command-line reference">
+          <a href="../output-format/" class="md-footer__link md-footer__link--next" aria-label="Next: Output format reference">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Command-line reference
+                Output format reference
               </div>
             </div>
             <div class="md-footer__button md-icon">
