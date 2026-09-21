@@ -1,8 +1,7 @@
 name: pixi-sbom
+# The Marketplace caps the description at 125 characters.
 description: >-
-  Generate a CycloneDX or SPDX Software Bill of Materials from a pixi.lock file, optionally
-  enriched with licenses and PyPI identities, and upload it as a workflow artifact. Downloads
-  the pinned release binary; pixi itself is not required.
+  CycloneDX or SPDX SBOM from pixi.lock, with licenses, PyPI identities and a license policy gate; no pixi setup needed
 author: Kevin Mills
 branding:
   icon: shield

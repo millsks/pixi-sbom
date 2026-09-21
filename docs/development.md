@@ -202,6 +202,13 @@ What it does, in order:
 For `pixi global install pixi-sbom`, put that SHA-256 into `recipe/recipe.yaml` and submit it to conda-forge
 `staged-recipes` once; after that the feedstock bot handles version bumps.
 
+Publishing a release also deploys the documentation site (see [Continuous integration](#continuous-integration)) and
+updates the action's [Marketplace listing](https://github.com/marketplace/actions/pixi-sbom). The listing itself was
+created once by hand: on the release page, *Edit* → tick *Publish this Action to the GitHub Marketplace* → accept
+the developer agreement → category *Security*. The Marketplace validates `action.yml` on that page: the `name` must
+be unique among actions and not match a GitHub user or organization, `branding` must be set, and the `description`
+must be at most 125 characters, so keep the long form in the README and the docs.
+
 Operator prerequisite: the release commit and tag land on `main` under the branch ruleset, so the workflow
 authenticates with the release GitHub App (already in the ruleset's bypass list) rather than `GITHUB_TOKEN`. The
 App's credentials must be present as the repository secrets `APP_ID` and `APP_PRIVATE_KEY`; the workflow mints a
