@@ -101,3 +101,17 @@ symlinks) and the branch is uploaded as the Pages artifact. Links use `/latest/.
 conda-forge/pixi-sbom-feedstock#7 points `about` at the site. The Marketplace listing is a one-time UI step the
 user does on the 0.5.5 release. Lesson: `gh repo clone` of a fork already adds `upstream`; and `mkdocs_hooks.py`
 publishes CHANGELOG.md as a page without copying it into docs/.
+
+## 0.6.0 (2026-09-21): vulnerabilities
+
+PRs #82 (cache moved inside the pixi cache dir so `pixi clean cache` clears it), #83 (#51 `--vulnerabilities osv`,
+`src/osv.rs` + `src/cvss.rs`; GHSA/PYSEC twins merged by alias; matches grype's id set), #84 (#52 `--report
+vulnerabilities`), #85 (#53 `--fail-on-severity` exit 4, `--ignore-vuln ID[:STATE][:TEXT]` → CycloneDX
+`analysis`), #86 (#81 `--kev` / `--fail-on-kev`, CISA catalog cached a day, synthetic fixture entry documented),
+#87 (#54 SARIF 2.1.0 + action inputs `vulnerabilities`, `kev`, `fail-on-severity`, `fail-on-kev`, `ignore-vuln`
+one per line, `fail-on-vulnerabilities`, `upload-sarif`, `sarif-category`). No new crates. Lessons: OSV's
+`querybatch` reports `modified` in microseconds and records in nanoseconds (compare by microsecond); OSV omits
+list fields but jq-made fixtures write `null` (accept both); a `--report` run in the repo root wrote a stray
+`sbom.cdx.json` once (never commit generated output); `git add -A` leaked an unrelated new file into a PR (add
+paths explicitly). Test workspace with vulnerable pins: `/tmp/pixi-sbom-test-vulns` (84 OSV findings).
+After the release: dogfood job gets `vulnerabilities: osv`, `kev`, `upload-sarif` (+ `security-events: write`).
