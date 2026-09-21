@@ -219,8 +219,9 @@ runs:
         [ "$IN_REQUIRE_LICENSE" = "true" ] && args+=(--require-license)
         for a in $IN_EXTRA_ARGS; do args+=("$a"); done
         echo "pixi-sbom ${args[*]}"
-        pixi-sbom "${args[@]}"
-        code=$?
+        # GitHub runs bash steps with -e; capture the status instead of dying on exit code 3.
+        code=0
+        pixi-sbom "${args[@]}" || code=$?
         if [ "$code" -eq 3 ]; then
           echo "policy-violated=true" >> "$GITHUB_OUTPUT"
           if [ "$IN_FAIL_ON_POLICY" = "true" ]; then
