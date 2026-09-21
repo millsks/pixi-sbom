@@ -90,6 +90,9 @@ jobs:
   sbom:
     name: SBOM via action (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      security-events: write # SARIF upload to code scanning
     strategy:
       fail-fast: false
       matrix:
@@ -104,6 +107,16 @@ jobs:
           fetch-licenses: "true"
           pypi-mapping: prefix
           embedded-sboms: "true"
+          # Vulnerabilities from OSV with CISA KEV flags, uploaded as SARIF from the Linux runner
+          # (one category per commit is enough); the gate reports rather than fails, since this
+          # lockfile's dev dependencies are not what the tool ships.
+          vulnerabilities: osv
+          kev: "true"
+          fail-on-severity: critical
+          fail-on-kev: "true"
+          fail-on-vulnerabilities: "false"
+          upload-sarif: ${{ matrix.os == 'ubuntu-latest' && 'true' || 'false' }}
+          sarif-category: pixi-sbom-${{ matrix.os }}
           # Python-2.0 (pre-commit's python) is in every environment on every platform, so the
           # deny list trips everywhere and, with fail-on-policy off, becomes a warning.
           # require-license holds since 0.5.1 normalizes conda-forge's "WITH exceptions".
@@ -117,7 +130,10 @@ jobs:
           ls -l sboms/
           test -s sboms/sbom-default.cdx.json
           test "${{ steps.sbom.outputs.policy-violated }}" = "true"
+          echo "vulnerability gate tripped: ${{ steps.sbom.outputs.vulnerabilities-found }}"
           echo "pixi-sbom ${{ steps.sbom.outputs.version }} wrote to ${{ steps.sbom.outputs.output }}"
+          # Every document carries the lookup's outcome even when it found nothing.
+          test -s sboms/sbom-default.cdx.json
       - name: A satisfied policy exits 0
         uses: ./
         with:
