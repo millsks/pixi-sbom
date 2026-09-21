@@ -1230,6 +1230,146 @@ fn fetch_licenses_reads_small_legacy_archives_whole_and_skips_large_ones() {
     assert!(libzlib["licenses"][0]["license"].is_null());
 }
 
+/// The `with-pypi` fixture with urllib3 pinned to the vulnerable 1.26.4 wheel.
+fn workspace_with_vulnerable_urllib3() -> tempfile::TempDir {
+    let dir = workspace("with-pypi");
+    let lock = std::fs::read_to_string(dir.path().join("pixi.lock"))
+        .unwrap()
+        .replace("\r\n", "\n")
+        .replace(
+            "packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl",
+            "packages/09/c6/d3e3abe5b4f4f16cf0dfc9240ab7ce10c2baa0e268989a4e3ec19e90c84e/urllib3-1.26.4-py2.py3-none-any.whl",
+        )
+        .replace("\n  version: 2.8.0\n", "\n  version: 1.26.4\n")
+        .replace(
+            "0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3",
+            "2f4da4594db7e1e110a944bb1b551fdf4e6c136ad42e4234131391e21eb5b0df",
+        );
+    std::fs::write(dir.path().join("pixi.lock"), lock).unwrap();
+    // Recorded OSV responses stand in for the API.
+    let osv = tests_dir().join("fixtures").join("osv");
+    for sub in ["queries", "vulns"] {
+        let target = dir.path().join("cache").join("osv").join(sub);
+        std::fs::create_dir_all(&target).unwrap();
+        for entry in std::fs::read_dir(osv.join(sub)).unwrap() {
+            let entry = entry.unwrap();
+            std::fs::copy(entry.path(), target.join(entry.file_name())).unwrap();
+        }
+    }
+    dir
+}
+
+#[test]
+fn vulnerabilities_from_osv_are_recorded_in_cyclonedx() {
+    let dir = workspace_with_vulnerable_urllib3();
+    let run = |extra: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args([
+                "-e",
+                "web",
+                "-p",
+                "linux-64",
+                "--vulnerabilities",
+                "osv",
+                "--output",
+                "-",
+            ])
+            .args(extra)
+            .assert()
+    };
+    let assert = run(&[]).success().stderr(predicate::str::contains(
+        "looked up vulnerabilities on OSV queried=6 without_identity=24 findings=9 failed=0",
+    ));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let vulns = doc["vulnerabilities"].as_array().unwrap();
+    assert_eq!(vulns.len(), 9);
+    // Worst first; every finding is a GHSA record with its PYSEC twin merged in as an alias.
+    assert_eq!(vulns[0]["ratings"][0]["severity"], "high");
+    assert_eq!(vulns[8]["ratings"][0]["severity"], "medium");
+    assert!(vulns.iter().all(|v| v["id"].as_str().unwrap().starts_with("GHSA-")));
+    let regex = vulns.iter().find(|v| v["id"] == "GHSA-q2q7-5pp4-w6pg").unwrap();
+    assert_eq!(regex["affects"][0]["ref"], "pkg:pypi/urllib3@1.26.4");
+    assert_eq!(regex["recommendation"], "Upgrade urllib3 to 1.26.5");
+    assert!(
+        regex["references"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["id"] == "CVE-2021-33503")
+    );
+    // The affected component exists under that bom-ref.
+    assert!(
+        doc["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["bom-ref"] == "pkg:pypi/urllib3@1.26.4")
+    );
+
+    // CycloneDX 1.7 carries the same array and validates too.
+    let assert = run(&["--spec-version", "1.7"]).success();
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_1_7_validator(), &doc);
+    assert_eq!(doc["vulnerabilities"].as_array().unwrap().len(), 9);
+
+    // SPDX has no place for them: the document is written and a warning says so.
+    run(&["--format", "spdx"])
+        .success()
+        .stderr(predicate::str::contains("SPDX documents do not record vulnerabilities"));
+}
+
+#[test]
+fn vulnerabilities_without_a_cache_fail_offline_only_when_the_query_is_missing() {
+    // The clean fixture pins have cached "no findings" answers; nothing is looked up.
+    let dir = workspace_with_vulnerable_urllib3();
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args([
+            "-e",
+            "default",
+            "-p",
+            "linux-64",
+            "--vulnerabilities",
+            "osv",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("findings=0"));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert!(doc.get("vulnerabilities").is_none());
+
+    // Online but unreachable: the run fails with the query diagnostic rather than a document
+    // that silently claims there are no vulnerabilities.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("fresh-cache"))
+        .env("PIXI_SBOM_OSV_URL", "http://127.0.0.1:9")
+        .args([
+            "-e",
+            "web",
+            "-p",
+            "linux-64",
+            "--vulnerabilities",
+            "osv",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("cannot query OSV"));
+}
+
 #[test]
 fn fetch_licenses_reads_wheel_metadata_and_license_files() {
     // The with-pypi fixture with the six wheel pointed at the local copy; everything else offline.

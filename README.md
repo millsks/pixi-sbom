@@ -47,6 +47,9 @@ pixi sbom --embedded-sboms
 # Fail CI on copyleft or unlicensed packages (exit code 3, document still written)
 pixi sbom --fetch-licenses --deny-license GPL-3.0-only --require-license
 
+# Known vulnerabilities from OSV, recorded in the document (conda packages match via their PyPI purl)
+pixi sbom --pypi-mapping prefix --vulnerabilities osv
+
 # Just look: an inventory or license table in the terminal, nothing written
 pixi sbom --report packages
 pixi sbom --fetch-licenses --report licenses --report-format markdown
@@ -87,6 +90,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--fetch-licenses` | off | Licenses for every package, conda and PyPI alike (conda from the local package cache or the channel archive, PyPI from the wheel or the index), plus license file names, summary and URLs |
 | `--license-texts` | off | With `--fetch-licenses`, embed the full license texts |
 | `--allow-license` / `--deny-license` / `--require-license` | | License policy; violations are listed and the run exits 3 after writing the document |
+| `--vulnerabilities osv` | off | Look every package with a PyPI / crates.io / npm purl up on [OSV](https://osv.dev) and record the findings in CycloneDX `vulnerabilities[]` (severity, CVSS, fixed version, aliases) |
 | `--embedded-sboms` | off | Attach the components declared by SBOMs embedded in wheels (PEP 770, e.g. Rust crates) under the wheel |
 | `--report <packages\|licenses>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`) |
 | `-v` / `-q` | info | More / less logging on stderr |

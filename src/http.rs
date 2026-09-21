@@ -46,6 +46,24 @@ pub fn get_text(url: &str, limit: u64) -> Result<String, Box<ureq::Error>> {
         .map_err(Box::new)
 }
 
+/// POST `body` as JSON to `url` and return the response body as text, refusing responses
+/// larger than `limit` bytes.
+pub fn post_json(url: &str, body: &str, limit: u64) -> Result<String, Box<ureq::Error>> {
+    if offline() {
+        return Err(offline_error());
+    }
+    agent()
+        .post(url)
+        .header("Content-Type", "application/json")
+        .send(body)
+        .map_err(Box::new)?
+        .into_body()
+        .with_config()
+        .limit(limit)
+        .read_to_string()
+        .map_err(Box::new)
+}
+
 /// GET `url` whole, refusing bodies larger than `limit` bytes.
 pub fn get_bytes(url: &str, limit: u64) -> Result<Vec<u8>, Box<ureq::Error>> {
     if offline() {

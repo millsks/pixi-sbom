@@ -313,6 +313,7 @@ pub(crate) mod testing {
                     dependencies: vec![],
                 },
             ],
+            vulnerabilities: Vec::new(),
         }
     }
 }

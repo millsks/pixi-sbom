@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 /// The complete SBOM content for a single environment and platform.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Sbom {
     /// The workspace the lockfile belongs to.
     pub root: Root,
@@ -20,6 +20,117 @@ pub struct Sbom {
     pub lockfile: String,
     /// Packages sorted by kind, then name, then version. Order is stable across runs.
     pub packages: Vec<Package>,
+    /// Known vulnerabilities of the packages, when looked up. Sorted by severity (worst
+    /// first), then id.
+    pub vulnerabilities: Vec<Vulnerability>,
+}
+
+/// How bad a vulnerability is, on the CycloneDX / common scanner scale.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Severity {
+    /// Nothing says how bad it is.
+    Unknown,
+    /// Rated as having no impact.
+    None,
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+impl Severity {
+    /// The lowercase name CycloneDX and the reports use.
+    pub fn name(self) -> &'static str {
+        match self {
+            Severity::Unknown => "unknown",
+            Severity::None => "none",
+            Severity::Low => "low",
+            Severity::Medium => "medium",
+            Severity::High => "high",
+            Severity::Critical => "critical",
+        }
+    }
+
+    /// Parse the spellings advisory databases use (`MODERATE` is GitHub's `medium`).
+    pub fn parse(text: &str) -> Option<Self> {
+        Some(match text.trim().to_ascii_lowercase().as_str() {
+            "none" => Severity::None,
+            "low" => Severity::Low,
+            "medium" | "moderate" => Severity::Medium,
+            "high" => Severity::High,
+            "critical" => Severity::Critical,
+            _ => return None,
+        })
+    }
+
+    /// Severity for a CVSS base score, per the CVSS v3 / v4 qualitative scale.
+    pub fn from_cvss_score(score: f64) -> Self {
+        if score == 0.0 {
+            Severity::None
+        } else if score < 4.0 {
+            Severity::Low
+        } else if score < 7.0 {
+            Severity::Medium
+        } else if score < 9.0 {
+            Severity::High
+        } else {
+            Severity::Critical
+        }
+    }
+}
+
+/// One severity rating of a vulnerability, from one source.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Rating {
+    /// Who rated it (`GitHub`, `OSV`, ...).
+    pub source: String,
+    /// CVSS base score, when the rating is a CVSS vector.
+    pub score: Option<f64>,
+    pub severity: Severity,
+    /// CycloneDX rating method (`CVSSv31`, `CVSSv4`, `other`).
+    pub method: &'static str,
+    /// The CVSS vector string, when there is one.
+    pub vector: Option<String>,
+}
+
+/// A package the vulnerability applies to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Affected {
+    /// The [`Package::id`] of the affected package.
+    pub package_id: String,
+    /// The purl the advisory matched (a conda package's PyPI purl, for example).
+    pub purl: String,
+    /// The first version that fixes it, when the advisory says.
+    pub fixed_version: Option<String>,
+}
+
+/// A known vulnerability of one or more packages in the [`Sbom`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct Vulnerability {
+    /// Advisory id (`GHSA-...`, `PYSEC-...`, `RUSTSEC-...`).
+    pub id: String,
+    /// Name of the database the record came from (`OSV`).
+    pub source: String,
+    /// URL of the record.
+    pub url: String,
+    /// Other ids for the same vulnerability (`CVE-...`, and records merged into this one).
+    pub aliases: Vec<String>,
+    /// One-line summary, when the record has one.
+    pub summary: Option<String>,
+    /// Longer description, when the record has one.
+    pub details: Option<String>,
+    /// The worst severity among the ratings.
+    pub severity: Severity,
+    pub ratings: Vec<Rating>,
+    /// CWE numbers, when known.
+    pub cwes: Vec<u32>,
+    /// Reference URLs (advisories, fixes, reports).
+    pub references: Vec<String>,
+    /// RFC 3339 timestamps from the record.
+    pub published: Option<String>,
+    pub modified: Option<String>,
+    /// The packages it applies to. Sorted by package id.
+    pub affects: Vec<Affected>,
 }
 
 /// The workspace described by the SBOM.

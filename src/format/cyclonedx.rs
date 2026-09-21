@@ -5,7 +5,7 @@ use serde::Serialize;
 use super::{WriteContext, top_level_ids};
 use crate::cli::SpecVersion;
 use crate::license::{self, License};
-use crate::model::{Author, LicenseFile, Package, PackageKind, Sbom, Supplier};
+use crate::model::{Author, LicenseFile, Package, PackageKind, Sbom, Supplier, Vulnerability};
 
 const ROOT_REF: &str = "root";
 /// The document is derived from a lockfile, i.e. from resolved inputs before any build runs.
@@ -23,9 +23,74 @@ pub(crate) struct Bom {
     metadata: Metadata,
     components: Vec<Component>,
     dependencies: Vec<Dependency>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    vulnerabilities: Vec<VulnerabilityEntry>,
     /// CycloneDX 1.7 only: who supplied which fields.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     citations: Vec<Citation>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VulnerabilityEntry {
+    #[serde(rename = "bom-ref")]
+    bom_ref: String,
+    id: String,
+    source: VulnSource,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    references: Vec<VulnReference>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    ratings: Vec<VulnRating>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    cwes: Vec<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    recommendation: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    advisories: Vec<Advisory>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    published: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    updated: Option<String>,
+    affects: Vec<Affects>,
+}
+
+#[derive(Debug, Serialize)]
+struct VulnSource {
+    name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    url: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct VulnReference {
+    id: String,
+    source: VulnSource,
+}
+
+#[derive(Debug, Serialize)]
+struct VulnRating {
+    source: VulnSource,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    score: Option<f64>,
+    severity: &'static str,
+    method: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    vector: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct Advisory {
+    url: String,
+}
+
+#[derive(Debug, Serialize)]
+struct Affects {
+    #[serde(rename = "ref")]
+    reference: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -221,7 +286,99 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Bom {
         },
         components: sbom.packages.iter().map(component).collect(),
         dependencies,
+        vulnerabilities: sbom.vulnerabilities.iter().map(|v| vulnerability(v, sbom)).collect(),
         citations,
+    }
+}
+
+/// The `vulnerabilities[]` entry for one finding. Aliases become `references` with the
+/// database they name (NVD for CVEs, GitHub for GHSAs, OSV otherwise); the recommendation
+/// names the fixed version per affected package.
+fn vulnerability(vuln: &Vulnerability, sbom: &Sbom) -> VulnerabilityEntry {
+    let references = vuln
+        .aliases
+        .iter()
+        .map(|alias| VulnReference {
+            id: alias.clone(),
+            source: alias_source(alias),
+        })
+        .collect();
+    let ratings = vuln
+        .ratings
+        .iter()
+        .map(|r| VulnRating {
+            source: VulnSource {
+                name: r.source.clone(),
+                url: None,
+            },
+            score: r.score,
+            severity: r.severity.name(),
+            method: r.method,
+            vector: r.vector.clone(),
+        })
+        .collect();
+    let mut upgrades: Vec<String> = vuln
+        .affects
+        .iter()
+        .filter_map(|a| {
+            let fixed = a.fixed_version.as_deref()?;
+            let name = sbom
+                .packages
+                .iter()
+                .find(|p| p.id == a.package_id)
+                .map(|p| p.name.as_str())
+                .unwrap_or(&a.package_id);
+            Some(format!("Upgrade {name} to {fixed}"))
+        })
+        .collect();
+    upgrades.dedup();
+    VulnerabilityEntry {
+        bom_ref: format!("vuln-{}", vuln.id),
+        id: vuln.id.clone(),
+        source: VulnSource {
+            name: vuln.source.clone(),
+            url: Some(vuln.url.clone()),
+        },
+        references,
+        ratings,
+        cwes: vuln.cwes.clone(),
+        description: vuln.summary.clone(),
+        detail: vuln.details.clone(),
+        recommendation: (!upgrades.is_empty()).then(|| upgrades.join("; ")),
+        advisories: vuln
+            .references
+            .iter()
+            .map(|url| Advisory { url: url.clone() })
+            .collect(),
+        published: vuln.published.clone(),
+        updated: vuln.modified.clone(),
+        affects: vuln
+            .affects
+            .iter()
+            .map(|a| Affects {
+                reference: a.package_id.clone(),
+            })
+            .collect(),
+    }
+}
+
+/// Where an alias id can be looked up.
+fn alias_source(id: &str) -> VulnSource {
+    if id.starts_with("CVE-") {
+        VulnSource {
+            name: "NVD".into(),
+            url: Some(format!("https://nvd.nist.gov/vuln/detail/{id}")),
+        }
+    } else if id.starts_with("GHSA-") {
+        VulnSource {
+            name: "GitHub Advisory Database".into(),
+            url: Some(format!("https://github.com/advisories/{id}")),
+        }
+    } else {
+        VulnSource {
+            name: "OSV".into(),
+            url: Some(crate::osv::record_url(id)),
+        }
     }
 }
 
@@ -728,5 +885,76 @@ mod tests {
                 .any(|p| p["name"] == "pixi:purl" && p["value"] == "pkg:pypi/zlib@1.3.1")
         );
         assert!(props.iter().any(|p| p["name"] == "pixi:kind" && p["value"] == "conda"));
+    }
+
+    #[test]
+    fn vulnerabilities_become_entries_with_references_ratings_and_affects() {
+        use crate::model::{Affected, Rating, Severity, Vulnerability};
+        let mut sbom = sample_sbom();
+        sbom.vulnerabilities.push(Vulnerability {
+            id: "GHSA-q2q7-5pp4-w6pg".into(),
+            source: "OSV".into(),
+            url: "https://osv.dev/vulnerability/GHSA-q2q7-5pp4-w6pg".into(),
+            aliases: vec!["CVE-2021-33503".into(), "PYSEC-2021-108".into()],
+            summary: Some("Catastrophic backtracking".into()),
+            details: Some("Long text".into()),
+            severity: Severity::High,
+            ratings: vec![
+                Rating {
+                    source: "GitHub Advisory Database".into(),
+                    score: None,
+                    severity: Severity::High,
+                    method: "other",
+                    vector: None,
+                },
+                Rating {
+                    source: "OSV".into(),
+                    score: Some(7.5),
+                    severity: Severity::High,
+                    method: "CVSSv31",
+                    vector: Some("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H".into()),
+                },
+            ],
+            cwes: vec![400],
+            references: vec!["https://github.com/advisories/GHSA-q2q7-5pp4-w6pg".into()],
+            published: Some("2021-06-01T21:19:32Z".into()),
+            modified: Some("2026-07-08T06:00:54.217433740Z".into()),
+            affects: vec![Affected {
+                package_id: "pkg:pypi/six@1.17.0".into(),
+                purl: "pkg:pypi/six@1.17.0".into(),
+                fixed_version: Some("1.26.5".into()),
+            }],
+        });
+        let doc = serde_json::to_value(document(&sbom, &fixed_context())).unwrap();
+        let vuln = &doc["vulnerabilities"][0];
+        assert_eq!(vuln["bom-ref"], "vuln-GHSA-q2q7-5pp4-w6pg");
+        assert_eq!(vuln["id"], "GHSA-q2q7-5pp4-w6pg");
+        assert_eq!(vuln["source"]["name"], "OSV");
+        assert_eq!(vuln["references"][0]["id"], "CVE-2021-33503");
+        assert_eq!(vuln["references"][0]["source"]["name"], "NVD");
+        assert_eq!(
+            vuln["references"][0]["source"]["url"],
+            "https://nvd.nist.gov/vuln/detail/CVE-2021-33503"
+        );
+        assert_eq!(vuln["references"][1]["source"]["name"], "OSV");
+        assert_eq!(vuln["ratings"][0]["severity"], "high");
+        assert_eq!(vuln["ratings"][0]["method"], "other");
+        assert!(vuln["ratings"][0].get("score").is_none());
+        assert_eq!(vuln["ratings"][1]["score"], 7.5);
+        assert_eq!(vuln["ratings"][1]["method"], "CVSSv31");
+        assert_eq!(vuln["cwes"][0], 400);
+        assert_eq!(vuln["description"], "Catastrophic backtracking");
+        assert_eq!(vuln["detail"], "Long text");
+        assert_eq!(vuln["recommendation"], "Upgrade six to 1.26.5");
+        assert_eq!(
+            vuln["advisories"][0]["url"],
+            "https://github.com/advisories/GHSA-q2q7-5pp4-w6pg"
+        );
+        assert_eq!(vuln["published"], "2021-06-01T21:19:32Z");
+        assert_eq!(vuln["affects"][0]["ref"], "pkg:pypi/six@1.17.0");
+
+        // No findings: the array is left out entirely.
+        let doc = json();
+        assert!(doc.get("vulnerabilities").is_none());
     }
 }

@@ -35,6 +35,7 @@ With no options this means:
 | `--allow-license <LICENSE>` | | Repeatable. Only these SPDX licenses are acceptable; a package whose license expression cannot be satisfied with them alone is a violation. |
 | `--deny-license <LICENSE>` | | Repeatable. These SPDX licenses are unacceptable; a package whose expression cannot be satisfied without them is a violation. |
 | `--require-license` | off | Every package must declare a license that is an SPDX expression. |
+| `--vulnerabilities <osv>` | off | Look up known vulnerabilities of every package with a purl OSV can answer and record them in the document (see below). |
 | `--report <packages\|licenses>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`. |
 | `--report-format <table\|markdown\|csv\|json>` | `table` | How to render the report. |
 | `--pypi-licenses` | | Deprecated alias for `--fetch-licenses` (hidden from `--help`; removed in a future release). |
@@ -69,6 +70,36 @@ identifiers match exactly. `GPL-2.0+` may be written for `GPL-2.0-or-later`.
 Packages without a license, or with one that is not an SPDX expression, are not violations of an allow or deny
 list (there is nothing to evaluate); `--require-license` makes them violations. Combine with `--fetch-licenses` so
 PyPI packages have a license to check. In batch mode each violation is prefixed with its environment and platform.
+
+## Looking up vulnerabilities
+
+`--vulnerabilities osv` asks the [Open Source Vulnerabilities](https://osv.dev) database about every package with a
+purl it indexes (PyPI, crates.io, npm, Go, ...; conda has no ecosystem there) and records the findings in the
+CycloneDX `vulnerabilities[]` array: id, aliases (CVE, PYSEC, ...), severity and CVSS ratings, CWEs, summary,
+references, the fixed version to upgrade to, and which components are affected. SPDX documents have no place for
+them, so `--format spdx` writes the document and warns.
+
+```sh
+# Conda-installed Python packages are matched through their PyPI purl, so add the mapping
+pixi sbom --pypi-mapping prefix --vulnerabilities osv
+
+# Straight into a scanner-free triage: which findings, worst first
+pixi sbom --pypi-mapping prefix --vulnerabilities osv --output - | jq '.vulnerabilities[] | {id, severity: .ratings[0].severity, recommendation}'
+```
+
+One `querybatch` request per thousand purls yields the advisory ids, then each record is fetched (ten at a time).
+Query results are cached for an hour under the pixi-sbom cache directory and records until OSV changes them, so
+repeated runs are cheap; with `PIXI_SBOM_OFFLINE=1` the cache is used as is and purls without a cached answer are
+treated as clean with a warning. A failed batch query is an error (exit 1) rather than a document that silently
+claims there are no vulnerabilities; a record that cannot be fetched is kept by id with nothing known about it.
+Records that describe the same vulnerability (a GHSA and a PYSEC entry sharing a CVE) are merged into one finding,
+so the list matches what `grype` reports for the same document. The log line says how many purls were asked about
+and how many packages had no queryable identity (`without_identity`), which is the size of the conda-only blind
+spot.
+
+Severity is the advisory database's own word (`database_specific.severity`) when it has one, else the CVSS v3
+base score computed from the vector; CVSS v4 vectors are recorded but not scored. The rating with the worst
+severity orders the list.
 
 ## Looking instead of writing
 
@@ -121,7 +152,8 @@ CycloneDX metadata properties; the root package `sourceInfo` in SPDX), so a batc
 |---|---|
 | `COLUMNS` | Terminal width for `--report-format table` (default 120). |
 | `PIXI_CACHE_DIR` / `RATTLER_CACHE_DIR` | Where pixi keeps its package cache; `--fetch-licenses` reads extracted conda packages from its `pkgs/` directory. Default: the platform cache directory's `rattler/cache` (`~/.cache/rattler/cache`, `~/Library/Caches/rattler/cache`, `%LOCALAPPDATA%\rattler\cache`). |
-| `PIXI_SBOM_OFFLINE` | Set to `1` to forbid every network request: the mapping, wheel and archive caches are used when present and everything else is skipped with a warning. The run still succeeds. |
+| `PIXI_SBOM_OFFLINE` | Set to `1` to forbid every network request: the mapping, wheel, archive and OSV caches are used when present and everything else is skipped with a warning. The run still succeeds. |
+| `PIXI_SBOM_OSV_URL` | Base of the OSV API queried by `--vulnerabilities osv` (default `https://api.osv.dev`). |
 | `PIXI_SBOM_PYPI_URL` | Base of the PyPI JSON API queried by `--fetch-licenses` (default `https://pypi.org/pypi`); point it at a mirror such as devpi or Artifactory. |
 | `PIXI_SBOM_CACHE_DIR` | Where downloaded data (the PyPI mapping, PyPI metadata, extracted conda `info` directories, wheel `dist-info` files) is cached. Default: `pixi-sbom` under `PIXI_CACHE_DIR` if set, else the platform cache directory (`~/.cache/pixi-sbom`, `~/Library/Caches/pixi-sbom`, `%LOCALAPPDATA%\pixi-sbom\cache`). |
 | `HTTPS_PROXY` / `HTTP_PROXY` | Honored for every download. |

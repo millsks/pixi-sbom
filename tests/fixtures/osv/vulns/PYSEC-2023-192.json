@@ -1,0 +1,60 @@
+{
+  "id": "PYSEC-2023-192",
+  "aliases": [
+    "CVE-2023-43804",
+    "GHSA-v845-jxx5-vc9f"
+  ],
+  "summary": null,
+  "details": "urllib3 is a user-friendly HTTP client library for Python. urllib3 doesn't treat the `Cookie` HTTP header special or provide any helpers for managing cookies over HTTP, that is the responsibility of the user. However, it is possible for a user to specify a `Cookie` header and unknowingly leak inform",
+  "published": "2023-10-04T17:15:00Z",
+  "modified": "2023-11-08T04:13:33.452167Z",
+  "severity": [
+    {
+      "type": "CVSS_V3",
+      "score": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N"
+    }
+  ],
+  "affected": [
+    {
+      "package": {
+        "name": "urllib3",
+        "ecosystem": "PyPI",
+        "purl": "pkg:pypi/urllib3"
+      },
+      "ranges": [
+        {
+          "type": "ECOSYSTEM",
+          "events": [
+            {
+              "introduced": "2.0.0"
+            },
+            {
+              "fixed": "2.0.6"
+            },
+            {
+              "introduced": "0"
+            },
+            {
+              "fixed": "1.26.17"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "references": [
+    {
+      "type": "FIX",
+      "url": "https://github.com/urllib3/urllib3/commit/644124ecd0b6e417c527191f866daa05a5a2056d"
+    },
+    {
+      "type": "ADVISORY",
+      "url": "https://github.com/urllib3/urllib3/security/advisories/GHSA-v845-jxx5-vc9f"
+    },
+    {
+      "type": "FIX",
+      "url": "https://github.com/urllib3/urllib3/commit/01220354d389cd05474713f8c982d05c9b17aafb"
+    }
+  ],
+  "database_specific": null
+}

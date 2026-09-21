@@ -1,0 +1,45 @@
+{
+  "id": "PYSEC-2021-108",
+  "aliases": [
+    "CVE-2021-33503",
+    "GHSA-q2q7-5pp4-w6pg"
+  ],
+  "summary": null,
+  "details": "An issue was discovered in urllib3 before 1.26.5. When provided with a URL containing many @ characters in the authority component, the authority regular expression exhibits catastrophic backtracking, causing a denial of service if a URL were passed as a parameter or redirected to via an HTTP redire",
+  "published": "2021-06-29T11:15:00Z",
+  "modified": "2026-06-08T10:15:12.134263625Z",
+  "severity": null,
+  "affected": [
+    {
+      "package": {
+        "name": "urllib3",
+        "ecosystem": "PyPI",
+        "purl": "pkg:pypi/urllib3"
+      },
+      "ranges": [
+        {
+          "type": "ECOSYSTEM",
+          "events": [
+            {
+              "introduced": "1.25.4"
+            },
+            {
+              "fixed": "1.26.5"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "references": [
+    {
+      "type": "ADVISORY",
+      "url": "https://github.com/advisories/GHSA-q2q7-5pp4-w6pg"
+    },
+    {
+      "type": "FIX",
+      "url": "https://github.com/urllib3/urllib3/commit/2d4a3fee6de2fa45eb82169361918f759269b4ec"
+    }
+  ],
+  "database_specific": null
+}

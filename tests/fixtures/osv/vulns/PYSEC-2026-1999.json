@@ -1,0 +1,49 @@
+{
+  "id": "PYSEC-2026-1999",
+  "aliases": [
+    "CVE-2025-50181",
+    "GHSA-pq67-6m6q-mj2v"
+  ],
+  "summary": "urllib3 redirects are not disabled when retries are disabled on PoolManager instantiation",
+  "published": "2026-07-07T16:02:55.519678Z",
+  "modified": "2026-07-07T17:47:54.161376347Z",
+  "severity": [
+    {
+      "type": "CVSS_V3",
+      "score": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:N/A:N"
+    }
+  ],
+  "affected": [
+    {
+      "package": {
+        "name": "urllib3",
+        "ecosystem": "PyPI",
+        "purl": "pkg:pypi/urllib3"
+      },
+      "ranges": [
+        {
+          "type": "ECOSYSTEM",
+          "events": [
+            {
+              "introduced": "0"
+            },
+            {
+              "fixed": "2.5.0"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "references": [
+    {
+      "type": "WEB",
+      "url": "https://github.com/urllib3/urllib3/security/advisories/GHSA-pq67-6m6q-mj2v"
+    },
+    {
+      "type": "ADVISORY",
+      "url": "https://nvd.nist.gov/vuln/detail/CVE-2025-50181"
+    }
+  ],
+  "database_specific": null
+}
