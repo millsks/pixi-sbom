@@ -76,3 +76,12 @@ dogfood job only after the release that ships them.
 Follow-up after the 0.5.0 release: add policy inputs to the action dogfood job and bump the `@v0.5.0` examples.
 Candidate 0.6.0 themes: VEX / vulnerability annotations from a scanner run, `pixi global` manifests, conda
 package-level SBOM convention once one exists, SPDX 3 embedded fragments.
+
+## 0.5.1 (2026-09-20)
+
+Bugfix milestone 5: #48 (PR #62, conda-forge "WITH exceptions" → `WITH AdditionRef-exceptions`, raw kept as
+`pixi:license-raw`), #50 (PR #63, `spdx_reason` in reports and policy messages), #49 (PR #64, `.tar.bz2` archives
+≤ 2 MiB downloaded whole; `bzip2` 0.6 with its default pure-Rust `libbz2-rs-sys` backend approved and added),
+#47 (the release itself). Lesson: `git branch --merged main` also deletes a feature branch that has no commits yet;
+stash, then recreate the branch from main. Future milestones 0.6.0 (#51–#54), 0.7.0 (#55–#58), 0.8.0 (#59–#61).
+After 0.5.1 ships: re-enable `require-license: "true"` in the action dogfood job (needs the 0.5.1 binary).
