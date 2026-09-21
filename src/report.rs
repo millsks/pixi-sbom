@@ -783,7 +783,7 @@ fn sarif(reports: &[Report]) -> serde_json::Value {
                     row.package, row.version, row.id, row.severity
                 );
                 if let Some(summary) = &row.summary {
-                    message.push_str(&format!(": {summary}"));
+                    message.push_str(&format!(": {}", summary.trim_end_matches('.')));
                 }
                 match &row.fixed_version {
                     Some(fixed) => message.push_str(&format!(". Upgrade to {fixed}.")),

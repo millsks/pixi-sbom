@@ -219,6 +219,13 @@ separated, when more than one fragment declares the same purl; fragments merge i
 Embedded packages take part in `--report`, `--fetch-licenses` (their declared licenses) and the license policy.
 SPDX 3 fragments are not read yet. Conda packages have no equivalent convention.
 
+### Excluded packages
+
+With `--exclude` / `--include` / `--exclude-kind` the document lists only what survived the filter, and the root
+says so: a `pixi:excluded` metadata property (CycloneDX) or a `pixi:excluded=...` comment on the root package
+(SPDX 2.3 and 3.0.1) naming every package left out, whether it matched a pattern or was only needed by one that
+did.
+
 ## Dependency graph
 
 Each conda package's `depends` (matchspecs) and each PyPI package's `requires_dist` (PEP 508) are resolved by

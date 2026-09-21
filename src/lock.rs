@@ -185,6 +185,7 @@ pub fn sbom_from_lock(
         lockfile: lockfile_name.to_string(),
         packages,
         vulnerabilities: Vec::new(),
+        excluded: Vec::new(),
     })
 }
 

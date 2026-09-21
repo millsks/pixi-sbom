@@ -314,6 +314,7 @@ pub(crate) mod testing {
                 },
             ],
             vulnerabilities: Vec::new(),
+            excluded: Vec::new(),
         }
     }
 }

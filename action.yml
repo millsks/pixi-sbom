@@ -117,7 +117,9 @@ inputs:
     required: false
     default: "false"
   sarif-category:
-    description: Code scanning category for the SARIF upload; distinguishes several uploads per commit.
+    description: >-
+      Code scanning category for the SARIF upload. Each document is its own run, so alerts appear
+      under `pixi-sbom/<environment>` (or `<environment>/<platform>`) regardless of this value.
     required: false
     default: pixi-sbom
   extra-args:
