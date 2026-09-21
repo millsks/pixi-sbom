@@ -1145,6 +1145,90 @@ fn fetch_licenses_reads_the_archive_when_the_package_cache_misses() {
     assert_eq!(libzlib["licenses"][0]["expression"], "Zlib");
 }
 
+/// The `conda-only` fixture with zlib pointed at the small legacy `.tar.bz2` archive in
+/// `tests/fixtures/archives/` and libzlib at a legacy archive the lockfile says is huge.
+fn workspace_with_legacy_archive() -> tempfile::TempDir {
+    let dir = workspace("conda-only");
+    let archive = tests_dir()
+        .join("fixtures")
+        .join("archives")
+        .join("zlib-1.3.2-h25fd6f3_3.tar.bz2");
+    let path = archive.display().to_string().replace('\\', "/");
+    let url = format!("file://{}{path}", if path.starts_with('/') { "" } else { "/" });
+    let lock = std::fs::read_to_string(dir.path().join("pixi.lock"))
+        .unwrap()
+        .replace("\r\n", "\n")
+        .replace(
+            "https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.2-h25fd6f3_3.conda",
+            &url,
+        )
+        .replace(
+            &format!("- conda: {url}\n  sha256: 16080a1c7724f7d25727cdc23c7658e0cec2db52448c1dc0c33467ee2c6e1c62"),
+            &format!("- conda: {url}\n  subdir: linux-64\n  sha256: d4b0036253168923ee9056a5198f1fc55c7e65cf8f826a4ba8e8afd94a72c97f"),
+        )
+        .replace("  size: 96132\n", "  size: 4762\n")
+        .replace(
+            "https://conda.anaconda.org/conda-forge/linux-64/libzlib-1.3.2-h25fd6f3_3.conda",
+            "file:///nonexistent/libzlib-1.3.2-h25fd6f3_3.tar.bz2",
+        )
+        .replace(
+            "- conda: file:///nonexistent/libzlib-1.3.2-h25fd6f3_3.tar.bz2\n  sha256:",
+            "- conda: file:///nonexistent/libzlib-1.3.2-h25fd6f3_3.tar.bz2\n  subdir: linux-64\n  sha256:",
+        )
+        .replace("  size: 63713\n", "  size: 40000000\n");
+    std::fs::write(dir.path().join("pixi.lock"), lock).unwrap();
+    dir
+}
+
+#[test]
+fn fetch_licenses_reads_small_legacy_archives_whole_and_skips_large_ones() {
+    let dir = workspace_with_legacy_archive();
+    let sbom_cache = dir.path().join("sbom-cache");
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", &sbom_cache)
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .env("RUST_LOG", "debug")
+        .args(["-p", "linux-64", "--fetch-licenses", "--license-texts", "--output", "-"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "read conda license details from channel archives fetched=1 failed=0 skipped=1",
+        ))
+        .stderr(predicate::str::contains("too large to download whole").and(predicate::str::contains("size=40000000")));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let components = doc["components"].as_array().unwrap();
+    let zlib = components.iter().find(|c| c["name"] == "zlib").unwrap();
+    assert_eq!(zlib["licenses"][0]["license"]["id"], "Zlib");
+    assert!(
+        zlib["licenses"][0]["license"]["text"]["content"]
+            .as_str()
+            .unwrap()
+            .contains("Jean-loup Gailly")
+    );
+    assert!(
+        zlib["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["name"] == "pixi:license-files-source" && p["value"] == "conda-archive")
+    );
+    assert!(
+        sbom_cache
+            .join("conda-info")
+            .join("d4b0036253168923ee9056a5198f1fc55c7e65cf8f826a4ba8e8afd94a72c97f")
+            .join("info/about.json")
+            .exists()
+    );
+    // libzlib's archive was too large to fetch; it kept the lockfile's license.
+    let libzlib = components.iter().find(|c| c["name"] == "libzlib").unwrap();
+    assert_eq!(libzlib["licenses"][0]["expression"], "Zlib");
+    assert!(libzlib["licenses"][0]["license"].is_null());
+}
+
 #[test]
 fn fetch_licenses_reads_wheel_metadata_and_license_files() {
     // The with-pypi fixture with the six wheel pointed at the local copy; everything else offline.

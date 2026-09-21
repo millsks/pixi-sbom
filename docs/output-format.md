@@ -161,8 +161,10 @@ Packages that are not in the local cache are read from the archive on the channe
 file is a zip whose `info-*.tar.zst` member holds the same files, so one or two HTTP range requests (the archive's
 tail, then the member when it is not already in the tail) fetch a few kilobytes per package. The extracted files are
 cached under the pixi-sbom cache directory by the archive's SHA-256, so repeated runs are offline. Provenance is
-recorded as `conda-archive`. Legacy `.tar.bz2` archives cannot be read partially and are skipped; a package whose
-archive cannot be reached keeps the lockfile's license and the run continues. For PyPI packages it asks the index as
+recorded as `conda-archive`. Legacy `.tar.bz2` archives have no central directory, so one whose lockfile `size` is
+at most 2 MiB is downloaded whole and read the same way; larger ones (or ones without a recorded size) are skipped,
+with the size in the debug log. A package whose archive cannot be reached keeps the lockfile's license and the run
+continues. For PyPI packages it asks the index as
 described next, and reads each wheel's `dist-info` the same way (the `METADATA` member and the license files, by
 HTTP range, cached by SHA-256): the PEP 639 `License-Expression` or the older `License` header fills a missing
 license (`pixi:license-source=wheel`), `Summary` and the project URLs fill the description and references, and the
