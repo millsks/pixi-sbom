@@ -362,11 +362,7 @@ fn license_declared(raw: &str, file_text: Option<&str>, extracted: &mut BTreeMap
 }
 
 pub(super) fn kind_name(kind: PackageKind) -> &'static str {
-    match kind {
-        PackageKind::CondaBinary => "conda",
-        PackageKind::CondaSource => "conda-source",
-        PackageKind::Pypi => "pypi",
-    }
+    kind.name()
 }
 
 #[cfg(test)]

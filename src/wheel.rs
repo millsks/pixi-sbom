@@ -23,6 +23,9 @@ const CONCURRENCY: usize = 10;
 /// Largest license file read, in bytes.
 const MAX_LICENSE_FILE_BYTES: u64 = 1024 * 1024;
 
+/// Largest embedded SBOM file read, in bytes (maturin's Rust inventories run to a few hundred KB).
+const MAX_SBOM_FILE_BYTES: u64 = 16 * 1024 * 1024;
+
 /// The `License` header sometimes holds an entire license text; longer values are not a name.
 const MAX_LICENSE_FIELD_LEN: usize = 200;
 
@@ -75,10 +78,7 @@ pub fn enrich(sbom: &mut Sbom, cache_dir: &Path, texts: bool) -> Outcome {
             outcome.skipped += 1;
             continue;
         }
-        let key = package
-            .sha256
-            .clone()
-            .unwrap_or_else(|| uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_URL, package.location.as_bytes()).to_string());
+        let key = cache_key(package);
         jobs.push(Job {
             index,
             location: package.location.clone(),
@@ -150,6 +150,7 @@ pub fn extract(location: &str, dir: &Path) -> io::Result<()> {
     let staging = dir.with_extension("partial");
     let _ = std::fs::remove_dir_all(&staging);
     std::fs::create_dir_all(staging.join("licenses"))?;
+    std::fs::create_dir_all(staging.join("sboms"))?;
     std::fs::write(staging.join("METADATA"), &metadata)?;
 
     // PEP 639 puts license files under licenses/; older wheels list them next to METADATA.
@@ -164,22 +165,30 @@ pub fn extract(location: &str, dir: &Path) -> io::Result<()> {
         let Some(rest) = entry.name.strip_prefix(&dist_info) else {
             continue;
         };
-        let relative = if let Some(under) = rest.strip_prefix("licenses/") {
-            Some(under.to_string())
+        // PEP 770 embedded SBOMs live under sboms/ and are kept for `--embedded-sboms`.
+        let (folder, relative) = if let Some(under) = rest.strip_prefix("sboms/") {
+            ("sboms", Some(under.to_string()))
+        } else if let Some(under) = rest.strip_prefix("licenses/") {
+            ("licenses", Some(under.to_string()))
         } else if declared.iter().any(|d| d.trim_start_matches("./") == rest) {
-            Some(rest.to_string())
+            ("licenses", Some(rest.to_string()))
         } else {
-            None
+            ("licenses", None)
         };
         let Some(relative) = relative.filter(|r| !r.is_empty() && !r.ends_with('/') && !r.contains("..")) else {
             continue;
         };
-        if entry.uncompressed_size > MAX_LICENSE_FILE_BYTES {
-            tracing::debug!(member = %entry.name, "skipping oversized license file");
+        let limit = if folder == "sboms" {
+            MAX_SBOM_FILE_BYTES
+        } else {
+            MAX_LICENSE_FILE_BYTES
+        };
+        if entry.uncompressed_size > limit {
+            tracing::debug!(member = %entry.name, "skipping oversized {folder} member");
             continue;
         }
         let bytes = zipread::read_entry(source.as_ref(), entry)?;
-        let target = staging.join("licenses").join(&relative);
+        let target = staging.join(folder).join(&relative);
         if let Some(parent) = target.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -193,7 +202,31 @@ pub fn extract(location: &str, dir: &Path) -> io::Result<()> {
     Ok(())
 }
 
-/// Read a cached wheel directory (`METADATA` + `licenses/`).
+/// The embedded SBOM files cached for a wheel (`sboms/` under its cache directory), as
+/// (file name, contents), sorted by name. Empty when the wheel has not been read or ships none.
+pub fn cached_sboms(cache_dir: &Path, key: &str) -> Vec<(String, String)> {
+    let dir = cache_dir.join("wheel-info").join(key).join("sboms");
+    let mut out: Vec<(String, String)> = std::fs::read_dir(&dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.path().is_file())
+        .filter_map(|e| {
+            let text = std::fs::read_to_string(e.path()).ok()?;
+            Some((e.file_name().to_string_lossy().into_owned(), text))
+        })
+        .collect();
+    out.sort();
+    out
+}
+
+/// The cache key for a package: its sha256, else a name derived from its location.
+pub fn cache_key(package: &crate::model::Package) -> String {
+    package
+        .sha256
+        .clone()
+        .unwrap_or_else(|| uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_URL, package.location.as_bytes()).to_string())
+}
 fn read_cached(dir: &Path, texts: bool) -> Option<WheelInfo> {
     let metadata = std::fs::read_to_string(dir.join("METADATA")).ok()?;
     let mut info = info_from_metadata(&metadata);

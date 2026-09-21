@@ -3,6 +3,7 @@
 mod cli;
 mod condaarchive;
 mod discover;
+mod embedded;
 mod format;
 mod http;
 mod license;
@@ -81,15 +82,8 @@ fn main() -> Result<()> {
             let switched = mapping::prefer_pypi_purl(&mut sbom);
             tracing::info!(switched, "made PyPI purls primary");
         }
-        if fetch_licenses {
+        if fetch_licenses || args.embedded_sboms {
             let pkgs = pkgcache::package_cache_dir();
-            let pkgcache::Outcome {
-                found,
-                licenses_filled,
-                files,
-                missing,
-            } = pkgcache::enrich(&mut sbom, &pkgs, args.license_texts);
-            tracing::info!(pkgs = %pkgs.display(), found, licenses_filled, files, "read conda license details from the package cache");
             let cache_dir = mapping::cache_dir();
             let wheel::Outcome {
                 fetched,
@@ -97,6 +91,28 @@ fn main() -> Result<()> {
                 skipped,
             } = wheel::enrich(&mut sbom, &cache_dir, args.license_texts);
             tracing::info!(fetched, failed, skipped, "read PyPI license details from wheels");
+            if args.embedded_sboms {
+                let embedded::Outcome {
+                    files,
+                    unreadable,
+                    added,
+                    merged,
+                } = embedded::enrich(&mut sbom, &cache_dir);
+                tracing::info!(files, unreadable, added, merged, "attached embedded SBOM components");
+            }
+            let pkgcache::Outcome {
+                found,
+                licenses_filled,
+                files,
+                missing,
+            } = if fetch_licenses {
+                pkgcache::enrich(&mut sbom, &pkgs, args.license_texts)
+            } else {
+                pkgcache::Outcome::default()
+            };
+            if fetch_licenses {
+                tracing::info!(pkgs = %pkgs.display(), found, licenses_filled, files, "read conda license details from the package cache");
+            }
             if !missing.is_empty() {
                 let condaarchive::Outcome {
                     fetched,
@@ -110,12 +126,14 @@ fn main() -> Result<()> {
                     "read conda license details from channel archives"
                 );
             }
-            let lookup = pypi::Lookup {
-                index_url: &pypi::index_url(),
-                cache_dir: &cache_dir,
-            };
-            let pypi::Outcome { found, missing, failed } = lookup.run(&mut sbom);
-            tracing::info!(found, missing, failed, "looked up PyPI licenses");
+            if fetch_licenses {
+                let lookup = pypi::Lookup {
+                    index_url: &pypi::index_url(),
+                    cache_dir: &cache_dir,
+                };
+                let pypi::Outcome { found, missing, failed } = lookup.run(&mut sbom);
+                tracing::info!(found, missing, failed, "looked up PyPI licenses");
+            }
         }
         if let Some(policy) = &policy {
             let found = policy.check(&sbom);

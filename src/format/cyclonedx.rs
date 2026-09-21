@@ -432,11 +432,7 @@ fn license_choice(raw: &str) -> Option<LicenseChoice> {
 }
 
 fn kind_name(kind: PackageKind) -> &'static str {
-    match kind {
-        PackageKind::CondaBinary => "conda",
-        PackageKind::CondaSource => "conda-source",
-        PackageKind::Pypi => "pypi",
-    }
+    kind.name()
 }
 
 fn property(name: &str, value: &str) -> Property {

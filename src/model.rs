@@ -104,6 +104,21 @@ pub enum PackageKind {
     CondaSource,
     /// A PyPI wheel or sdist.
     Pypi,
+    /// A component declared by an SBOM embedded in a wheel (PEP 770), e.g. a Rust crate
+    /// compiled into it. Not installed as a package of its own.
+    Embedded,
+}
+
+impl PackageKind {
+    /// The short name used in `pixi:kind`, SPDX ids and reports.
+    pub fn name(self) -> &'static str {
+        match self {
+            PackageKind::CondaBinary => "conda",
+            PackageKind::CondaSource => "conda-source",
+            PackageKind::Pypi => "pypi",
+            PackageKind::Embedded => "embedded",
+        }
+    }
 }
 
 /// A single locked package.

@@ -55,7 +55,7 @@ conda source, PyPI), then name, then version.
 
 | Lockfile data | CycloneDX `components[]` | SPDX `packages[]` |
 |---|---|---|
-| Kind | `type: library`; property `pixi:kind` = `conda`, `conda-source` or `pypi` | `primaryPackagePurpose: LIBRARY`; kind is part of the `SPDXID` |
+| Kind | `type: library`; property `pixi:kind` = `conda`, `conda-source`, `pypi` or `embedded` | `primaryPackagePurpose: LIBRARY`; kind is part of the `SPDXID` |
 | Identifier | `bom-ref` = purl | `SPDXID: SPDXRef-Package-<kind>-<name>-<version>` (sanitized, de-duplicated with a numeric suffix) |
 | Name, version | `name`, `version` | `name`, `versionInfo` |
 | Package URL | `purl` | `externalRefs[]` with `referenceCategory: PACKAGE-MANAGER`, `referenceType: purl` |
@@ -189,6 +189,27 @@ listed. The result goes through the same normalization as conda licenses and the
 `pixi:license-source=pypi`. Responses are cached under the cache directory (a release's metadata never changes). A
 lookup that fails is logged and the package is left without a license; once the index looks unreachable the remaining
 lookups are skipped.
+
+### Embedded SBOMs (PEP 770)
+
+Wheels may ship their own SBOM fragments under `*.dist-info/sboms/` (PEP 770): maturin records the Rust crates it
+compiled into a wheel as a CycloneDX document, and some projects add hand-written SPDX fragments for vendored
+libraries. With `--embedded-sboms` those files are read out of each wheel the same way its license details are
+(by HTTP range, cached), parsed as CycloneDX 1.4 – 1.7 or SPDX 2.x JSON, and their components become packages of
+kind `embedded`:
+
+| Fragment data | Package |
+|---|---|
+| name, version, purl (`pkg:cargo/...`, `pkg:generic/...`) | `name`, `version`, `purl` (a component without a purl gets `<wheel purl>#<name>@<version>`) |
+| license (`expression`, `license.id` / `name`; SPDX `licenseDeclared` else `licenseConcluded`) | `license`, normalized like every other |
+| SHA-256, distribution / VCS reference, description | `hashes`, `externalReferences`, `description` |
+| `dependencies` / `DEPENDS_ON` | edges between the embedded packages |
+| the fragment root's direct dependencies (`metadata.component` + `dependencies`, or `DESCRIBES`), else its undepended components | edges from the **wheel** to them |
+
+Every embedded package carries `pixi:kind=embedded` and `pixi:embedded-sbom=<wheel>/<file>` (several, `;`
+separated, when more than one fragment declares the same purl; fragments merge into one package per purl).
+Embedded packages take part in `--report`, `--fetch-licenses` (their declared licenses) and the license policy.
+SPDX 3 fragments are not read yet. Conda packages have no equivalent convention.
 
 ## Dependency graph
 

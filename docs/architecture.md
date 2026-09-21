@@ -15,6 +15,7 @@ once no matter how many output formats exist.
    pkgcache.rs ─── conda license files and metadata from the package cache (optional, offline)
    condaarchive.rs ─ the same from the channel archive by HTTP range (optional, via zipread.rs)
    wheel.rs ─────── PyPI license details from the wheel's dist-info (optional, via zipread.rs)
+   embedded.rs ──── PEP 770 embedded SBOMs from the same wheels (optional)
    report.rs ───── --report: renders the model as a terminal table instead of a document
    policy.rs ───── --allow/--deny/--require-license: violations -> exit 3 after writing
    license.rs ◀── used by both writers
@@ -34,6 +35,7 @@ once no matter how many output formats exist.
 | `purl.rs` | Building `pkg:conda` and `pkg:pypi` purls, PEP 503 name normalization, channel-name and archive-type helpers. | packageurl |
 | `mapping.rs` | PyPI identity enrichment: loading the conda-forge conda-to-PyPI mapping (offline file, or downloaded and cached), adding `pkg:pypi` purls to conda-forge packages the lockfile says nothing about, and optionally swapping the primary purl. Also owns the cache directory rule. | serde_json, purl.rs, http.rs |
 | `zipread.rs` | Reads single members out of zip archives (`.conda`, wheels) by range: the central directory from the tail, then the member. Works over HTTP ranges, `file://` URLs and paths. Hand-rolled: EOCD, zip64, stored and deflated members. | flate2, http.rs |
+| `embedded.rs` | `--embedded-sboms`: parses the PEP 770 fragments `wheel.rs` cached (CycloneDX 1.4 – 1.7, SPDX 2.x), adds their components as `embedded` packages, merges duplicates by purl, and wires the graph under the wheel. | serde_json, wheel.rs |
 | `wheel.rs` | The same for PyPI wheels: `METADATA` (PEP 639 `License-Expression`, `License`, `License-File`, `Summary`, `Project-URL`) and the license files, through `zipread`, cached under `wheel-info/<sha256>/`. | zipread.rs, parallel.rs |
 | `parallel.rs` | A bounded scoped-thread pool for the fetchers; no async runtime. | — |
 | `condaarchive.rs` | The network fallback for conda license details: pulls the `info-*.tar.zst` member through `zipread`, decompresses it and writes `about.json`, `index.json` and `licenses/` into the pixi-sbom cache in the rattler layout, on a small thread pool. | zstd, tar, zipread.rs, pkgcache.rs |
