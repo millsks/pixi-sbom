@@ -131,6 +131,15 @@ real document; the fixtures are small by design.
   `preserve_order` so keys are emitted in struct order.
 - Never print to stdout; logs go through `tracing` to stderr.
 
+## The GitHub Action
+
+`action.yml` at the repository root is a composite action: it resolves the version (the action's own tag, an
+explicit `version` input, or the latest release), downloads the matching release archive and its `.sha256`,
+verifies it, puts the binary on `PATH`, maps the inputs to CLI flags and runs it, then uploads the output with
+`actions/upload-artifact`. The `sbom` job in `ci.yml` dogfoods it on Linux and Windows with the latest release,
+so a change to the action is exercised by CI before it is tagged. New CLI flags reach the action only once a
+release containing them exists; keep `action.yml` inputs and the CLI in step at release time.
+
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on pushes to `main` and on pull requests:

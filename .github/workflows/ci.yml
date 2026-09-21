@@ -73,3 +73,28 @@ jobs:
         run: pixi run build
       - name: Smoke test
         run: pixi run cargo run --release -- --version
+
+  # Dogfood the GitHub Action: generate this repository's own SBOMs with the released binary.
+  sbom:
+    name: SBOM via action (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate SBOMs for every environment
+        id: sbom
+        uses: ./
+        with:
+          all-environments: "true"
+          fetch-licenses: "true"
+          pypi-mapping: prefix
+          artifact-name: sboms-${{ matrix.os }}
+      - name: Check the documents exist
+        shell: bash
+        run: |
+          ls -l sboms/
+          test -s sboms/sbom-default.cdx.json
+          echo "pixi-sbom ${{ steps.sbom.outputs.version }} wrote to ${{ steps.sbom.outputs.output }}"

@@ -117,6 +117,22 @@ License strings are checked with the SPDX license list. Valid expressions (inclu
 on conda-forge) pass through unchanged; lenient spellings such as `MIT/Apache-2.0` are rewritten canonically; anything
 else is preserved as free text.
 
+## GitHub Action
+
+The repository is also a GitHub Action that downloads the release binary, generates the documents and uploads them
+as an artifact; no pixi setup needed:
+
+```yaml
+- uses: actions/checkout@v4
+- uses: millsks/pixi-sbom@v0.5.0
+  with:
+    all-environments: "true"
+    fetch-licenses: "true"
+    deny-license: "GPL-3.0-only AGPL-3.0-only"
+```
+
+See [docs/usage.md](docs/usage.md#github-action) for every input.
+
 ## Documentation
 
 | | |
