@@ -102,6 +102,7 @@ PyPI packages have a license to check. In batch mode each violation is prefixed 
 pixi sbom --report packages
 
 # The license view, with a per-license summary, unlicensed and non-SPDX packages called out
+# (each non-SPDX license names the token the parser rejected, e.g. "unknown term: 'PSF'")
 pixi sbom --fetch-licenses --report licenses
 
 # For a PR comment, a spreadsheet, or a script

@@ -984,10 +984,10 @@ fn report_licenses_in_every_format_with_fetch_licenses() {
     let csv = run("csv");
     assert_eq!(
         csv.lines().next().unwrap(),
-        "environment,platform,name,version,kind,license,spdx,license_family,license_source,license_files,purl"
+        "environment,platform,name,version,kind,license,spdx,spdx_reason,license_family,license_source,license_files,purl"
     );
     assert!(
-        csv.contains("default,linux-64,zlib,1.3.2,conda,Zlib,true,Other,lockfile,license.txt,pkg:conda/zlib@1.3.2")
+        csv.contains("default,linux-64,zlib,1.3.2,conda,Zlib,true,,Other,lockfile,license.txt,pkg:conda/zlib@1.3.2")
     );
 
     let json: Value = serde_json::from_str(&run("json")).unwrap();

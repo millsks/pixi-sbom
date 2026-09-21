@@ -46,6 +46,26 @@ pub fn normalize(raw: &str) -> License {
     License::Text(trimmed.to_string())
 }
 
+/// Why `raw` is not an SPDX expression, for a human: the parser's reason and the offending
+/// span, e.g. `unknown license 'PSF' at 1..4`. `None` when it is a valid expression.
+pub fn rejection_reason(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Some("empty".into());
+    }
+    if matches!(normalize(trimmed), License::Expression(_)) {
+        return None;
+    }
+    let err = spdx::Expression::parse_mode(trimmed, ParseMode::LAX).err()?;
+    let offending = trimmed.get(err.span.clone()).unwrap_or("").trim();
+    let reason = err.reason.to_string();
+    Some(if offending.is_empty() {
+        reason
+    } else {
+        format!("{reason}: '{offending}'")
+    })
+}
+
 /// Whether [`normalize`] only succeeds on `raw` by rewriting a non-SPDX exception clause, so
 /// callers can preserve the original spelling next to the normalized expression.
 pub fn is_rewritten(raw: &str) -> bool {
@@ -228,6 +248,22 @@ mod tests {
         assert!(!is_rewritten("MIT"));
         assert!(!is_rewritten("MIT/Apache-2.0"), "lax canonicalization is not a rewrite");
         assert!(!is_rewritten("Proprietary"));
+    }
+
+    #[test]
+    fn rejection_reasons_name_the_offending_token() {
+        assert_eq!(rejection_reason("MIT"), None);
+        assert_eq!(
+            rejection_reason("MIT/Apache-2.0"),
+            None,
+            "lax spellings are expressions"
+        );
+        assert_eq!(rejection_reason("LGPL-2.0-or-later WITH exceptions"), None, "rewritten");
+        let reason = rejection_reason("Proprietary").unwrap();
+        assert!(reason.contains("Proprietary"), "{reason}");
+        let reason = rejection_reason("MIT AND (Zlib").unwrap();
+        assert!(!reason.is_empty());
+        assert_eq!(rejection_reason("  "), Some("empty".into()));
     }
 
     #[test]
