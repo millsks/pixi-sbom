@@ -135,13 +135,17 @@ as an artifact; no pixi setup needed:
     deny-license: "GPL-3.0-only AGPL-3.0-only"
 ```
 
-See [docs/usage.md](docs/usage.md#github-action) for every input.
+See [docs/github-action.md](docs/github-action.md) for every input.
 
 ## Documentation
 
 | | |
 |---|---|
-| [docs/usage.md](docs/usage.md) | Installing, every option, output naming, exit codes and error messages, CI recipes |
+| [docs/installation.md](docs/installation.md) | pixi global, release binaries, building from source |
+| [docs/cli.md](docs/cli.md) | Every option, the license policy, terminal reports, batch mode, environment variables, exit codes and error messages |
+| [docs/github-action.md](docs/github-action.md) | The action's inputs and outputs, with a worked example |
+| [docs/ci-recipes.md](docs/ci-recipes.md) | Scanning with grype, license tables in PR comments, diffing SBOMs, air-gapped runners |
+| [docs/formats.md](docs/formats.md) | Which of CycloneDX 1.6 / 1.7 and SPDX 2.3 / 3.0.1 to pick |
 | [docs/output-format.md](docs/output-format.md) | Field-by-field reference for the CycloneDX and SPDX documents, purls, licenses, dependency graph |
 | [docs/architecture.md](docs/architecture.md) | Pipeline, modules, and the design decisions behind them |
 | [docs/development.md](docs/development.md) | Toolchain, tasks, the change harness, tests and fixtures, conventions, releasing |

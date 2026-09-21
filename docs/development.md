@@ -35,7 +35,8 @@ prefer adding a task.
 | `docs-build` | `mkdocs build --strict` (`docs` environment) | Build the site into `site/`; a broken link or a page missing from the nav fails |
 
 The documentation site is [MkDocs](https://www.mkdocs.org) with the Material theme, configured in `mkdocs.yml`; the
-pages are the Markdown files in `docs/` with `index.md` as the landing page. The `docs` pixi environment is separate
+pages are the Markdown files in `docs/` with `index.md` as the landing page, plus the repository `CHANGELOG.md`, which
+`mkdocs_hooks.py` publishes as the changelog page at build time. The `docs` pixi environment is separate
 from the Rust one, so `pixi run -e docs docs-serve` (or plain `pixi run docs-serve`, which resolves to it) does not
 pull the Rust toolchain into a docs-only checkout.
 

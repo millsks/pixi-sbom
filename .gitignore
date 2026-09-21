@@ -32,3 +32,6 @@ CLAUDE.local.md
 
 # Triage reports — never commit
 triage-*.md
+
+# Python bytecode from the MkDocs hook
+__pycache__/
