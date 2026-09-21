@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://millsks.github.io/pixi-sbom/latest/ci-recipes/">
+        <link rel="canonical" href="https://millsks.github.io/pixi-sbom/latest/formats/">
       
       
-        <link rel="prev" href="../github-action/">
+        <link rel="prev" href="../ci-recipes/">
       
       
-        <link rel="next" href="../formats/">
+        <link rel="next" href="../output-format/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>CI recipes - pixi-sbom</title>
+        <title>Which format to pick - pixi-sbom</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#ci-recipes" class="md-skip">
+        <a href="#which-format-to-pick" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              CI recipes
+              Which format to pick
             
           </span>
         </div>
@@ -371,37 +371,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CI recipes
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../ci-recipes/" class="md-nav__link">
         
   
   
@@ -417,92 +390,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#consuming-the-output-with-other-tools" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consuming the output with other tools
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#failing-the-build-on-license-policy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Failing the build on license policy
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#a-license-table-in-a-pull-request-comment" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        A license table in a pull request comment
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-changed-in-the-environment" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What changed in the environment
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#diffing-sboms-between-commits" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Diffing SBOMs between commits
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#air-gapped-runners" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Air-gapped runners
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -511,10 +398,19 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../formats/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -530,6 +426,7 @@
   
 
       </a>
+      
     </li>
   
 
@@ -723,80 +620,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#consuming-the-output-with-other-tools" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consuming the output with other tools
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#failing-the-build-on-license-policy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Failing the build on license policy
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#a-license-table-in-a-pull-request-comment" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        A license table in a pull request comment
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-changed-in-the-environment" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What changed in the environment
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#diffing-sboms-between-commits" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Diffing SBOMs between commits
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#air-gapped-runners" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Air-gapped runners
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -812,7 +635,7 @@
 
 
   
-    <a href="https://github.com/millsks/pixi-sbom/edit/main/docs/ci-recipes.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/millsks/pixi-sbom/edit/main/docs/formats.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -820,68 +643,75 @@
   
 
 
-<h1 id="ci-recipes">CI recipes<a class="headerlink" href="#ci-recipes" title="Permanent link">&para;</a></h1>
-<h2 id="consuming-the-output-with-other-tools">Consuming the output with other tools<a class="headerlink" href="#consuming-the-output-with-other-tools" title="Permanent link">&para;</a></h2>
-<p>The documents validate against the official JSON schemas and load in the usual tooling. Examples:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Convert between formats or inspect</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>syft<span class="w"> </span>convert<span class="w"> </span>sbom.cdx.json<span class="w"> </span>-o<span class="w"> </span>spdx-json
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>cyclonedx-cli<span class="w"> </span>validate<span class="w"> </span>--input-file<span class="w"> </span>sbom.cdx.json<span class="w"> </span>--input-format<span class="w"> </span>json
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Vulnerability scan</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>grype<span class="w"> </span>sbom:sbom.cdx.json
-</code></pre></div>
-<p>Conda packages are identified by <code>pkg:conda/...</code> purls with <code>channel</code>, <code>subdir</code>, <code>build</code> and <code>type</code> qualifiers; PyPI
-packages by <code>pkg:pypi/...</code>.</p>
-<p>Scanners have no conda vulnerability data, so by default a conda-only Python environment scans as clean no matter
-what it contains. To get real results, give conda-forge Python packages their PyPI identity and make it the primary
-purl:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--primary-purl<span class="w"> </span>pypi<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
-</code></pre></div>
-<p><code>--pypi-mapping prefix</code> consults the same conda-forge mapping pixi uses (downloaded once a day into a cache);
-<code>--pypi-mapping-file</code> takes an offline copy. On a typical conda-forge Python environment this gives roughly 60% of the
-components a <code>pkg:pypi</code> purl. See <a href="../output-format/#pypi-identities-for-conda-packages">output-format.md</a> for exactly
-what is recorded.</p>
-<h2 id="failing-the-build-on-license-policy">Failing the build on license policy<a class="headerlink" href="#failing-the-build-on-license-policy" title="Permanent link">&para;</a></h2>
-<p>Any of <code>--allow-license</code>, <code>--deny-license</code> and <code>--require-license</code> turns the run into a gate: the document is still
-written, the violations are listed, and the exit code is 3. In the <a href="../github-action/">action</a> that fails the step
-unless <code>fail-on-policy</code> is <code>false</code>; anywhere else, let the non-zero exit propagate:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--deny-license<span class="w"> </span>GPL-3.0-only<span class="w"> </span>--deny-license<span class="w"> </span>AGPL-3.0-only<span class="w"> </span>--require-license
-</code></pre></div>
-<p>See <a href="../cli/#enforcing-a-license-policy">the policy semantics</a> for how expressions such as <code>MIT OR GPL-3.0-only</code> are
-evaluated.</p>
-<h2 id="a-license-table-in-a-pull-request-comment">A license table in a pull request comment<a class="headerlink" href="#a-license-table-in-a-pull-request-comment" title="Permanent link">&para;</a></h2>
-<p><code>--report licenses --report-format markdown</code> prints a per-license summary with unlicensed and non-SPDX packages
-called out, ready to paste:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">License report</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi sbom --fetch-licenses --report licenses --report-format markdown &gt; report.md</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">marocchino/sticky-pull-request-comment@v2</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">report.md</span>
-</code></pre></div>
-<p><code>--report-format csv</code> and <code>json</code> feed spreadsheets and scripts the same way; see
-<a href="../cli/#looking-instead-of-writing">looking instead of writing</a>.</p>
-<h2 id="what-changed-in-the-environment">What changed in the environment<a class="headerlink" href="#what-changed-in-the-environment" title="Permanent link">&para;</a></h2>
-<p><code>--report diff --against &lt;previous&gt;</code> answers the pull-request question directly: which packages were added,
-removed or bumped since the document on <code>main</code>, as a Markdown table ready for a comment.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/download-artifact@v4</span><span class="w">   </span><span class="c1"># the sboms artifact the main branch uploaded</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">sboms</span><span class="p p-Indicator">,</span><span class="nt"> path</span><span class="p">:</span><span class="w"> </span><span class="nv">previous</span><span class="w"> </span><span class="p p-Indicator">}</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Environment changes</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi sbom --report diff --against previous/sbom-default.cdx.json --report-format markdown &gt; diff.md</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">marocchino/sticky-pull-request-comment@v2</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> path</span><span class="p">:</span><span class="w"> </span><span class="nv">diff.md</span><span class="w"> </span><span class="p p-Indicator">}</span>
-</code></pre></div>
-<h2 id="diffing-sboms-between-commits">Diffing SBOMs between commits<a class="headerlink" href="#diffing-sboms-between-commits" title="Permanent link">&para;</a></h2>
-<p>With <code>SOURCE_DATE_EPOCH</code> set, two runs over the same lockfile are byte-identical (the serial number is derived from
-the lockfile contents and the timestamp is pinned), so a plain <code>diff</code> shows exactly which packages changed:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">SOURCE_DATE_EPOCH</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>sbom.cdx.json
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>git<span class="w"> </span>diff<span class="w"> </span>--no-index<span class="w"> </span>--<span class="w"> </span>sbom-previous.cdx.json<span class="w"> </span>sbom.cdx.json
-</code></pre></div>
-<p>See <a href="../output-format/#reproducibility">reproducibility</a> for what the guarantee covers.</p>
-<h2 id="air-gapped-runners">Air-gapped runners<a class="headerlink" href="#air-gapped-runners" title="Permanent link">&para;</a></h2>
-<p><code>PIXI_SBOM_OFFLINE=1</code> forbids every network request; the PyPI mapping, wheel and archive caches are used when present
-and everything else is skipped with a warning, and the run still succeeds. Pair it with <code>--pypi-mapping-file</code> pointing
-at a saved copy of the conda-forge mapping and a warm <code>PIXI_SBOM_CACHE_DIR</code> from an online run. The
-<a href="../cli/#environment-variables">environment variables</a> page lists every knob, including the PyPI mirror URL.</p>
+<h1 id="which-format-to-pick">Which format to pick<a class="headerlink" href="#which-format-to-pick" title="Permanent link">&para;</a></h1>
+<p><code>pixi sbom</code> writes one of four document flavours from the same model, so the choice is about who reads the file, not
+what goes into it. The <a href="../output-format/">output format reference</a> covers every field.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>CycloneDX 1.6</th>
+<th>CycloneDX 1.7</th>
+<th>SPDX 2.3</th>
+<th>SPDX 3.0.1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Flags</td>
+<td>(default)</td>
+<td><code>--spec-version 1.7</code></td>
+<td><code>--format spdx</code></td>
+<td><code>--format spdx --spec-version 3.0</code></td>
+</tr>
+<tr>
+<td>File</td>
+<td><code>sbom.cdx.json</code></td>
+<td><code>sbom.cdx.json</code></td>
+<td><code>sbom.spdx.json</code></td>
+<td><code>sbom.spdx.json</code></td>
+</tr>
+<tr>
+<td>Shape</td>
+<td>components + dependency graph</td>
+<td>same, plus <code>citations</code></td>
+<td>packages + relationships</td>
+<td>JSON-LD graph of elements</td>
+</tr>
+<tr>
+<td>Best for</td>
+<td>vulnerability scanners (grype, trivy, OSV), most SBOM tooling</td>
+<td>consumers that already read 1.7</td>
+<td>procurement, NTIA / CISA minimum-elements checklists, legacy SPDX tooling</td>
+<td>SPDX 3 native tooling, linking into larger SPDX 3 graphs</td>
+</tr>
+<tr>
+<td>License texts (<code>--license-texts</code>)</td>
+<td><code>licenses[].license.text</code></td>
+<td>same</td>
+<td>extracted licensing infos</td>
+<td><code>SimpleLicensingText</code> elements</td>
+</tr>
+<tr>
+<td>Validated against</td>
+<td>CycloneDX 1.6 schema</td>
+<td>1.7 schema</td>
+<td>SPDX 2.3 schema</td>
+<td>SPDX 3.0.1 schema</td>
+</tr>
+</tbody>
+</table>
+<p>Rules of thumb:</p>
+<ul>
+<li><strong>Scanning for vulnerabilities</strong>: CycloneDX 1.6, piped straight in (<code>pixi sbom --output - | grype</code>). Add
+  <code>--pypi-mapping prefix --primary-purl pypi</code> so conda-installed Python packages match PyPI advisories.</li>
+<li><strong>Handing a bill of materials to a customer or auditor</strong>: SPDX 2.3 is the most widely accepted interchange, and its
+  <code>licenseDeclared</code> / <code>licenseConcluded</code> split maps onto compliance workflows.</li>
+<li><strong>A newer consumer that reads it</strong>: CycloneDX 1.7 or SPDX 3.0.1. The defaults stay at 1.6 / 2.3 until the common
+  consumers move; a version of the other format is a usage error.</li>
+</ul>
+<p>Every flavour records which environment and platform it describes and carries the same purls, licenses and
+dependency edges, so converting later with <code>syft convert</code> loses nothing that <code>pixi sbom</code> put in.</p>
 
 
 
@@ -917,7 +747,7 @@ at a saved copy of the conda-forge mapping and a warm <code>PIXI_SBOM_CACHE_DIR<
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../github-action/" class="md-footer__link md-footer__link--prev" aria-label="Previous: GitHub Action">
+          <a href="../ci-recipes/" class="md-footer__link md-footer__link--prev" aria-label="Previous: CI recipes">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -927,20 +757,20 @@ at a saved copy of the conda-forge mapping and a warm <code>PIXI_SBOM_CACHE_DIR<
                 Previous
               </span>
               <div class="md-ellipsis">
-                GitHub Action
+                CI recipes
               </div>
             </div>
           </a>
         
         
           
-          <a href="../formats/" class="md-footer__link md-footer__link--next" aria-label="Next: Which format to pick">
+          <a href="../output-format/" class="md-footer__link md-footer__link--next" aria-label="Next: Output format reference">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Which format to pick
+                Output format reference
               </div>
             </div>
             <div class="md-footer__button md-icon">
