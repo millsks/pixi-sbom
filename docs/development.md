@@ -163,10 +163,14 @@ release containing them exists; keep `action.yml` inputs and the CLI in step at 
 | Docs | ubuntu | `pixi run docs-build`: the site must build with `--strict` |
 
 `.github/workflows/docs.yml` publishes the site to GitHub Pages (https://millsks.github.io/pixi-sbom/) every time
-a release is published, building from the release tag so the site matches the released binary. A docs-only fix
-reaches the site at the next release, or sooner by dispatching the workflow by hand (`gh workflow run docs.yml`,
-optionally with `-f ref=<branch or tag>`). The repository's Pages source is "GitHub Actions"; the `github-pages`
-environment records every deployment.
+a release is published, building from the release tag so the site matches the released binary. The site is
+versioned with [mike](https://github.com/jimporter/mike): each release deploys under its `MAJOR.MINOR`
+(`/0.5/`), `latest` is an alias of the newest non-pre-release version and the root redirects to it, so links should
+use `/latest/...`. The versions live on the `gh-pages` branch, which the workflow then publishes as the Pages
+artifact; the repository's Pages source stays "GitHub Actions" and the `github-pages` environment records every
+deployment. A docs-only fix reaches the site at the next release, or sooner by dispatching the workflow by hand
+(`gh workflow run docs.yml`, optionally with `-f ref=<branch or tag>`); it redeploys the version `Cargo.toml`
+carries on that ref. `pixi run -e docs mike serve` previews every deployed version locally from `gh-pages`.
 
 All jobs use `prefix-dev/setup-pixi` with caching, so they run the same pinned toolchain as local development. CI
 sticks to the `-latest` labels (x64 Linux and Windows, arm64 macOS); the code has no platform-specific paths, so the
