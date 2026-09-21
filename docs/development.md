@@ -31,6 +31,13 @@ prefer adding a task.
 | `ci` | `pre-commit-run` → `build` → `check` → `lint` → `cov` | The gate; must exit 0 before work is considered done |
 | `changelog` | `git cliff --config cliff.toml -o CHANGELOG.md` | Regenerate the changelog from conventional commits |
 | `bootstrap` | `pre-commit install ...` | One-time hook installation |
+| `docs-serve` | `mkdocs serve` (`docs` environment) | Live preview of the documentation site at http://127.0.0.1:8000 |
+| `docs-build` | `mkdocs build --strict` (`docs` environment) | Build the site into `site/`; a broken link or a page missing from the nav fails |
+
+The documentation site is [MkDocs](https://www.mkdocs.org) with the Material theme, configured in `mkdocs.yml`; the
+pages are the Markdown files in `docs/` with `index.md` as the landing page. The `docs` pixi environment is separate
+from the Rust one, so `pixi run -e docs docs-serve` (or plain `pixi run docs-serve`, which resolves to it) does not
+pull the Rust toolchain into a docs-only checkout.
 
 ## The change harness
 
@@ -152,6 +159,7 @@ release containing them exists; keep `action.yml` inputs and the CLI in step at 
 | Test | `ubuntu-latest`, `macos-latest`, `windows-latest` | `pixi run test` |
 | Coverage gate | ubuntu | `pixi run cov` |
 | Build | same three | `pixi run build` and `--version` smoke test |
+| Docs | ubuntu | `pixi run docs-build`: the site must build with `--strict` |
 
 All jobs use `prefix-dev/setup-pixi` with caching, so they run the same pinned toolchain as local development. CI
 sticks to the `-latest` labels (x64 Linux and Windows, arm64 macOS); the code has no platform-specific paths, so the

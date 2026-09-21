@@ -85,3 +85,11 @@ Bugfix milestone 5: #48 (PR #62, conda-forge "WITH exceptions" → `WITH Additio
 #47 (the release itself). Lesson: `git branch --merged main` also deletes a feature branch that has no commits yet;
 stash, then recreate the branch from main. Future milestones 0.6.0 (#51–#54), 0.7.0 (#55–#58), 0.8.0 (#59–#61).
 After 0.5.1 ships: re-enable `require-license: "true"` in the action dogfood job (needs the 0.5.1 binary).
+
+## 0.5.5 (milestone 9, planned 2026-09-20): documentation site
+
+MkDocs Material site for `docs/` at https://millsks.github.io/pixi-sbom, deployed by a `docs.yml` workflow on
+`release: published`. Issues in order: #66 scaffold (`mkdocs.yml`, `docs` pixi feature/environment, strict build
+CI job), #67 content restructure, #68 Pages deploy (enabling Pages is a repo setting: confirm first), #69 `mike`
+versioning, #70 links from README / Cargo.toml / action.yml / feedstock. User chose 0.5.5 (not 0.8.5) so the
+milestone number keeps release order; it runs before 0.6.0.
