@@ -15,6 +15,7 @@ once no matter how many output formats exist.
    condaarchive.rs ─ the same from the channel archive by HTTP range (optional, via zipread.rs)
    wheel.rs ─────── PyPI license details from the wheel's dist-info (optional, via zipread.rs)
    report.rs ───── --report: renders the model as a terminal table instead of a document
+   policy.rs ───── --allow/--deny/--require-license: violations -> exit 3 after writing
    license.rs ◀── used by both writers
    discover.rs ── finds the lockfile, decides output paths
    cli.rs ──────── clap definitions
@@ -43,6 +44,7 @@ once no matter how many output formats exist.
 | `format/mod.rs` | `WriteContext` (timestamp, UUID, tool version), `write()` / `to_value()` entry points, the shared graph-root helper, and the hand-built sample model used by writer tests. | serde_json, chrono, uuid |
 | `format/cyclonedx.rs` | Serde structs mirroring the parts of CycloneDX 1.6 / 1.7 that are used, the version table (`$schema`, `specVersion`, 1.7 citations), and the `Sbom` → `Bom` mapping. | serde |
 | `format/spdx.rs` | Same for SPDX 2.3, including `SPDXRef` id assignment and `LicenseRef` extraction. | serde |
+| `policy.rs` | `--allow-license` / `--deny-license` / `--require-license`: parses licensees, canonicalizes ids (base, `-or-later`, exception) and evaluates each package's expression with the `spdx` crate's `evaluate`, returning violations; exit code 3 is applied in `main`. | spdx, license.rs |
 | `report.rs` | `--report`: the `packages` and `licenses` views built from the model, rendered as an aligned table, Markdown, CSV or JSON. Owns no I/O beyond the writer it is handed. | serde_json |
 | `main.rs` | Argument parsing, tracing setup, miette report handler, the environment loop, and file output. | miette, tracing |
 

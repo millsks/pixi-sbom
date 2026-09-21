@@ -54,6 +54,9 @@ With no options this means:
 | `--primary-purl <conda\|pypi>` | `conda` | With `pypi`, a conda package that has a PyPI purl uses it as its primary `purl` so vulnerability scanners can match it. |
 | `--fetch-licenses` | off | Fetch the license of every package, conda and PyPI alike, where the lockfile has none, plus the names of the license files it ships and its summary and project URLs. Conda details come from the local package cache pixi filled at install time, or from the archive on the channel via HTTP range requests (a few KB per package, cached); PyPI details from the wheel's `dist-info` the same way, then the index JSON API for what is still missing. Failures are logged and the run continues. |
 | `--license-texts` | off | With `--fetch-licenses`, also embed the full text of every license file. |
+| `--allow-license <LICENSE>` | | Repeatable. Only these SPDX licenses are acceptable; a package whose license expression cannot be satisfied with them alone is a violation. |
+| `--deny-license <LICENSE>` | | Repeatable. These SPDX licenses are unacceptable; a package whose expression cannot be satisfied without them is a violation. |
+| `--require-license` | off | Every package must declare a license that is an SPDX expression. |
 | `--report <packages\|licenses>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`. |
 | `--report-format <table\|markdown\|csv\|json>` | `table` | How to render the report. |
 | `--pypi-licenses` | | Deprecated alias for `--fetch-licenses` (hidden from `--help`; removed in a future release). |
@@ -62,6 +65,32 @@ With no options this means:
 | `-h, --help`, `-V, --version` | | Usual meanings. |
 
 `RUST_LOG` is also honored and overrides `-v`/`-q` (for example `RUST_LOG=pixi_sbom::lock=debug`).
+
+### Enforcing a license policy
+
+Any of `--allow-license`, `--deny-license` and `--require-license` turns on the policy check. Documents (or reports)
+are still produced, the violations are listed on stderr, and the run exits with code **3**, which is what a CI job
+should fail on:
+
+```sh
+# Nothing copyleft, and every package must say what it is
+pixi sbom --deny-license GPL-3.0-only --deny-license AGPL-3.0-only --require-license --output - > sbom.cdx.json
+
+# Only an approved set
+pixi sbom --fetch-licenses --allow-license MIT --allow-license Apache-2.0 --allow-license BSD-3-Clause
+```
+
+The check respects the structure of each license expression: `MIT OR GPL-3.0-only` passes a policy that denies
+GPL-3.0-only because MIT is an option, while `MIT AND GPL-3.0-only` does not. Identifiers are compared by base
+license, `-or-later` flag and exception, so the deprecated `GPL-3.0` and the current `GPL-3.0-only` mean the same
+thing, an `-or-later` requirement is satisfied by any allowed later version of the same family (allowing
+`GPL-3.0-only` satisfies a package under `GPL-2.0-or-later`) and matched by any denied later version, and
+`GPL-2.0-only WITH Classpath-exception-2.0` is only satisfied by an entry with the same exception. `LicenseRef-`
+identifiers match exactly. `GPL-2.0+` may be written for `GPL-2.0-or-later`.
+
+Packages without a license, or with one that is not an SPDX expression, are not violations of an allow or deny
+list (there is nothing to evaluate); `--require-license` makes them violations. Combine with `--fetch-licenses` so
+PyPI packages have a license to check. In batch mode each violation is prefixed with its environment and platform.
 
 ### Looking instead of writing
 
@@ -166,7 +195,8 @@ CycloneDX metadata properties; the root package `sourceInfo` in SPDX), so a batc
 |---|---|
 | 0 | Document(s) written. |
 | 1 | A runtime error; a diagnostic is printed to stderr. |
-| 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments` or `--all-platforms`, or `--spec-version` with `--format spdx`). |
+| 3 | The license policy was violated; the documents were written and the violations listed on stderr. |
+| 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments` or `--all-platforms`, or `--spec-version` with `--format spdx`, or a `--allow-license` / `--deny-license` value that is not an SPDX identifier). |
 
 Runtime diagnostics carry a stable code you can grep for in CI logs:
 

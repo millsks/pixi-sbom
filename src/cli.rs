@@ -136,6 +136,22 @@ pub struct Args {
     #[arg(long, hide = true)]
     pub pypi_licenses: bool,
 
+    /// Only these SPDX licenses (repeatable) are acceptable; a package whose license expression
+    /// cannot be satisfied with them alone is a violation. An `-or-later` requirement is
+    /// satisfied by any allowed later version of the same license family.
+    #[arg(long, value_name = "LICENSE")]
+    pub allow_license: Vec<String>,
+
+    /// These SPDX licenses (repeatable) are unacceptable; a package whose license expression
+    /// cannot be satisfied without them is a violation. `MIT OR GPL-3.0-only` passes a policy
+    /// that denies GPL-3.0-only because MIT is an option.
+    #[arg(long, value_name = "LICENSE")]
+    pub deny_license: Vec<String>,
+
+    /// Every package must declare a license that is an SPDX expression.
+    #[arg(long)]
+    pub require_license: bool,
+
     /// Print a report to the terminal instead of writing an SBOM document: `packages` is the
     /// inventory, `licenses` the license view with a summary. Nothing is written to disk.
     #[arg(long, value_enum, value_name = "REPORT", conflicts_with_all = ["output", "spec_version"])]
