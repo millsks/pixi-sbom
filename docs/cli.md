@@ -36,6 +36,8 @@ With no options this means:
 | `--deny-license <LICENSE>` | | Repeatable. These SPDX licenses are unacceptable; a package whose expression cannot be satisfied without them is a violation. |
 | `--require-license` | off | Every package must declare a license that is an SPDX expression. |
 | `--vulnerabilities <osv>` | off | Look up known vulnerabilities of every package with a purl OSV can answer and record them in the document (see below). |
+| `--fail-on-severity <low\|medium\|high\|critical>` | | With `--vulnerabilities`: exit **4** after writing the document when any open finding is at or above the level. Findings of unknown severity never trip it. |
+| `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification), is excluded from `--fail-on-severity` and listed separately in the report. |
 | `--report <packages\|licenses\|vulnerabilities>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`. |
 | `--report-format <table\|markdown\|csv\|json>` | `table` | How to render the report. |
 | `--pypi-licenses` | | Deprecated alias for `--fetch-licenses` (hidden from `--help`; removed in a future release). |
@@ -101,6 +103,32 @@ Severity is the advisory database's own word (`database_specific.severity`) when
 base score computed from the vector; CVSS v4 vectors are recorded but not scored. The rating with the worst
 severity orders the list.
 
+### Gating on vulnerabilities
+
+`--fail-on-severity` turns the lookup into a CI gate, shaped like the license policy: the document (or report) is
+still produced, the open findings at or above the level are listed on stderr, and the run exits with code **4**.
+`--ignore-vuln` accepts findings you have assessed, VEX style: the finding stays in the document with an
+`analysis` block, drops out of the gate, and the report lists it under *Ignored* with its justification.
+
+```sh
+# Anything high or critical fails the job
+pixi sbom --pypi-mapping prefix --vulnerabilities osv --fail-on-severity high
+
+# ... except the ones assessed as not affecting this deployment
+pixi sbom --pypi-mapping prefix --vulnerabilities osv --fail-on-severity high \
+  --ignore-vuln "GHSA-2xpw-w6gg-jr37:streaming API is not used" \
+  --ignore-vuln "CVE-2023-43804:false_positive:only reachable through a removed code path" \
+  --ignore-vuln GHSA-qccp-gfcp-xxvc:in_triage
+```
+
+An entry is `ID`, `ID:TEXT` or `ID:STATE:TEXT`. `ID` matches the record id or any alias, case-insensitively.
+`STATE` is one of the CycloneDX impact-analysis states (`not_affected`, `false_positive`, `in_triage`,
+`resolved`, `resolved_with_pedigree`, `exploitable`); a second segment that is not a state is taken as the
+text, so `ID:see ticket: ABC-12` keeps the whole text. An id that matches nothing is logged at debug level and
+otherwise ignored, so a list of accepted findings can be kept across upgrades. Findings of unknown severity
+(records without a rating) never trip the gate; the report shows them so they can be assessed. When both the
+license policy and the vulnerability gate fail, both lists are printed and the exit code is 3.
+
 ## Looking instead of writing
 
 `--report` prints a report to the terminal and writes nothing:
@@ -128,9 +156,10 @@ cannot be combined with `--output`. The `table` format fits the terminal width (
 truncating the last column; the other formats are never truncated.
 
 The vulnerabilities report has one row per finding and affected package (package, version, severity, the highest
-CVSS score, id, aliases, fixed version, summary; the CSV and JSON forms add the purl and the OSV URL), ordered worst
-first, followed by a count of distinct findings and affected packages, a table of findings per severity, and the
-packages that have no purl the database could answer.
+CVSS score, id, aliases, fixed version, status, summary; the CSV and JSON forms add the purl, the OSV URL and the
+`--ignore-vuln` justification), open findings worst first and ignored ones last, followed by a count of open
+findings and affected packages, a table of open findings per severity, the ignored findings with their
+justification, and the packages that have no purl the database could answer.
 
 ## One document per environment and platform
 
@@ -221,6 +250,7 @@ pixi sbom --all-environments --all-platforms --output sboms/
 | 0 | Document(s) written. |
 | 1 | A runtime error; a diagnostic is printed to stderr. |
 | 3 | The license policy was violated; the documents were written and the violations listed on stderr. |
+| 4 | The vulnerability gate (`--fail-on-severity`) failed; the documents were written and the findings listed on stderr. |
 | 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments` or `--all-platforms`, or a `--spec-version` of the other format, or a `--allow-license` / `--deny-license` value that is not an SPDX identifier). |
 
 Runtime diagnostics carry a stable code you can grep for in CI logs:

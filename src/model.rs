@@ -131,6 +131,18 @@ pub struct Vulnerability {
     pub modified: Option<String>,
     /// The packages it applies to. Sorted by package id.
     pub affects: Vec<Affected>,
+    /// Set when the finding was accepted with `--ignore-vuln`: it stays in the document but
+    /// does not trip the gate.
+    pub analysis: Option<Analysis>,
+}
+
+/// A VEX-style assessment of a finding (CycloneDX `vulnerabilities[].analysis`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Analysis {
+    /// CycloneDX impact-analysis state (`not_affected`, `false_positive`, ...).
+    pub state: &'static str,
+    /// Free-text justification.
+    pub detail: Option<String>,
 }
 
 /// The workspace described by the SBOM.

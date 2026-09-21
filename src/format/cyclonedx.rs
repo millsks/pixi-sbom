@@ -55,7 +55,16 @@ struct VulnerabilityEntry {
     published: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     updated: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    analysis: Option<AnalysisEntry>,
     affects: Vec<Affects>,
+}
+
+#[derive(Debug, Serialize)]
+struct AnalysisEntry {
+    state: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    detail: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -352,6 +361,10 @@ fn vulnerability(vuln: &Vulnerability, sbom: &Sbom) -> VulnerabilityEntry {
             .collect(),
         published: vuln.published.clone(),
         updated: vuln.modified.clone(),
+        analysis: vuln.analysis.as_ref().map(|a| AnalysisEntry {
+            state: a.state,
+            detail: a.detail.clone(),
+        }),
         affects: vuln
             .affects
             .iter()
@@ -924,9 +937,15 @@ mod tests {
                 purl: "pkg:pypi/six@1.17.0".into(),
                 fixed_version: Some("1.26.5".into()),
             }],
+            analysis: Some(crate::model::Analysis {
+                state: "not_affected",
+                detail: Some("only used at build time".into()),
+            }),
         });
         let doc = serde_json::to_value(document(&sbom, &fixed_context())).unwrap();
         let vuln = &doc["vulnerabilities"][0];
+        assert_eq!(vuln["analysis"]["state"], "not_affected");
+        assert_eq!(vuln["analysis"]["detail"], "only used at build time");
         assert_eq!(vuln["bom-ref"], "vuln-GHSA-q2q7-5pp4-w6pg");
         assert_eq!(vuln["id"], "GHSA-q2q7-5pp4-w6pg");
         assert_eq!(vuln["source"]["name"], "OSV");

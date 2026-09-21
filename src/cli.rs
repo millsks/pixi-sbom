@@ -104,6 +104,27 @@ pub enum VulnerabilitySource {
     Osv,
 }
 
+/// The lowest severity that fails the run with `--fail-on-severity`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum FailOnSeverity {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+impl FailOnSeverity {
+    /// The model severity this threshold stands for.
+    pub fn severity(self) -> crate::model::Severity {
+        match self {
+            FailOnSeverity::Low => crate::model::Severity::Low,
+            FailOnSeverity::Medium => crate::model::Severity::Medium,
+            FailOnSeverity::High => crate::model::Severity::High,
+            FailOnSeverity::Critical => crate::model::Severity::Critical,
+        }
+    }
+}
+
 /// Generate a Software Bill of Materials from a pixi.lock file.
 #[derive(Debug, Parser)]
 #[command(
@@ -204,6 +225,19 @@ pub struct Args {
     /// PyPI purl, so combine with --pypi-mapping prefix. Results are cached for an hour.
     #[arg(long, value_enum, value_name = "SOURCE")]
     pub vulnerabilities: Option<VulnerabilitySource>,
+
+    /// Exit with code 4 after writing the document when any finding at or above this severity
+    /// remains (findings of unknown severity never trip it). Requires --vulnerabilities.
+    #[arg(long, value_enum, value_name = "SEVERITY", requires = "vulnerabilities")]
+    pub fail_on_severity: Option<FailOnSeverity>,
+
+    /// Accept a finding deliberately (repeatable): `ID`, `ID:justification` or
+    /// `ID:state:justification`, where ID is an advisory id or alias (GHSA, CVE, ...) and state
+    /// a CycloneDX analysis state (default `not_affected`). The finding stays in the document
+    /// with an `analysis` block, is excluded from --fail-on-severity and listed separately in
+    /// the report. Requires --vulnerabilities.
+    #[arg(long, value_name = "ID[:STATE][:TEXT]", requires = "vulnerabilities")]
+    pub ignore_vuln: Vec<String>,
 
     /// Print a report to the terminal instead of writing an SBOM document: `packages` is the
     /// inventory, `licenses` the license view with a summary, `vulnerabilities` the findings

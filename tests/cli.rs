@@ -1353,7 +1353,7 @@ fn vulnerabilities_report_lists_findings_worst_first() {
 
     let csv = String::from_utf8(run("csv").get_output().stdout.clone()).unwrap();
     assert!(csv.starts_with(
-        "environment,platform,package,version,purl,severity,score,id,aliases,fixed_version,summary,url\n"
+        "environment,platform,package,version,purl,severity,score,id,aliases,fixed_version,status,summary,url\n"
     ));
     assert_eq!(csv.lines().count(), 10);
 
@@ -1374,6 +1374,112 @@ fn vulnerabilities_report_lists_findings_worst_first() {
         .assert()
         .code(2)
         .stderr(predicate::str::contains("needs '--vulnerabilities <SOURCE>'"));
+}
+
+#[test]
+fn fail_on_severity_exits_4_after_writing_and_ignores_are_recorded() {
+    let dir = workspace_with_vulnerable_urllib3();
+    let base = |args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "200")
+            .args(["-e", "web", "-p", "linux-64", "--vulnerabilities", "osv"])
+            .args(args)
+            .assert()
+    };
+    // Six high findings trip a high gate; the document is still written.
+    let out = dir.path().join("gated.cdx.json");
+    base(&["--fail-on-severity", "high", "--output", out.to_str().unwrap()])
+        .code(4)
+        .stderr(predicate::str::contains(
+            "Vulnerability gate failed: 6 finding(s) at or above high:",
+        ))
+        .stderr(predicate::str::contains("GHSA-q2q7-5pp4-w6pg (high): urllib3 1.26.4"));
+    let doc = read_json(&out);
+    assert_valid(&cyclonedx_validator(), &doc);
+    assert_eq!(doc["vulnerabilities"].as_array().unwrap().len(), 9);
+
+    // Nothing is critical, so a critical gate passes.
+    base(&["--fail-on-severity", "critical", "--output", "-"]).success();
+
+    // Ignoring every high finding (by GHSA id or CVE alias) lets the high gate pass; the
+    // findings stay in the document with their analysis.
+    let assert = base(&[
+        "--fail-on-severity",
+        "high",
+        "--ignore-vuln",
+        "GHSA-2xpw-w6gg-jr37:not_affected:streaming API unused",
+        "--ignore-vuln",
+        "GHSA-38jv-5279-wg99",
+        "--ignore-vuln",
+        "CVE-2025-66418",
+        "--ignore-vuln",
+        "GHSA-q2q7-5pp4-w6pg:false_positive:wrong package",
+        "--ignore-vuln",
+        "GHSA-qccp-gfcp-xxvc",
+        "--ignore-vuln",
+        "GHSA-v845-jxx5-vc9f",
+        "--output",
+        "-",
+    ])
+    .success();
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let vulns = doc["vulnerabilities"].as_array().unwrap();
+    assert_eq!(vulns.len(), 9, "ignored findings are still recorded");
+    let streaming = vulns.iter().find(|v| v["id"] == "GHSA-2xpw-w6gg-jr37").unwrap();
+    assert_eq!(streaming["analysis"]["state"], "not_affected");
+    assert_eq!(streaming["analysis"]["detail"], "streaming API unused");
+    let by_cve = vulns.iter().find(|v| v["id"] == "GHSA-gm62-xv2j-4w53").unwrap();
+    assert_eq!(by_cve["analysis"]["state"], "not_affected");
+    assert!(by_cve["analysis"].get("detail").is_none());
+    let open = vulns.iter().find(|v| v["id"] == "GHSA-34jh-p97f-mpxf").unwrap();
+    assert!(open.get("analysis").is_none());
+
+    // The report shows ignored findings last and lists them with their justification.
+    let table = String::from_utf8(
+        base(&[
+            "--ignore-vuln",
+            "GHSA-q2q7-5pp4-w6pg:false_positive:wrong package",
+            "--report",
+            "vulnerabilities",
+        ])
+        .success()
+        .get_output()
+        .stdout
+        .clone(),
+    )
+    .unwrap();
+    assert!(
+        table.contains("Summary: 8 open findings in 1 packages, 1 ignored"),
+        "{table}"
+    );
+    assert!(
+        table.contains("Ignored (1):\n  GHSA-q2q7-5pp4-w6pg (false_positive): wrong package"),
+        "{table}"
+    );
+    let ignored_row = table.lines().find(|l| l.contains("GHSA-q2q7-5pp4-w6pg")).unwrap();
+    assert!(ignored_row.contains("  ignored  "), "{ignored_row}");
+    let lines: Vec<&str> = table.lines().collect();
+    let last_open = lines.iter().rposition(|l| l.contains("  open  ")).unwrap();
+    let ignored_at = lines.iter().position(|l| *l == ignored_row).unwrap();
+    assert!(ignored_at > last_open, "ignored rows come last");
+
+    // Both flags need --vulnerabilities; a malformed ignore is a usage error.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--fail-on-severity", "high"])
+        .assert()
+        .code(2);
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--vulnerabilities", "osv", "--ignore-vuln", ":nothing"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("--ignore-vuln"));
 }
 
 #[test]
