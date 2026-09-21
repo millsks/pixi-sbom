@@ -1082,7 +1082,7 @@ CycloneDX metadata properties; the root package <code>sourceInfo</code> in SPDX)
 </tr>
 <tr>
 <td><code>PIXI_SBOM_CACHE_DIR</code></td>
-<td>Where downloaded data (the PyPI mapping, PyPI metadata, extracted conda <code>info</code> directories, wheel <code>dist-info</code> files) is cached. Default: <code>pixi-sbom</code> under <code>PIXI_CACHE_DIR</code> if set, else the platform cache directory (<code>~/.cache/pixi-sbom</code>, <code>~/Library/Caches/pixi-sbom</code>, <code>%LOCALAPPDATA%\pixi-sbom\cache</code>).</td>
+<td>Where downloaded data (the PyPI mapping, PyPI metadata, extracted conda <code>info</code> directories, wheel <code>dist-info</code> files) is cached. Default: <code>pixi-sbom</code> inside the pixi cache directory (<code>PIXI_CACHE_DIR</code> / <code>RATTLER_CACHE_DIR</code>, else <code>~/.cache/rattler/cache</code>, <code>~/Library/Caches/rattler/cache</code>, <code>%LOCALAPPDATA%\rattler\cache</code>), so <code>pixi clean cache</code> removes it too.</td>
 </tr>
 <tr>
 <td><code>HTTPS_PROXY</code> / <code>HTTP_PROXY</code></td>
