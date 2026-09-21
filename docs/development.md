@@ -137,7 +137,9 @@ real document; the fixtures are small by design.
 explicit `version` input, or the latest release), downloads the matching release archive and its `.sha256`,
 verifies it, puts the binary on `PATH`, maps the inputs to CLI flags and runs it, then uploads the output with
 `actions/upload-artifact`. The `sbom` job in `ci.yml` dogfoods it on Linux and Windows with the latest release,
-so a change to the action is exercised by CI before it is tagged. New CLI flags reach the action only once a
+so a change to the action is exercised by CI before it is tagged: one step runs every environment with license
+fetching, embedded SBOMs and a policy that this repository's own `readline` (GPL-3.0-only) violates, with
+`fail-on-policy` off, and asserts the `policy-violated` output; a second step runs a policy that passes. New CLI flags reach the action only once a
 release containing them exists; keep `action.yml` inputs and the CLI in step at release time.
 
 ## Continuous integration

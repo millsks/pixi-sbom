@@ -248,7 +248,7 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 | `version` | the action's own tag, else the latest release | pixi-sbom version to run |
 | `lockfile`, `format`, `spec-version`, `environment`, `platform`, `all-environments`, `all-platforms` | as the CLI | Selection and format, see the options above |
 | `output` | `sboms` | Output file (`*.json`, or `-` for the log) or directory; a single document lands in the directory as `sbom.cdx.json` / `sbom.spdx.json` |
-| `fetch-licenses`, `license-texts`, `pypi-mapping`, `primary-purl` | as the CLI | Enrichment |
+| `fetch-licenses`, `license-texts`, `embedded-sboms`, `pypi-mapping`, `primary-purl` | as the CLI | Enrichment |
 | `allow-license`, `deny-license`, `require-license` | | License policy; whitespace-separated lists |
 | `fail-on-policy` | `true` | Fail the step on a policy violation; with `false` it becomes a warning and the `policy-violated` output is `true` |
 | `extra-args` | | Any other CLI arguments |

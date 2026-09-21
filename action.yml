@@ -57,6 +57,10 @@ inputs:
     description: With fetch-licenses, embed the full license texts.
     required: false
     default: "false"
+  embedded-sboms:
+    description: Attach the components declared by SBOMs embedded in wheels (PEP 770).
+    required: false
+    default: "false"
   pypi-mapping:
     description: "`lock` or `prefix`: where PyPI identities for conda packages come from."
     required: false
@@ -179,6 +183,7 @@ runs:
         IN_OUTPUT: ${{ inputs.output }}
         IN_FETCH_LICENSES: ${{ inputs.fetch-licenses }}
         IN_LICENSE_TEXTS: ${{ inputs.license-texts }}
+        IN_EMBEDDED_SBOMS: ${{ inputs.embedded-sboms }}
         IN_PYPI_MAPPING: ${{ inputs.pypi-mapping }}
         IN_PRIMARY_PURL: ${{ inputs.primary-purl }}
         IN_ALLOW_LICENSE: ${{ inputs.allow-license }}
@@ -207,6 +212,7 @@ runs:
         fi
         [ "$IN_FETCH_LICENSES" = "true" ] && args+=(--fetch-licenses)
         [ "$IN_LICENSE_TEXTS" = "true" ] && args+=(--license-texts)
+        [ "$IN_EMBEDDED_SBOMS" = "true" ] && args+=(--embedded-sboms)
         args+=(--pypi-mapping "$IN_PYPI_MAPPING" --primary-purl "$IN_PRIMARY_PURL")
         for l in $IN_ALLOW_LICENSE; do args+=(--allow-license "$l"); done
         for l in $IN_DENY_LICENSE; do args+=(--deny-license "$l"); done

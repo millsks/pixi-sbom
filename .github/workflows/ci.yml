@@ -91,10 +91,26 @@ jobs:
           all-environments: "true"
           fetch-licenses: "true"
           pypi-mapping: prefix
+          embedded-sboms: "true"
+          # Every package here declares an SPDX license, so this passes; readline is
+          # GPL-3.0-only, so the deny list trips and, with fail-on-policy off, becomes a warning.
+          require-license: "true"
+          deny-license: "GPL-3.0-only"
+          fail-on-policy: "false"
           artifact-name: sboms-${{ matrix.os }}
-      - name: Check the documents exist
+      - name: Check the documents and the policy outcome
         shell: bash
         run: |
           ls -l sboms/
           test -s sboms/sbom-default.cdx.json
+          test "${{ steps.sbom.outputs.policy-violated }}" = "true"
           echo "pixi-sbom ${{ steps.sbom.outputs.version }} wrote to ${{ steps.sbom.outputs.output }}"
+      - name: A satisfied policy exits 0
+        uses: ./
+        with:
+          environment: default
+          platform: linux-64
+          output: sboms-policy
+          deny-license: "AGPL-3.0-only"
+          require-license: "true"
+          upload-artifact: "false"
