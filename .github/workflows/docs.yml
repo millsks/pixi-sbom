@@ -3,18 +3,27 @@ name: Docs site
 # Publishes the MkDocs site to GitHub Pages whenever a release is published, so the site
 # always describes the released binary. Dispatch it by hand for a docs-only republish.
 #
-# Versions: mike keeps one copy of the site per MAJOR.MINOR on the gh-pages branch, with
-# `latest` aliased to the newest release (pre-releases deploy under their version only) and the
-# site root redirecting to it. The branch is then published as the Pages artifact, so the Pages
-# source stays "GitHub Actions" and every deployment is recorded in the github-pages environment.
+# Versions, the way pixi's own docs do it: mike keeps one copy of the site per release
+# (`v0.5.5`) on the gh-pages branch, `latest` is an alias of the newest release (pre-releases
+# deploy under their version only), `dev` follows main, and the site root redirects to `latest`.
+# The branch is then published as the Pages artifact, so the Pages source stays "GitHub Actions"
+# and every deployment is recorded in the github-pages environment.
 
 on:
   release:
     types: [published]
+  push:
+    branches: [main]
+    paths:
+      - docs/**
+      - mkdocs.yml
+      - mkdocs_hooks.py
+      - CHANGELOG.md
+      - .github/workflows/docs.yml
   workflow_dispatch:
     inputs:
       ref:
-        description: "Git ref to build the site from (default: the default branch)"
+        description: "Git ref to build from: a vX.Y.Z tag deploys that version, anything else deploys `dev` (default: main)"
         required: false
         type: string
         default: ""
@@ -46,19 +55,21 @@ jobs:
         run: pixi run -e docs docs-build
       - name: Deploy this version to gh-pages with mike
         env:
+          TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.ref }}
           PRERELEASE: ${{ github.event_name == 'release' && github.event.release.prerelease || 'false' }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # The docs describe the version Cargo.toml carries: the tag's on a release, the last release's on main.
-          version=$(sed -n 's/^version = "\([0-9]*\.[0-9]*\)\..*/\1/p' Cargo.toml | head -1)
-          [ -n "$version" ] || { echo "::error::cannot read the version from Cargo.toml"; exit 1; }
-          if [ "$PRERELEASE" = "true" ]; then
-            pixi run -e docs mike deploy --push "$version"
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            if [ "$PRERELEASE" = "true" ]; then
+              pixi run -e docs mike deploy --push "$TAG"
+            else
+              pixi run -e docs mike deploy --push --update-aliases "$TAG" latest
+              pixi run -e docs mike set-default --push latest
+            fi
           else
-            pixi run -e docs mike deploy --push --update-aliases "$version" latest
-            pixi run -e docs mike set-default --push latest
+            pixi run -e docs mike deploy --push dev
           fi
           pixi run -e docs mike list
       - name: Check out the published branch

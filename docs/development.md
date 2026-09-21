@@ -164,13 +164,14 @@ release containing them exists; keep `action.yml` inputs and the CLI in step at 
 
 `.github/workflows/docs.yml` publishes the site to GitHub Pages (https://millsks.github.io/pixi-sbom/) every time
 a release is published, building from the release tag so the site matches the released binary. The site is
-versioned with [mike](https://github.com/jimporter/mike): each release deploys under its `MAJOR.MINOR`
-(`/0.5/`), `latest` is an alias of the newest non-pre-release version and the root redirects to it, so links should
-use `/latest/...`. The versions live on the `gh-pages` branch, which the workflow then publishes as the Pages
-artifact; the repository's Pages source stays "GitHub Actions" and the `github-pages` environment records every
-deployment. A docs-only fix reaches the site at the next release, or sooner by dispatching the workflow by hand
-(`gh workflow run docs.yml`, optionally with `-f ref=<branch or tag>`); it redeploys the version `Cargo.toml`
-carries on that ref. `pixi run -e docs mike serve` previews every deployed version locally from `gh-pages`.
+versioned with [mike](https://github.com/jimporter/mike) the way pixi's own docs are: each release deploys under
+its tag (`/v0.5.5/`), `latest` is an alias of the newest non-pre-release version and the root redirects to it, so
+links should use `/latest/...`, and `dev` follows `main` (redeployed on every push that touches `docs/`,
+`mkdocs.yml`, the hook or the changelog). The versions live on the `gh-pages` branch, which the workflow then
+publishes as the Pages artifact; the repository's Pages source stays "GitHub Actions" and the `github-pages`
+environment records every deployment. `gh workflow run docs.yml -f ref=<tag>` redeploys a release's docs;
+any other ref (or none) redeploys `dev`. `pixi run -e docs mike serve` previews every deployed version locally
+from `gh-pages`; `mike delete --push <version>` removes one.
 
 The `github-pages` environment's deployment branch policy must allow the `v*` tag pattern as well as `main`
 (Settings → Environments → github-pages), because a release event runs on the tag; without it the deploy job fails
