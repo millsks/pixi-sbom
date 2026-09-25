@@ -74,6 +74,9 @@ pixi sbom --report phantom
 # Fail CI on anything high or critical, except a finding assessed as not affecting you (exit code 4)
 pixi sbom --pypi-mapping prefix --vulnerabilities osv --fail-on-severity high --ignore-vuln "CVE-2023-43804:not reachable"
 
+# A standalone CycloneDX VEX beside the document, linked back to it
+pixi sbom --pypi-mapping prefix --vulnerabilities osv --output sbom.cdx.json --vex vex.cdx.json
+
 # Flag what CISA lists as actively exploited, and fail on it
 pixi sbom --pypi-mapping prefix --vulnerabilities osv --kev --fail-on-kev
 
@@ -127,6 +130,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--config` / `--no-config` | auto | Read `[tool.pixi-sbom]` in `pyproject.toml` or `pixi-sbom.toml` next to the lockfile before the command line; keys mirror the flags, the command line wins |
 | `--exclude` / `--include` / `--exclude-kind` | | Leave packages out (shell-style name patterns or a kind); what only they needed goes too, and the root records `pixi:excluded` |
 | `--fail-on-yanked` | off | With `--fetch-licenses`: exit 7 when a PyPI package is a yanked release (PEP 592) |
+| `--vex <PATH>` | | With `--vulnerabilities`: also write a standalone CycloneDX VEX there, every finding assessed and linked back to the SBOM |
 | `--ignore-license <PACKAGE[:WHY]>` | | The license policy does not apply to these packages (name or pattern); they are listed as exempt and carry `pixi:license-exempt` |
 | `--fail-on-diff [<SECTION>...]` | off | With `--report diff`: exit 6 when the comparison is not empty (`added`, `removed`, `version`, `license`, `build`, `pip`; bare = any) |
 | `--fail-on-phantom` | off | With `--report phantom`: exit 8 when the workspace imports a package it never declared |

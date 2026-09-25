@@ -35,6 +35,7 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 | `fail-on-severity`, `fail-on-kev` | | The vulnerability gate (exit code 4) |
 | `ignore-vuln` | | Accepted findings, one per line: `ID`, `ID:justification` or `ID:state:justification` |
 | `fail-on-vulnerabilities` | `true` | Fail the step when the gate trips; with `false` it becomes a warning and the `vulnerabilities-found` output is `true` |
+| `vex`, `vex-open` | | Also write a standalone CycloneDX VEX to that path, and the state it gives findings nobody assessed (`in-triage`, `exploitable`) |
 | `upload-sarif`, `sarif-category` | `false`, `pixi-sbom` | Write the findings as SARIF and upload them to GitHub code scanning (see below) |
 | `diff-against` | | Also compare the environment with the document at this path and put the comparison in the job summary; the file has to be there already (the action fetches nothing) |
 | `fail-on-diff` | | With `diff-against`: `true` fails the step (exit code 6) on any change, or name the sections — `added removed version license` |

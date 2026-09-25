@@ -50,6 +50,8 @@ With no options this means:
 | `--fail-on-kev` | off | With `--kev`: exit **4** after writing the document when any open finding is known exploited, regardless of severity. |
 | `--fail-on-severity <low\|medium\|high\|critical>` | | With `--vulnerabilities`: exit **4** after writing the document when any open finding is at or above the level. Findings of unknown severity never trip it. |
 | `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification), is excluded from `--fail-on-severity` and listed separately in the report. |
+| `--vex <PATH>` | | With `--vulnerabilities`: also write a standalone CycloneDX VEX there, linked back to the SBOM. |
+| `--vex-open <in-triage\|exploitable>` | `in-triage` | The analysis state the VEX gives findings nobody assessed with `--ignore-vuln`. |
 | `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
 | `--outdated-only <patch\|minor\|major>` | | With `--report outdated`: list only packages at least that far behind. |
 | `--source <DIR>` | the lockfile's directory | With `--report phantom`: where the workspace's Python sources are (repeatable). |
@@ -280,6 +282,27 @@ text, so `ID:see ticket: ABC-12` keeps the whole text. An id that matches nothin
 otherwise ignored, so a list of accepted findings can be kept across upgrades. Findings of unknown severity
 (records without a rating) never trip the gate; the report shows them so they can be assessed. When both the
 license policy and the vulnerability gate fail, both lists are printed and the exit code is 3.
+
+### A VEX of its own
+
+Consumers increasingly want the assessments as a separate document they can update without re-issuing the SBOM.
+`--vex <PATH>` writes one beside the document:
+
+```sh
+pixi sbom --pypi-mapping prefix --vulnerabilities osv \
+  --ignore-vuln "GHSA-2xpw-w6gg-jr37:streaming API is not used" \
+  --output sbom.cdx.json --vex vex.cdx.json
+```
+
+It is a CycloneDX BOM with no components: only `vulnerabilities[]`, each one carrying an `analysis` — the state
+`--ignore-vuln` gave it, or `in_triage` for the findings nobody has assessed (`--vex-open exploitable` says so
+instead). Every `affects[].ref` is a BOM-Link into the SBOM this run wrote
+(`urn:cdx:<serial number>/1#<bom-ref>`), the VEX has a serial number of its own derived from the SBOM's, and
+`pixi:vex-for` names the document it belongs to. That is the shape Dependency-Track and other VEX consumers
+expect, and it validates against the CycloneDX schema like everything else this tool writes.
+
+`--vex` needs `--vulnerabilities` and one document to point at, so it does not combine with `--report`,
+`--all-environments`, `--all-platforms` or `--scan`.
 
 ## How far behind the environment is
 

@@ -1267,6 +1267,130 @@ fn workspace_with_vulnerable_urllib3() -> tempfile::TempDir {
 }
 
 #[test]
+fn vex_is_written_beside_the_document_and_links_into_it() {
+    let dir = workspace_with_vulnerable_urllib3();
+    let sbom = dir.path().join("sbom.cdx.json");
+    let vex = dir.path().join("vex.cdx.json");
+    let run = |extra: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(["-e", "web", "-p", "linux-64", "--vulnerabilities", "osv"])
+            .args(extra);
+        command
+    };
+
+    run(&["--output", sbom.to_str().unwrap(), "--vex", vex.to_str().unwrap()])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("wrote VEX"));
+
+    let document = read_json(&sbom);
+    let vexed = read_json(&vex);
+    assert_valid(&cyclonedx_validator(), &vexed);
+    assert_eq!(vexed["bomFormat"], "CycloneDX");
+    assert!(
+        vexed["components"].as_array().is_none_or(|c| c.is_empty()),
+        "a VEX carries findings, not components"
+    );
+    assert_ne!(vexed["serialNumber"], document["serialNumber"], "its own identity");
+    let properties: Vec<(&str, &str)> = vexed["metadata"]["properties"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| (p["name"].as_str().unwrap(), p["value"].as_str().unwrap()))
+        .collect();
+    assert!(
+        properties.contains(&("pixi:vex-for", document["serialNumber"].as_str().unwrap())),
+        "{properties:?}"
+    );
+
+    let findings = vexed["vulnerabilities"].as_array().unwrap();
+    assert_eq!(findings.len(), document["vulnerabilities"].as_array().unwrap().len());
+    // Every finding is assessed, and nobody has looked at these yet.
+    assert!(
+        findings
+            .iter()
+            .all(|v| v["analysis"]["state"].as_str() == Some("in_triage")),
+        "{findings:?}"
+    );
+    // The references point into the SBOM by BOM-Link, and resolve to components in it.
+    let serial = document["serialNumber"]
+        .as_str()
+        .unwrap()
+        .trim_start_matches("urn:uuid:");
+    let refs: Vec<&str> = findings
+        .iter()
+        .flat_map(|v| v["affects"].as_array().unwrap())
+        .map(|a| a["ref"].as_str().unwrap())
+        .collect();
+    assert!(!refs.is_empty());
+    for reference in &refs {
+        let (link, bom_ref) = reference.split_once('#').expect("a BOM-Link element");
+        assert_eq!(link, format!("urn:cdx:{serial}/1"), "{reference}");
+        assert!(
+            document["components"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|c| c["bom-ref"] == bom_ref),
+            "{bom_ref} is in the SBOM"
+        );
+    }
+
+    // An assessed finding keeps its own state; the rest take --vex-open.
+    let assessed = document["vulnerabilities"][0]["id"].as_str().unwrap().to_string();
+    run(&[
+        "--output",
+        sbom.to_str().unwrap(),
+        "--vex",
+        vex.to_str().unwrap(),
+        "--vex-open",
+        "exploitable",
+        "--ignore-vuln",
+        &format!("{assessed}:not reachable from our code"),
+    ])
+    .assert()
+    .success();
+    let vexed = read_json(&vex);
+    let states: Vec<(&str, &str)> = vexed["vulnerabilities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| (v["id"].as_str().unwrap(), v["analysis"]["state"].as_str().unwrap()))
+        .collect();
+    assert!(states.contains(&(assessed.as_str(), "not_affected")), "{states:?}");
+    assert!(
+        states.iter().filter(|(_, state)| *state == "exploitable").count() >= 1,
+        "{states:?}"
+    );
+    let detail = vexed["vulnerabilities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["id"] == assessed.as_str())
+        .unwrap()["analysis"]["detail"]
+        .as_str()
+        .unwrap();
+    assert_eq!(detail, "not reachable from our code");
+
+    // A VEX needs findings to assess, and one document to point at.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--vex", "vex.json", "--output", "-"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("needs '--vulnerabilities"));
+    run(&["--vex", "vex.json", "--report", "vulnerabilities"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("cannot be combined with '--report'"));
+}
+
+#[test]
 fn from_sbom_runs_the_pipeline_on_an_existing_document() {
     let dir = workspace_with_vulnerable_urllib3();
     let run = |args: &[&str]| {

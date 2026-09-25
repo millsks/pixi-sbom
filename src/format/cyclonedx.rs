@@ -404,6 +404,48 @@ fn vulnerability(vuln: &Vulnerability, sbom: &Sbom) -> VulnerabilityEntry {
     }
 }
 
+/// A standalone CycloneDX VEX for `sbom`: the same findings, no components, and every
+/// `affects[].ref` a BOM-Link into the document this run writes, so the two can be published
+/// and updated separately.
+///
+/// Every finding carries an analysis: the one `--ignore-vuln` gave it, or `open_state` for the
+/// ones nobody has assessed.
+pub(crate) fn vex(sbom: &Sbom, ctx: &WriteContext, open_state: &'static str) -> Bom {
+    // The VEX is its own document, with its own identity derived from the SBOM's, so the two
+    // never share a serial number.
+    let serial = uuid::Uuid::new_v5(&ctx.uuid, b"vex");
+    let link = |package_id: &str| format!("urn:cdx:{}/{}#{package_id}", ctx.uuid, 1);
+    let mut document = document(sbom, ctx);
+    document.serial_number = format!("urn:uuid:{serial}");
+    document.components = Vec::new();
+    document.dependencies = Vec::new();
+    document.citations = Vec::new();
+    document
+        .metadata
+        .properties
+        .push(property("pixi:vex-for", &format!("urn:uuid:{}", ctx.uuid)));
+    document.vulnerabilities = sbom
+        .vulnerabilities
+        .iter()
+        .map(|vuln| {
+            let mut entry = vulnerability(vuln, sbom);
+            entry.analysis = Some(entry.analysis.unwrap_or(AnalysisEntry {
+                state: open_state,
+                detail: None,
+            }));
+            entry.affects = vuln
+                .affects
+                .iter()
+                .map(|a| Affects {
+                    reference: link(&a.package_id),
+                })
+                .collect();
+            entry
+        })
+        .collect();
+    document
+}
+
 /// Where an alias id can be looked up.
 fn alias_source(id: &str) -> VulnSource {
     if id.starts_with("CVE-") {
@@ -927,6 +969,73 @@ mod tests {
                 .any(|p| p["name"] == "pixi:purl" && p["value"] == "pkg:pypi/zlib@1.3.1")
         );
         assert!(props.iter().any(|p| p["name"] == "pixi:kind" && p["value"] == "conda"));
+    }
+
+    #[test]
+    fn a_vex_carries_only_findings_and_links_them_into_the_sbom() {
+        use crate::model::{Affected, Analysis, Vulnerability};
+        let mut sbom = sample_sbom();
+        let finding = |id: &str, analysis: Option<Analysis>| Vulnerability {
+            id: id.into(),
+            source: "OSV".into(),
+            url: format!("https://osv.dev/vulnerability/{id}"),
+            aliases: Vec::new(),
+            summary: None,
+            details: None,
+            severity: crate::model::Severity::High,
+            ratings: Vec::new(),
+            cwes: Vec::new(),
+            references: Vec::new(),
+            published: None,
+            modified: None,
+            affects: vec![Affected {
+                package_id: "pkg:pypi/six@1.17.0".into(),
+                purl: "pkg:pypi/six@1.17.0".into(),
+                fixed_version: None,
+            }],
+            analysis,
+            kev: None,
+        };
+        sbom.vulnerabilities.push(finding("GHSA-open", None));
+        sbom.vulnerabilities.push(finding(
+            "GHSA-assessed",
+            Some(Analysis {
+                state: "not_affected",
+                detail: Some("only used at build time".into()),
+            }),
+        ));
+
+        let ctx = fixed_context();
+        let doc = serde_json::to_value(vex(&sbom, &ctx, "in_triage")).unwrap();
+        assert_eq!(doc["bomFormat"], "CycloneDX");
+        assert!(doc["components"].as_array().unwrap().is_empty());
+        assert!(doc["dependencies"].as_array().unwrap().is_empty());
+        assert_ne!(
+            doc["serialNumber"],
+            format!("urn:uuid:{}", ctx.uuid),
+            "its own identity"
+        );
+        assert!(
+            doc["metadata"]["properties"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|p| p["name"] == "pixi:vex-for" && p["value"] == format!("urn:uuid:{}", ctx.uuid))
+        );
+        let findings = doc["vulnerabilities"].as_array().unwrap();
+        assert_eq!(findings.len(), 2);
+        // The assessment that was given survives; the one nobody made gets the open state.
+        assert_eq!(findings[0]["analysis"]["state"], "in_triage");
+        assert_eq!(findings[1]["analysis"]["state"], "not_affected");
+        assert_eq!(findings[1]["analysis"]["detail"], "only used at build time");
+        assert_eq!(
+            findings[0]["affects"][0]["ref"],
+            format!("urn:cdx:{}/1#pkg:pypi/six@1.17.0", ctx.uuid),
+            "a BOM-Link element into the SBOM"
+        );
+        // And the open state is what the caller asked for.
+        let doc = serde_json::to_value(vex(&sbom, &ctx, "exploitable")).unwrap();
+        assert_eq!(doc["vulnerabilities"][0]["analysis"]["state"], "exploitable");
     }
 
     #[test]

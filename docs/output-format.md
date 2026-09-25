@@ -297,6 +297,18 @@ have been merged:
 
 Entries are ordered by the worst rating, then id.
 
+### The VEX document
+
+`--vex <PATH>` writes the assessments as a document of their own: a CycloneDX BOM with no components, the same
+`vulnerabilities[]` entries, and two differences from the ones inside the SBOM.
+
+| Field | Content |
+|---|---|
+| `serialNumber` | Its own, derived from the SBOM's, so the two are never confused |
+| `metadata.properties[]` | `pixi:vex-for` = the SBOM's serial number, besides the usual `pixi:environment` / `pixi:platform` |
+| `analysis` | On **every** finding: the `--ignore-vuln` state where one was given, else `in_triage` (or what `--vex-open` says) |
+| `affects[].ref` | A BOM-Link into the SBOM — `urn:cdx:<the SBOM's serial number without the urn:uuid: prefix>/1#<bom-ref>` — rather than a local reference |
+
 ## SPDX 3.0.1
 
 `--format spdx --spec-version 3.0` writes the SPDX 3.0.1 JSON-LD serialization: a `@context` of
