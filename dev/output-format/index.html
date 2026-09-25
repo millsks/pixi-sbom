@@ -646,6 +646,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#documents-derived-from-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documents derived from documents
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#yanked-releases" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1038,6 +1049,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#documents-derived-from-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documents derived from documents
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#yanked-releases" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1340,7 +1362,7 @@ entry).</p>
 <tr>
 <td><code>pixi:kind</code></td>
 <td>all</td>
-<td><code>conda</code>, <code>conda-source</code>, <code>pypi</code></td>
+<td><code>conda</code>, <code>conda-source</code>, <code>pypi</code>, <code>embedded</code>, <code>external</code></td>
 </tr>
 <tr>
 <td><code>pixi:channel</code></td>
@@ -1634,6 +1656,12 @@ says <code>prefix &lt;name&gt;</code>, and pip-installed packages are located by
 <code>&lt;vcs&gt;+&lt;url&gt;</code> for direct VCS installs, with <code>pixi:direct-url</code> and <code>pixi:source-rev</code>), carry <code>pixi:installer</code>, and
 have no hashes. Conda packages carry <code>pixi:extracted-package-dir</code>, where the record says the archive was
 unpacked.</p>
+<h3 id="documents-derived-from-documents">Documents derived from documents<a class="headerlink" href="#documents-derived-from-documents" title="Permanent link">&para;</a></h3>
+<p>With <code>--from-sbom</code> the document describes what another document described: the metadata property is
+<code>pixi:source-document</code> — the source's CycloneDX serial number or SPDX document namespace — rather than
+<code>pixi:lockfile</code>, and the SPDX root package's source info says <code>document &lt;identity&gt;</code>. Everything the source records
+is carried over, including the <code>pixi:*</code> properties, so a document this tool wrote round-trips unchanged; a package
+whose purl is neither <code>pkg:conda</code> nor <code>pkg:pypi</code>, or which has no purl, gets <code>pixi:kind=external</code>.</p>
 <h3 id="yanked-releases">Yanked releases<a class="headerlink" href="#yanked-releases" title="Permanent link">&para;</a></h3>
 <p>With <code>--fetch-licenses</code>, a PyPI package whose release the index has yanked (PEP 592) carries <code>pixi:yanked=true</code>
 and, when the index gives one, <code>pixi:yanked-reason</code> (CycloneDX properties; SPDX package comment lines, as for
