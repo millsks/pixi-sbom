@@ -120,6 +120,10 @@ pub enum DiffSection {
     Version,
     /// Same package and version, different license.
     License,
+    /// Same package and version, different conda build string.
+    Build,
+    /// Installed by pip into the environment and not in the other side.
+    Pip,
 }
 
 /// A package kind, as `--exclude-kind` names it.

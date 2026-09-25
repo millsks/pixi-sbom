@@ -94,7 +94,7 @@ fn main() -> Result<()> {
         tracing::warn!("--pypi-licenses is deprecated and now behaves as --fetch-licenses; use that instead");
     }
     let previous = match &args.against {
-        Some(path) => Some((path.clone(), diff::read_previous(path)?)),
+        Some(path) => Some((path.clone(), diff::resolve_against(path)?)),
         None => None,
     };
     let targets = match &input {
@@ -386,8 +386,31 @@ fn main() -> Result<()> {
         }
         if let Some(kind) = args.report {
             reports.push(match (kind, &previous) {
-                (report::ReportKind::Diff, Some((path, previous))) => {
-                    let diff = diff::compare(&sbom, previous, path);
+                (report::ReportKind::Diff, Some((path, against))) => {
+                    // A document was read once; a lockfile or an installed environment answers
+                    // per environment and platform, so the other side is built here.
+                    let previous = match against {
+                        diff::Against::Document(previous) => std::borrow::Cow::Borrowed(previous),
+                        diff::Against::Lock { lock, name } => {
+                            // With --prefix the target is named after the directory, which
+                            // says nothing about the lockfile; --environment then names the
+                            // side to compare with.
+                            let selection = lock::Selection {
+                                environment: match &args.prefix {
+                                    Some(_) => &args.environment,
+                                    None => environment,
+                                },
+                                platform: platform.as_deref(),
+                            };
+                            let other = lock::sbom_from_lock(lock, selection, model::Root::default(), name)?;
+                            std::borrow::Cow::Owned(diff::previous_from_sbom(&other))
+                        }
+                        diff::Against::Prefix(dir) => {
+                            let other = prefix::build_sbom(dir, model::Root::default(), platform.as_deref())?;
+                            std::borrow::Cow::Owned(diff::previous_from_sbom(&other))
+                        }
+                    };
+                    let diff = diff::compare(&sbom, &previous, path);
                     tracing::info!(
                         added = diff.added.len(),
                         removed = diff.removed.len(),

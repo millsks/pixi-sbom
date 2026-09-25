@@ -59,6 +59,9 @@ pixi sbom --pypi-mapping prefix --vulnerabilities osv --report vulnerabilities
 pixi sbom --report diff --against previous.cdx.json --report-format markdown
 pixi sbom --report diff --against previous.cdx.json --fail-on-diff
 
+# Does this container still match the lockfile? (pip installs and rebuilds included)
+pixi sbom --prefix /opt/conda/envs/app --against pixi.lock --report diff --fail-on-diff
+
 # How far behind the environment is: versions, ages, releases behind, patch/minor/major
 pixi sbom --report outdated --outdated-only major
 
@@ -118,7 +121,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--config` / `--no-config` | auto | Read `[tool.pixi-sbom]` in `pyproject.toml` or `pixi-sbom.toml` next to the lockfile before the command line; keys mirror the flags, the command line wins |
 | `--exclude` / `--include` / `--exclude-kind` | | Leave packages out (shell-style name patterns or a kind); what only they needed goes too, and the root records `pixi:excluded` |
 | `--fail-on-yanked` | off | With `--fetch-licenses`: exit 7 when a PyPI package is a yanked release (PEP 592) |
-| `--fail-on-diff [<SECTION>...]` | off | With `--report diff`: exit 6 when the comparison is not empty (`added`, `removed`, `version`, `license`; bare = any) |
+| `--fail-on-diff [<SECTION>...]` | off | With `--report diff`: exit 6 when the comparison is not empty (`added`, `removed`, `version`, `license`, `build`, `pip`; bare = any) |
 | `--fail-on-phantom` | off | With `--report phantom`: exit 8 when the workspace imports a package it never declared |
 | `--fetch-licenses` | off | Licenses for every package, conda and PyPI alike (conda from the local package cache or the channel archive, PyPI from the wheel or the index), plus license file names, summary and URLs |
 | `--license-texts` | off | With `--fetch-licenses`, embed the full license texts |
