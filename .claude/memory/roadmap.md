@@ -138,3 +138,34 @@ dogfood attests on pushes to main and runs `gh attestation verify`), #99 (#61 re
 `.sigs` sidecars, rattler_sigstore unreleased; implementation deferred to #96 (no milestone). Backlog: #97
 Homebrew tap, #98 winget. Lesson: `cargo-binstall --manifest-path . --dry-run` validates the metadata against a
 real release before publishing.
+
+## 0.9.0 (2026-09-24/25): functionality before v1.0.0
+
+Ten issues, each its own PR, merged in the order the user approved: #135 (#123 `--report python`), #136 (#127
+manifest dependency tables → `pixi:direct` / `pixi:declared-in`, root edges are the declared set ∪ graph roots),
+#137 (#128 `--report phantom`: `src/imports.rs` tokenizer, `src/stdlib.rs` table, `src/phantom.rs`), #138 (#107
+`--fail-on-diff` exit 6 + action `diff-against` / `fail-on-diff` writing the comparison to the job summary),
+#139 (#125 `--prefix --against pixi.lock` drift with `pip` and `build` sections; `--against` now resolves to a
+document, a lockfile or a prefix), #140 (#120 `--scan <DIR>`; `main` iterates workspaces × targets), #141 (#126
+`--from-sbom`, new `PackageKind::External`, `pixi:source-document`), #142 (#108 `--ignore-license`), #143 (#109
+`--vex` + `--vex-open`), #144 (#106 `--tree` / `--depth` / `--group-by license`), #145 (#110 cargo auditable),
+#146 (#124 `--scorecard`).
+
+User decisions this milestone: `--scan` skips hidden dirs and a fixed list but **not** `.gitignore`d paths (no
+`ignore` crate; lockfiles are committed anyway) — refile if it is ever wanted; the `object` crate (default
+features off, `read_core,elf,macho,pe,std`, brings only `memchr`) was approved for #110 rather than hand-rolling
+three section parsers, and `auditable-serde` was not needed on top of it.
+
+Exit codes now in use: 3 license policy, 4 vulnerability gate, 6 `--fail-on-diff`, 7 `--fail-on-yanked`,
+8 `--fail-on-phantom`, 9 `--fail-on-scorecard`.
+
+Lessons: `bool::then_some(expr)` evaluates `expr` eagerly (a `total - MAX` underflowed at runtime; use
+`then(|| ...)`); adding an `f64` field to `config::Config` means dropping its `Eq` derive (and `Loaded`'s);
+`pkgcache::read_extracted` treats a directory without `info/index.json` as an incomplete extraction, so a test
+fixture needs one to be read at all; `gh pr checks` output is tab-separated and BSD grep has no `\s`, so the merge
+watcher parses it with awk; a squash merge leaves the local branch behind — stash the next feature's work,
+`git checkout main && git pull`, delete the branch, then branch again.
+
+Follow-ups: the action dogfood job could exercise `scorecard`, `vex` and `diff-against`; the `--scan` gitignore
+question stays open; #96 (CEP 27 attestation verification), #97 (Homebrew tap), #98 (winget) and #132 (conda
+channel removals) remain unscheduled.
