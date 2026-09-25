@@ -7,6 +7,7 @@
 //! released version's metadata does not change, and a failed lookup never fails the run.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::Deserialize;
 
@@ -28,6 +29,9 @@ const MAX_METADATA_BYTES: u64 = 8 * 1024 * 1024;
 /// The classic `license` field sometimes holds an entire license text; longer values than
 /// this are not a name and are ignored.
 const MAX_LICENSE_FIELD_LEN: usize = 200;
+
+/// Lookups in flight at once, as for the archive and wheel fetches.
+const CONCURRENCY: usize = 10;
 
 #[derive(Debug, Deserialize)]
 struct Metadata {
@@ -129,6 +133,18 @@ pub struct Lookup<'a> {
     pub cache_dir: &'a Path,
 }
 
+/// One release to ask the index about.
+#[derive(Debug)]
+struct Job {
+    /// Where the package sits in the model.
+    index: usize,
+    /// The package's own spelling, for the progress bar.
+    display_name: String,
+    /// The normalized name the index knows it by.
+    name: String,
+    version: String,
+}
+
 impl Lookup<'_> {
     /// Fill in the license of every PyPI package that has none, querying the real index.
     pub fn run(&self, sbom: &mut Sbom, progress: crate::progress::Progress) -> Outcome {
@@ -138,35 +154,45 @@ impl Lookup<'_> {
     fn run_with(
         &self,
         sbom: &mut Sbom,
-        fetch: &dyn Fn(&str) -> Result<String, Box<ureq::Error>>,
+        fetch: &(dyn Fn(&str) -> Result<String, Box<ureq::Error>> + Sync),
         progress: crate::progress::Progress,
     ) -> Outcome {
-        let mut outcome = Outcome::default();
-        let mut network_down = false;
-        let total = sbom
+        // One job per package that needs a license and can be asked about.
+        let jobs: Vec<Job> = sbom
             .packages
             .iter()
-            .filter(|p| p.kind == PackageKind::Pypi && p.license.is_none())
-            .count();
-        let bar = progress.bar("PyPI lookups", total);
-        for package in &mut sbom.packages {
-            if package.kind != PackageKind::Pypi || package.license.is_some() {
+            .enumerate()
+            .filter(|(_, p)| p.kind == PackageKind::Pypi && p.license.is_none())
+            .filter_map(|(index, package)| {
+                Some(Job {
+                    index,
+                    display_name: package.name.clone(),
+                    name: crate::purl::normalize_pypi_name(&package.name),
+                    version: package.version.clone()?,
+                })
+            })
+            .collect();
+
+        let mut outcome = Outcome::default();
+        let network_down = AtomicBool::new(false);
+        let bar = progress.bar("PyPI lookups", jobs.len());
+        let results = crate::parallel::map(
+            &jobs,
+            CONCURRENCY,
+            Some(&bar),
+            |job| job.display_name.clone(),
+            |job| self.metadata(&job.name, &job.version, fetch, &network_down),
+        );
+        bar.finish();
+
+        for (job, json) in jobs.iter().zip(results) {
+            let Some(json) = json else {
+                outcome.failed += 1;
                 continue;
-            }
-            let Some(version) = package.version.as_deref() else {
-                continue;
-            };
-            bar.advance(&package.name);
-            let name = crate::purl::normalize_pypi_name(&package.name);
-            let json = match self.metadata(&name, version, fetch, &mut network_down) {
-                Some(json) => json,
-                None => {
-                    outcome.failed += 1;
-                    continue;
-                }
             };
             match license_from_metadata(&json) {
                 Some(license) => {
+                    let package = &mut sbom.packages[job.index];
                     package.license = Some(license);
                     package
                         .properties
@@ -176,7 +202,6 @@ impl Lookup<'_> {
                 None => outcome.missing += 1,
             }
         }
-        bar.finish();
         outcome
     }
 
@@ -186,14 +211,16 @@ impl Lookup<'_> {
         &self,
         name: &str,
         version: &str,
-        fetch: &dyn Fn(&str) -> Result<String, Box<ureq::Error>>,
-        network_down: &mut bool,
+        fetch: &(dyn Fn(&str) -> Result<String, Box<ureq::Error>> + Sync),
+        network_down: &AtomicBool,
     ) -> Option<String> {
         let cache_file = self.cache_file(name, version);
         if let Ok(json) = std::fs::read_to_string(&cache_file) {
             return Some(json);
         }
-        if *network_down {
+        // Once the network is gone the remaining lookups are pointless; jobs already in
+        // flight finish, the rest fall through to their cache or fail.
+        if network_down.load(Ordering::Relaxed) {
             return None;
         }
         let url = format!("{}/{name}/{version}/json", self.index_url.trim_end_matches('/'));
@@ -210,7 +237,7 @@ impl Lookup<'_> {
             }
             Err(err) => {
                 if http::is_connectivity_error(&err) {
-                    *network_down = true;
+                    network_down.store(true, Ordering::Relaxed);
                     tracing::warn!(%url, %err, "PyPI index unreachable; skipping remaining license lookups");
                 } else {
                     tracing::warn!(%url, %err, "cannot fetch PyPI metadata");
@@ -237,7 +264,7 @@ pub fn index_url() -> String {
 mod tests {
     use super::*;
     use crate::format::testing::sample_sbom;
-    use std::cell::RefCell;
+    use std::sync::Mutex;
 
     fn meta(expression: Option<&str>, license: Option<&str>, classifiers: &[&str]) -> String {
         serde_json::json!({"info": {
@@ -328,9 +355,9 @@ mod tests {
     fn lookup_fills_pypi_packages_and_caches_responses() {
         let dir = tempfile::tempdir().unwrap();
         let mut sbom = sample_sbom();
-        let requested = RefCell::new(Vec::new());
+        let requested = Mutex::new(Vec::new());
         let fetch = |url: &str| {
-            requested.borrow_mut().push(url.to_string());
+            requested.lock().unwrap().push(url.to_string());
             Ok(meta(Some("MIT"), None, &[]))
         };
         let lookup = Lookup {
@@ -348,7 +375,7 @@ mod tests {
             }
         );
         assert_eq!(
-            requested.borrow().as_slice(),
+            requested.lock().unwrap().as_slice(),
             ["https://index.example/pypi/six/1.17.0/json"]
         );
         let six = &sbom.packages[3];
@@ -369,6 +396,49 @@ mod tests {
                 .run_with(&mut fresh, &panic_fetch, crate::progress::Progress::default())
                 .found,
             1
+        );
+    }
+
+    #[test]
+    fn lookups_run_concurrently_and_land_on_the_right_packages() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut sbom = sample_sbom();
+        // Twelve wheels, each with its own license, so a mix-up cannot pass unnoticed.
+        let template = sbom.packages[3].clone();
+        sbom.packages.retain(|p| p.kind != PackageKind::Pypi);
+        for i in 0..12 {
+            let mut package = template.clone();
+            package.id = format!("pkg:pypi/pkg{i}@1.0");
+            package.name = format!("pkg{i}");
+            package.version = Some("1.0".into());
+            package.license = None;
+            sbom.packages.push(package);
+        }
+
+        let in_flight = std::sync::atomic::AtomicUsize::new(0);
+        let peak = std::sync::atomic::AtomicUsize::new(0);
+        let fetch = |url: &str| {
+            let now = in_flight.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+            peak.fetch_max(now, std::sync::atomic::Ordering::SeqCst);
+            std::thread::sleep(std::time::Duration::from_millis(20));
+            in_flight.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+            // The licence names the package the URL asked about.
+            let name = url.trim_end_matches("/1.0/json").rsplit('/').next().unwrap();
+            Ok(meta(Some(&format!("MIT-{name}")), None, &[]))
+        };
+        let lookup = Lookup {
+            index_url: DEFAULT_INDEX_URL,
+            cache_dir: dir.path(),
+        };
+        let outcome = lookup.run_with(&mut sbom, &fetch, crate::progress::Progress::default());
+        assert_eq!(outcome.found, 12);
+        for i in 0..12 {
+            let package = sbom.packages.iter().find(|p| p.name == format!("pkg{i}")).unwrap();
+            assert_eq!(package.license.as_deref(), Some(format!("MIT-pkg{i}").as_str()));
+        }
+        assert!(
+            peak.load(std::sync::atomic::Ordering::SeqCst) > 1,
+            "the lookups overlapped"
         );
     }
 
@@ -400,23 +470,30 @@ mod tests {
             2
         );
 
-        let calls = RefCell::new(0);
+        let calls = std::sync::atomic::AtomicUsize::new(0);
         let offline = |_: &str| {
-            *calls.borrow_mut() += 1;
+            calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             Err(Box::new(ureq::Error::ConnectionFailed))
         };
         let outcome = lookup_in("b").run_with(&mut sbom, &offline, crate::progress::Progress::default());
         assert_eq!(outcome.failed, 2);
-        assert_eq!(*calls.borrow(), 1, "stops after the first connectivity failure");
+        assert!(
+            calls.load(std::sync::atomic::Ordering::SeqCst) <= CONCURRENCY,
+            "stops asking once the network is gone"
+        );
 
-        let calls = RefCell::new(0);
+        let calls = std::sync::atomic::AtomicUsize::new(0);
         let not_found = |_: &str| {
-            *calls.borrow_mut() += 1;
+            calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             Err(Box::new(ureq::Error::StatusCode(404)))
         };
         let outcome = lookup_in("c").run_with(&mut sbom, &not_found, crate::progress::Progress::default());
         assert_eq!(outcome.failed, 2);
-        assert_eq!(*calls.borrow(), 2, "a 404 does not stop the other lookups");
+        assert_eq!(
+            calls.load(std::sync::atomic::Ordering::SeqCst),
+            2,
+            "a 404 does not stop the other lookups"
+        );
     }
 
     #[test]

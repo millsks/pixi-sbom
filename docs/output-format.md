@@ -188,7 +188,7 @@ Texts can add a few megabytes to a large environment, which is why they are opt-
 #### PyPI license lookup
 
 With `--fetch-licenses`, PyPI packages that still have no license after their wheel was read (sdists, unreachable
-wheels, wheels that declare only classifiers) are looked up on the index JSON API (`https://pypi.org/pypi/<name>/<version>/json`, or `PIXI_SBOM_PYPI_URL`)
+wheels, wheels that declare only classifiers) are looked up on the index JSON API (`https://pypi.org/pypi/<name>/<version>/json`, or `PIXI_SBOM_PYPI_URL`, ten at a time)
 for every PyPI package that has no license and takes, in order: the PEP 639 `license_expression`; the classic
 `license` field when it is a short single line (it sometimes holds a whole license text, which is ignored); and the
 `License ::` trove classifiers, mapped to SPDX identifiers for the common unambiguous ones (`MIT License` → `MIT`,
