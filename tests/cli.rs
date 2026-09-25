@@ -1267,6 +1267,81 @@ fn workspace_with_vulnerable_urllib3() -> tempfile::TempDir {
 }
 
 #[test]
+fn the_packages_tree_and_the_grouped_licenses_view() {
+    let dir = workspace("with-pypi");
+    let run = |args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("COLUMNS", "160")
+            .args(["-e", "web", "-p", "linux-64", "--color", "never"])
+            .args(args);
+        command
+    };
+    let text = |args: &[&str]| -> String {
+        String::from_utf8(run(args).assert().success().get_output().stdout.clone()).unwrap()
+    };
+
+    let tree = text(&["--report", "packages", "--tree"]);
+    assert!(tree.lines().next().unwrap().starts_with("Package"), "{tree}");
+    // python is a root (the manifest declares it) and everything it needs hangs under it.
+    assert!(tree.contains("\npython "), "{tree}");
+    assert!(tree.contains("├── ") && tree.contains("└── "), "{tree}");
+    assert!(
+        tree.contains("(*)"),
+        "a package that appears twice is marked once: {tree}"
+    );
+    // The graph is deep here, so a depth cap makes a real difference.
+    let shallow = text(&["--report", "packages", "--tree", "--depth", "0"]);
+    assert!(!shallow.contains("└── "), "{shallow}");
+    assert!(shallow.lines().count() < tree.lines().count(), "{shallow}");
+
+    // JSON keeps rows, with the place in the tree on each.
+    let report: Value = serde_json::from_slice(
+        &run(&["--report", "packages", "--tree", "--report-format", "json"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout,
+    )
+    .unwrap();
+    let rows = report["packages"].as_array().unwrap();
+    assert!(rows.iter().all(|r| r["depth"].is_number()), "{rows:?}");
+    assert!(
+        rows.iter()
+            .any(|r| r["depth"].as_u64() == Some(1) && r["parent"].is_string()),
+        "{rows:?}"
+    );
+
+    let grouped = text(&["--report", "licenses", "--group-by", "license"]);
+    assert!(grouped.contains("MIT ("), "{grouped}");
+    assert!(
+        !grouped.lines().next().unwrap().contains("License"),
+        "the license is the heading, not a column: {grouped}"
+    );
+    assert!(grouped.contains("Summary: "), "the summary still follows: {grouped}");
+    let markdown = text(&[
+        "--report",
+        "licenses",
+        "--group-by",
+        "license",
+        "--report-format",
+        "markdown",
+    ]);
+    assert!(markdown.contains("### MIT ("), "{markdown}");
+
+    for (flag, message) in [
+        (vec!["--report", "licenses", "--tree"], "'--tree' only applies"),
+        (
+            vec!["--report", "packages", "--group-by", "license"],
+            "'--group-by' only applies",
+        ),
+    ] {
+        run(&flag).assert().code(2).stderr(predicate::str::contains(message));
+    }
+}
+
+#[test]
 fn vex_is_written_beside_the_document_and_links_into_it() {
     let dir = workspace_with_vulnerable_urllib3();
     let sbom = dir.path().join("sbom.cdx.json");

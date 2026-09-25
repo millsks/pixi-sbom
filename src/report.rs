@@ -3,7 +3,7 @@
 //! Reports are built from the same [`Sbom`] model the writers consume, after the same
 //! selection and enrichment, so what is displayed is exactly what a document would contain.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Write};
 use std::time::SystemTime;
 
@@ -81,6 +81,17 @@ pub struct Row {
     /// empty when the index gives none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub yanked: Option<String>,
+    /// Depth in the dependency tree (`--tree`): 0 for a package the root depends on. Absent
+    /// in the flat list.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub depth: Option<usize>,
+    /// The package that pulled this one in at this point of the tree.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
+    /// Whether this package was already shown with its own dependencies elsewhere in the tree
+    /// (printed as `(*)` and not expanded again).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub repeat: bool,
     /// Why the license policy does not apply to this package, when it was exempted with
     /// `--ignore-license` (the justification, or `true` when none was given).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -275,6 +286,12 @@ pub struct Report {
     pub python: Option<Vec<PythonRow>>,
     #[serde(rename = "summary", skip_serializing_if = "Option::is_none")]
     pub python_summary: Option<PythonSummary>,
+    /// Whether the packages report is rendered as a dependency tree.
+    #[serde(skip)]
+    pub tree: bool,
+    /// Whether the licenses report is rendered one section per license.
+    #[serde(skip)]
+    pub grouped: bool,
     /// Rows of the phantom report.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phantom: Option<Vec<PhantomRow>>,
@@ -320,6 +337,46 @@ impl Report {
         let mut report = Self::new(ReportKind::Diff, sbom);
         report.diff = Some(diff);
         report
+    }
+
+    /// Re-shape the packages report as the dependency graph, from what the root depends on
+    /// downward. Each package is expanded once, at its first occurrence; later occurrences are
+    /// marked as repeats and not walked again, which also ends any cycle. `depth` caps how far
+    /// down the walk goes (`0` shows the roots alone).
+    pub fn as_tree(&mut self, sbom: &Sbom, depth: Option<usize>) {
+        let by_id: BTreeMap<&str, &crate::model::Package> = sbom.packages.iter().map(|p| (p.id.as_str(), p)).collect();
+        let mut rows = Vec::new();
+        let mut expanded: BTreeSet<&str> = BTreeSet::new();
+        for id in crate::format::top_level_ids(sbom) {
+            walk_tree(id, None, 0, depth, &by_id, &mut expanded, &mut rows);
+        }
+        self.packages = Some(rows);
+        self.tree = true;
+    }
+
+    /// Order the licenses report by license, so it reads as one section per license instead of
+    /// one row per package.
+    pub fn group_by_license(&mut self) {
+        let order: BTreeMap<&str, usize> = self
+            .summary
+            .iter()
+            .flat_map(|summary| summary.by_license.iter())
+            .enumerate()
+            .map(|(i, (license, _))| (license.as_str(), i))
+            .collect();
+        if let Some(rows) = &mut self.packages {
+            rows.sort_by_key(|row| {
+                (
+                    row.license
+                        .as_deref()
+                        .and_then(|l| order.get(l).copied())
+                        // Packages with no license go last, under their own heading.
+                        .unwrap_or(usize::MAX),
+                    row.name.clone(),
+                )
+            });
+        }
+        self.grouped = true;
     }
 
     /// The phantom report for `sbom` from findings already computed.
@@ -392,6 +449,8 @@ impl Report {
             python_summary: None,
             phantom: None,
             phantom_summary: None,
+            tree: false,
+            grouped: false,
         };
         match kind {
             ReportKind::Packages => {
@@ -531,9 +590,12 @@ impl Report {
 
     fn columns(&self) -> Vec<&'static str> {
         match self.kind() {
+            ReportKind::Packages if self.tree => vec!["Package", "Version", "Kind", "License"],
             ReportKind::Packages => vec![
                 "Name", "Version", "Kind", "Declared", "Source", "License", "Yanked", "Purl",
             ],
+            // Grouped, the license is the heading rather than a column.
+            ReportKind::Licenses if self.grouped => vec!["Name", "Version", "Kind", "Family", "Source", "Files"],
             ReportKind::Licenses => vec!["Name", "Version", "Kind", "License", "Family", "Source", "Files"],
             ReportKind::Vulnerabilities => vec![
                 "Package", "Version", "Severity", "Score", "KEV", "ID", "Aliases", "Fixed", "Status", "Summary",
@@ -549,6 +611,22 @@ impl Report {
 
     /// The body rows in display form.
     fn rows(&self) -> Vec<Vec<String>> {
+        if self.tree {
+            let rows: Vec<&Row> = self.packages.iter().flatten().collect();
+            let depths: Vec<usize> = rows.iter().map(|r| r.depth.unwrap_or(0)).collect();
+            return tree_prefixes(&depths)
+                .into_iter()
+                .zip(rows)
+                .map(|(prefix, row)| {
+                    vec![
+                        format!("{prefix}{}{}", row.name, if row.repeat { " (*)" } else { "" }),
+                        row.version.clone(),
+                        row.kind.to_string(),
+                        row.license.clone().unwrap_or_else(|| "-".to_string()),
+                    ]
+                })
+                .collect();
+        }
         match self.kind() {
             ReportKind::Diff => self.diff.as_ref().map(diff_rows).unwrap_or_default(),
             ReportKind::Outdated => self.outdated.iter().flatten().map(outdated_cells).collect(),
@@ -576,8 +654,12 @@ impl Report {
             ReportKind::Python => vec![Plain, Plain, Plain, Status, Plain],
             // Finding, Package, Kind, Version, Modules, Imported by
             ReportKind::Phantom => vec![Change, Plain, Plain, Plain, Plain, Muted],
+            // Name, Version, Kind, Family, Source, Files
+            ReportKind::Licenses if self.grouped => vec![Plain, Plain, Plain, Plain, Plain, Plain],
             // Name, Version, Kind, License, Family, Source, Files
             ReportKind::Licenses => vec![Plain, Plain, Plain, NonSpdx, Plain, Plain, Plain],
+            // Package, Version, Kind, License
+            ReportKind::Packages if self.tree => vec![Plain, Plain, Plain, NonSpdx],
             // Name, Version, Kind, Declared, Source, License, Yanked, Purl
             ReportKind::Packages => vec![Plain, Plain, Plain, Status, Plain, NonSpdx, Status, Muted],
         }
@@ -610,6 +692,14 @@ impl Report {
     fn cells(&self, row: &Row) -> Vec<String> {
         let dash = || "-".to_string();
         match self.kind() {
+            ReportKind::Licenses if self.grouped => vec![
+                row.name.clone(),
+                row.version.clone(),
+                row.kind.to_string(),
+                row.license_family.clone().unwrap_or_else(dash),
+                row.license_source.clone().unwrap_or_else(dash),
+                row.license_files.len().to_string(),
+            ],
             ReportKind::Licenses => vec![
                 row.name.clone(),
                 row.version.clone(),
@@ -639,6 +729,61 @@ impl Report {
             ],
         }
     }
+}
+
+/// One package of the tree and, unless it is a repeat, everything below it.
+fn walk_tree<'a>(
+    id: &'a str,
+    parent: Option<&str>,
+    depth: usize,
+    max: Option<usize>,
+    by_id: &BTreeMap<&'a str, &'a crate::model::Package>,
+    expanded: &mut BTreeSet<&'a str>,
+    rows: &mut Vec<Row>,
+) {
+    let Some(package) = by_id.get(id) else { return };
+    let repeat = !expanded.insert(id);
+    let mut row = row(package);
+    row.depth = Some(depth);
+    row.parent = parent.map(str::to_string);
+    row.repeat = repeat && !package.dependencies.is_empty();
+    rows.push(row);
+    if repeat || max.is_some_and(|max| depth >= max) {
+        return;
+    }
+    for dependency in &package.dependencies {
+        // The key borrows from the model, which outlives the walk.
+        if let Some((key, _)) = by_id.get_key_value(dependency.as_str()) {
+            walk_tree(key, Some(&package.name), depth + 1, max, by_id, expanded, rows);
+        }
+    }
+}
+
+/// The indent of every row of a tree, from the sequence of depths alone: a row is the last of
+/// its level when no later row shares that level before a shallower one appears.
+fn tree_prefixes(depths: &[usize]) -> Vec<String> {
+    let last_at = |level: usize, from: usize| -> bool {
+        depths[from + 1..]
+            .iter()
+            .find(|&&d| d <= level)
+            .is_none_or(|&d| d < level)
+    };
+    depths
+        .iter()
+        .enumerate()
+        .map(|(i, &depth)| {
+            let mut prefix = String::new();
+            if depth == 0 {
+                return prefix;
+            }
+            for level in 1..depth {
+                let ancestor = depths[..i].iter().rposition(|&d| d == level).unwrap_or(0);
+                prefix.push_str(if last_at(level, ancestor) { "    " } else { "│   " });
+            }
+            prefix.push_str(if last_at(depth, i) { "└── " } else { "├── " });
+            prefix
+        })
+        .collect()
 }
 
 /// Rows of unstyled cells, for the summary tables that carry no meaning per column.
@@ -933,6 +1078,9 @@ fn row(package: &Package) -> Row {
         purl: package.purl.clone(),
         yanked: package.yanked.as_ref().map(|y| y.reason.clone().unwrap_or_default()),
         exempt: package.properties.get(crate::policy::EXEMPT_PROPERTY).cloned(),
+        depth: None,
+        parent: None,
+        repeat: false,
         declared_in: package
             .properties
             .get(crate::manifest::DECLARED_IN_PROPERTY)
@@ -1012,11 +1160,42 @@ pub fn render_with_width(
                 }
                 let columns = report.columns();
                 let rows = report.rows();
-                match format {
-                    ReportFormat::Markdown => render_markdown(&columns, &rows, out)?,
-                    _ => {
-                        let cells: Vec<Vec<Cell>> = rows.iter().map(|row| report.paint(row, &palette)).collect();
-                        render_table(&columns, cells, width, &palette, out)?;
+                if report.grouped {
+                    // One section per license: the heading carries what the column used to.
+                    let mut start = 0;
+                    let licenses: Vec<String> = report
+                        .packages
+                        .iter()
+                        .flatten()
+                        .map(|row| row.license.clone().unwrap_or_else(|| "No license".to_string()))
+                        .collect();
+                    while start < rows.len() {
+                        let license = &licenses[start];
+                        let end = licenses[start..].partition_point(|l| l == license) + start;
+                        let heading = palette.header(&format!("{license} ({})", end - start));
+                        match format {
+                            ReportFormat::Markdown => writeln!(out, "### {heading}\n")?,
+                            _ => writeln!(out, "{heading}")?,
+                        }
+                        let section = &rows[start..end];
+                        match format {
+                            ReportFormat::Markdown => render_markdown(&columns, section, out)?,
+                            _ => {
+                                let cells: Vec<Vec<Cell>> =
+                                    section.iter().map(|row| report.paint(row, &palette)).collect();
+                                render_table(&columns, cells, width, &palette, out)?;
+                            }
+                        }
+                        writeln!(out)?;
+                        start = end;
+                    }
+                } else {
+                    match format {
+                        ReportFormat::Markdown => render_markdown(&columns, &rows, out)?,
+                        _ => {
+                            let cells: Vec<Vec<Cell>> = rows.iter().map(|row| report.paint(row, &palette)).collect();
+                            render_table(&columns, cells, width, &palette, out)?;
+                        }
                     }
                 }
                 if let Some(summary) = &report.summary {
@@ -2030,6 +2209,110 @@ mod tests {
     #[test]
     fn phantom_table_snapshot() {
         insta::assert_snapshot!(render_string_from(&[phantom_report()], ReportFormat::Table));
+    }
+
+    /// The sample with a second root that also depends on zlib, so the tree has a repeat.
+    fn shared_sbom() -> Sbom {
+        let mut sbom = sample_sbom();
+        let zlib_id = sbom.packages.iter().find(|p| p.name == "zlib").unwrap().id.clone();
+        let mut other = sbom.packages.iter().find(|p| p.name == "mylib").unwrap().clone();
+        other.id = "pkg:conda/other@0.2.0".into();
+        other.purl = other.id.clone();
+        other.name = "other".into();
+        other.version = Some("0.2.0".into());
+        other.license = Some("MIT".into());
+        other.dependencies = vec![zlib_id];
+        sbom.packages.push(other);
+        sbom.packages.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
+        sbom
+    }
+
+    #[test]
+    fn the_tree_walks_from_the_roots_and_expands_each_package_once() {
+        let sbom = shared_sbom();
+        let mut report = Report::new(ReportKind::Packages, &sbom);
+        report.as_tree(&sbom, None);
+        let rows: Vec<(&str, usize, Option<&str>, bool)> = report
+            .packages
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|r| (r.name.as_str(), r.depth.unwrap(), r.parent.as_deref(), r.repeat))
+            .collect();
+        assert_eq!(
+            rows,
+            [
+                ("mylib", 0, None, false),
+                ("zlib", 1, Some("mylib"), false),
+                ("libzlib", 2, Some("zlib"), false),
+                ("other", 0, None, false),
+                // Already shown under mylib: marked and not walked again.
+                ("zlib", 1, Some("other"), true),
+                ("six", 0, None, false),
+            ]
+        );
+
+        // The depth cap stops the walk, roots included.
+        let mut shallow = Report::new(ReportKind::Packages, &sbom);
+        shallow.as_tree(&sbom, Some(0));
+        let names: Vec<&str> = shallow
+            .packages
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|r| r.name.as_str())
+            .collect();
+        assert_eq!(names, ["mylib", "other", "six"]);
+    }
+
+    #[test]
+    fn tree_prefixes_draw_the_branches_from_the_depths_alone() {
+        // root, child, grandchild, second child, second root
+        assert_eq!(tree_prefixes(&[0, 1, 2, 1, 0]), ["", "├── ", "│   └── ", "└── ", ""]);
+    }
+
+    #[test]
+    fn packages_tree_snapshot() {
+        let sbom = shared_sbom();
+        let mut report = Report::new(ReportKind::Packages, &sbom);
+        report.as_tree(&sbom, None);
+        insta::assert_snapshot!(render_string_from(&[report], ReportFormat::Table));
+    }
+
+    #[test]
+    fn licenses_grouped_snapshot() {
+        let sbom = shared_sbom();
+        let mut report = Report::new(ReportKind::Licenses, &sbom);
+        report.group_by_license();
+        insta::assert_snapshot!(render_string_from(&[report], ReportFormat::Table));
+    }
+
+    #[test]
+    fn grouping_only_reorders_the_rows_the_data_formats_carry() {
+        let sbom = shared_sbom();
+        let mut grouped = Report::new(ReportKind::Licenses, &sbom);
+        grouped.group_by_license();
+        let flat = Report::new(ReportKind::Licenses, &sbom);
+        let names = |report: &Report| -> Vec<String> {
+            report
+                .packages
+                .as_ref()
+                .unwrap()
+                .iter()
+                .map(|r| format!("{}:{}", r.license.clone().unwrap_or_default(), r.name))
+                .collect()
+        };
+        let (mut a, mut b) = (names(&grouped), names(&flat));
+        a.sort();
+        b.sort();
+        assert_eq!(a, b, "the same rows, in another order");
+        // Most common license first, then the packages with none.
+        assert_eq!(
+            names(&grouped).last().map(String::as_str),
+            Some(":six"),
+            "{:?}",
+            names(&grouped)
+        );
     }
 
     #[test]

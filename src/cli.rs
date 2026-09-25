@@ -107,6 +107,13 @@ pub enum OutdatedOnly {
     Major,
 }
 
+/// How the licenses report is grouped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum GroupBy {
+    /// One section per license expression, listing the packages under it.
+    License,
+}
+
 /// What a VEX says about a finding nobody has assessed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
 pub enum VexOpenState {
@@ -423,6 +430,20 @@ pub struct Args {
     /// `CLICOLOR_FORCE`. Only the `table` format is ever coloured.
     #[arg(long, value_enum, value_name = "WHEN", default_value_t = crate::style::ColorChoice::Auto)]
     pub color: crate::style::ColorChoice,
+
+    /// With --report packages: draw the dependency graph from the root downward instead of a
+    /// flat list. A package is expanded once, at its first occurrence; later ones are marked
+    /// `(*)`.
+    #[arg(long)]
+    pub tree: bool,
+
+    /// With --tree: how deep to go (0 shows what the root depends on and nothing below).
+    #[arg(long, value_name = "N", requires = "tree")]
+    pub depth: Option<usize>,
+
+    /// With --report licenses: one section per license instead of one row per package.
+    #[arg(long, value_enum, value_name = "WHAT")]
+    pub group_by: Option<GroupBy>,
 
     /// With --report outdated: list only packages at least this far behind.
     #[arg(long, value_enum, value_name = "STEP")]

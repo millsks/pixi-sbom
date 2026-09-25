@@ -517,7 +517,16 @@ fn main() -> Result<()> {
                     }
                     report::Report::diff(&sbom, diff)
                 }
-                _ => report::Report::new(kind, &sbom),
+                _ => {
+                    let mut report = report::Report::new(kind, &sbom);
+                    if args.tree {
+                        report.as_tree(&sbom, args.depth);
+                    }
+                    if args.group_by == Some(cli::GroupBy::License) {
+                        report.group_by_license();
+                    }
+                    report
+                }
             });
             continue;
         }
@@ -738,6 +747,12 @@ fn validate(args: &cli::Args) {
                 "'--output -' writes one document to stdout and cannot be combined with '--scan'",
             );
         }
+    }
+    if args.tree && args.report != Some(report::ReportKind::Packages) {
+        usage(ArgumentConflict, "'--tree' only applies to '--report packages'");
+    }
+    if args.group_by.is_some() && args.report != Some(report::ReportKind::Licenses) {
+        usage(ArgumentConflict, "'--group-by' only applies to '--report licenses'");
     }
     if !args.fail_on_diff.is_empty() && args.report != Some(report::ReportKind::Diff) {
         usage(ArgumentConflict, "'--fail-on-diff' only applies to '--report diff'");

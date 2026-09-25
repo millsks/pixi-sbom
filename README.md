@@ -82,6 +82,10 @@ pixi sbom --pypi-mapping prefix --vulnerabilities osv --kev --fail-on-kev
 
 # Just look: an inventory (with what the manifest declared) or a license table, nothing written
 pixi sbom --report packages
+
+# The dependency graph on the terminal, and the licenses grouped rather than listed
+pixi sbom --report packages --tree --depth 2
+pixi sbom --report licenses --group-by license
 pixi sbom --fetch-licenses --report licenses --report-format markdown
 
 # Make conda-installed Python packages scannable: add PyPI purls from the

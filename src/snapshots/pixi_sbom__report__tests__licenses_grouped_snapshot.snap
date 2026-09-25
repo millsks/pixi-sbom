@@ -1,0 +1,40 @@
+---
+source: src/report.rs
+expression: "render_string_from(&[report], ReportFormat::Table)"
+---
+MIT (1)
+Name   Version  Kind          Family  Source    Files
+-----------------------------------------------------
+other  0.2.0    conda-source  -       lockfile  1
+
+MIT OR Apache-2.0 (1)
+Name  Version  Kind   Family  Source    Files
+---------------------------------------------
+zlib  1.3.1    conda  -       lockfile  2
+
+Proprietary (1)
+Name   Version  Kind          Family  Source    Files
+-----------------------------------------------------
+mylib  -        conda-source  -       lockfile  1
+
+Zlib (1)
+Name     Version  Kind   Family  Source    Files
+------------------------------------------------
+libzlib  1.3.1    conda  -       lockfile  1
+
+No license (1)
+Name  Version  Kind  Family  Source  Files
+------------------------------------------
+six   1.17.0   pypi  -       -       0
+
+
+Summary: 5 packages, 4 distinct licenses
+License            Packages
+---------------------------
+MIT                1
+MIT OR Apache-2.0  1
+Proprietary        1
+Zlib               1
+
+No license (1): six
+Not an SPDX expression (1): mylib (unknown term: 'Proprietary')
