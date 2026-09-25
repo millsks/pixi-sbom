@@ -60,6 +60,9 @@ pixi sbom --report diff --against previous.cdx.json --report-format markdown
 # How far behind the environment is: versions, ages, releases behind, patch/minor/major
 pixi sbom --report outdated --outdated-only major
 
+# Why the next Python is blocked: which packages cap the interpreter
+pixi sbom --report python
+
 # Fail CI on anything high or critical, except a finding assessed as not affecting you (exit code 4)
 pixi sbom --pypi-mapping prefix --vulnerabilities osv --fail-on-severity high --ignore-vuln "CVE-2023-43804:not reachable"
 
@@ -117,7 +120,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--kev` / `--fail-on-kev` | off | Mark findings in CISA's Known Exploited Vulnerabilities catalog (rated critical, with due dates); optionally exit 4 on them |
 | `--fail-on-severity` / `--ignore-vuln` | | Vulnerability gate: exit 4 on open findings at or above a severity; accepted findings keep a VEX-style `analysis` block |
 | `--embedded-sboms` | off | Attach the components declared by SBOMs embedded in wheels (PEP 770, e.g. Rust crates) under the wheel |
-| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`, plus `sarif` for vulnerabilities); `diff --against <previous>` lists what changed and `outdated` how far behind each package is |
+| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`, plus `sarif` for vulnerabilities); `diff --against <previous>` lists what changed, `outdated` how far behind each package is, `python` what caps the interpreter |
 | `--color <auto\|always\|never>` | `auto` | Colour the terminal table (honours `NO_COLOR` / `CLICOLOR_FORCE`); fetches show a progress bar on an interactive terminal |
 | `-v` / `-q` | info | More / less logging on stderr |
 

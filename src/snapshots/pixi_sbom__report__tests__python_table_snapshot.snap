@@ -1,0 +1,14 @@
+---
+source: src/report.rs
+expression: "String::from_utf8(out).unwrap()"
+---
+Package  Version  Requires-Python  Satisfied  Ceiling
+-----------------------------------------------------
+bounded  1.0      >=3.8,<3.13      yes        3.12
+open     1.0      >=3.9            yes        -
+silent   1.0      -                yes        -
+
+Summary: interpreter 3.12, highest Python these packages allow: 3.12
+Holding the ceiling (1): bounded >=3.8,<3.13
+Not satisfied by this interpreter: none
+Saying nothing about Python: 1
