@@ -31,6 +31,7 @@ mod purl;
 mod pypi;
 mod pyversion;
 mod report;
+mod scorecard;
 mod stdlib;
 mod style;
 mod vulnpolicy;
@@ -197,6 +198,7 @@ fn main() -> Result<()> {
     let mut yanked: Vec<(String, String, String)> = Vec::new();
     let mut phantoms: Vec<(String, String, String)> = Vec::new();
     let mut diff_hits: Vec<(String, String, String)> = Vec::new();
+    let mut low_scores: Vec<(String, String, String)> = Vec::new();
     let assume_used = parse_globs(&args.assume_used, "--assume-used");
     let package_filter = filter::Filter {
         include: parse_globs(&args.include, "--include"),
@@ -455,6 +457,30 @@ fn main() -> Result<()> {
             reports.push(report);
             continue;
         }
+        if args.scorecard {
+            let cache_dir = mapping::cache_dir();
+            let lookup = scorecard::Lookup {
+                url: &scorecard::url(),
+                cache_dir: &cache_dir,
+            };
+            let scorecard::Outcome {
+                scored,
+                unknown,
+                failed,
+            } = lookup.run(&mut sbom, args.scorecard_min, progress);
+            tracing::info!(scored, unknown, failed, "read OpenSSF scorecards");
+            if let Some(min) = args.fail_on_scorecard {
+                low_scores.extend(
+                    scorecard::below(&sbom, min)
+                        .into_iter()
+                        .map(|line| (sbom.environment.clone(), sbom.platform.clone(), line)),
+                );
+            }
+        }
+        if args.report == Some(report::ReportKind::Scorecard) {
+            reports.push(report::Report::scorecard(&sbom, args.scorecard_min));
+            continue;
+        }
         if args.report == Some(report::ReportKind::Phantom) {
             let roots = if args.source.is_empty() {
                 vec![lockfile.parent().unwrap_or(Path::new(".")).to_path_buf()]
@@ -591,6 +617,23 @@ fn main() -> Result<()> {
         }
         let _ = stderr.flush();
     }
+    if !low_scores.is_empty() {
+        let mut stderr = std::io::stderr().lock();
+        let min = args.fail_on_scorecard.unwrap_or_default();
+        let _ = writeln!(
+            stderr,
+            "OpenSSF Scorecard below {min:.1} for {} package(s):",
+            low_scores.len()
+        );
+        for (environment, platform, line) in &low_scores {
+            let _ = if targets.len() > 1 {
+                writeln!(stderr, "  [{environment}/{platform}] {line}")
+            } else {
+                writeln!(stderr, "  {line}")
+            };
+        }
+        let _ = stderr.flush();
+    }
     if !diff_hits.is_empty() {
         let mut stderr = std::io::stderr().lock();
         let _ = writeln!(stderr, "The environment changed against the previous document:");
@@ -652,6 +695,9 @@ fn main() -> Result<()> {
     if !diff_hits.is_empty() {
         std::process::exit(diff::DIFF_EXIT_CODE);
     }
+    if !low_scores.is_empty() {
+        std::process::exit(SCORECARD_EXIT_CODE);
+    }
     Ok(())
 }
 
@@ -710,6 +756,15 @@ fn validate(args: &cli::Args) {
                 &format!("'{flag}' only applies to '--report phantom'"),
             );
         }
+    }
+    if args.scorecard && !(args.fetch_licenses || args.pypi_licenses) {
+        usage(
+            MissingRequiredArgument,
+            "'--scorecard' needs '--fetch-licenses', which is what collects the repository URLs",
+        );
+    }
+    if args.report == Some(report::ReportKind::Scorecard) && !args.scorecard {
+        usage(MissingRequiredArgument, "'--report scorecard' needs '--scorecard'");
     }
     if args.vex.is_some() {
         if args.vulnerabilities.is_none() {
@@ -839,6 +894,9 @@ const YANKED_EXIT_CODE: i32 = 7;
 
 /// Exit code for `--fail-on-phantom` when the workspace imports a package it never declared.
 const PHANTOM_EXIT_CODE: i32 = 8;
+
+/// Exit code for `--fail-on-scorecard` when a scored repository is below the threshold.
+const SCORECARD_EXIT_CODE: i32 = 9;
 
 /// Where the packages come from.
 /// One workspace to describe: its lockfile (or installed environment) and the documents that

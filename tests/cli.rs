@@ -2631,6 +2631,139 @@ fn cargo_auditable_crates_are_read_out_of_an_installed_environment() {
 }
 
 #[test]
+fn scorecards_are_recorded_reported_and_can_gate_the_run() {
+    let dir = installed_prefix();
+    let prefix = dir.path().join("envs").join("demo");
+    // The package cache says where libzlib is developed, which is what the lookup keys on.
+    let extracted = dir.path().join("pkgs").join("libzlib-1.3.2-h25fd6f3_3");
+    std::fs::create_dir_all(extracted.join("info")).unwrap();
+    std::fs::write(
+        extracted.join("info").join("about.json"),
+        r#"{"home":"https://zlib.net","dev_url":"https://github.com/madler/zlib","license":"Zlib"}"#,
+    )
+    .unwrap();
+    // A complete extraction, which is what the reader checks for.
+    std::fs::write(extracted.join("info").join("index.json"), r#"{"name":"libzlib"}"#).unwrap();
+    let record = prefix.join("conda-meta").join("libzlib-1.3.2-h25fd6f3_3.json");
+    let mut value: Value = serde_json::from_str(&std::fs::read_to_string(&record).unwrap()).unwrap();
+    value["extracted_package_dir"] = serde_json::json!(extracted.display().to_string().replace('\\', "/"));
+    std::fs::write(&record, value.to_string()).unwrap();
+    // The recorded response, in the cache the lookup reads.
+    let cache = dir.path().join("sbom-cache").join("scorecard");
+    std::fs::create_dir_all(&cache).unwrap();
+    std::fs::copy(
+        tests_dir().join("fixtures/scorecard/github.com-madler-zlib.json"),
+        cache.join("github.com-madler-zlib.json"),
+    )
+    .unwrap();
+
+    let run = |args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("pkgs-parent"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("sbom-cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "200")
+            .arg("--prefix")
+            .arg(&prefix)
+            .args(["-p", "linux-64", "--fetch-licenses", "--scorecard"])
+            .args(args);
+        command
+    };
+
+    let assert = run(&["--output", "-"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("read OpenSSF scorecards scored=1"));
+    let document: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &document);
+    let properties: Vec<(&str, &str)> = document["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "libzlib")
+        .unwrap()["properties"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| (p["name"].as_str().unwrap(), p["value"].as_str().unwrap()))
+        .collect();
+    assert!(properties.contains(&("pixi:scorecard", "4.2")), "{properties:?}");
+    assert!(
+        properties.contains(&("pixi:scorecard-date", "2026-09-01")),
+        "{properties:?}"
+    );
+    assert!(
+        properties.contains(&("pixi:scorecard-check-Signed-Releases", "0.0")),
+        "{properties:?}"
+    );
+    assert!(
+        !properties
+            .iter()
+            .any(|(name, _)| *name == "pixi:scorecard-check-Maintained"),
+        "a check that passed is not recorded: {properties:?}"
+    );
+
+    // The report ranks the scored packages and says what the rest are.
+    let report: Value = serde_json::from_slice(
+        &run(&["--report", "scorecard", "--report-format", "json"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout,
+    )
+    .unwrap();
+    assert_eq!(report["report"], "scorecard");
+    let rows = report["scorecard"].as_array().unwrap();
+    assert_eq!(rows[0]["name"], "libzlib", "the worst score comes first");
+    assert_eq!(rows[0]["score"], 4.2);
+    assert_eq!(rows[0]["failing"][0], "Signed-Releases (0.0)");
+    assert_eq!(report["summary"]["scored"], 1);
+    assert!(report["summary"]["unknown"].as_u64().unwrap() >= 1);
+    assert_eq!(report["summary"]["below"][0], "libzlib (4.2)");
+
+    let table = String::from_utf8(
+        run(&["--report", "scorecard", "--color", "never"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(table.lines().next().unwrap().starts_with("Package"), "{table}");
+    assert!(table.contains("Summary: 1 repositories scored"), "{table}");
+    assert!(table.contains("Below 5.0 (1): libzlib (4.2)"), "{table}");
+
+    // The gate fires on a scored package below the line, and not on the unscored ones.
+    run(&["--fail-on-scorecard", "5", "--output", "-"])
+        .assert()
+        .code(9)
+        .stderr(predicate::str::contains("OpenSSF Scorecard below 5.0 for 1 package(s)"))
+        .stderr(predicate::str::contains("libzlib (4.2)"));
+    run(&["--fail-on-scorecard", "4", "--output", "-"]).assert().success();
+
+    // And the flags say what they need.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .arg("--prefix")
+        .arg(&prefix)
+        .args(["--scorecard", "--output", "-"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("'--scorecard' needs '--fetch-licenses'"));
+    pixi_sbom()
+        .current_dir(dir.path())
+        .arg("--prefix")
+        .arg(&prefix)
+        .args(["--fetch-licenses", "--report", "scorecard"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("'--report scorecard' needs '--scorecard'"));
+}
+
+#[test]
 fn drift_between_an_installed_environment_and_its_lockfile() {
     let dir = installed_prefix();
     let prefix = dir.path().join("envs").join("demo");

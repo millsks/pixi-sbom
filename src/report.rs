@@ -35,6 +35,8 @@ pub enum ReportKind {
     Python,
     /// Phantom: imports and declarations that do not line up.
     Phantom,
+    /// Scorecard: how each package's repository is maintained.
+    Scorecard,
 }
 
 /// How to render a report.
@@ -139,6 +141,40 @@ pub struct PhantomSummary {
 
 /// How many importing files a row lists before it just counts the rest.
 const MAX_IMPORTING_FILES: usize = 5;
+
+/// One package as the scorecard report sees it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ScorecardRow {
+    pub name: String,
+    pub kind: &'static str,
+    pub version: String,
+    /// The aggregate out of ten, when the service scored the repository.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score: Option<f64>,
+    /// When it was scored.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date: Option<String>,
+    /// The repository that was scored, when the package names one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+    /// The checks below the threshold, worst first, as `name (score)`.
+    pub failing: Vec<String>,
+}
+
+/// What the scorecard report says about the environment as a whole.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct ScorecardSummary {
+    /// Packages the service scored.
+    pub scored: usize,
+    /// Packages with no repository the service covers.
+    pub unknown: usize,
+    /// How many packages fall in each band, from `0-2` up.
+    pub bands: Vec<(String, usize)>,
+    /// The threshold the report was asked about.
+    pub min: f64,
+    /// Packages below it, worst first.
+    pub below: Vec<String>,
+}
 
 /// Summary of what one document's packages are, beyond the rows themselves.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -292,6 +328,11 @@ pub struct Report {
     /// Whether the licenses report is rendered one section per license.
     #[serde(skip)]
     pub grouped: bool,
+    /// Rows of the scorecard report.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scorecard: Option<Vec<ScorecardRow>>,
+    #[serde(rename = "summary", skip_serializing_if = "Option::is_none")]
+    pub scorecard_summary: Option<ScorecardSummary>,
     /// Rows of the phantom report.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phantom: Option<Vec<PhantomRow>>,
@@ -379,6 +420,69 @@ impl Report {
         self.grouped = true;
     }
 
+    /// The scorecard report for `sbom`: what the service said, read back off the packages.
+    pub fn scorecard(sbom: &Sbom, min: f64) -> Self {
+        let mut report = Self::new(ReportKind::Scorecard, sbom);
+        let rows: Vec<ScorecardRow> = sbom
+            .packages
+            .iter()
+            .map(|package| {
+                let mut failing: Vec<(f64, String)> = package
+                    .properties
+                    .iter()
+                    .filter_map(|(key, value)| {
+                        let name = key.strip_prefix(crate::scorecard::CHECK_PROPERTY_PREFIX)?;
+                        let score: f64 = value.parse().ok()?;
+                        Some((score, format!("{name} ({score:.1})")))
+                    })
+                    .collect();
+                failing.sort_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+                ScorecardRow {
+                    name: package.name.clone(),
+                    kind: package.kind.name(),
+                    version: package.version.clone().unwrap_or_else(|| "-".into()),
+                    score: package
+                        .properties
+                        .get(crate::scorecard::SCORE_PROPERTY)
+                        .and_then(|s| s.parse().ok()),
+                    date: package.properties.get(crate::scorecard::DATE_PROPERTY).cloned(),
+                    repository: package.repository.clone(),
+                    failing: failing.into_iter().map(|(_, text)| text).collect(),
+                }
+            })
+            .collect();
+        // Worst first, then the ones nobody scored.
+        let mut rows = rows;
+        rows.sort_by(|a, b| match (a.score, b.score) {
+            (Some(x), Some(y)) => x.total_cmp(&y).then_with(|| a.name.cmp(&b.name)),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => a.name.cmp(&b.name),
+        });
+        let mut bands: BTreeMap<&'static str, usize> = BTreeMap::new();
+        for row in &rows {
+            if let Some(score) = row.score {
+                let band = match score {
+                    s if s < 3.0 => "0-3",
+                    s if s < 5.0 => "3-5",
+                    s if s < 7.0 => "5-7",
+                    s if s < 9.0 => "7-9",
+                    _ => "9-10",
+                };
+                *bands.entry(band).or_default() += 1;
+            }
+        }
+        report.scorecard_summary = Some(ScorecardSummary {
+            scored: rows.iter().filter(|r| r.score.is_some()).count(),
+            unknown: rows.iter().filter(|r| r.score.is_none()).count(),
+            bands: bands.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
+            min,
+            below: crate::scorecard::below(sbom, min),
+        });
+        report.scorecard = Some(rows);
+        report
+    }
+
     /// The phantom report for `sbom` from findings already computed.
     pub fn phantom(
         sbom: &Sbom,
@@ -430,6 +534,7 @@ impl Report {
                 ReportKind::Outdated => "outdated",
                 ReportKind::Python => "python",
                 ReportKind::Phantom => "phantom",
+                ReportKind::Scorecard => "scorecard",
             },
             workspace: sbom.root.name.clone(),
             environment: sbom.environment.clone(),
@@ -449,6 +554,8 @@ impl Report {
             python_summary: None,
             phantom: None,
             phantom_summary: None,
+            scorecard: None,
+            scorecard_summary: None,
             tree: false,
             grouped: false,
         };
@@ -506,7 +613,7 @@ impl Report {
                         .collect(),
                 );
             }
-            ReportKind::Diff | ReportKind::Outdated | ReportKind::Phantom => {}
+            ReportKind::Diff | ReportKind::Outdated | ReportKind::Phantom | ReportKind::Scorecard => {}
         }
         report
     }
@@ -584,6 +691,7 @@ impl Report {
             "outdated" => ReportKind::Outdated,
             "python" => ReportKind::Python,
             "phantom" => ReportKind::Phantom,
+            "scorecard" => ReportKind::Scorecard,
             _ => ReportKind::Packages,
         }
     }
@@ -606,6 +714,7 @@ impl Report {
             ],
             ReportKind::Python => vec!["Package", "Version", "Requires-Python", "Satisfied", "Ceiling"],
             ReportKind::Phantom => vec!["Finding", "Package", "Kind", "Version", "Modules", "Imported by"],
+            ReportKind::Scorecard => vec!["Package", "Version", "Score", "Scored", "Weakest checks"],
         }
     }
 
@@ -632,6 +741,7 @@ impl Report {
             ReportKind::Outdated => self.outdated.iter().flatten().map(outdated_cells).collect(),
             ReportKind::Python => self.python.iter().flatten().map(python_cells).collect(),
             ReportKind::Phantom => self.phantom.iter().flatten().map(phantom_cells).collect(),
+            ReportKind::Scorecard => self.scorecard.iter().flatten().map(scorecard_cells).collect(),
             ReportKind::Vulnerabilities => self.vulnerabilities.iter().flatten().map(vulnerability_cells).collect(),
             _ => self.packages.iter().flatten().map(|r| self.cells(r)).collect(),
         }
@@ -654,6 +764,8 @@ impl Report {
             ReportKind::Python => vec![Plain, Plain, Plain, Status, Plain],
             // Finding, Package, Kind, Version, Modules, Imported by
             ReportKind::Phantom => vec![Change, Plain, Plain, Plain, Plain, Muted],
+            // Package, Version, Score, Scored, Weakest checks
+            ReportKind::Scorecard => vec![Plain, Plain, Severity, Plain, Muted],
             // Name, Version, Kind, Family, Source, Files
             ReportKind::Licenses if self.grouped => vec![Plain, Plain, Plain, Plain, Plain, Plain],
             // Name, Version, Kind, License, Family, Source, Files
@@ -789,6 +901,22 @@ fn tree_prefixes(depths: &[usize]) -> Vec<String> {
 /// Rows of unstyled cells, for the summary tables that carry no meaning per column.
 fn plain_cells(rows: &[Vec<String>]) -> Vec<Vec<Cell>> {
     rows.iter().map(|row| row.iter().map(Cell::new).collect()).collect()
+}
+
+/// One scorecard row as cells.
+fn scorecard_cells(row: &ScorecardRow) -> Vec<String> {
+    let dash = || "-".to_string();
+    vec![
+        row.name.clone(),
+        row.version.clone(),
+        row.score.map(|s| format!("{s:.1}")).unwrap_or_else(dash),
+        row.date.clone().unwrap_or_else(dash),
+        if row.failing.is_empty() {
+            dash()
+        } else {
+            row.failing.join(", ")
+        },
+    ]
 }
 
 /// One phantom row as cells.
@@ -1226,6 +1354,35 @@ pub fn render_with_width(
                 if let Some(summary) = &report.vulnerability_summary {
                     render_vulnerability_summary(summary, format, &palette, out)?;
                 }
+                if let Some(summary) = &report.scorecard_summary {
+                    writeln!(out)?;
+                    let heading = palette.header(&format!(
+                        "Summary: {} repositories scored, {} with none",
+                        summary.scored, summary.unknown
+                    ));
+                    match format {
+                        ReportFormat::Markdown => writeln!(out, "### {heading}\n")?,
+                        _ => writeln!(out, "{heading}")?,
+                    }
+                    if !summary.bands.is_empty() {
+                        let plain: Vec<Vec<String>> = summary
+                            .bands
+                            .iter()
+                            .map(|(band, count)| vec![band.clone(), count.to_string()])
+                            .collect();
+                        match format {
+                            ReportFormat::Markdown => render_markdown(&["Score", "Packages"], &plain, out)?,
+                            _ => render_table(&["Score", "Packages"], plain_cells(&plain), usize::MAX, &palette, out)?,
+                        }
+                        writeln!(out)?;
+                    }
+                    let line = format!("Below {:.1}", summary.min);
+                    if summary.below.is_empty() {
+                        writeln!(out, "{}", palette.dim(&format!("{line}: none")))?;
+                    } else {
+                        writeln!(out, "{line} ({}): {}", summary.below.len(), summary.below.join(", "))?;
+                    }
+                }
                 if let Some(summary) = &report.phantom_summary {
                     writeln!(out)?;
                     let heading = palette.header(&format!(
@@ -1633,6 +1790,33 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
         }
         return Ok(());
     }
+    if kind == ReportKind::Scorecard {
+        writeln!(
+            out,
+            "environment,platform,package,kind,version,score,scored,repository,failing_checks"
+        )?;
+        for report in reports {
+            for row in report.scorecard.iter().flatten() {
+                let cells = [
+                    report.environment.clone(),
+                    report.platform.clone(),
+                    row.name.clone(),
+                    row.kind.to_string(),
+                    row.version.clone(),
+                    row.score.map(|s| format!("{s:.1}")).unwrap_or_default(),
+                    row.date.clone().unwrap_or_default(),
+                    row.repository.clone().unwrap_or_default(),
+                    row.failing.join(" "),
+                ];
+                writeln!(
+                    out,
+                    "{}",
+                    cells.iter().map(|c| csv_field(c)).collect::<Vec<_>>().join(",")
+                )?;
+            }
+        }
+        return Ok(());
+    }
     if kind == ReportKind::Phantom {
         writeln!(out, "environment,platform,finding,package,kind,version,modules,files")?;
         for report in reports {
@@ -1707,7 +1891,8 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
         | ReportKind::Diff
         | ReportKind::Outdated
         | ReportKind::Python
-        | ReportKind::Phantom => {
+        | ReportKind::Phantom
+        | ReportKind::Scorecard => {
             vec![
                 "name",
                 "version",
@@ -1743,7 +1928,8 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
                 | ReportKind::Diff
                 | ReportKind::Outdated
                 | ReportKind::Python
-                | ReportKind::Phantom => vec![
+                | ReportKind::Phantom
+                | ReportKind::Scorecard => vec![
                     row.name.clone(),
                     row.version.clone(),
                     row.kind.to_string(),

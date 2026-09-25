@@ -37,7 +37,8 @@ pub enum ConfigError {
 
 /// The settings a file may carry. Every field is optional; a missing one leaves the command
 /// line's value (or its default) alone.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Deserialize)]
+// The scorecard thresholds are scores, so this cannot be `Eq`.
+#[derive(Debug, Default, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Config {
     pub format: Option<String>,
@@ -62,6 +63,9 @@ pub struct Config {
     pub fail_on_severity: Option<String>,
     pub ignore_vuln: Option<Vec<String>>,
     pub ignore_license: Option<Vec<String>>,
+    pub scorecard: Option<bool>,
+    pub scorecard_min: Option<f64>,
+    pub fail_on_scorecard: Option<f64>,
     pub fail_on_diff: Option<Vec<String>>,
     pub source: Option<Vec<PathBuf>>,
     pub assume_used: Option<Vec<String>>,
@@ -81,7 +85,7 @@ struct Tool {
 }
 
 /// Where a configuration came from.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Loaded {
     pub config: Config,
     pub path: PathBuf,
@@ -238,6 +242,13 @@ pub fn apply(loaded: &Loaded, args: &mut Args, matches: &ArgMatches) -> Result<(
     set!(deny_license, "deny_license", config.deny_license.clone());
     set!(require_license, "require_license", config.require_license);
     set!(ignore_license, "ignore_license", config.ignore_license.clone());
+    set!(scorecard, "scorecard", config.scorecard);
+    set!(scorecard_min, "scorecard_min", config.scorecard_min);
+    if let Some(min) = config.fail_on_scorecard
+        && !on_cli(matches, "fail_on_scorecard")
+    {
+        args.fail_on_scorecard = Some(min);
+    }
     set!(fail_on_yanked, "fail_on_yanked", config.fail_on_yanked);
     if let Some(source) = &config.vulnerabilities
         && !on_cli(matches, "vulnerabilities")
@@ -294,6 +305,8 @@ mod tests {
             deny-license = ["GPL-3.0-only", "AGPL-3.0-only"]
             require-license = true
             ignore-license = ["mylib:internal, reviewed"]
+            scorecard = true
+            scorecard-min = 6.5
             exclude = ["pre-commit*"]
             exclude-kind = ["conda-source"]
             vulnerabilities = "osv"
@@ -316,6 +329,8 @@ mod tests {
         assert_eq!(a.deny_license, ["GPL-3.0-only", "AGPL-3.0-only"]);
         assert!(a.require_license);
         assert_eq!(a.ignore_license, ["mylib:internal, reviewed"]);
+        assert!(a.scorecard);
+        assert_eq!(a.scorecard_min, 6.5);
         assert_eq!(a.exclude, ["pre-commit*"]);
         assert_eq!(a.exclude_kind, [Kind::CondaSource]);
         assert_eq!(a.vulnerabilities, Some(VulnerabilitySource::Osv));

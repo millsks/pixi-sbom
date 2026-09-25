@@ -44,6 +44,9 @@ With no options this means:
 | `--deny-license <LICENSE>` | | Repeatable. These SPDX licenses are unacceptable; a package whose expression cannot be satisfied without them is a violation. |
 | `--require-license` | off | Every package must declare a license that is an SPDX expression. |
 | `--ignore-license <PACKAGE[:WHY]>` | | Repeatable. The policy does not apply to packages matching this name or pattern; they are listed as exempt in the report and carry `pixi:license-exempt` in the document. |
+| `--scorecard` | off | With `--fetch-licenses`: ask the OpenSSF Scorecard service how each package's repository is maintained and record the score in the document. |
+| `--scorecard-min <N>` | `5` | With `--scorecard`: the score a package or a check has to reach to be left alone. |
+| `--fail-on-scorecard <N>` | | With `--scorecard`: exit **9** when a scored package is below this. Unscored packages never fail. |
 | `--fail-on-yanked` | off | With `--fetch-licenses`: exit **7** after writing the document when any PyPI package is a yanked release (PEP 592). |
 | `--vulnerabilities <osv>` | off | Look up known vulnerabilities of every package with a purl OSV can answer and record them in the document (see below). |
 | `--kev` | off | With `--vulnerabilities`: mark findings whose CVE alias is in CISA's Known Exploited Vulnerabilities catalog (downloaded once a day). They are rated `critical`, sorted first, and carry the catalog's dates and required action. |
@@ -52,7 +55,7 @@ With no options this means:
 | `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification), is excluded from `--fail-on-severity` and listed separately in the report. |
 | `--vex <PATH>` | | With `--vulnerabilities`: also write a standalone CycloneDX VEX there, linked back to the SBOM. |
 | `--vex-open <in-triage\|exploitable>` | `in-triage` | The analysis state the VEX gives findings nobody assessed with `--ignore-vuln`. |
-| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
+| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom\|scorecard>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
 | `--tree` | off | With `--report packages`: draw the dependency graph from the root downward instead of a flat list. |
 | `--depth <N>` | unlimited | With `--tree`: how deep to go (`0` shows what the root depends on and nothing below). |
 | `--group-by license` | | With `--report licenses`: one section per license instead of one row per package. |
@@ -360,6 +363,32 @@ Bounds are read at `MAJOR.MINOR` granularity, which is the level upgrades happen
 is not a ceiling, since it says nothing about how far up the 3.x series you may go. Most real environments have
 no ceiling at all, which is itself the answer.
 
+## How well each dependency is looked after
+
+Vulnerabilities and licenses answer two supply-chain questions. "Is this dependency maintained, reviewed, signed,
+pinned?" is the third, and a lockfile says nothing about it. `--scorecard` asks the
+[OpenSSF Scorecard](https://securityscorecards.dev/) service, which scores a repository out of ten from fourteen
+checks:
+
+```sh
+pixi sbom --fetch-licenses --scorecard --report scorecard
+pixi sbom --fetch-licenses --scorecard --fail-on-scorecard 4 --output sbom.cdx.json
+```
+
+It needs `--fetch-licenses`, which is what collects each package's repository URL, and it only asks about
+repositories the service covers (github.com and gitlab.com). Answers are cached for a week under the pixi-sbom
+cache directory — a repository is rescored weekly at most — so a second run costs nothing, and
+`PIXI_SBOM_SCORECARD_URL` points the lookup elsewhere.
+
+Each scored package carries `pixi:scorecard` (the aggregate), `pixi:scorecard-date`, and one
+`pixi:scorecard-check-<name>` property per check below `--scorecard-min` — a check that passed is not recorded,
+and neither is one the service could not run. `--report scorecard` lists the packages worst first with their
+weakest checks, a table of how many fall in each band, and the ones below the threshold.
+
+`--fail-on-scorecard <N>` exits **9** when a scored package is below `N`. A package the service has never scored,
+or one with no repository to ask about, is reported as unknown and never fails the gate: the answer is missing,
+not bad.
+
 ## What is imported but never declared
 
 A *phantom dependency* is a package the code imports although nothing declares it: it is in the environment only
@@ -463,6 +492,10 @@ Colour is applied to the `table` format only, since the others are data someone 
 Severities are red through blue by level, `open` findings are yellow and `ignored` ones dim, KEV markers red,
 diff rows green (added), red (removed), cyan (version) and magenta (license), licenses that are not SPDX
 expressions yellow, and `-` placeholders dim.
+
+The scorecard report has one row per package (package, version, score, when it was scored, and the checks below
+the threshold worst first; the csv and json forms add the repository), the scored ones worst first and the
+unscored ones last, followed by how many fall in each band and which are below the threshold.
 
 The phantom report has one row per finding (what it is, the package, its kind and version, the modules it
 provides, and the workspace files that import them — at most five, then a count of the rest), followed by the
@@ -624,6 +657,7 @@ CycloneDX metadata properties; the root package `sourceInfo` in SPDX), so a batc
 | `PIXI_SBOM_OSV_URL` | Base of the OSV API queried by `--vulnerabilities osv` (default `https://api.osv.dev`). |
 | `PIXI_SBOM_NO_PROGRESS` | Set to `1` to turn the progress bars off even on a terminal. |
 | `PIXI_SBOM_ANACONDA_URL` | Base of the anaconda.org API used by `--report outdated` for conda packages (default `https://api.anaconda.org`). |
+| `PIXI_SBOM_SCORECARD_URL` | Base of the OpenSSF Scorecard API used by `--scorecard` (default `https://api.securityscorecards.dev`). |
 | `PIXI_SBOM_KEV_URL` | Where `--kev` downloads CISA's Known Exploited Vulnerabilities catalog (default `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json`). |
 | `PIXI_SBOM_PYPI_URL` | Base of the PyPI JSON API queried by `--fetch-licenses` (default `https://pypi.org/pypi`); point it at a mirror such as devpi or Artifactory. |
 | `PIXI_SBOM_CACHE_DIR` | Where downloaded data (the PyPI mapping, PyPI metadata, extracted conda `info` directories, wheel `dist-info` files) is cached. Default: `pixi-sbom` inside the pixi cache directory (`PIXI_CACHE_DIR` / `RATTLER_CACHE_DIR`, else `~/.cache/rattler/cache`, `~/Library/Caches/rattler/cache`, `%LOCALAPPDATA%\rattler\cache`), so `pixi clean cache` removes it too. |
@@ -688,6 +722,7 @@ pixi sbom --all-environments --all-platforms --output sboms/
 | 6 | `--fail-on-diff` found a change it was asked to gate on; the report was printed and the sections listed on stderr. |
 | 7 | `--fail-on-yanked` found a yanked release; the documents were written and the releases listed on stderr. |
 | 8 | `--fail-on-phantom` found an import the manifest never declared; the report was printed and the packages listed on stderr. |
+| 9 | `--fail-on-scorecard` found a scored repository below the threshold; the document was written and the packages listed on stderr. |
 | 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments` or `--all-platforms`, or a `--spec-version` of the other format, or a `--allow-license` / `--deny-license` value that is not an SPDX identifier). |
 
 Runtime diagnostics carry a stable code you can grep for in CI logs:

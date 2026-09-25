@@ -29,6 +29,7 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 | `fetch-licenses`, `license-texts`, `embedded-sboms`, `pypi-mapping`, `primary-purl` | as the CLI | Enrichment |
 | `allow-license`, `deny-license`, `require-license` | | License policy; whitespace-separated lists |
 | `ignore-license` | | Packages the policy does not apply to, one per line: `PACKAGE` or `PACKAGE:justification` |
+| `scorecard`, `scorecard-min`, `fail-on-scorecard` | `false`, `5`, | With `fetch-licenses`: record each repository's OpenSSF Scorecard, and fail the step (exit code 9) below the given score |
 | `fail-on-yanked` | `false` | With `fetch-licenses`, fail the step on a yanked release (exit code 7) |
 | `fail-on-policy` | `true` | Fail the step on a policy violation; with `false` it becomes a warning and the `policy-violated` output is `true` |
 | `vulnerabilities`, `kev` | | `osv` looks findings up and records them; `kev: "true"` marks the known-exploited ones |

@@ -74,6 +74,9 @@ pixi sbom --report phantom
 # Fail CI on anything high or critical, except a finding assessed as not affecting you (exit code 4)
 pixi sbom --pypi-mapping prefix --vulnerabilities osv --fail-on-severity high --ignore-vuln "CVE-2023-43804:not reachable"
 
+# How well each dependency is looked after: the OpenSSF Scorecard of its repository
+pixi sbom --fetch-licenses --scorecard --report scorecard
+
 # A standalone CycloneDX VEX beside the document, linked back to it
 pixi sbom --pypi-mapping prefix --vulnerabilities osv --output sbom.cdx.json --vex vex.cdx.json
 
@@ -134,6 +137,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--config` / `--no-config` | auto | Read `[tool.pixi-sbom]` in `pyproject.toml` or `pixi-sbom.toml` next to the lockfile before the command line; keys mirror the flags, the command line wins |
 | `--exclude` / `--include` / `--exclude-kind` | | Leave packages out (shell-style name patterns or a kind); what only they needed goes too, and the root records `pixi:excluded` |
 | `--fail-on-yanked` | off | With `--fetch-licenses`: exit 7 when a PyPI package is a yanked release (PEP 592) |
+| `--scorecard` | off | With `--fetch-licenses`: record the OpenSSF Scorecard of each package's repository; `--fail-on-scorecard <N>` exits 9 below `N` |
 | `--vex <PATH>` | | With `--vulnerabilities`: also write a standalone CycloneDX VEX there, every finding assessed and linked back to the SBOM |
 | `--ignore-license <PACKAGE[:WHY]>` | | The license policy does not apply to these packages (name or pattern); they are listed as exempt and carry `pixi:license-exempt` |
 | `--fail-on-diff [<SECTION>...]` | off | With `--report diff`: exit 6 when the comparison is not empty (`added`, `removed`, `version`, `license`, `build`, `pip`; bare = any) |
@@ -147,7 +151,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--embedded-sboms` | off | Attach the components declared by SBOMs embedded in wheels (PEP 770, e.g. Rust crates) under the wheel; with `--prefix`, also the `cargo auditable` crate list inside the environment's binaries |
 | `--from-sbom <FILE>` | | Read an existing document (CycloneDX, SPDX 2.x or SPDX 3.0 JSON) instead of a lockfile and run the reports, policy and vulnerability gate on it |
 | `--scan <DIR>` | | Describe every pixi workspace under the directory: one document per `pixi.lock`, written under `--output` at the same relative path |
-| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`, plus `sarif` for vulnerabilities); `diff --against <previous>` lists what changed, `outdated` how far behind each package is, `python` what caps the interpreter, `phantom` which imports and declarations do not line up |
+| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom\|scorecard>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`, plus `sarif` for vulnerabilities); `diff --against <previous>` lists what changed, `outdated` how far behind each package is, `python` what caps the interpreter, `phantom` which imports and declarations do not line up |
 | `--color <auto\|always\|never>` | `auto` | Colour the terminal table (honours `NO_COLOR` / `CLICOLOR_FORCE`); fetches show a progress bar on an interactive terminal |
 | `-v` / `-q` | info | More / less logging on stderr |
 

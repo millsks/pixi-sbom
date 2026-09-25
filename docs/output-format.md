@@ -94,6 +94,8 @@ entry).
 | `pixi:direct` | any | `true` when the workspace manifest declares this package itself, rather than it coming along as somebody else's dependency |
 | `pixi:declared-in` | any | The features whose dependency tables declare it, comma separated (`default`, `default,docs`) |
 | `pixi:license-exempt` | any | Why the license policy does not apply (`--ignore-license`); `true` when no justification was given |
+| `pixi:scorecard`, `pixi:scorecard-date` | any | With `--scorecard`: the OpenSSF Scorecard aggregate out of ten and when the repository was scored |
+| `pixi:scorecard-check-<name>` | any | One per check below `--scorecard-min`, e.g. `pixi:scorecard-check-Signed-Releases=0.0` |
 | `pixi:cargo-source` | embedded (cargo) | Where a crate read from a `cargo auditable` binary came from: `crates.io`, `git`, `local`, ... |
 | `pixi:index-url` | PyPI | Index the wheel was resolved from |
 | `pixi:requires-python` | PyPI | `Requires-Python` of the distribution |
