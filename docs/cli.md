@@ -55,6 +55,7 @@ With no options this means:
 | `--assume-used <GLOB>` | | With `--report phantom`: packages matching this are never reported as unused or undeclared (repeatable). |
 | `--fail-on-phantom` | off | With `--report phantom`: exit **8** when the workspace imports a package it never declared. |
 | `--against <PATH>` | | With `--report diff`: the previous document to compare with (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON). |
+| `--fail-on-diff [<SECTION>...]` | off | With `--report diff`: exit **6** when the named sections (`added`, `removed`, `version`, `license`) are not empty. The bare flag means any change. |
 | `--report-format <table\|markdown\|csv\|json\|sarif>` | `table` | How to render the report; `sarif` (2.1.0, for GitHub code scanning) applies to `--report vulnerabilities` only. |
 | `--color <auto\|always\|never>` | `auto` | Colour the `table` report. `auto` colours only when the output is a terminal, honouring `NO_COLOR`, `CLICOLOR_FORCE` and `TERM=dumb`. |
 | `--pypi-licenses` | | Deprecated alias for `--fetch-licenses` (hidden from `--help`; removed in a future release). |
@@ -421,8 +422,21 @@ pixi-sbom writes, from this tool or another). Packages are matched by purl type 
 bump is one `version` row (before and after) rather than a removal plus an addition; the sections are `added`,
 `removed`, `version` and `license` (same package and version, different declared license), and a summary line
 counts each plus the unchanged packages. Filters, mapping and license fetching apply to the new side as usual.
-The exit code is always 0; a document that is none of the three families is an error
-(`pixi_sbom::diff::parse`). `--against` does not combine with `--all-environments` / `--all-platforms`.
+A document that is none of the three families is an error (`pixi_sbom::diff::parse`). `--against` does not combine
+with `--all-environments` / `--all-platforms`.
+
+`--fail-on-diff` turns the comparison into a gate: the run exits **6**, after printing the report, when the
+sections it names are not empty. The bare flag means any change at all; naming sections (`--fail-on-diff version
+license`, repeatable) gates on those alone, so a pull request can be allowed to add packages but not to change a
+version behind your back. The sections that fired are listed on stderr with their counts.
+
+```sh
+# Fail the build when anything at all changed since the released document
+pixi sbom --report diff --against release/sbom.cdx.json --fail-on-diff
+
+# Only care that nothing was removed or relicensed
+pixi sbom --report diff --against release/sbom.cdx.json --fail-on-diff removed license
+```
 
 ## One document per environment and platform
 
@@ -517,6 +531,7 @@ pixi sbom --all-environments --all-platforms --output sboms/
 | 1 | A runtime error; a diagnostic is printed to stderr. |
 | 3 | The license policy was violated; the documents were written and the violations listed on stderr. |
 | 4 | The vulnerability gate (`--fail-on-severity` / `--fail-on-kev`) failed; the documents were written and the findings listed on stderr. |
+| 6 | `--fail-on-diff` found a change it was asked to gate on; the report was printed and the sections listed on stderr. |
 | 7 | `--fail-on-yanked` found a yanked release; the documents were written and the releases listed on stderr. |
 | 8 | `--fail-on-phantom` found an import the manifest never declared; the report was printed and the packages listed on stderr. |
 | 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments` or `--all-platforms`, or a `--spec-version` of the other format, or a `--allow-license` / `--deny-license` value that is not an SPDX identifier). |

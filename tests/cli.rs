@@ -2241,6 +2241,40 @@ fn diff_report_shows_what_changed_since_a_previous_document() {
     .unwrap();
     assert!(same.contains("No changes against"), "{same}");
 
+    // --fail-on-diff gates on the sections it is given: the environment above has a version
+    // change and nothing else.
+    let gate = |sections: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(new.path())
+            .args(["-e", "web", "-p", "linux-64", "--report", "diff", "--against"])
+            .arg(&previous)
+            .arg("--fail-on-diff")
+            .args(sections);
+        command
+    };
+    gate(&[])
+        .assert()
+        .code(6)
+        .stderr(predicate::str::contains("version changes (1)"));
+    gate(&["version"]).assert().code(6);
+    gate(&["license"]).assert().success();
+    gate(&["added", "removed"]).assert().success();
+    // An unchanged environment passes whatever is asked for.
+    pixi_sbom()
+        .current_dir(old.path())
+        .args(["-e", "web", "-p", "linux-64", "--report", "diff", "--against"])
+        .arg(&previous)
+        .arg("--fail-on-diff")
+        .assert()
+        .success();
+    pixi_sbom()
+        .current_dir(new.path())
+        .args(["--report", "packages", "--fail-on-diff"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("only applies to '--report diff'"));
+
     // Usage: --against needs --report diff and vice versa; a non-document is a diagnostic.
     pixi_sbom()
         .current_dir(new.path())

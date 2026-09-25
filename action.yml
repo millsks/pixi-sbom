@@ -132,6 +132,20 @@ inputs:
       under `pixi-sbom/<environment>` (or `<environment>/<platform>`) regardless of this value.
     required: false
     default: pixi-sbom
+  diff-against:
+    description: >-
+      Also compare the environment with a previous document at this path (CycloneDX, SPDX 2.3 or
+      SPDX 3.0 JSON) and write the comparison to the job summary. The file has to be there already:
+      the action fetches nothing itself.
+    required: false
+    default: ""
+  fail-on-diff:
+    description: >-
+      With diff-against, fail the step (exit code 6) when the comparison is not empty. Either
+      `true` for any change, or the sections to gate on, whitespace separated: `added`, `removed`,
+      `version`, `license`.
+    required: false
+    default: ""
   extra-args:
     description: Additional command-line arguments, whitespace separated (e.g. `-v`).
     required: false
@@ -177,6 +191,9 @@ outputs:
   document:
     description: Path of the document in single-document mode (empty in batch mode).
     value: ${{ steps.run.outputs.document }}
+  diff-changed:
+    description: Whether the comparison with diff-against found any change (empty when not used).
+    value: ${{ steps.diff.outputs.changed }}
   attestation-url:
     description: URL of the attestation, when attest is set.
     value: ${{ steps.attest-sbom.outputs.attestation-url || steps.attest-provenance.outputs.attestation-url }}
@@ -355,6 +372,55 @@ runs:
           fi
           echo "::warning::vulnerability gate failed (see the log above)"
           exit 0
+        fi
+        exit "$code"
+
+    - name: Compare with the previous document
+      id: diff
+      if: ${{ inputs.diff-against != '' && !cancelled() }}
+      shell: bash
+      env:
+        IN_LOCKFILE: ${{ inputs.lockfile }}
+        IN_CONFIG: ${{ inputs.config }}
+        IN_ENVIRONMENT: ${{ inputs.environment }}
+        IN_ALL_ENVIRONMENTS: ${{ inputs.all-environments }}
+        IN_PLATFORM: ${{ inputs.platform }}
+        IN_ALL_PLATFORMS: ${{ inputs.all-platforms }}
+        IN_DIFF_AGAINST: ${{ inputs.diff-against }}
+        IN_FAIL_ON_DIFF: ${{ inputs.fail-on-diff }}
+      run: |
+        set -uo pipefail
+        args=(--report diff --against "$IN_DIFF_AGAINST" --report-format markdown)
+        [ -n "$IN_LOCKFILE" ] && args+=(--lockfile "$IN_LOCKFILE")
+        case "$IN_CONFIG" in
+          "") ;;
+          none) args+=(--no-config) ;;
+          *) args+=(--config "$IN_CONFIG") ;;
+        esac
+        [ -n "$IN_ENVIRONMENT" ] && args+=(--environment "$IN_ENVIRONMENT")
+        [ "$IN_ALL_ENVIRONMENTS" = "true" ] && args+=(--all-environments)
+        [ -n "$IN_PLATFORM" ] && args+=(--platform "$IN_PLATFORM")
+        [ "$IN_ALL_PLATFORMS" = "true" ] && args+=(--all-platforms)
+        case "$IN_FAIL_ON_DIFF" in
+          "" | false) ;;
+          true) args+=(--fail-on-diff) ;;
+          *) args+=(--fail-on-diff); for section in $IN_FAIL_ON_DIFF; do args+=("$section"); done ;;
+        esac
+        echo "pixi-sbom ${args[*]}"
+        report="$RUNNER_TEMP/pixi-sbom-diff.md"
+        code=0
+        pixi-sbom "${args[@]}" > "$report" || code=$?
+        cat "$report"
+        { echo "## SBOM diff"; echo; cat "$report"; } >> "$GITHUB_STEP_SUMMARY"
+        if [ "$code" -eq 6 ]; then
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "::error::the environment changed against $IN_DIFF_AGAINST (see the summary)"
+          exit 6
+        fi
+        if grep -q "^No changes against" "$report"; then
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+        else
+          echo "changed=true" >> "$GITHUB_OUTPUT"
         fi
         exit "$code"
 

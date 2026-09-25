@@ -72,6 +72,18 @@ removed or bumped since the document on `main`, as a Markdown table ready for a 
   with: { path: diff.md }
 ```
 
+To gate on it instead of only reporting it, add `--fail-on-diff` (exit code 6), or let the action do both — it puts
+the comparison in the job summary:
+
+```yaml
+- uses: actions/download-artifact@v4   # the sboms artifact the main branch uploaded
+  with: { name: sboms, path: previous }
+- uses: millsks/pixi-sbom@v1
+  with:
+    diff-against: previous/sbom-default.cdx.json
+    fail-on-diff: removed version    # adding a package is fine; losing or bumping one is not
+```
+
 ## Diffing SBOMs between commits
 
 With `SOURCE_DATE_EPOCH` set, two runs over the same lockfile are byte-identical (the serial number is derived from
