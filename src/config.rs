@@ -61,6 +61,9 @@ pub struct Config {
     pub fail_on_kev: Option<bool>,
     pub fail_on_severity: Option<String>,
     pub ignore_vuln: Option<Vec<String>>,
+    pub source: Option<Vec<PathBuf>>,
+    pub assume_used: Option<Vec<String>>,
+    pub fail_on_phantom: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -246,6 +249,9 @@ pub fn apply(loaded: &Loaded, args: &mut Args, matches: &ArgMatches) -> Result<(
         args.fail_on_severity = Some(parse_enum::<FailOnSeverity>(path, "fail-on-severity", severity)?);
     }
     set!(ignore_vuln, "ignore_vuln", config.ignore_vuln.clone());
+    set!(source, "source", config.source.clone());
+    set!(assume_used, "assume_used", config.assume_used.clone());
+    set!(fail_on_phantom, "fail_on_phantom", config.fail_on_phantom);
     Ok(())
 }
 
@@ -282,6 +288,9 @@ mod tests {
             kev = true
             fail-on-severity = "high"
             ignore-vuln = ["GHSA-1:not reachable"]
+            source = ["src", "tests"]
+            assume-used = ["pytest-*"]
+            fail-on-phantom = true
             "#,
         );
         let (mut a, m) = args(&[]);
@@ -299,6 +308,9 @@ mod tests {
         assert!(a.kev);
         assert_eq!(a.fail_on_severity, Some(FailOnSeverity::High));
         assert_eq!(a.ignore_vuln, ["GHSA-1:not reachable"]);
+        assert_eq!(a.source, [PathBuf::from("src"), PathBuf::from("tests")]);
+        assert_eq!(a.assume_used, ["pytest-*"]);
+        assert!(a.fail_on_phantom);
         // Untouched settings keep their defaults.
         assert!(!a.license_texts);
         assert!(a.allow_license.is_empty());

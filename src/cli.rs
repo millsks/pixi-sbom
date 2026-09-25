@@ -335,8 +335,8 @@ pub struct Args {
 
     /// Print a report to the terminal instead of writing an SBOM document: `packages` is the
     /// inventory, `licenses` the license view with a summary, `vulnerabilities` the findings
-    /// of --vulnerabilities worst first, `diff` what changed since --against. Nothing is
-    /// written to disk.
+    /// of --vulnerabilities worst first, `diff` what changed since --against, `phantom` the
+    /// imports and declarations that do not line up. Nothing is written to disk.
     #[arg(long, value_enum, value_name = "REPORT", conflicts_with_all = ["output", "spec_version"])]
     pub report: Option<crate::report::ReportKind>,
 
@@ -352,6 +352,22 @@ pub struct Args {
     /// With --report outdated: list only packages at least this far behind.
     #[arg(long, value_enum, value_name = "STEP")]
     pub outdated_only: Option<OutdatedOnly>,
+
+    /// With --report phantom: where the workspace's Python sources are (repeatable). Defaults
+    /// to the directory holding the lockfile.
+    #[arg(long, value_name = "DIR")]
+    pub source: Vec<PathBuf>,
+
+    /// With --report phantom: packages matching these patterns (repeatable) are never
+    /// reported as unused or undeclared. For the ones nothing imports by name: plugins
+    /// (`pytest-*`), stub packages (`types-*`, `*-stubs`), tools run as commands.
+    #[arg(long, value_name = "GLOB")]
+    pub assume_used: Vec<String>,
+
+    /// Exit with code 8 after the report when the workspace imports a package it never
+    /// declared. Requires --report phantom.
+    #[arg(long)]
+    pub fail_on_phantom: bool,
 
     /// With --report diff: the previous document to compare against (CycloneDX, SPDX 2.3 or
     /// SPDX 3.0 JSON, as written by pixi-sbom or another tool).

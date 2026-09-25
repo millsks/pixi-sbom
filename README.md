@@ -63,6 +63,9 @@ pixi sbom --report outdated --outdated-only major
 # Why the next Python is blocked: which packages cap the interpreter
 pixi sbom --report python
 
+# What the code imports but never declared, and what is declared but never imported
+pixi sbom --report phantom
+
 # Fail CI on anything high or critical, except a finding assessed as not affecting you (exit code 4)
 pixi sbom --pypi-mapping prefix --vulnerabilities osv --fail-on-severity high --ignore-vuln "CVE-2023-43804:not reachable"
 
@@ -113,6 +116,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--config` / `--no-config` | auto | Read `[tool.pixi-sbom]` in `pyproject.toml` or `pixi-sbom.toml` next to the lockfile before the command line; keys mirror the flags, the command line wins |
 | `--exclude` / `--include` / `--exclude-kind` | | Leave packages out (shell-style name patterns or a kind); what only they needed goes too, and the root records `pixi:excluded` |
 | `--fail-on-yanked` | off | With `--fetch-licenses`: exit 7 when a PyPI package is a yanked release (PEP 592) |
+| `--fail-on-phantom` | off | With `--report phantom`: exit 8 when the workspace imports a package it never declared |
 | `--fetch-licenses` | off | Licenses for every package, conda and PyPI alike (conda from the local package cache or the channel archive, PyPI from the wheel or the index), plus license file names, summary and URLs |
 | `--license-texts` | off | With `--fetch-licenses`, embed the full license texts |
 | `--allow-license` / `--deny-license` / `--require-license` | | License policy; violations are listed and the run exits 3 after writing the document |
@@ -120,7 +124,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--kev` / `--fail-on-kev` | off | Mark findings in CISA's Known Exploited Vulnerabilities catalog (rated critical, with due dates); optionally exit 4 on them |
 | `--fail-on-severity` / `--ignore-vuln` | | Vulnerability gate: exit 4 on open findings at or above a severity; accepted findings keep a VEX-style `analysis` block |
 | `--embedded-sboms` | off | Attach the components declared by SBOMs embedded in wheels (PEP 770, e.g. Rust crates) under the wheel |
-| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`, plus `sarif` for vulnerabilities); `diff --against <previous>` lists what changed, `outdated` how far behind each package is, `python` what caps the interpreter |
+| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`, plus `sarif` for vulnerabilities); `diff --against <previous>` lists what changed, `outdated` how far behind each package is, `python` what caps the interpreter, `phantom` which imports and declarations do not line up |
 | `--color <auto\|always\|never>` | `auto` | Colour the terminal table (honours `NO_COLOR` / `CLICOLOR_FORCE`); fetches show a progress bar on an interactive terminal |
 | `-v` / `-q` | info | More / less logging on stderr |
 

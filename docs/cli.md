@@ -49,8 +49,11 @@ With no options this means:
 | `--fail-on-kev` | off | With `--kev`: exit **4** after writing the document when any open finding is known exploited, regardless of severity. |
 | `--fail-on-severity <low\|medium\|high\|critical>` | | With `--vulnerabilities`: exit **4** after writing the document when any open finding is at or above the level. Findings of unknown severity never trip it. |
 | `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification), is excluded from `--fail-on-severity` and listed separately in the report. |
-| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
+| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
 | `--outdated-only <patch\|minor\|major>` | | With `--report outdated`: list only packages at least that far behind. |
+| `--source <DIR>` | the lockfile's directory | With `--report phantom`: where the workspace's Python sources are (repeatable). |
+| `--assume-used <GLOB>` | | With `--report phantom`: packages matching this are never reported as unused or undeclared (repeatable). |
+| `--fail-on-phantom` | off | With `--report phantom`: exit **8** when the workspace imports a package it never declared. |
 | `--against <PATH>` | | With `--report diff`: the previous document to compare with (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON). |
 | `--report-format <table\|markdown\|csv\|json\|sarif>` | `table` | How to render the report; `sarif` (2.1.0, for GitHub code scanning) applies to `--report vulnerabilities` only. |
 | `--color <auto\|always\|never>` | `auto` | Colour the `table` report. `auto` colours only when the output is a terminal, honouring `NO_COLOR`, `CLICOLOR_FORCE` and `TERM=dumb`. |
@@ -302,6 +305,46 @@ Bounds are read at `MAJOR.MINOR` granularity, which is the level upgrades happen
 is not a ceiling, since it says nothing about how far up the 3.x series you may go. Most real environments have
 no ceiling at all, which is itself the answer.
 
+## What is imported but never declared
+
+A *phantom dependency* is a package the code imports although nothing declares it: it is in the environment only
+because something else pulled it in, and the day that upstream drops it the import breaks. `--report phantom`
+names them, together with the two inverses that make environments grow without limit.
+
+```sh
+pixi sbom --report phantom
+```
+
+| Finding | Meaning | What to do |
+|---|---|---|
+| `phantom` | Imported by the workspace, declared nowhere, present transitively | Declare it before the transitive path disappears |
+| `undeclared` | In the environment, declared nowhere, and nothing in the environment depends on it | A leftover pin or a manual install; remove it or declare it |
+| `unused` | Declared, and none of the modules it provides is imported | Dead weight — unless it is a plugin or a command (see below) |
+
+Nothing is executed and nothing is downloaded. The declared set comes from the manifest (the same reading that
+marks [`pixi:direct`](output-format.md#pixi-properties)), the installed set from the lockfile or the prefix, and
+the imports from the workspace's own `.py` files: every `import x[.y]` and `from x[.y] import ...`, read line by
+line, skipping comments, docstrings and relative imports. `--source <DIR>` (repeatable) points at the sources when
+they are not in the directory holding the lockfile; `.pixi/`, `site-packages/`, `build/`, `dist/`, `node_modules/`,
+`__pycache__/`, `target/` and hidden directories are never scanned, and a top-level package or module of the
+workspace itself is never a finding. Standard-library imports are excluded from a bundled table.
+
+Which package provides which module is the one fact a lockfile does not contain. When the environment is
+installed — `--prefix`, or pixi's own `.pixi/envs/<environment>` next to the lockfile — it is read from each
+distribution's `dist-info` (`top_level.txt`, else the top of every path in `RECORD`), which is exact. Without one,
+a wheel is assumed to provide the module its name spells (`charset-normalizer` → `charset_normalizer`) and conda
+packages are left out of the mapping entirely, since most of them ship no Python module at all and guessing would
+make every compiler look unused. The summary says which of the two answered.
+
+False positives are inevitable for packages nothing imports by name: pytest plugins, stub packages, tools invoked
+as commands, imports that only happen under `TYPE_CHECKING`. `--assume-used <GLOB>` (repeatable, or `assume-used`
+in the configuration file) keeps them out of the `unused` and `undeclared` lists; `pytest-*`, `types-*` and
+`*-stubs` are the usual ones, and are never applied silently. `--fail-on-phantom` exits **8** when the workspace
+imports something it never declared, and ignores the other two findings.
+
+Every finding is measured against what the manifest declares, so a workspace with no manifest — `--prefix`, or a
+lockfile on its own — produces no findings at all, and the report says so.
+
 ## Looking instead of writing
 
 `--report` prints a report to the terminal and writes nothing:
@@ -348,6 +391,10 @@ Colour is applied to the `table` format only, since the others are data someone 
 Severities are red through blue by level, `open` findings are yellow and `ignored` ones dim, KEV markers red,
 diff rows green (added), red (removed), cyan (version) and magenta (license), licenses that are not SPDX
 expressions yellow, and `-` placeholders dim.
+
+The phantom report has one row per finding (what it is, the package, its kind and version, the modules it
+provides, and the workspace files that import them — at most five, then a count of the rest), followed by the
+three counts and how much source was read.
 
 The python report has one row per PyPI package (package, version, `Requires-Python`, whether the interpreter
 satisfies it, ceiling) and a summary naming the interpreter, the ceiling and the packages holding it.
@@ -471,6 +518,7 @@ pixi sbom --all-environments --all-platforms --output sboms/
 | 3 | The license policy was violated; the documents were written and the violations listed on stderr. |
 | 4 | The vulnerability gate (`--fail-on-severity` / `--fail-on-kev`) failed; the documents were written and the findings listed on stderr. |
 | 7 | `--fail-on-yanked` found a yanked release; the documents were written and the releases listed on stderr. |
+| 8 | `--fail-on-phantom` found an import the manifest never declared; the report was printed and the packages listed on stderr. |
 | 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments` or `--all-platforms`, or a `--spec-version` of the other format, or a `--allow-license` / `--deny-license` value that is not an SPDX identifier). |
 
 Runtime diagnostics carry a stable code you can grep for in CI logs:

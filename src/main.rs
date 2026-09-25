@@ -10,6 +10,7 @@ mod embedded;
 mod filter;
 mod format;
 mod http;
+mod imports;
 mod kev;
 mod license;
 mod lock;
@@ -19,6 +20,7 @@ mod model;
 mod osv;
 mod outdated;
 mod parallel;
+mod phantom;
 mod pkgcache;
 mod policy;
 mod prefix;
@@ -27,6 +29,7 @@ mod purl;
 mod pypi;
 mod pyversion;
 mod report;
+mod stdlib;
 mod style;
 mod vulnpolicy;
 mod wheel;
@@ -124,6 +127,8 @@ fn main() -> Result<()> {
         });
     let mut gate_hits: Vec<(String, String, vulnpolicy::Hit)> = Vec::new();
     let mut yanked: Vec<(String, String, String)> = Vec::new();
+    let mut phantoms: Vec<(String, String, String)> = Vec::new();
+    let assume_used = parse_globs(&args.assume_used, "--assume-used");
     let package_filter = filter::Filter {
         include: parse_globs(&args.include, "--include"),
         exclude: parse_globs(&args.exclude, "--exclude"),
@@ -348,6 +353,36 @@ fn main() -> Result<()> {
             reports.push(report);
             continue;
         }
+        if args.report == Some(report::ReportKind::Phantom) {
+            let roots = if args.source.is_empty() {
+                vec![lockfile.parent().unwrap_or(Path::new(".")).to_path_buf()]
+            } else {
+                args.source.clone()
+            };
+            let scanned = imports::scan(&roots);
+            let environment = phantom::environment_dir(
+                &sbom,
+                lockfile.parent().unwrap_or(Path::new(".")),
+                args.prefix.as_deref(),
+            );
+            let modules = phantom::modules(&sbom, environment.as_deref());
+            let found = phantom::findings(&sbom, &scanned, &modules, &assume_used);
+            tracing::info!(
+                files = scanned.files,
+                modules = scanned.by_module.len(),
+                findings = found.len(),
+                from_environment = modules.from_environment,
+                "checked the workspace's imports against its dependencies"
+            );
+            phantoms.extend(
+                found
+                    .iter()
+                    .filter(|f| f.kind == phantom::Kind::Phantom)
+                    .map(|f| (sbom.environment.clone(), sbom.platform.clone(), f.name.clone())),
+            );
+            reports.push(report::Report::phantom(&sbom, found, &scanned, &modules));
+            continue;
+        }
         if let Some(kind) = args.report {
             reports.push(match (kind, &previous) {
                 (report::ReportKind::Diff, Some((path, previous))) => {
@@ -406,6 +441,18 @@ fn main() -> Result<()> {
         }
         let _ = stderr.flush();
     }
+    if args.fail_on_phantom && !phantoms.is_empty() {
+        let mut stderr = std::io::stderr().lock();
+        let _ = writeln!(stderr, "Imported but never declared: {} package(s):", phantoms.len());
+        for (environment, platform, name) in &phantoms {
+            let _ = if targets.len() > 1 {
+                writeln!(stderr, "  [{environment}/{platform}] {name}")
+            } else {
+                writeln!(stderr, "  {name}")
+            };
+        }
+        let _ = stderr.flush();
+    }
     if !yanked.is_empty() {
         let mut stderr = std::io::stderr().lock();
         let _ = writeln!(stderr, "Yanked release(s) in the environment: {}", yanked.len());
@@ -436,6 +483,9 @@ fn main() -> Result<()> {
     }
     if !yanked.is_empty() {
         std::process::exit(YANKED_EXIT_CODE);
+    }
+    if args.fail_on_phantom && !phantoms.is_empty() {
+        std::process::exit(PHANTOM_EXIT_CODE);
     }
     Ok(())
 }
@@ -483,6 +533,18 @@ fn validate(args: &cli::Args) {
             ArgumentConflict,
             "'--report-format sarif' only applies to '--report vulnerabilities'",
         );
+    }
+    for (set, flag) in [
+        (!args.source.is_empty(), "--source"),
+        (!args.assume_used.is_empty(), "--assume-used"),
+        (args.fail_on_phantom, "--fail-on-phantom"),
+    ] {
+        if set && args.report != Some(report::ReportKind::Phantom) {
+            usage(
+                ArgumentConflict,
+                &format!("'{flag}' only applies to '--report phantom'"),
+            );
+        }
     }
     if args.outdated_only.is_some() && args.report != Some(report::ReportKind::Outdated) {
         usage(
@@ -552,6 +614,9 @@ fn load_pypi_mapping(args: &cli::Args) -> Result<Option<mapping::PypiMapping>> {
 
 /// Exit code when `--fail-on-yanked` finds a yanked release.
 const YANKED_EXIT_CODE: i32 = 7;
+
+/// Exit code for `--fail-on-phantom` when the workspace imports a package it never declared.
+const PHANTOM_EXIT_CODE: i32 = 8;
 
 /// Where the packages come from.
 enum Input {
