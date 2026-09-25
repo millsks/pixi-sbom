@@ -132,6 +132,16 @@ inputs:
     description: Fail the step when the vulnerability gate trips (exit code 4).
     required: false
     default: "true"
+  vex:
+    description: >-
+      Also write a standalone CycloneDX VEX to this path: every finding with its analysis,
+      linked back to the SBOM by BOM-Link. Needs `vulnerabilities`.
+    required: false
+    default: ""
+  vex-open:
+    description: The analysis state the VEX gives findings nobody assessed - `in-triage` or `exploitable`.
+    required: false
+    default: ""
   upload-sarif:
     description: >-
       With vulnerabilities, also write the findings as SARIF and upload them to GitHub code scanning
@@ -307,6 +317,8 @@ runs:
         IN_FAIL_ON_KEV: ${{ inputs.fail-on-kev }}
         IN_IGNORE_VULN: ${{ inputs.ignore-vuln }}
         IN_FAIL_ON_VULNERABILITIES: ${{ inputs.fail-on-vulnerabilities }}
+        IN_VEX: ${{ inputs.vex }}
+        IN_VEX_OPEN: ${{ inputs.vex-open }}
         IN_EXTRA_ARGS: ${{ inputs.extra-args }}
       run: |
         set -uo pipefail
@@ -360,6 +372,8 @@ runs:
         done <<< "$IN_IGNORE_LICENSE"
         [ "$IN_FAIL_ON_YANKED" = "true" ] && args+=(--fail-on-yanked)
         args+=(${vuln[@]+"${vuln[@]}"})
+        [ -n "$IN_VEX" ] && args+=(--vex "$IN_VEX")
+        [ -n "$IN_VEX_OPEN" ] && args+=(--vex-open "$IN_VEX_OPEN")
         [ -n "$IN_FAIL_ON_SEVERITY" ] && args+=(--fail-on-severity "$IN_FAIL_ON_SEVERITY")
         [ "$IN_FAIL_ON_KEV" = "true" ] && args+=(--fail-on-kev)
         for a in $IN_EXTRA_ARGS; do args+=("$a"); done

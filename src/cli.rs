@@ -107,6 +107,26 @@ pub enum OutdatedOnly {
     Major,
 }
 
+/// What a VEX says about a finding nobody has assessed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+pub enum VexOpenState {
+    /// Somebody still has to look at it.
+    #[default]
+    InTriage,
+    /// The product is affected and the finding is actionable.
+    Exploitable,
+}
+
+impl VexOpenState {
+    /// The CycloneDX impact-analysis state.
+    pub fn state(self) -> &'static str {
+        match self {
+            VexOpenState::InTriage => "in_triage",
+            VexOpenState::Exploitable => "exploitable",
+        }
+    }
+}
+
 /// A section of the diff report `--fail-on-diff` can gate on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum DiffSection {
@@ -377,6 +397,16 @@ pub struct Args {
     /// the report. Requires --vulnerabilities.
     #[arg(long, value_name = "ID[:STATE][:TEXT]")]
     pub ignore_vuln: Vec<String>,
+
+    /// Also write a standalone CycloneDX VEX document here: every finding with its analysis,
+    /// linked back to the SBOM this run writes. Needs --vulnerabilities, and a single
+    /// document.
+    #[arg(long, value_name = "PATH")]
+    pub vex: Option<PathBuf>,
+
+    /// The analysis state a VEX gives findings nobody has assessed with --ignore-vuln.
+    #[arg(long, value_enum, value_name = "STATE", default_value_t = VexOpenState::InTriage, requires = "vex")]
+    pub vex_open: VexOpenState,
 
     /// Print a report to the terminal instead of writing an SBOM document: `packages` is the
     /// inventory, `licenses` the license view with a summary, `vulnerabilities` the findings

@@ -531,6 +531,16 @@ fn main() -> Result<()> {
             platform = %sbom.platform,
             "wrote SBOM"
         );
+        if let Some(path) = &args.vex {
+            let value = format::vex_to_value(&sbom, &ctx, args.vex_open.state())?;
+            write_json(path, &value)?;
+            tracing::info!(
+                output = %path.display(),
+                findings = sbom.vulnerabilities.len(),
+                open_state = args.vex_open.state(),
+                "wrote VEX"
+            );
+        }
     }
     if !reports.is_empty() {
         let palette = style::Palette::new(args.color.enabled());
@@ -679,6 +689,27 @@ fn validate(args: &cli::Args) {
                 ArgumentConflict,
                 &format!("'{flag}' only applies to '--report phantom'"),
             );
+        }
+    }
+    if args.vex.is_some() {
+        if args.vulnerabilities.is_none() {
+            usage(
+                MissingRequiredArgument,
+                "'--vex' needs '--vulnerabilities <SOURCE>': there is nothing to assess without findings",
+            );
+        }
+        for (set, flag) in [
+            (args.all_environments, "--all-environments"),
+            (args.all_platforms, "--all-platforms"),
+            (args.scan.is_some(), "--scan"),
+            (args.report.is_some(), "--report"),
+        ] {
+            if set {
+                usage(
+                    ArgumentConflict,
+                    &format!("'--vex' writes one document beside one SBOM and cannot be combined with '{flag}'"),
+                );
+            }
         }
     }
     if args.from_sbom.is_some() {
@@ -933,6 +964,25 @@ fn write_output(
         .wrap_err_with(|| format!("cannot create {}", output.display()))?;
     let mut writer = std::io::BufWriter::new(file);
     format::write(format, sbom, ctx, &mut writer)?;
+    Ok(())
+}
+
+/// Write a JSON document to a path, creating its directory.
+fn write_json(path: &Path, value: &serde_json::Value) -> Result<()> {
+    if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent)
+            .into_diagnostic()
+            .wrap_err_with(|| format!("cannot create output directory {}", parent.display()))?;
+    }
+    let file = std::fs::File::create(path)
+        .into_diagnostic()
+        .wrap_err_with(|| format!("cannot create {}", path.display()))?;
+    let mut writer = std::io::BufWriter::new(file);
+    serde_json::to_writer_pretty(&mut writer, value)
+        .into_diagnostic()
+        .wrap_err_with(|| format!("cannot write {}", path.display()))?;
+    writer.write_all(b"\n").into_diagnostic()?;
+    writer.flush().into_diagnostic()?;
     Ok(())
 }
 

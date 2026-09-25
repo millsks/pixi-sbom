@@ -115,6 +115,16 @@ pub fn write(format: Format, sbom: &Sbom, ctx: &WriteContext, out: &mut dyn Writ
     Ok(())
 }
 
+/// Build the standalone CycloneDX VEX for `sbom`: its findings with an analysis each, linked
+/// back to the document `ctx` identifies.
+pub fn vex_to_value(
+    sbom: &Sbom,
+    ctx: &WriteContext,
+    open_state: &'static str,
+) -> Result<serde_json::Value, WriteError> {
+    Ok(serde_json::to_value(cyclonedx::vex(sbom, ctx, open_state))?)
+}
+
 /// Build the JSON document for `format` without writing it anywhere.
 pub fn to_value(format: Format, sbom: &Sbom, ctx: &WriteContext) -> Result<serde_json::Value, WriteError> {
     let value = match (format, ctx.spec_version) {
