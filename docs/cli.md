@@ -53,6 +53,9 @@ With no options this means:
 | `--vex <PATH>` | | With `--vulnerabilities`: also write a standalone CycloneDX VEX there, linked back to the SBOM. |
 | `--vex-open <in-triage\|exploitable>` | `in-triage` | The analysis state the VEX gives findings nobody assessed with `--ignore-vuln`. |
 | `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
+| `--tree` | off | With `--report packages`: draw the dependency graph from the root downward instead of a flat list. |
+| `--depth <N>` | unlimited | With `--tree`: how deep to go (`0` shows what the root depends on and nothing below). |
+| `--group-by license` | | With `--report licenses`: one section per license instead of one row per package. |
 | `--outdated-only <patch\|minor\|major>` | | With `--report outdated`: list only packages at least that far behind. |
 | `--source <DIR>` | the lockfile's directory | With `--report phantom`: where the workspace's Python sources are (repeatable). |
 | `--assume-used <GLOB>` | | With `--report phantom`: packages matching this are never reported as unused or undeclared (repeatable). |
@@ -416,6 +419,23 @@ pixi sbom --report packages --report-format json | jq '.packages[] | select(.lic
 Reports respect every selection and enrichment flag, so they show exactly what a document would contain; with
 `--all-environments` / `--all-platforms` there is one section (or JSON array element) per document. `--report`
 cannot be combined with `--output`.
+
+`--report packages --tree` draws the graph the document carries instead of a flat list: the packages the root
+depends on, then everything under them, with the license in the last column. A package is expanded once, at its
+first occurrence; every later occurrence is marked `(*)` and not walked again, which keeps the output finite when
+the graph has a cycle and short when a package is needed by half the environment. `--depth <N>` stops the walk
+(`--depth 0` is the direct dependencies alone). The `json` and `csv` forms keep one row per occurrence, with
+`depth`, `parent` and `repeat` on each.
+
+`--report licenses --group-by license` turns the license view around: one section per license expression, most
+common first, listing the packages under it, so "what is under GPL-3.0-only" is one glance instead of a scan down
+a column. Packages that declare no license get their own last section. The rows themselves do not change, so
+`json` and `csv` carry the same fields in that order.
+
+```sh
+pixi sbom --report packages --tree --depth 2
+pixi sbom --report licenses --group-by license --report-format markdown
+```
 
 The `table` format fits the terminal width (`COLUMNS`, default 120, minimum 40) by wrapping cells onto further
 lines, so nothing is ever cut: a narrow terminal costs height instead of content. Columns whose values are short
