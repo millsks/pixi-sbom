@@ -7,10 +7,13 @@ use std::collections::BTreeMap;
 use std::io::{self, Write};
 
 use clap::ValueEnum;
+use comfy_table::Row as TableRow;
+use comfy_table::{Cell, ColumnConstraint, ContentArrangement, LineStyle, Table, TableStyle, Width};
 use serde::Serialize;
 
 use crate::license::{self, License};
 use crate::model::{Package, Sbom, Severity, Vulnerability};
+use crate::style::{Palette, Role};
 
 /// Which report to print.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -243,6 +246,48 @@ impl Report {
         }
     }
 
+    /// The role of each column of this report's rows, so the palette can style the cells that
+    /// carry meaning and leave the rest alone.
+    fn roles(&self) -> Vec<Role> {
+        use Role::{Change, Muted, NonSpdx, Plain, Severity, Status};
+        match self.kind() {
+            // Package, Version, Severity, Score, KEV, ID, Aliases, Fixed, Status, Summary
+            ReportKind::Vulnerabilities => vec![
+                Plain, Plain, Severity, Plain, Status, Plain, Plain, Plain, Status, Plain,
+            ],
+            // Change, Package, Kind, Before, After
+            ReportKind::Diff => vec![Change, Plain, Plain, Plain, Plain],
+            // Name, Version, Kind, License, Family, Source, Files
+            ReportKind::Licenses => vec![Plain, Plain, Plain, NonSpdx, Plain, Plain, Plain],
+            // Name, Version, Kind, Source, License, Purl
+            ReportKind::Packages => vec![Plain, Plain, Plain, Plain, NonSpdx, Muted],
+        }
+    }
+
+    /// Turn a rendered row into styled cells. A `-` placeholder is always muted, and a
+    /// `NonSpdx` column is only coloured when the package's license really is not SPDX.
+    fn paint(&self, row: &[String], palette: &Palette) -> Vec<Cell> {
+        let roles = self.roles();
+        let spdx = |name: &str| {
+            self.packages
+                .iter()
+                .flatten()
+                .find(|r| r.name == name)
+                .is_none_or(|r| r.spdx)
+        };
+        row.iter()
+            .enumerate()
+            .map(|(i, text)| {
+                let role = match roles.get(i).copied().unwrap_or(Role::Plain) {
+                    _ if text == "-" => Role::Muted,
+                    Role::NonSpdx if spdx(&row[0]) => Role::Plain,
+                    role => role,
+                };
+                palette.cell(role, text)
+            })
+            .collect()
+    }
+
     fn cells(&self, row: &Row) -> Vec<String> {
         let dash = || "-".to_string();
         match self.kind() {
@@ -265,6 +310,11 @@ impl Report {
             ],
         }
     }
+}
+
+/// Rows of unstyled cells, for the summary tables that carry no meaning per column.
+fn plain_cells(rows: &[Vec<String>]) -> Vec<Vec<Cell>> {
+    rows.iter().map(|row| row.iter().map(Cell::new).collect()).collect()
 }
 
 /// The diff as rows: additions, removals, version changes, license changes, in that order.
@@ -500,9 +550,10 @@ fn summarize(rows: &[Row]) -> LicenseSummary {
     summary
 }
 
-/// Render `reports` (one per document) in `format` to `out`, fitting tables to the terminal.
-pub fn render(reports: &[Report], format: ReportFormat, out: &mut dyn Write) -> io::Result<()> {
-    render_with_width(reports, format, terminal_width(), out)
+/// Render `reports` (one per document) in `format` to `out`, fitting tables to the terminal
+/// and colouring them when `palette` says so.
+pub fn render(reports: &[Report], format: ReportFormat, palette: Palette, out: &mut dyn Write) -> io::Result<()> {
+    render_with_width(reports, format, terminal_width(), palette, out)
 }
 
 /// [`render`] with an explicit table width instead of the terminal's.
@@ -510,6 +561,7 @@ pub fn render_with_width(
     reports: &[Report],
     format: ReportFormat,
     width: usize,
+    palette: Palette,
     out: &mut dyn Write,
 ) -> io::Result<()> {
     match format {
@@ -523,10 +575,10 @@ pub fn render_with_width(
                     writeln!(out)?;
                 }
                 if reports.len() > 1 || format == ReportFormat::Markdown {
-                    let heading = format!(
+                    let heading = palette.header(&format!(
                         "{} ({}, environment {}, platform {})",
                         report.report, report.workspace, report.environment, report.platform
-                    );
+                    ));
                     match format {
                         ReportFormat::Markdown => writeln!(out, "## {heading}\n")?,
                         _ => writeln!(out, "{heading}\n")?,
@@ -534,15 +586,24 @@ pub fn render_with_width(
                 }
                 let columns = report.columns();
                 let rows = report.rows();
+                // Colour is for the terminal only; markdown is data someone pastes elsewhere.
+                let palette = if format == ReportFormat::Markdown {
+                    Palette::new(false)
+                } else {
+                    palette
+                };
                 match format {
                     ReportFormat::Markdown => render_markdown(&columns, &rows, out)?,
-                    _ => render_table(&columns, &rows, width, out)?,
+                    _ => {
+                        let cells: Vec<Vec<Cell>> = rows.iter().map(|row| report.paint(row, &palette)).collect();
+                        render_table(&columns, cells, width, &palette, out)?;
+                    }
                 }
                 if let Some(summary) = &report.summary {
-                    render_summary(summary, rows.len(), format, out)?;
+                    render_summary(summary, rows.len(), format, &palette, out)?;
                 }
                 if let Some(summary) = &report.vulnerability_summary {
-                    render_vulnerability_summary(summary, format, out)?;
+                    render_vulnerability_summary(summary, format, &palette, out)?;
                 }
                 if let Some(diff) = &report.diff {
                     writeln!(out)?;
@@ -579,54 +640,82 @@ fn terminal_width() -> usize {
         .unwrap_or(DEFAULT_WIDTH)
 }
 
-/// Aligned columns. The last column is truncated with an ellipsis when a line would exceed
-/// `width`; every other column is shown in full.
-fn render_table(columns: &[&str], rows: &[Vec<String>], width: usize, out: &mut dyn Write) -> io::Result<()> {
-    let mut widths: Vec<usize> = columns.iter().map(|c| c.chars().count()).collect();
+/// A table fitted to `width`: columns are sized to their content and the widest ones wrap
+/// rather than truncate, so nothing is silently lost.
+fn render_table(
+    columns: &[&str],
+    rows: Vec<Vec<Cell>>,
+    width: usize,
+    palette: &Palette,
+    out: &mut dyn Write,
+) -> io::Result<()> {
+    // Column-wide dashes under the header and nothing else, which is how these reports have
+    // always looked.
+    let style = TableStyle::new().header_separator(LineStyle::none().fill('-').junction('-'));
+    // Columns whose widest cell is short (versions, severities, ids) are kept at their
+    // content width so the prose columns absorb a narrow terminal instead of identifiers
+    // being broken apart -- but only while the prose columns still have room to live in.
+    const SHORT: u16 = 24;
+    const PROSE_MINIMUM: u16 = 12;
+    let widest_of = |i: usize| -> u16 {
+        rows.iter()
+            .filter_map(|row| row.get(i))
+            .map(|cell| cell.content().chars().count())
+            .chain(std::iter::once(columns[i].chars().count()))
+            .max()
+            .unwrap_or(0) as u16
+    };
+    let mut short_column_widths: BTreeMap<usize, u16> = (0..columns.len())
+        .map(|i| (i, widest_of(i)))
+        .filter(|(_, widest)| *widest <= SHORT)
+        .collect();
+    let short_total: u16 = short_column_widths.values().map(|w| w + 1).sum();
+    let prose_columns = (columns.len() - short_column_widths.len()) as u16;
+    if short_total + prose_columns * PROSE_MINIMUM > width.min(u16::MAX as usize) as u16 {
+        short_column_widths.clear();
+    }
+
+    let mut table = Table::new();
+    table
+        .load_style(style)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        // Narrower than 40 columns is not a terminal anyone reads a table in; the reports
+        // have always assumed at least that much (see `terminal_width`).
+        .set_width(width.clamp(40, u16::MAX as usize) as u16)
+        .set_header(TableRow::from(
+            columns
+                .iter()
+                .map(|c| palette.cell(Role::Header, c))
+                .collect::<Vec<_>>(),
+        ));
+    // comfy-table decides styling from the stream it thinks it writes to; we decide.
+    if palette.is_enabled() {
+        table.enforce_styling();
+    } else {
+        table.force_no_tty();
+    }
     for row in rows {
-        for (i, cell) in row.iter().enumerate() {
-            widths[i] = widths[i].max(cell.chars().count());
+        table.add_row(TableRow::from(row));
+    }
+    // Two spaces between columns and none at the line's start, as the reports have always
+    // looked; comfy-table's default padding would indent every line by one.
+    let last = columns.len().saturating_sub(1);
+    for (i, column) in table.column_iter_mut().enumerate() {
+        // comfy-table keeps one space between columns for the separator, so one of padding
+        // gives the two-space gap these reports have always had.
+        column.set_padding(if i == last { (0, 0) } else { (0, 1) });
+        // Short columns (versions, severities, ids) keep their content width so the prose
+        // columns absorb the squeeze instead of identifiers being broken apart. The boundary
+        // counts the padding, hence the extra column for the separator.
+        if let Some(needed) = short_column_widths.get(&i) {
+            let padding = u16::from(i != last);
+            column.set_constraint(ColumnConstraint::LowerBoundary(Width::Fixed(needed + padding)));
         }
     }
-    let last = columns.len() - 1;
-    let fixed: usize = widths[..last].iter().sum::<usize>() + 2 * last;
-    let last_width = widths[last].min(width.saturating_sub(fixed).max(8));
-    let line = |cells: &[String]| -> String {
-        let mut text = String::new();
-        for (i, cell) in cells.iter().enumerate() {
-            if i > 0 {
-                text.push_str("  ");
-            }
-            if i == last {
-                text.push_str(&truncate(cell, last_width));
-            } else {
-                text.push_str(cell);
-                text.extend(std::iter::repeat_n(' ', widths[i] - cell.chars().count()));
-            }
-        }
-        text.trim_end().to_string()
-    };
-    let header: Vec<String> = columns.iter().map(|c| c.to_string()).collect();
-    writeln!(out, "{}", line(&header))?;
-    let rule: Vec<String> = widths
-        .iter()
-        .enumerate()
-        .map(|(i, w)| "-".repeat(if i == last { last_width } else { *w }))
-        .collect();
-    writeln!(out, "{}", line(&rule))?;
-    for row in rows {
-        writeln!(out, "{}", line(row))?;
+    for line in table.to_string().lines() {
+        writeln!(out, "{}", line.trim_end())?;
     }
     Ok(())
-}
-
-fn truncate(text: &str, width: usize) -> String {
-    if text.chars().count() <= width {
-        return text.to_string();
-    }
-    let mut short: String = text.chars().take(width.saturating_sub(1)).collect();
-    short.push('…');
-    short
 }
 
 fn render_markdown(columns: &[&str], rows: &[Vec<String>], out: &mut dyn Write) -> io::Result<()> {
@@ -643,12 +732,18 @@ fn render_markdown(columns: &[&str], rows: &[Vec<String>], out: &mut dyn Write) 
     Ok(())
 }
 
-fn render_summary(summary: &LicenseSummary, total: usize, format: ReportFormat, out: &mut dyn Write) -> io::Result<()> {
+fn render_summary(
+    summary: &LicenseSummary,
+    total: usize,
+    format: ReportFormat,
+    palette: &Palette,
+    out: &mut dyn Write,
+) -> io::Result<()> {
     writeln!(out)?;
-    let heading = format!(
+    let heading = palette.header(&format!(
         "Summary: {total} packages, {} distinct licenses",
         summary.by_license.len()
-    );
+    ));
     match format {
         ReportFormat::Markdown => writeln!(out, "### {heading}\n")?,
         _ => writeln!(out, "{heading}")?,
@@ -660,7 +755,7 @@ fn render_summary(summary: &LicenseSummary, total: usize, format: ReportFormat, 
         .collect();
     match format {
         ReportFormat::Markdown => render_markdown(&["License", "Packages"], &rows, out)?,
-        _ => render_table(&["License", "Packages"], &rows, usize::MAX, out)?,
+        _ => render_table(&["License", "Packages"], plain_cells(&rows), usize::MAX, palette, out)?,
     }
     let list = |label: &str, names: &[String]| -> String {
         if names.is_empty() {
@@ -670,48 +765,68 @@ fn render_summary(summary: &LicenseSummary, total: usize, format: ReportFormat, 
         }
     };
     writeln!(out)?;
-    writeln!(out, "{}", list("No license", &summary.unlicensed))?;
-    writeln!(out, "{}", list("Not an SPDX expression", &summary.non_spdx))?;
+    let muted = |line: String| {
+        if line.ends_with(": none") {
+            palette.dim(&line)
+        } else {
+            line
+        }
+    };
+    writeln!(out, "{}", muted(list("No license", &summary.unlicensed)))?;
+    writeln!(out, "{}", muted(list("Not an SPDX expression", &summary.non_spdx)))?;
     Ok(())
 }
 
 fn render_vulnerability_summary(
     summary: &VulnerabilitySummary,
     format: ReportFormat,
+    palette: &Palette,
     out: &mut dyn Write,
 ) -> io::Result<()> {
     writeln!(out)?;
     let heading = if !summary.ignored.is_empty() {
-        format!(
+        palette.header(&format!(
             "Summary: {} open findings in {} packages, {} ignored",
             summary.findings,
             summary.affected_packages,
             summary.ignored.len()
-        )
+        ))
     } else {
-        format!(
+        palette.header(&format!(
             "Summary: {} findings in {} packages",
             summary.findings, summary.affected_packages
-        )
+        ))
     };
     match format {
         ReportFormat::Markdown => writeln!(out, "### {heading}\n")?,
         _ => writeln!(out, "{heading}")?,
     }
     if !summary.by_severity.is_empty() {
-        let rows: Vec<Vec<String>> = summary
+        let plain: Vec<Vec<String>> = summary
             .by_severity
             .iter()
             .map(|(severity, count)| vec![severity.clone(), count.to_string()])
             .collect();
+        let rows: Vec<Vec<Cell>> = summary
+            .by_severity
+            .iter()
+            .map(|(severity, count)| vec![palette.cell(Role::Severity, severity), Cell::new(count.to_string())])
+            .collect();
         match format {
-            ReportFormat::Markdown => render_markdown(&["Severity", "Findings"], &rows, out)?,
-            _ => render_table(&["Severity", "Findings"], &rows, usize::MAX, out)?,
+            ReportFormat::Markdown => render_markdown(&["Severity", "Findings"], &plain, out)?,
+            _ => render_table(&["Severity", "Findings"], rows, usize::MAX, palette, out)?,
         }
     }
     writeln!(out)?;
     if !summary.known_exploited.is_empty() {
-        writeln!(out, "Known exploited (CISA KEV) ({}):", summary.known_exploited.len())?;
+        writeln!(
+            out,
+            "{}",
+            palette.severity(&format!(
+                "Known exploited (CISA KEV) ({}):",
+                summary.known_exploited.len()
+            ))
+        )?;
         for line in &summary.known_exploited {
             writeln!(out, "  {line}")?;
         }
@@ -723,7 +838,7 @@ fn render_vulnerability_summary(
         }
     }
     if summary.without_identity.is_empty() {
-        writeln!(out, "No queryable identity: none")?;
+        writeln!(out, "{}", palette.dim("No queryable identity: none"))?;
     } else {
         writeln!(
             out,
@@ -1031,7 +1146,7 @@ mod tests {
     fn render_string(kind: ReportKind, format: ReportFormat, sboms: &[Sbom]) -> String {
         let reports: Vec<Report> = sboms.iter().map(|s| Report::new(kind, s)).collect();
         let mut out = Vec::new();
-        render_with_width(&reports, format, DEFAULT_WIDTH, &mut out).unwrap();
+        render_with_width(&reports, format, DEFAULT_WIDTH, Palette::new(false), &mut out).unwrap();
         String::from_utf8(out).unwrap()
     }
 
@@ -1143,16 +1258,65 @@ mod tests {
     }
 
     #[test]
-    fn table_truncates_only_the_last_column() {
+    fn a_wide_cell_wraps_within_the_width_instead_of_being_truncated() {
         let mut out = Vec::new();
-        render_table(&["A", "B"], &[vec!["short".into(), "x".repeat(50)]], 30, &mut out).unwrap();
+        let wide = "word ".repeat(12);
+        render_table(
+            &["A", "B"],
+            plain_cells(&[vec!["short".into(), wide.trim().into()]]),
+            40,
+            &Palette::new(false),
+            &mut out,
+        )
+        .unwrap();
         let text = String::from_utf8(out).unwrap();
-        let data = text.lines().nth(2).unwrap();
-        assert!(data.starts_with("short  "));
-        assert!(data.ends_with('…'));
-        assert!(data.chars().count() <= 30, "{data:?}");
-        assert_eq!(truncate("abc", 3), "abc");
-        assert_eq!(truncate("abcd", 3), "ab…");
+        assert!(
+            text.lines().all(|l| l.chars().count() <= 40),
+            "every line fits: {text:?}"
+        );
+        // Nothing is lost: every word of the wide cell is still there.
+        let words = text.matches("word").count();
+        assert_eq!(words, 12, "{text:?}");
+        // The header still has a rule under it, spanning the columns.
+        let mut lines = text.lines();
+        assert!(lines.next().unwrap().contains('A'));
+        let rule = lines.next().unwrap();
+        assert!(
+            rule.starts_with('-') && rule.chars().all(|c| c == '-' || c == ' '),
+            "{rule:?}"
+        );
+    }
+
+    #[test]
+    fn colour_paints_only_the_table_format_and_only_meaningful_cells() {
+        let reports = [Report::new(ReportKind::Vulnerabilities, &vulnerable_sbom())];
+        let paint = |format| {
+            let mut out = Vec::new();
+            render_with_width(&reports, format, 200, Palette::new(true), &mut out).unwrap();
+            String::from_utf8(out).unwrap()
+        };
+        let table = paint(ReportFormat::Table);
+        assert!(table.contains('\u{1b}'), "the table is coloured");
+        // The severity and status words are styled; the package name and version are not.
+        let line = table.lines().find(|l| l.contains("GHSA-q2q7-5pp4-w6pg")).unwrap();
+        assert!(line.starts_with("six      1.17.0"), "{line:?}");
+        for word in ["high", "open"] {
+            let at = line.find(word).unwrap();
+            assert!(line[..at].ends_with('m'), "{word} is styled: {line:?}");
+        }
+        // The text itself survives the styling, which is what makes the widths right.
+        assert!(line.contains("Catastrophic backtracking"), "{line:?}");
+        assert!(
+            !paint(ReportFormat::Markdown).contains('\u{1b}'),
+            "markdown stays plain"
+        );
+        assert!(!paint(ReportFormat::Csv).contains('\u{1b}'));
+        assert!(!paint(ReportFormat::Json).contains('\u{1b}'));
+        assert!(!paint(ReportFormat::Sarif).contains('\u{1b}'));
+        // A plain palette leaves the table free of escapes, which is what the snapshots pin.
+        let mut out = Vec::new();
+        render_with_width(&reports, ReportFormat::Table, 200, Palette::new(false), &mut out).unwrap();
+        assert!(!String::from_utf8(out).unwrap().contains('\u{1b}'));
     }
 
     #[test]
@@ -1171,7 +1335,7 @@ mod tests {
         // render() itself uses the terminal width: with a huge COLUMNS nothing is truncated.
         let reports = [Report::new(ReportKind::Packages, &sample_sbom())];
         let mut out = Vec::new();
-        render_with_width(&reports, ReportFormat::Table, usize::MAX, &mut out).unwrap();
+        render_with_width(&reports, ReportFormat::Table, usize::MAX, Palette::new(false), &mut out).unwrap();
         assert!(!String::from_utf8(out).unwrap().contains('…'));
     }
 
@@ -1437,21 +1601,42 @@ mod tests {
     #[test]
     fn diff_table_snapshot() {
         let mut out = Vec::new();
-        render_with_width(&[diffed()], ReportFormat::Table, DEFAULT_WIDTH, &mut out).unwrap();
+        render_with_width(
+            &[diffed()],
+            ReportFormat::Table,
+            DEFAULT_WIDTH,
+            Palette::new(false),
+            &mut out,
+        )
+        .unwrap();
         insta::assert_snapshot!(String::from_utf8(out).unwrap());
     }
 
     #[test]
     fn diff_markdown_snapshot() {
         let mut out = Vec::new();
-        render_with_width(&[diffed()], ReportFormat::Markdown, DEFAULT_WIDTH, &mut out).unwrap();
+        render_with_width(
+            &[diffed()],
+            ReportFormat::Markdown,
+            DEFAULT_WIDTH,
+            Palette::new(false),
+            &mut out,
+        )
+        .unwrap();
         insta::assert_snapshot!(String::from_utf8(out).unwrap());
     }
 
     #[test]
     fn diff_csv_and_json() {
         let mut out = Vec::new();
-        render_with_width(&[diffed()], ReportFormat::Csv, DEFAULT_WIDTH, &mut out).unwrap();
+        render_with_width(
+            &[diffed()],
+            ReportFormat::Csv,
+            DEFAULT_WIDTH,
+            Palette::new(false),
+            &mut out,
+        )
+        .unwrap();
         let csv = String::from_utf8(out).unwrap();
         assert!(csv.starts_with("environment,platform,change,package,kind,before,after\n"));
         assert!(csv.contains("default,linux-64,version,zlib,conda,1.3.1,1.3.2\n"));
@@ -1459,7 +1644,14 @@ mod tests {
         assert_eq!(csv.lines().count(), 5);
 
         let mut out = Vec::new();
-        render_with_width(&[diffed()], ReportFormat::Json, DEFAULT_WIDTH, &mut out).unwrap();
+        render_with_width(
+            &[diffed()],
+            ReportFormat::Json,
+            DEFAULT_WIDTH,
+            Palette::new(false),
+            &mut out,
+        )
+        .unwrap();
         let value: serde_json::Value = serde_json::from_slice(&out).unwrap();
         assert_eq!(value["report"], "diff");
         assert_eq!(value["against"], "old.cdx.json");
@@ -1479,7 +1671,14 @@ mod tests {
             ..Default::default()
         });
         let mut out = Vec::new();
-        render_with_width(&[same], ReportFormat::Table, DEFAULT_WIDTH, &mut out).unwrap();
+        render_with_width(
+            &[same],
+            ReportFormat::Table,
+            DEFAULT_WIDTH,
+            Palette::new(false),
+            &mut out,
+        )
+        .unwrap();
         let text = String::from_utf8(out).unwrap();
         assert!(
             text.contains("No changes against old.cdx.json (CycloneDX 1.6); 4 packages unchanged"),

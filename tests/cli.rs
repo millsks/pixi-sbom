@@ -1625,6 +1625,98 @@ fn kev_marks_known_exploited_findings_and_gates_on_them() {
 }
 
 #[test]
+fn color_follows_the_flag_and_the_environment() {
+    let dir = workspace_with_vulnerable_urllib3();
+    let run = |args: &[&str], env: &[(&str, &str)]| {
+        let mut cmd = pixi_sbom();
+        cmd.current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "200")
+            .env_remove("NO_COLOR")
+            .env_remove("CLICOLOR_FORCE")
+            .args(["-e", "web", "-p", "linux-64", "--vulnerabilities", "osv"])
+            .args(["--report", "vulnerabilities"])
+            .args(args);
+        for (key, value) in env {
+            cmd.env(key, value);
+        }
+        String::from_utf8(cmd.assert().success().get_output().stdout.clone()).unwrap()
+    };
+    // The test harness is not a terminal, so `auto` produces no escapes.
+    let plain = run(&[], &[]);
+    assert!(!plain.contains('\u{1b}'), "auto on a pipe stays plain");
+    assert!(plain.contains("urllib3"));
+
+    let coloured = run(&["--color", "always"], &[]);
+    assert!(coloured.contains('\u{1b}'), "always colours even on a pipe");
+    // The same rows, with styling around the words rather than inside them.
+    assert!(coloured.contains("urllib3"));
+    assert!(coloured.contains("Catastrophic backtracking"));
+    assert!(!run(&["--color", "never"], &[("CLICOLOR_FORCE", "1")]).contains('\u{1b}'));
+    assert!(run(&["--color", "auto"], &[("CLICOLOR_FORCE", "1")]).contains('\u{1b}'));
+    assert!(
+        !run(&["--color", "auto"], &[("CLICOLOR_FORCE", "1"), ("NO_COLOR", "1")]).contains('\u{1b}'),
+        "NO_COLOR wins"
+    );
+    // Only the table format is ever coloured.
+    for format in ["markdown", "csv", "json", "sarif"] {
+        let text = run(&["--color", "always", "--report-format", format], &[]);
+        assert!(!text.contains('\u{1b}'), "{format} stays plain");
+    }
+}
+
+#[test]
+fn wide_cells_wrap_instead_of_being_truncated() {
+    let dir = workspace_with_vulnerable_urllib3();
+    let run = |columns: &str| {
+        String::from_utf8(
+            pixi_sbom()
+                .current_dir(dir.path())
+                .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+                .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+                .env("PIXI_SBOM_OFFLINE", "1")
+                .env("COLUMNS", columns)
+                .args(["-e", "web", "-p", "linux-64", "--vulnerabilities", "osv"])
+                .args(["--report", "vulnerabilities"])
+                .assert()
+                .success()
+                .get_output()
+                .stdout
+                .clone(),
+        )
+        .unwrap()
+    };
+    let narrow = run("80");
+    // The table wraps to the width; the summary lines below it are prose and are not wrapped.
+    let table: Vec<&str> = narrow.lines().take_while(|l| !l.is_empty()).collect();
+    assert!(
+        table.iter().all(|l| l.chars().count() <= 80),
+        "every table line fits 80 columns: {table:#?}"
+    );
+    // Nothing is cut: cells wrap onto further lines instead of ending in an ellipsis, so a
+    // narrow terminal costs height rather than content.
+    assert!(!narrow.contains('…'), "{table:#?}");
+    assert!(table.len() > 4, "the rows wrapped onto extra lines: {table:#?}");
+
+    // Given the room, every cell is on one line and nothing is wrapped at all.
+    let wide = run("200");
+    let table: Vec<&str> = wide.lines().take_while(|l| !l.is_empty()).collect();
+    assert!(table.iter().all(|l| l.chars().count() <= 200));
+    // Identifiers are never broken up when there is room for them.
+    for id in ["GHSA-2xpw-w6gg-jr37", "GHSA-q2q7-5pp4-w6pg", "GHSA-v845-jxx5-vc9f"] {
+        assert!(table.iter().any(|l| l.contains(id)), "{id} intact: {table:#?}");
+    }
+    assert!(
+        table
+            .iter()
+            .any(|l| l.contains("urllib3  1.26.4") && l.contains("Catastrophic backtracking in URL authority parser")),
+        "{table:#?}"
+    );
+}
+
+#[test]
 fn vulnerabilities_without_a_cache_fail_offline_only_when_the_query_is_missing() {
     // The clean fixture pins have cached "no findings" answers; nothing is looked up.
     let dir = workspace_with_vulnerable_urllib3();

@@ -51,6 +51,7 @@ With no options this means:
 | `--report <packages\|licenses\|vulnerabilities\|diff>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
 | `--against <PATH>` | | With `--report diff`: the previous document to compare with (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON). |
 | `--report-format <table\|markdown\|csv\|json\|sarif>` | `table` | How to render the report; `sarif` (2.1.0, for GitHub code scanning) applies to `--report vulnerabilities` only. |
+| `--color <auto\|always\|never>` | `auto` | Colour the `table` report. `auto` colours only when the output is a terminal, honouring `NO_COLOR`, `CLICOLOR_FORCE` and `TERM=dumb`. |
 | `--pypi-licenses` | | Deprecated alias for `--fetch-licenses` (hidden from `--help`; removed in a future release). |
 | `-v`, `-vv` | info | Raise the log level to debug / trace. Logs go to stderr; the SBOM never goes to stdout. |
 | `-q`, `-qq`, `-qqq` | info | Lower it to warnings only / errors only / silent. Error diagnostics are printed regardless. |
@@ -261,8 +262,19 @@ pixi sbom --report packages --report-format json | jq '.packages[] | select(.lic
 
 Reports respect every selection and enrichment flag, so they show exactly what a document would contain; with
 `--all-environments` / `--all-platforms` there is one section (or JSON array element) per document. `--report`
-cannot be combined with `--output`. The `table` format fits the terminal width (`COLUMNS`, default 120) by
-truncating the last column; the other formats are never truncated.
+cannot be combined with `--output`.
+
+The `table` format fits the terminal width (`COLUMNS`, default 120, minimum 40) by wrapping cells onto further
+lines, so nothing is ever cut: a narrow terminal costs height instead of content. Columns whose values are short
+(versions, severities, identifiers) keep their full width while there is room, so the prose columns absorb the
+squeeze and an advisory id is never broken in half. Markdown, CSV, JSON and SARIF are never wrapped or truncated.
+
+Colour is applied to the `table` format only, since the others are data someone pastes or parses elsewhere.
+`--color auto` (the default) colours when the output is a terminal and the environment allows it: a non-empty
+`NO_COLOR` turns it off, `CLICOLOR_FORCE` turns it on even through a pipe, and `TERM=dumb` turns it off.
+Severities are red through blue by level, `open` findings are yellow and `ignored` ones dim, KEV markers red,
+diff rows green (added), red (removed), cyan (version) and magenta (license), licenses that are not SPDX
+expressions yellow, and `-` placeholders dim.
 
 The vulnerabilities report has one row per finding and affected package (package, version, severity, the highest
 CVSS score, KEV, id, aliases, fixed version, status, summary; the CSV and JSON forms add the purl, the OSV URL, the
