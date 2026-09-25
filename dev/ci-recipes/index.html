@@ -491,6 +491,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#does-the-image-still-match-the-lockfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does the image still match the lockfile?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#diffing-sboms-between-commits" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -787,6 +798,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#does-the-image-still-match-the-lockfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does the image still match the lockfile?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#diffing-sboms-between-commits" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -892,11 +914,22 @@ the comparison in the job summary:</p>
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="nt">diff-against</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">previous/sbom-default.cdx.json</span>
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="nt">fail-on-diff</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">removed version</span><span class="w">    </span><span class="c1"># adding a package is fine; losing or bumping one is not</span>
 </code></pre></div>
+<h2 id="does-the-image-still-match-the-lockfile">Does the image still match the lockfile?<a class="headerlink" href="#does-the-image-still-match-the-lockfile" title="Permanent link">&para;</a></h2>
+<p>The check for a container built earlier, or one whose base image was rebuilt: compare what is installed with what
+was locked. <code>pip</code> installs into the conda environment and packages rebuilt at the same version are sections of
+their own, so they are not lost among ordinary additions.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Drift check</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="no">pixi sbom --prefix /opt/conda/envs/app --against pixi.lock       --report diff --report-format markdown --fail-on-diff &gt;&gt; "$GITHUB_STEP_SUMMARY"</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Locally, against a running container</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">:/w"</span><span class="w"> </span>-w<span class="w"> </span>/w<span class="w"> </span>myimage<span class="w">   </span>pixi-sbom<span class="w"> </span>--prefix<span class="w"> </span>/opt/conda/envs/app<span class="w"> </span>--against<span class="w"> </span>pixi.lock<span class="w"> </span>--report<span class="w"> </span>diff<span class="w"> </span>--fail-on-diff<span class="w"> </span>pip<span class="w"> </span>build
+</code></pre></div>
 <h2 id="diffing-sboms-between-commits">Diffing SBOMs between commits<a class="headerlink" href="#diffing-sboms-between-commits" title="Permanent link">&para;</a></h2>
 <p>With <code>SOURCE_DATE_EPOCH</code> set, two runs over the same lockfile are byte-identical (the serial number is derived from
 the lockfile contents and the timestamp is pinned), so a plain <code>diff</code> shows exactly which packages changed:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">SOURCE_DATE_EPOCH</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>sbom.cdx.json
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>git<span class="w"> </span>diff<span class="w"> </span>--no-index<span class="w"> </span>--<span class="w"> </span>sbom-previous.cdx.json<span class="w"> </span>sbom.cdx.json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">SOURCE_DATE_EPOCH</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>sbom.cdx.json
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>git<span class="w"> </span>diff<span class="w"> </span>--no-index<span class="w"> </span>--<span class="w"> </span>sbom-previous.cdx.json<span class="w"> </span>sbom.cdx.json
 </code></pre></div>
 <p>See <a href="../output-format/#reproducibility">reproducibility</a> for what the guarantee covers.</p>
 <h2 id="air-gapped-runners">Air-gapped runners<a class="headerlink" href="#air-gapped-runners" title="Permanent link">&para;</a></h2>

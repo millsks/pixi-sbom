@@ -1030,8 +1030,8 @@ once no matter how many output formats exist.</p>
 </tr>
 <tr>
 <td><code>diff.rs</code></td>
-<td><code>--report diff --against</code>: reads a previous CycloneDX / SPDX 2.x document through <code>embedded::parse</code> or an SPDX 3.0.1 graph directly, reduces both sides to (purl type, normalized name, version, normalized license) and lists added, removed, version- and license-changed packages.</td>
-<td>embedded.rs, license.rs</td>
+<td><code>--report diff --against</code>: resolves the other side — a CycloneDX / SPDX 2.x document through <code>embedded::parse</code>, an SPDX 3.0.1 graph directly, a <code>pixi.lock</code>, or an installed environment — reduces both sides to (purl type, normalized name, version, normalized license, build string, installer) and lists added, removed, version-, license- and build-changed packages, what pip installed, and the <code>--fail-on-diff</code> gate.</td>
+<td>embedded.rs, license.rs, lock.rs, prefix.rs</td>
 </tr>
 <tr>
 <td><code>policy.rs</code></td>
