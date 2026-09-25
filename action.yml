@@ -18,6 +18,12 @@ inputs:
     description: Path to pixi.lock. Defaults to searching upward from the working directory.
     required: false
     default: ""
+  scan:
+    description: >-
+      Describe every pixi workspace under this directory: one document per `pixi.lock` found,
+      written under `output` at the same relative path. Cannot be combined with `lockfile`.
+    required: false
+    default: ""
   config:
     description: >-
       Configuration file to read before the inputs (`[tool.pixi-sbom]` in pyproject.toml or
@@ -269,6 +275,7 @@ runs:
       shell: bash
       env:
         IN_LOCKFILE: ${{ inputs.lockfile }}
+        IN_SCAN: ${{ inputs.scan }}
         IN_CONFIG: ${{ inputs.config }}
         IN_FORMAT: ${{ inputs.format }}
         IN_SPEC_VERSION: ${{ inputs.spec-version }}
@@ -307,6 +314,7 @@ runs:
         printf '%s\n' ${vuln[@]+"${vuln[@]}"} > "$RUNNER_TEMP/pixi-sbom-vuln-args"
         args=()
         [ -n "$IN_LOCKFILE" ] && args+=(--lockfile "$IN_LOCKFILE")
+        [ -n "$IN_SCAN" ] && args+=(--scan "$IN_SCAN")
         # `format` is always passed (the output file is named after it) and so wins over the
         # configuration file; the other inputs are passed only when set.
         case "$IN_CONFIG" in
@@ -322,7 +330,7 @@ runs:
         [ "$IN_ALL_PLATFORMS" = "true" ] && args+=(--all-platforms)
         # A single document goes into the output directory under the default file name.
         document=""
-        if [ "$IN_ALL_ENVIRONMENTS" = "true" ] || [ "$IN_ALL_PLATFORMS" = "true" ]; then
+        if [ -n "$IN_SCAN" ] || [ "$IN_ALL_ENVIRONMENTS" = "true" ] || [ "$IN_ALL_PLATFORMS" = "true" ]; then
           args+=(--output "$IN_OUTPUT")
         else
           case "$IN_OUTPUT" in
@@ -430,6 +438,7 @@ runs:
       shell: bash
       env:
         IN_LOCKFILE: ${{ inputs.lockfile }}
+        IN_SCAN: ${{ inputs.scan }}
         IN_CONFIG: ${{ inputs.config }}
         IN_ENVIRONMENT: ${{ inputs.environment }}
         IN_ALL_ENVIRONMENTS: ${{ inputs.all-environments }}
@@ -441,6 +450,7 @@ runs:
         set -uo pipefail
         args=(--report vulnerabilities --report-format sarif)
         [ -n "$IN_LOCKFILE" ] && args+=(--lockfile "$IN_LOCKFILE")
+        [ -n "$IN_SCAN" ] && args+=(--scan "$IN_SCAN")
         case "$IN_CONFIG" in
           "") ;;
           none) args+=(--no-config) ;;

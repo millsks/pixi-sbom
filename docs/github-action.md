@@ -23,6 +23,7 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 |---|---|---|
 | `version` | the action's own tag, else the latest release | pixi-sbom version to run |
 | `lockfile`, `format`, `spec-version`, `environment`, `platform`, `all-environments`, `all-platforms` | as the CLI | Selection and format, see the options above |
+| `scan` | | Describe every pixi workspace under this directory instead of one lockfile; the documents land under `output` at the same relative path, so a monorepo job uploads one artifact holding all of them |
 | `config` | | Configuration file; the `pyproject.toml` table or `pixi-sbom.toml` next to the lockfile are read by default, `none` reads nothing. `format` is always passed and wins over the file; the other inputs are passed only when set |
 | `output` | `sboms` | Output file (`*.json`, or `-` for the log) or directory; a single document lands in the directory as `sbom.cdx.json` / `sbom.spdx.json` |
 | `fetch-licenses`, `license-texts`, `embedded-sboms`, `pypi-mapping`, `primary-purl` | as the CLI | Enrichment |

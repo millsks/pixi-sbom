@@ -54,6 +54,8 @@ With no options this means:
 | `--source <DIR>` | the lockfile's directory | With `--report phantom`: where the workspace's Python sources are (repeatable). |
 | `--assume-used <GLOB>` | | With `--report phantom`: packages matching this are never reported as unused or undeclared (repeatable). |
 | `--fail-on-phantom` | off | With `--report phantom`: exit **8** when the workspace imports a package it never declared. |
+| `--scan <DIR>` | | Describe every pixi workspace under the directory: one document per `pixi.lock` found. Cannot be combined with `--lockfile`, `--prefix`, `--against` or `--output -`. |
+| `--scan-depth <N>` | unlimited | With `--scan`: how far below the directory to walk (`0` is the directory itself). |
 | `--against <PATH>` | | With `--report diff`: what to compare with — a document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON), a `pixi.lock`, or the directory of an installed environment. |
 | `--fail-on-diff [<SECTION>...]` | off | With `--report diff`: exit **6** when the named sections (`added`, `removed`, `version`, `license`, `build`, `pip`) are not empty. The bare flag means any change. |
 | `--report-format <table\|markdown\|csv\|json\|sarif>` | `table` | How to render the report; `sarif` (2.1.0, for GitHub code scanning) applies to `--report vulnerabilities` only. |
@@ -461,6 +463,36 @@ With `--prefix` the document is named after the environment's directory, which s
 `--environment` (default `default`) names the side to compare with. The comparison also works the other way round —
 a lockfile run with `--against <prefix directory>` — and between two lockfiles, where `--against pixi.lock` on the
 workspace's own lockfile is the "nothing has changed" baseline.
+
+## A monorepo: every workspace in one run
+
+A pixi workspace has exactly one lockfile next to its manifest, so several lockfiles in a tree mean several
+workspaces. `--scan <DIR>` describes them all in one run, in sorted order, instead of a shell loop that everyone
+writes slightly differently:
+
+```sh
+# One document per workspace, mirroring the tree under sboms/
+pixi sbom --scan . --output sboms
+
+# With everything else the tool does, across all of them at once
+pixi sbom --scan . --report licenses --deny-license GPL-3.0-only
+pixi sbom --scan . --pypi-mapping prefix --vulnerabilities osv --fail-on-severity high
+```
+
+The walk never enters hidden directories (`.pixi/`, `.git/`, `.venv/`), `node_modules`, `target`, `build`, `dist`,
+`venv` or `__pycache__`, and does not follow symlinked directories, so an installed environment's copy of a
+lockfile is never mistaken for a workspace. `--scan-depth <N>` caps the recursion. Finding nothing is an error
+(`pixi_sbom::discover::none_found`) naming the directory, so a mistyped path cannot quietly produce no documents.
+
+With `--output <DIR>` each document lands at `<DIR>/<the workspace's path in the tree>/<the usual file name>`, so
+two workspaces never collide; without it each lands next to its own lockfile. `--all-environments` and
+`--all-platforms` combine with it and keep their file naming inside each workspace's directory. Every document is
+byte-identical to what `--lockfile <that file>` would have written: the workspace name still comes from that
+workspace's manifest, `pixi:lockfile` stays relative to its own root, and the document identity is unchanged.
+
+Reports, the license policy and the vulnerability gate cover the whole run: one report with a section per
+workspace (the `workspace` column names it), and one exit code for all of them. The configuration file is read
+once, from the scanned directory rather than from each workspace, so one setting applies to the whole tree.
 
 ## One document per environment and platform
 
