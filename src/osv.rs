@@ -249,12 +249,19 @@ pub fn query_cache_name(purl: &str) -> String {
 
 impl Lookup<'_> {
     /// Look every package up on OSV and record the findings in `sbom.vulnerabilities`.
-    pub fn run(&self, sbom: &mut Sbom) -> Result<Outcome, OsvError> {
-        self.run_with(sbom, &HttpClient, SystemTime::now())
+    pub fn run(&self, sbom: &mut Sbom, progress: crate::progress::Progress) -> Result<Outcome, OsvError> {
+        self.run_with(sbom, &HttpClient, SystemTime::now(), progress)
     }
 
     /// [`run`](Self::run) with an injectable client and clock.
-    pub fn run_with(&self, sbom: &mut Sbom, client: &dyn Client, now: SystemTime) -> Result<Outcome, OsvError> {
+    /// [`run`](Self::run) with an injectable client and clock.
+    pub fn run_with(
+        &self,
+        sbom: &mut Sbom,
+        client: &dyn Client,
+        now: SystemTime,
+        progress: crate::progress::Progress,
+    ) -> Result<Outcome, OsvError> {
         let mut outcome = Outcome::default();
         // Which packages each queryable purl stands for; a conda package with a PyPI purl is
         // reachable through the latter.
@@ -286,7 +293,15 @@ impl Lookup<'_> {
             }
         }
         let ids: Vec<&str> = hits.keys().copied().collect();
-        let records = crate::parallel::map(&ids, CONCURRENCY, |id| self.record(id, modified[id], client, offline));
+        let bar = progress.bar("advisories", ids.len());
+        let records = crate::parallel::map(
+            &ids,
+            CONCURRENCY,
+            Some(&bar),
+            |id| (*id).to_string(),
+            |id| self.record(id, modified[id], client, offline),
+        );
+        bar.finish();
 
         let mut findings = Vec::new();
         for (id, record) in ids.iter().zip(records) {
@@ -859,7 +874,14 @@ mod tests {
         };
         let client = Recorded::new();
         let mut sbom = vulnerable_sbom();
-        let outcome = lookup.run_with(&mut sbom, &client, SystemTime::now()).unwrap();
+        let outcome = lookup
+            .run_with(
+                &mut sbom,
+                &client,
+                SystemTime::now(),
+                crate::progress::Progress::default(),
+            )
+            .unwrap();
         assert_eq!(
             outcome,
             Outcome {
@@ -909,14 +931,23 @@ mod tests {
         assert!(dir.path().join("osv/queries/pkg_pypi_urllib3_1.26.4.json").exists());
         assert!(dir.path().join("osv/vulns/PYSEC-2021-108.json").exists());
         let mut again = vulnerable_sbom();
-        let outcome = lookup.run_with(&mut again, &Offline, SystemTime::now()).unwrap();
+        let outcome = lookup
+            .run_with(
+                &mut again,
+                &Offline,
+                SystemTime::now(),
+                crate::progress::Progress::default(),
+            )
+            .unwrap();
         assert_eq!(outcome.findings, 9);
         assert_eq!(again.vulnerabilities, sbom.vulnerabilities);
 
         // A stale query result is asked again once the hour is over; unchanged records are not.
         let later = SystemTime::now() + QUERY_MAX_AGE + Duration::from_secs(1);
         let client = Recorded::new();
-        lookup.run_with(&mut again, &client, later).unwrap();
+        lookup
+            .run_with(&mut again, &client, later, crate::progress::Progress::default())
+            .unwrap();
         assert_eq!(client.posts.lock().unwrap().len(), 1);
         assert_eq!(client.gets.lock().unwrap().len(), 0);
     }
@@ -929,7 +960,14 @@ mod tests {
             cache_dir: dir.path(),
         };
         let mut sbom = sample_sbom();
-        let outcome = lookup.run_with(&mut sbom, &Recorded::new(), SystemTime::now()).unwrap();
+        let outcome = lookup
+            .run_with(
+                &mut sbom,
+                &Recorded::new(),
+                SystemTime::now(),
+                crate::progress::Progress::default(),
+            )
+            .unwrap();
         assert_eq!(
             outcome,
             Outcome {
@@ -951,7 +989,12 @@ mod tests {
         };
         let mut sbom = vulnerable_sbom();
         let err = lookup
-            .run_with(&mut sbom, &Failing("not json"), SystemTime::now())
+            .run_with(
+                &mut sbom,
+                &Failing("not json"),
+                SystemTime::now(),
+                crate::progress::Progress::default(),
+            )
             .unwrap_err();
         assert!(matches!(err, OsvError::Parse { .. }), "{err}");
 
@@ -964,12 +1007,21 @@ mod tests {
                 unreachable!()
             }
         }
-        let err = lookup.run_with(&mut sbom, &Down, SystemTime::now()).unwrap_err();
+        let err = lookup
+            .run_with(
+                &mut sbom,
+                &Down,
+                SystemTime::now(),
+                crate::progress::Progress::default(),
+            )
+            .unwrap_err();
         assert!(err.to_string().contains("cannot query OSV"), "{err}");
 
         // Records that cannot be fetched are kept by id, with nothing known about them.
         let one = Failing(r#"{"results":[{"vulns":[{"id":"GHSA-xxxx-yyyy-zzzz"}]},{},{}]}"#);
-        let outcome = lookup.run_with(&mut sbom, &one, SystemTime::now()).unwrap();
+        let outcome = lookup
+            .run_with(&mut sbom, &one, SystemTime::now(), crate::progress::Progress::default())
+            .unwrap();
         assert_eq!(outcome.failed, 1);
         assert_eq!(outcome.findings, 1);
         let finding = &sbom.vulnerabilities[0];
@@ -1024,7 +1076,12 @@ mod tests {
         };
         let mut sbom = vulnerable_sbom();
         let outcome = lookup
-            .run_with(&mut sbom, &Paged(Mutex::new(0)), SystemTime::now())
+            .run_with(
+                &mut sbom,
+                &Paged(Mutex::new(0)),
+                SystemTime::now(),
+                crate::progress::Progress::default(),
+            )
             .unwrap();
         assert_eq!(outcome.findings, 2);
         let ids: Vec<&str> = sbom.vulnerabilities.iter().map(|v| v.id.as_str()).collect();

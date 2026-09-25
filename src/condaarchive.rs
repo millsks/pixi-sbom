@@ -45,13 +45,21 @@ pub struct Outcome {
 #[derive(Debug, Clone)]
 struct Job {
     index: usize,
+    /// Package name, for the progress bar.
+    name: String,
     location: String,
     key: String,
 }
 
 /// Fill in details for every conda binary package in `indexes` (the ones the local package
 /// cache did not have). Texts are read only with `texts`.
-pub fn enrich(sbom: &mut Sbom, indexes: &[usize], cache_dir: &Path, texts: bool) -> Outcome {
+pub fn enrich(
+    sbom: &mut Sbom,
+    indexes: &[usize],
+    cache_dir: &Path,
+    texts: bool,
+    progress: crate::progress::Progress,
+) -> Outcome {
     let mut outcome = Outcome::default();
     let mut jobs = Vec::new();
     for &index in indexes {
@@ -89,6 +97,7 @@ pub fn enrich(sbom: &mut Sbom, indexes: &[usize], cache_dir: &Path, texts: bool)
             .unwrap_or_else(|| uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_URL, package.location.as_bytes()).to_string());
         jobs.push(Job {
             index,
+            name: package.name.clone(),
             location: package.location.clone(),
             key,
         });
@@ -97,9 +106,15 @@ pub fn enrich(sbom: &mut Sbom, indexes: &[usize], cache_dir: &Path, texts: bool)
         return outcome;
     }
 
-    let results = crate::parallel::map(&jobs, CONCURRENCY, |job| {
-        info_for(&job.location, &job.key, cache_dir, texts)
-    });
+    let bar = progress.bar("archives", jobs.len());
+    let results = crate::parallel::map(
+        &jobs,
+        CONCURRENCY,
+        Some(&bar),
+        |job| job.name.clone(),
+        |job| info_for(&job.location, &job.key, cache_dir, texts),
+    );
+    bar.finish();
     for (job, result) in jobs.iter().zip(results) {
         match result {
             Ok(info) => {
@@ -314,7 +329,13 @@ mod tests {
         sbom.packages[1]
             .properties
             .insert("pixi:size".into(), (MAX_LEGACY_ARCHIVE_BYTES + 1).to_string());
-        let outcome = enrich(&mut sbom, &[0, 1], dir.path(), false);
+        let outcome = enrich(
+            &mut sbom,
+            &[0, 1],
+            dir.path(),
+            false,
+            crate::progress::Progress::default(),
+        );
         assert_eq!(
             outcome,
             Outcome {
@@ -407,7 +428,13 @@ mod tests {
         sbom.packages[0].location = archive();
         sbom.packages[0].sha256 = Some("f".repeat(64));
         sbom.packages[1].location = "https://example.invalid/zlib.tar.bz2".into();
-        let outcome = enrich(&mut sbom, &[0, 1, 2], dir.path(), false);
+        let outcome = enrich(
+            &mut sbom,
+            &[0, 1, 2],
+            dir.path(),
+            false,
+            crate::progress::Progress::default(),
+        );
         assert_eq!(
             outcome,
             Outcome {
@@ -434,7 +461,7 @@ mod tests {
         again.packages[0].location = "/no/longer/there.conda".into();
         again.packages[0].sha256 = Some("f".repeat(64));
         again.packages[0].license_files.clear();
-        let outcome = enrich(&mut again, &[0], dir.path(), true);
+        let outcome = enrich(&mut again, &[0], dir.path(), true, crate::progress::Progress::default());
         assert_eq!(outcome.fetched, 1);
         assert!(again.packages[0].license_files[0].text.is_some());
 
@@ -442,6 +469,16 @@ mod tests {
         let mut missing = sample_sbom();
         missing.packages[0].location = "/no/such/file.conda".into();
         missing.packages[0].sha256 = None;
-        assert_eq!(enrich(&mut missing, &[0], dir.path(), false).failed, 1);
+        assert_eq!(
+            enrich(
+                &mut missing,
+                &[0],
+                dir.path(),
+                false,
+                crate::progress::Progress::default()
+            )
+            .failed,
+            1
+        );
     }
 }

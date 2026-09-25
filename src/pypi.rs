@@ -131,13 +131,24 @@ pub struct Lookup<'a> {
 
 impl Lookup<'_> {
     /// Fill in the license of every PyPI package that has none, querying the real index.
-    pub fn run(&self, sbom: &mut Sbom) -> Outcome {
-        self.run_with(sbom, &|url| http::get_text(url, MAX_METADATA_BYTES))
+    pub fn run(&self, sbom: &mut Sbom, progress: crate::progress::Progress) -> Outcome {
+        self.run_with(sbom, &|url| http::get_text(url, MAX_METADATA_BYTES), progress)
     }
 
-    fn run_with(&self, sbom: &mut Sbom, fetch: &dyn Fn(&str) -> Result<String, Box<ureq::Error>>) -> Outcome {
+    fn run_with(
+        &self,
+        sbom: &mut Sbom,
+        fetch: &dyn Fn(&str) -> Result<String, Box<ureq::Error>>,
+        progress: crate::progress::Progress,
+    ) -> Outcome {
         let mut outcome = Outcome::default();
         let mut network_down = false;
+        let total = sbom
+            .packages
+            .iter()
+            .filter(|p| p.kind == PackageKind::Pypi && p.license.is_none())
+            .count();
+        let bar = progress.bar("PyPI lookups", total);
         for package in &mut sbom.packages {
             if package.kind != PackageKind::Pypi || package.license.is_some() {
                 continue;
@@ -145,6 +156,7 @@ impl Lookup<'_> {
             let Some(version) = package.version.as_deref() else {
                 continue;
             };
+            bar.advance(&package.name);
             let name = crate::purl::normalize_pypi_name(&package.name);
             let json = match self.metadata(&name, version, fetch, &mut network_down) {
                 Some(json) => json,
@@ -164,6 +176,7 @@ impl Lookup<'_> {
                 None => outcome.missing += 1,
             }
         }
+        bar.finish();
         outcome
     }
 
@@ -325,7 +338,7 @@ mod tests {
             cache_dir: dir.path(),
         };
 
-        let outcome = lookup.run_with(&mut sbom, &fetch);
+        let outcome = lookup.run_with(&mut sbom, &fetch, crate::progress::Progress::default());
         assert_eq!(
             outcome,
             Outcome {
@@ -345,13 +358,18 @@ mod tests {
         assert_eq!(sbom.packages[0].license.as_deref(), Some("Zlib"), "conda untouched");
 
         // Second run: license already set, nothing requested.
-        let outcome = lookup.run_with(&mut sbom, &fetch);
+        let outcome = lookup.run_with(&mut sbom, &fetch, crate::progress::Progress::default());
         assert_eq!(outcome, Outcome::default());
 
         // Cached response is used without fetching.
         let mut fresh = sample_sbom();
         let panic_fetch = |_: &str| panic!("must not fetch");
-        assert_eq!(lookup.run_with(&mut fresh, &panic_fetch).found, 1);
+        assert_eq!(
+            lookup
+                .run_with(&mut fresh, &panic_fetch, crate::progress::Progress::default())
+                .found,
+            1
+        );
     }
 
     #[test]
@@ -375,14 +393,19 @@ mod tests {
         };
 
         let no_license = |_: &str| Ok(meta(None, None, &[]));
-        assert_eq!(lookup_in("a").run_with(&mut sbom, &no_license).missing, 2);
+        assert_eq!(
+            lookup_in("a")
+                .run_with(&mut sbom, &no_license, crate::progress::Progress::default())
+                .missing,
+            2
+        );
 
         let calls = RefCell::new(0);
         let offline = |_: &str| {
             *calls.borrow_mut() += 1;
             Err(Box::new(ureq::Error::ConnectionFailed))
         };
-        let outcome = lookup_in("b").run_with(&mut sbom, &offline);
+        let outcome = lookup_in("b").run_with(&mut sbom, &offline, crate::progress::Progress::default());
         assert_eq!(outcome.failed, 2);
         assert_eq!(*calls.borrow(), 1, "stops after the first connectivity failure");
 
@@ -391,7 +414,7 @@ mod tests {
             *calls.borrow_mut() += 1;
             Err(Box::new(ureq::Error::StatusCode(404)))
         };
-        let outcome = lookup_in("c").run_with(&mut sbom, &not_found);
+        let outcome = lookup_in("c").run_with(&mut sbom, &not_found, crate::progress::Progress::default());
         assert_eq!(outcome.failed, 2);
         assert_eq!(*calls.borrow(), 2, "a 404 does not stop the other lookups");
     }

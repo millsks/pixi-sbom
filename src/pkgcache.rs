@@ -124,8 +124,14 @@ pub struct Applied {
 
 /// Enrich every conda binary package that is extracted under `pkgs_dir`; license file texts
 /// are included only with `texts`.
-pub fn enrich(sbom: &mut Sbom, pkgs_dir: &Path, texts: bool) -> Outcome {
+pub fn enrich(sbom: &mut Sbom, pkgs_dir: &Path, texts: bool, progress: crate::progress::Progress) -> Outcome {
     let mut outcome = Outcome::default();
+    let total = sbom
+        .packages
+        .iter()
+        .filter(|p| p.kind == PackageKind::CondaBinary)
+        .count();
+    let bar = progress.bar("packages", total);
     for (index, package) in sbom.packages.iter_mut().enumerate() {
         if package.kind != PackageKind::CondaBinary {
             continue;
@@ -141,6 +147,7 @@ pub fn enrich(sbom: &mut Sbom, pkgs_dir: &Path, texts: bool) -> Outcome {
             .map(std::path::PathBuf::from)
             .filter(|dir| dir.is_dir());
         let dir = recorded.unwrap_or_else(|| pkgs_dir.join(dir_name));
+        bar.advance(&package.name);
         let Some(info) = read_extracted(&dir, texts) else {
             outcome.missing.push(index);
             continue;
@@ -150,6 +157,7 @@ pub fn enrich(sbom: &mut Sbom, pkgs_dir: &Path, texts: bool) -> Outcome {
         outcome.licenses_filled += usize::from(applied.license_filled);
         outcome.files += applied.files;
     }
+    bar.finish();
     outcome
 }
 
@@ -344,7 +352,7 @@ mod tests {
         // mylib is a source package: never touched even if a directory existed.
         extracted(dir.path(), "mylib-0.1.0-", r#"{"license": "MIT"}"#, &[("L", "t")]);
 
-        let outcome = enrich(&mut sbom, dir.path(), false);
+        let outcome = enrich(&mut sbom, dir.path(), false, crate::progress::Progress::default());
         assert_eq!(
             outcome,
             Outcome {
@@ -385,7 +393,7 @@ mod tests {
             .properties
             .insert("pixi:file-name".into(), "zlib-1.3.1-h1.conda".into());
 
-        let outcome = enrich(&mut sbom, dir.path(), true);
+        let outcome = enrich(&mut sbom, dir.path(), true, crate::progress::Progress::default());
         assert_eq!(outcome.licenses_filled, 1);
         assert!(outcome.missing.is_empty());
         assert_eq!(sbom.packages[0].license.as_deref(), Some(" Zlib "));
@@ -397,7 +405,7 @@ mod tests {
         sbom.packages[0]
             .properties
             .insert("pixi:file-name".into(), "absent-1.0-h1.conda".into());
-        let outcome = enrich(&mut sbom, dir.path(), false);
+        let outcome = enrich(&mut sbom, dir.path(), false, crate::progress::Progress::default());
         assert_eq!(outcome.missing, vec![0]);
     }
 
