@@ -1,0 +1,13 @@
+---
+source: src/report.rs
+expression: "render_string_from(&[phantom_report()], ReportFormat::Table)"
+---
+Finding  Package   Kind  Version  Modules   Imported by
+---------------------------------------------------------------------------------------------------------------------
+phantom  urllib3   pypi  2.8.0    urllib3   src/app/m1.py, src/app/m2.py, src/app/m3.py, src/app/m4.py, src/app/m5.py
+                                            (+2 more)
+unused   requests  pypi  2.34.2   requests  -
+
+Summary: 1 phantom, 0 undeclared, 1 unused
+Read 12 Python files importing 0 modules
+No installed environment to ask which package provides which module; the wheel names were used instead

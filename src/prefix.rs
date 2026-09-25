@@ -259,7 +259,7 @@ fn conda_package(record: &Record) -> Result<Package, PrefixError> {
 
 /// Every `*.dist-info` directory under the environment's site-packages, whichever layout the
 /// platform uses.
-fn dist_infos(prefix: &Path) -> Vec<PathBuf> {
+pub fn dist_infos(prefix: &Path) -> Vec<PathBuf> {
     let mut roots = vec![prefix.join("Lib").join("site-packages")];
     if let Ok(lib) = std::fs::read_dir(prefix.join("lib")) {
         for entry in lib.flatten() {

@@ -18,6 +18,8 @@ once no matter how many output formats exist.
    pkgcache.rs ─── conda license files and metadata from the package cache (optional, offline)
    condaarchive.rs ─ the same from the channel archive by HTTP range (optional, via zipread.rs)
    wheel.rs ─────── PyPI license details from the wheel's dist-info (optional, via zipread.rs)
+   imports.rs ───── --report phantom: what the workspace's own .py files import
+   phantom.rs ───── --report phantom: those imports against the declared and installed sets
    embedded.rs ──── PEP 770 embedded SBOMs from the same wheels (optional)
    report.rs ───── --report: renders the model as a terminal table instead of a document
    style.rs ────── --color: when to colour, and which style each kind of cell gets
@@ -64,6 +66,9 @@ once no matter how many output formats exist.
 | `format/spdx.rs` | Same for SPDX 2.3, including `SPDXRef` id assignment and `LicenseRef` extraction. | serde |
 | `osv.rs` | `--vulnerabilities osv`: collects every queryable purl (conda purls excluded), asks OSV's `querybatch` in thousands, fetches each record in parallel, caches queries (one hour) and records (until `modified` moves), merges GHSA / PYSEC twins by alias, picks the fixed version above the installed one, and fills `Sbom::vulnerabilities`. A failed query is fatal; a failed record is not. | serde_json, http.rs, cvss.rs, parallel.rs |
 | `kev.rs` | `--kev`: downloads CISA's KEV catalog (cached a day, stale copy on failure), looks each finding's CVE aliases up, and marks hits critical with the catalog's dates and required action. | serde_json, http.rs |
+| `imports.rs` | Reading the workspace's `.py` files for the top-level modules they import, and the modules the workspace provides itself. No Python is executed and no parser crate is used. | — |
+| `phantom.rs` | `--report phantom`: which package provides which module (from an installed environment's `dist-info`, else the wheel names), and the phantom / undeclared / unused findings. | — |
+| `stdlib.rs` | The standard library's module names, so an `import os` is never a missing dependency. | — |
 | `vulnpolicy.rs` | `--fail-on-severity` / `--fail-on-kev` / `--ignore-vuln`: parses ignore entries (`ID[:STATE][:TEXT]`), marks matching findings (by id or alias) with an `Analysis`, and lists the open findings at or above the threshold or known exploited; exit code 4 is applied in `main`. | model.rs |
 | `cvss.rs` | CVSS v3.0 / v3.1 base scores from vector strings, for advisories that carry a vector but no qualitative severity. | |
 | `progress.rs` | Whether progress bars are drawn (terminal, not `-v`/`-q`, not `TERM=dumb`/`CI`/`PIXI_SBOM_NO_PROGRESS`) and the bar itself; one global `MultiProgress` so the tracing writer can suspend every live bar while a log line prints. | indicatif |
@@ -149,6 +154,18 @@ that misses a declared dependency something else also needs (`python` is the usu
 record it, so the declared set of the environment's features is read from there and marked `pixi:direct`; the root
 depends on that set together with the graph roots. Without a readable manifest (`--prefix`, a bare lockfile) the
 graph roots are still the whole answer, which is what [output-format.md](output-format.md) documents.
+
+**Imports read line by line, not parsed.** `--report phantom` needs the top-level modules a source file imports,
+and an import statement is the one Python construct that is unambiguous on the line it starts on. A tokenizer over
+the lines — tracking docstrings, skipping comments and relative imports — costs no dependency and no execution,
+where an AST crate would add a Python grammar that has to track the language. The cost is that an import built at
+runtime (`importlib.import_module(name)`) is invisible, which no static tool can see either.
+
+**Module ownership from the installed environment, never from a table.** Which distribution provides which module
+is not in the lockfile, and a curated name-to-module table would be wrong the moment a package renames a module.
+When the environment is installed, each `dist-info` answers exactly (`top_level.txt`, else `RECORD`); when it is
+not, a wheel is assumed to provide the module its name spells and conda packages are left out rather than guessed
+at. The report says which of the two answered, so a weaker answer is never passed off as the strong one.
 
 **pixi as the only task runner.** Cargo is never invoked directly in docs, hooks, or CI; every command goes through
 a `pixi run` task so the toolchain is the pinned one from `pixi.lock`. See [development.md](development.md).

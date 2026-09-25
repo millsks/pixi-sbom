@@ -2606,6 +2606,116 @@ fn manifest_declarations_mark_direct_packages_and_the_root_edges() {
 }
 
 #[test]
+fn phantom_report_finds_undeclared_imports_and_unused_declarations() {
+    let dir = workspace("with-pypi");
+    // A source tree that imports one package the manifest never declared (urllib3 is only
+    // there because requests needs it), one it did (six), and nothing else of interest.
+    std::fs::create_dir_all(dir.path().join("src/app")).unwrap();
+    std::fs::write(
+        dir.path().join("src/app/__init__.py"),
+        "\"\"\"App.\n\n    import notcode\n\"\"\"\nimport os\nimport urllib3\nfrom six import moves\nfrom . import other\n",
+    )
+    .unwrap();
+    std::fs::write(dir.path().join("src/app/other.py"), "import urllib3\n").unwrap();
+
+    let run = |args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("COLUMNS", "160")
+            .args(["-e", "web", "-p", "linux-64", "--report", "phantom"])
+            .args(args);
+        command
+    };
+
+    let stdout = run(&["--report-format", "json"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let report: Value = serde_json::from_slice(&stdout).unwrap();
+    assert_eq!(report["report"], "phantom");
+    let rows = report["phantom"].as_array().unwrap();
+    let findings: Vec<(&str, &str)> = rows
+        .iter()
+        .map(|r| (r["finding"].as_str().unwrap(), r["name"].as_str().unwrap()))
+        .collect();
+    // requests is declared by the web feature and never imported; urllib3 is imported and
+    // declared nowhere. The conda packages provide no module, so they are not judged.
+    assert_eq!(findings, [("phantom", "urllib3"), ("unused", "requests")]);
+    assert_eq!(rows[0]["modules"], serde_json::json!(["urllib3"]));
+    assert_eq!(
+        rows[0]["files"],
+        serde_json::json!(["src/app/__init__.py", "src/app/other.py"]),
+        "the importing files, so an editor can jump to them"
+    );
+    let summary = &report["summary"];
+    assert_eq!(summary["phantom"], 1);
+    assert_eq!(summary["unused"], 1);
+    assert_eq!(summary["files"], 2);
+    assert_eq!(summary["from_manifest"], true);
+    assert_eq!(
+        summary["from_environment"], false,
+        "nothing is installed next to the fixture"
+    );
+
+    let table = String::from_utf8(run(&[]).assert().success().get_output().stdout.clone()).unwrap();
+    assert!(table.lines().next().unwrap().starts_with("Finding"), "{table}");
+    assert!(table.contains("Summary: 1 phantom, 0 undeclared, 1 unused"), "{table}");
+    assert!(table.contains("Read 2 Python files importing"), "{table}");
+
+    let csv = String::from_utf8(
+        run(&["--report-format", "csv"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(csv.starts_with("environment,platform,finding,package,kind,version,modules,files\n"));
+    assert!(csv.contains("web,linux-64,phantom,urllib3,pypi,"), "{csv}");
+
+    // --assume-used silences the ones nothing imports by name; the phantom stays.
+    let quiet = String::from_utf8(
+        run(&["--assume-used", "requests*"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(quiet.contains("Summary: 1 phantom, 0 undeclared, 0 unused"), "{quiet}");
+
+    // --fail-on-phantom gates on the phantom import alone.
+    run(&["--fail-on-phantom"])
+        .assert()
+        .code(8)
+        .stderr(predicate::str::contains("Imported but never declared: 1 package(s)"));
+    run(&["--source", "docs", "--fail-on-phantom"]).assert().success();
+}
+
+#[test]
+fn phantom_flags_need_the_phantom_report() {
+    let dir = workspace("with-pypi");
+    for flag in [
+        vec!["--fail-on-phantom"],
+        vec!["--assume-used", "x"],
+        vec!["--source", "."],
+    ] {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .args(["--report", "packages"])
+            .args(&flag)
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains("only applies to '--report phantom'"));
+    }
+}
+
+#[test]
 fn fetch_licenses_reads_wheel_metadata_and_license_files() {
     // The with-pypi fixture with the six wheel pointed at the local copy; everything else offline.
     let dir = workspace("with-pypi");

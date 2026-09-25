@@ -33,6 +33,8 @@ pub enum ReportKind {
     Outdated,
     /// Python: which packages constrain the interpreter version.
     Python,
+    /// Phantom: imports and declarations that do not line up.
+    Phantom,
 }
 
 /// How to render a report.
@@ -84,6 +86,44 @@ pub struct Row {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub declared_in: Vec<String>,
 }
+
+/// One package the phantom report has something to say about.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PhantomRow {
+    /// `phantom`, `undeclared` or `unused`.
+    pub finding: &'static str,
+    pub name: String,
+    pub kind: &'static str,
+    pub version: String,
+    /// The top-level modules the package provides.
+    pub modules: Vec<String>,
+    /// The workspace files that import them, at most [`MAX_IMPORTING_FILES`] of them.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub files: Vec<String>,
+    /// How many files import them in total, when more than the listed ones do.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub more_files: Option<usize>,
+}
+
+/// What the phantom report found, as a whole.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct PhantomSummary {
+    pub phantom: usize,
+    pub undeclared: usize,
+    pub unused: usize,
+    /// Python files read, and distinct top-level modules imported.
+    pub files: usize,
+    pub imports: usize,
+    /// Whether an installed environment answered which package provides which module; without
+    /// one the answer is the wheel names alone, and the findings are weaker.
+    pub from_environment: bool,
+    /// Whether the manifest declared anything for this environment. Without that there is
+    /// nothing to compare the imports against, and there are no findings at all.
+    pub from_manifest: bool,
+}
+
+/// How many importing files a row lists before it just counts the rest.
+const MAX_IMPORTING_FILES: usize = 5;
 
 /// Summary of what one document's packages are, beyond the rows themselves.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -229,6 +269,11 @@ pub struct Report {
     pub python: Option<Vec<PythonRow>>,
     #[serde(rename = "summary", skip_serializing_if = "Option::is_none")]
     pub python_summary: Option<PythonSummary>,
+    /// Rows of the phantom report.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phantom: Option<Vec<PhantomRow>>,
+    #[serde(rename = "summary", skip_serializing_if = "Option::is_none")]
+    pub phantom_summary: Option<PhantomSummary>,
 }
 
 /// One package's Python requirement, as the report prints it.
@@ -271,6 +316,46 @@ impl Report {
         report
     }
 
+    /// The phantom report for `sbom` from findings already computed.
+    pub fn phantom(
+        sbom: &Sbom,
+        findings: Vec<crate::phantom::Finding>,
+        imports: &crate::imports::Imports,
+        modules: &crate::phantom::Modules,
+    ) -> Self {
+        let mut report = Self::new(ReportKind::Phantom, sbom);
+        let count = |kind: crate::phantom::Kind| findings.iter().filter(|f| f.kind == kind).count();
+        report.phantom_summary = Some(PhantomSummary {
+            phantom: count(crate::phantom::Kind::Phantom),
+            undeclared: count(crate::phantom::Kind::Undeclared),
+            unused: count(crate::phantom::Kind::Unused),
+            files: imports.files,
+            imports: imports.by_module.len(),
+            from_environment: modules.from_environment,
+            from_manifest: crate::phantom::declares_anything(sbom),
+        });
+        report.phantom = Some(
+            findings
+                .into_iter()
+                .map(|finding| {
+                    let total = finding.files.len();
+                    let mut files = finding.files;
+                    files.truncate(MAX_IMPORTING_FILES);
+                    PhantomRow {
+                        finding: finding.kind.name(),
+                        name: finding.name,
+                        kind: finding.package_kind,
+                        version: finding.version,
+                        modules: finding.modules,
+                        files,
+                        more_files: (total > MAX_IMPORTING_FILES).then(|| total - MAX_IMPORTING_FILES),
+                    }
+                })
+                .collect(),
+        );
+        report
+    }
+
     /// Build the report for `sbom` (for [`ReportKind::Diff`] use [`Report::diff`]).
     pub fn new(kind: ReportKind, sbom: &Sbom) -> Self {
         let mut report = Self {
@@ -281,6 +366,7 @@ impl Report {
                 ReportKind::Diff => "diff",
                 ReportKind::Outdated => "outdated",
                 ReportKind::Python => "python",
+                ReportKind::Phantom => "phantom",
             },
             workspace: sbom.root.name.clone(),
             environment: sbom.environment.clone(),
@@ -298,6 +384,8 @@ impl Report {
             outdated_summary: None,
             python: None,
             python_summary: None,
+            phantom: None,
+            phantom_summary: None,
         };
         match kind {
             ReportKind::Packages => {
@@ -353,7 +441,7 @@ impl Report {
                         .collect(),
                 );
             }
-            ReportKind::Diff | ReportKind::Outdated => {}
+            ReportKind::Diff | ReportKind::Outdated | ReportKind::Phantom => {}
         }
         report
     }
@@ -430,6 +518,7 @@ impl Report {
             "diff" => ReportKind::Diff,
             "outdated" => ReportKind::Outdated,
             "python" => ReportKind::Python,
+            "phantom" => ReportKind::Phantom,
             _ => ReportKind::Packages,
         }
     }
@@ -448,6 +537,7 @@ impl Report {
                 "Package", "Kind", "Version", "Age", "Latest", "Released", "Behind", "Step",
             ],
             ReportKind::Python => vec!["Package", "Version", "Requires-Python", "Satisfied", "Ceiling"],
+            ReportKind::Phantom => vec!["Finding", "Package", "Kind", "Version", "Modules", "Imported by"],
         }
     }
 
@@ -457,6 +547,7 @@ impl Report {
             ReportKind::Diff => self.diff.as_ref().map(diff_rows).unwrap_or_default(),
             ReportKind::Outdated => self.outdated.iter().flatten().map(outdated_cells).collect(),
             ReportKind::Python => self.python.iter().flatten().map(python_cells).collect(),
+            ReportKind::Phantom => self.phantom.iter().flatten().map(phantom_cells).collect(),
             ReportKind::Vulnerabilities => self.vulnerabilities.iter().flatten().map(vulnerability_cells).collect(),
             _ => self.packages.iter().flatten().map(|r| self.cells(r)).collect(),
         }
@@ -477,6 +568,8 @@ impl Report {
             ReportKind::Outdated => vec![Plain, Plain, Plain, Plain, Plain, Plain, Plain, Change],
             // Package, Version, Requires-Python, Satisfied, Ceiling
             ReportKind::Python => vec![Plain, Plain, Plain, Status, Plain],
+            // Finding, Package, Kind, Version, Modules, Imported by
+            ReportKind::Phantom => vec![Change, Plain, Plain, Plain, Plain, Muted],
             // Name, Version, Kind, License, Family, Source, Files
             ReportKind::Licenses => vec![Plain, Plain, Plain, NonSpdx, Plain, Plain, Plain],
             // Name, Version, Kind, Declared, Source, License, Yanked, Purl
@@ -545,6 +638,28 @@ impl Report {
 /// Rows of unstyled cells, for the summary tables that carry no meaning per column.
 fn plain_cells(rows: &[Vec<String>]) -> Vec<Vec<Cell>> {
     rows.iter().map(|row| row.iter().map(Cell::new).collect()).collect()
+}
+
+/// One phantom row as cells.
+fn phantom_cells(row: &PhantomRow) -> Vec<String> {
+    let dash = || "-".to_string();
+    let files = match (row.files.is_empty(), row.more_files) {
+        (true, _) => dash(),
+        (false, Some(more)) => format!("{} (+{more} more)", row.files.join(", ")),
+        (false, None) => row.files.join(", "),
+    };
+    vec![
+        row.finding.to_string(),
+        row.name.clone(),
+        row.kind.to_string(),
+        row.version.clone(),
+        if row.modules.is_empty() {
+            dash()
+        } else {
+            row.modules.join(", ")
+        },
+        files,
+    ]
 }
 
 /// One python row as cells.
@@ -901,6 +1016,48 @@ pub fn render_with_width(
                 if let Some(summary) = &report.vulnerability_summary {
                     render_vulnerability_summary(summary, format, &palette, out)?;
                 }
+                if let Some(summary) = &report.phantom_summary {
+                    writeln!(out)?;
+                    let heading = palette.header(&format!(
+                        "Summary: {} phantom, {} undeclared, {} unused",
+                        summary.phantom, summary.undeclared, summary.unused
+                    ));
+                    match format {
+                        ReportFormat::Markdown => writeln!(out, "### {heading}\n")?,
+                        _ => writeln!(out, "{heading}")?,
+                    }
+                    fn plural(n: usize, one: &'static str, many: &'static str) -> &'static str {
+                        if n == 1 { one } else { many }
+                    }
+                    writeln!(
+                        out,
+                        "{}",
+                        palette.dim(&format!(
+                            "Read {} Python {} importing {} {}",
+                            summary.files,
+                            plural(summary.files, "file", "files"),
+                            summary.imports,
+                            plural(summary.imports, "module", "modules")
+                        ))
+                    )?;
+                    if !summary.from_manifest {
+                        writeln!(
+                            out,
+                            "The manifest declares nothing for this environment, so there is nothing to \
+                             compare the imports against"
+                        )?;
+                    }
+                    if !summary.from_environment {
+                        writeln!(
+                            out,
+                            "{}",
+                            palette.dim(
+                                "No installed environment to ask which package provides which module; the \
+                                 wheel names were used instead"
+                            )
+                        )?;
+                    }
+                }
                 if let Some(summary) = &report.python_summary {
                     writeln!(out)?;
                     let heading = palette.header(&format!(
@@ -1253,6 +1410,29 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
         }
         return Ok(());
     }
+    if kind == ReportKind::Phantom {
+        writeln!(out, "environment,platform,finding,package,kind,version,modules,files")?;
+        for report in reports {
+            for row in report.phantom.iter().flatten() {
+                let cells = [
+                    report.environment.clone(),
+                    report.platform.clone(),
+                    row.finding.to_string(),
+                    row.name.clone(),
+                    row.kind.to_string(),
+                    row.version.clone(),
+                    row.modules.join(" "),
+                    row.files.join(" "),
+                ];
+                writeln!(
+                    out,
+                    "{}",
+                    cells.iter().map(|c| csv_field(c)).collect::<Vec<_>>().join(",")
+                )?;
+            }
+        }
+        return Ok(());
+    }
     if kind == ReportKind::Outdated {
         writeln!(
             out,
@@ -1303,7 +1483,8 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
         | ReportKind::Vulnerabilities
         | ReportKind::Diff
         | ReportKind::Outdated
-        | ReportKind::Python => {
+        | ReportKind::Python
+        | ReportKind::Phantom => {
             vec![
                 "name",
                 "version",
@@ -1338,7 +1519,8 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
                 | ReportKind::Vulnerabilities
                 | ReportKind::Diff
                 | ReportKind::Outdated
-                | ReportKind::Python => vec![
+                | ReportKind::Python
+                | ReportKind::Phantom => vec![
                     row.name.clone(),
                     row.version.clone(),
                     row.kind.to_string(),
@@ -1593,8 +1775,13 @@ mod tests {
     /// Renders at a fixed width so snapshots do not depend on the terminal running the tests.
     fn render_string(kind: ReportKind, format: ReportFormat, sboms: &[Sbom]) -> String {
         let reports: Vec<Report> = sboms.iter().map(|s| Report::new(kind, s)).collect();
+        render_string_from(&reports, format)
+    }
+
+    /// Render reports that were built by something other than [`Report::new`].
+    fn render_string_from(reports: &[Report], format: ReportFormat) -> String {
         let mut out = Vec::new();
-        render_with_width(&reports, format, DEFAULT_WIDTH, Palette::new(false), &mut out).unwrap();
+        render_with_width(reports, format, DEFAULT_WIDTH, Palette::new(false), &mut out).unwrap();
         String::from_utf8(out).unwrap()
     }
 
@@ -1741,6 +1928,64 @@ mod tests {
         assert!(report.package_summary.is_none());
         let text = render_string(ReportKind::Packages, ReportFormat::Table, &[sample_sbom()]);
         assert!(!text.contains("declared by the workspace"), "{text}");
+    }
+
+    /// A phantom report with one of each finding, and one import from more files than the
+    /// row lists.
+    fn phantom_report() -> Report {
+        let findings = vec![
+            crate::phantom::Finding {
+                kind: crate::phantom::Kind::Phantom,
+                name: "urllib3".into(),
+                package_kind: "pypi",
+                version: "2.8.0".into(),
+                modules: vec!["urllib3".into()],
+                files: (1..=7).map(|n| format!("src/app/m{n}.py")).collect(),
+            },
+            crate::phantom::Finding {
+                kind: crate::phantom::Kind::Unused,
+                name: "requests".into(),
+                package_kind: "pypi",
+                version: "2.34.2".into(),
+                modules: vec!["requests".into()],
+                files: Vec::new(),
+            },
+        ];
+        let imports = crate::imports::Imports {
+            files: 12,
+            ..crate::imports::Imports::default()
+        };
+        let modules = crate::phantom::Modules::default();
+        Report::phantom(&declared_sbom(), findings, &imports, &modules)
+    }
+
+    #[test]
+    fn the_phantom_report_counts_the_findings_and_caps_the_files_it_lists() {
+        let report = phantom_report();
+        let summary = report.phantom_summary.as_ref().unwrap();
+        assert_eq!((summary.phantom, summary.undeclared, summary.unused), (1, 0, 1));
+        assert_eq!(summary.files, 12);
+        assert!(summary.from_manifest, "the sample declares zlib");
+        assert!(!summary.from_environment);
+        let rows = report.phantom.as_ref().unwrap();
+        assert_eq!(rows[0].files.len(), MAX_IMPORTING_FILES);
+        assert_eq!(rows[0].more_files, Some(2));
+        assert_eq!(rows[1].more_files, None);
+
+        let text = render_string_from(&[phantom_report()], ReportFormat::Table);
+        assert!(text.contains("(+2 more)"), "{text}");
+        assert!(text.contains("Summary: 1 phantom, 0 undeclared, 1 unused"), "{text}");
+        assert!(text.contains("Read 12 Python files importing 0 modules"), "{text}");
+        assert!(text.contains("No installed environment to ask"), "{text}");
+
+        let csv = render_string_from(&[phantom_report()], ReportFormat::Csv);
+        assert!(csv.starts_with("environment,platform,finding,package,kind,version,modules,files\n"));
+        assert!(csv.contains("phantom,urllib3,pypi,2.8.0,urllib3,"), "{csv}");
+    }
+
+    #[test]
+    fn phantom_table_snapshot() {
+        insta::assert_snapshot!(render_string_from(&[phantom_report()], ReportFormat::Table));
     }
 
     #[test]
