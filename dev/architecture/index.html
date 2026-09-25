@@ -865,7 +865,7 @@ once no matter how many output formats exist.</p>
 </tr>
 <tr>
 <td><code>discover.rs</code></td>
-<td>Locating <code>pixi.lock</code> (explicit path or upward search) and resolving output paths for single- and all-environment runs. Pure path logic; the only I/O is <code>is_file()</code>.</td>
+<td>Locating <code>pixi.lock</code> (explicit path, upward search, or the <code>--scan</code> walk over a tree) and resolving output paths for single-, all-environment and per-workspace runs. Pure path logic; the only I/O is reading directories.</td>
 <td>—</td>
 </tr>
 <tr>
@@ -1072,7 +1072,7 @@ kind, purl, extra purls, download location, optional SHA-256/MD5, optional raw l
 <h2 id="how-a-run-proceeds">How a run proceeds<a class="headerlink" href="#how-a-run-proceeds" title="Permanent link">&para;</a></h2>
 <ol>
 <li><code>main</code> parses arguments and initializes logging and error reporting.</li>
-<li><code>discover::resolve_lockfile</code> finds the lockfile. <code>lock::load</code> parses it once.</li>
+<li><code>discover::resolve_lockfile</code> finds the lockfile, or <code>discover::scan</code> walks a tree for every workspace in it. <code>lock::load</code> parses each one once.</li>
 <li><code>manifest::read</code> reads the manifest next to the lockfile: the workspace name/version, and the dependency tables that say what the workspace asked for.</li>
 <li>The list of <code>(environment, output path)</code> targets is built: a single pair, or one per environment with
    <code>--all-environments</code> (<code>default</code> first, then alphabetical).</li>
