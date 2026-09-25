@@ -836,14 +836,15 @@ once no matter how many output formats exist.</p>
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>   progress.rs ─── progress bars for the fetches, hidden while a log line prints
 <a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>   diff.rs ─────── --report diff --against: reads a previous document (any family) and compares
 <a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>   outdated.rs ─── --report outdated: newest release, age and releases behind, per index
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>   policy.rs ───── --allow/--deny/--require-license: violations -&gt; exit 3 after writing
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>   osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>   kev.rs ──────── --kev: CISA's Known Exploited Vulnerabilities catalog onto the findings (via http.rs)
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>   vulnpolicy.rs ─ --fail-on-severity / --fail-on-kev / --ignore-vuln: analysis blocks and exit 4 after writing
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>   license.rs ◀── used by both writers
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>   discover.rs ── finds the lockfile, decides output paths
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>   cli.rs ──────── clap definitions
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>   main.rs ─────── wires it together, logging, error reporting
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>   pyversion.rs ── --report python: Requires-Python bounds and what caps the interpreter
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>   policy.rs ───── --allow/--deny/--require-license: violations -&gt; exit 3 after writing
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>   osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>   kev.rs ──────── --kev: CISA's Known Exploited Vulnerabilities catalog onto the findings (via http.rs)
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>   vulnpolicy.rs ─ --fail-on-severity / --fail-on-kev / --ignore-vuln: analysis blocks and exit 4 after writing
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>   license.rs ◀── used by both writers
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>   discover.rs ── finds the lockfile, decides output paths
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>   cli.rs ──────── clap definitions
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>   main.rs ─────── wires it together, logging, error reporting
 </code></pre></div>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <table>
@@ -999,6 +1000,11 @@ once no matter how many output formats exist.</p>
 <td><code>style.rs</code></td>
 <td><code>--color</code> resolution (<code>NO_COLOR</code>, <code>CLICOLOR_FORCE</code>, <code>TERM=dumb</code>, terminal detection) and the palette: comfy-table cell styling for tables (so widths are measured on unstyled text) and <code>anstyle</code> for the plain lines around them.</td>
 <td>anstyle, comfy-table, clap</td>
+</tr>
+<tr>
+<td><code>pyversion.rs</code></td>
+<td><code>--report python</code>: parses PEP 440 specifier sets at <code>MAJOR.MINOR</code> granularity (floor, ceiling, exclusions), decides whether the environment's interpreter satisfies each package, and finds the lowest ceiling and the packages imposing it. No network: everything comes from <code>pixi:requires-python</code> and the <code>python</code> package.</td>
+<td>model.rs</td>
 </tr>
 <tr>
 <td><code>outdated.rs</code></td>
