@@ -1546,7 +1546,7 @@ properties (CycloneDX) / <code>licenseComments</code> (SPDX). <code>--license-te
 <code>documentation</code> (SPDX: <code>summary</code>, <code>homepage</code>).</p>
 <h4 id="pypi-license-lookup">PyPI license lookup<a class="headerlink" href="#pypi-license-lookup" title="Permanent link">&para;</a></h4>
 <p>With <code>--fetch-licenses</code>, PyPI packages that still have no license after their wheel was read (sdists, unreachable
-wheels, wheels that declare only classifiers) are looked up on the index JSON API (<code>https://pypi.org/pypi/&lt;name&gt;/&lt;version&gt;/json</code>, or <code>PIXI_SBOM_PYPI_URL</code>)
+wheels, wheels that declare only classifiers) are looked up on the index JSON API (<code>https://pypi.org/pypi/&lt;name&gt;/&lt;version&gt;/json</code>, or <code>PIXI_SBOM_PYPI_URL</code>, ten at a time)
 for every PyPI package that has no license and takes, in order: the PEP 639 <code>license_expression</code>; the classic
 <code>license</code> field when it is a short single line (it sometimes holds a whole license text, which is ignored); and the
 <code>License ::</code> trove classifiers, mapped to SPDX identifiers for the common unambiguous ones (<code>MIT License</code> → <code>MIT</code>,

@@ -931,8 +931,8 @@ once no matter how many output formats exist.</p>
 </tr>
 <tr>
 <td><code>pypi.rs</code></td>
-<td>License lookup for PyPI packages from the index JSON API (part of <code>--fetch-licenses</code>): field precedence, classifier-to-SPDX table, per-release cache, and the "stop when the network is down" rule.</td>
-<td>serde_json, http.rs</td>
+<td>License lookup for PyPI packages from the index JSON API (part of <code>--fetch-licenses</code>): field precedence, classifier-to-SPDX table, per-release cache, ten lookups at a time on the shared pool, and the "stop when the network is down" rule (a shared flag, so the jobs already in flight finish and the rest fall through to their cache).</td>
+<td>serde_json, http.rs, parallel.rs</td>
 </tr>
 <tr>
 <td><code>http.rs</code></td>
