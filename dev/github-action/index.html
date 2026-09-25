@@ -885,6 +885,11 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 <td>Fail the step when the gate trips; with <code>false</code> it becomes a warning and the <code>vulnerabilities-found</code> output is <code>true</code></td>
 </tr>
 <tr>
+<td><code>vex</code>, <code>vex-open</code></td>
+<td></td>
+<td>Also write a standalone CycloneDX VEX to that path, and the state it gives findings nobody assessed (<code>in-triage</code>, <code>exploitable</code>)</td>
+</tr>
+<tr>
 <td><code>upload-sarif</code>, <code>sarif-category</code></td>
 <td><code>false</code>, <code>pixi-sbom</code></td>
 <td>Write the findings as SARIF and upload them to GitHub code scanning (see below)</td>

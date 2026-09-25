@@ -703,6 +703,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Vulnerabilities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-vex-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The VEX document
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1105,6 +1122,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Vulnerabilities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-vex-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The VEX document
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1774,6 +1808,35 @@ have been merged:</p>
 </tbody>
 </table>
 <p>Entries are ordered by the worst rating, then id.</p>
+<h3 id="the-vex-document">The VEX document<a class="headerlink" href="#the-vex-document" title="Permanent link">&para;</a></h3>
+<p><code>--vex &lt;PATH&gt;</code> writes the assessments as a document of their own: a CycloneDX BOM with no components, the same
+<code>vulnerabilities[]</code> entries, and two differences from the ones inside the SBOM.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>serialNumber</code></td>
+<td>Its own, derived from the SBOM's, so the two are never confused</td>
+</tr>
+<tr>
+<td><code>metadata.properties[]</code></td>
+<td><code>pixi:vex-for</code> = the SBOM's serial number, besides the usual <code>pixi:environment</code> / <code>pixi:platform</code></td>
+</tr>
+<tr>
+<td><code>analysis</code></td>
+<td>On <strong>every</strong> finding: the <code>--ignore-vuln</code> state where one was given, else <code>in_triage</code> (or what <code>--vex-open</code> says)</td>
+</tr>
+<tr>
+<td><code>affects[].ref</code></td>
+<td>A BOM-Link into the SBOM — <code>urn:cdx:&lt;the SBOM's serial number without the urn:uuid: prefix&gt;/1#&lt;bom-ref&gt;</code> — rather than a local reference</td>
+</tr>
+</tbody>
+</table>
 <h2 id="spdx-301">SPDX 3.0.1<a class="headerlink" href="#spdx-301" title="Permanent link">&para;</a></h2>
 <p><code>--format spdx --spec-version 3.0</code> writes the SPDX 3.0.1 JSON-LD serialization: a <code>@context</code> of
 <code>https://spdx.org/rdf/3.0.1/spdx-context.jsonld</code> and a <code>@graph</code> of typed elements, each with an IRI <code>spdxId</code> under
