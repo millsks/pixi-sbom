@@ -102,6 +102,20 @@ inputs:
       `PACKAGE:justification` (a name or a shell-style pattern).
     required: false
     default: ""
+  scorecard:
+    description: >-
+      With `fetch-licenses`, ask the OpenSSF Scorecard service how each package's repository is
+      maintained and record the score in the document.
+    required: false
+    default: "false"
+  scorecard-min:
+    description: The score a package or one of its checks has to reach to be left alone (default 5).
+    required: false
+    default: ""
+  fail-on-scorecard:
+    description: Fail the step (exit code 9) when a scored package is below this score.
+    required: false
+    default: ""
   fail-on-yanked:
     description: With fetch-licenses, fail the step when any package is a yanked release (exit code 7).
     required: false
@@ -310,6 +324,9 @@ runs:
         IN_REQUIRE_LICENSE: ${{ inputs.require-license }}
         IN_IGNORE_LICENSE: ${{ inputs.ignore-license }}
         IN_FAIL_ON_YANKED: ${{ inputs.fail-on-yanked }}
+        IN_SCORECARD: ${{ inputs.scorecard }}
+        IN_SCORECARD_MIN: ${{ inputs.scorecard-min }}
+        IN_FAIL_ON_SCORECARD: ${{ inputs.fail-on-scorecard }}
         IN_FAIL_ON_POLICY: ${{ inputs.fail-on-policy }}
         IN_VULNERABILITIES: ${{ inputs.vulnerabilities }}
         IN_KEV: ${{ inputs.kev }}
@@ -371,6 +388,9 @@ runs:
           [ -n "${line// }" ] && args+=(--ignore-license "$line")
         done <<< "$IN_IGNORE_LICENSE"
         [ "$IN_FAIL_ON_YANKED" = "true" ] && args+=(--fail-on-yanked)
+        [ "$IN_SCORECARD" = "true" ] && args+=(--scorecard)
+        [ -n "$IN_SCORECARD_MIN" ] && args+=(--scorecard-min "$IN_SCORECARD_MIN")
+        [ -n "$IN_FAIL_ON_SCORECARD" ] && args+=(--fail-on-scorecard "$IN_FAIL_ON_SCORECARD")
         args+=(${vuln[@]+"${vuln[@]}"})
         [ -n "$IN_VEX" ] && args+=(--vex "$IN_VEX")
         [ -n "$IN_VEX_OPEN" ] && args+=(--vex-open "$IN_VEX_OPEN")

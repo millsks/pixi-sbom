@@ -370,6 +370,22 @@ pub struct Args {
     #[arg(long)]
     pub require_license: bool,
 
+    /// Ask the OpenSSF Scorecard service how each package's repository is maintained, and
+    /// record the score and the checks below --scorecard-min in the document. Needs
+    /// --fetch-licenses, which is what collects the repository URLs. Cached for a week.
+    #[arg(long)]
+    pub scorecard: bool,
+
+    /// With --scorecard: the score a package (or one of its checks) has to reach to be left
+    /// alone in the report and the document.
+    #[arg(long, value_name = "N", default_value_t = 5.0, requires = "scorecard")]
+    pub scorecard_min: f64,
+
+    /// Exit with code 9 after writing the document when a scored package is below this.
+    /// Packages the service has never scored never fail the gate.
+    #[arg(long, value_name = "N", requires = "scorecard")]
+    pub fail_on_scorecard: Option<f64>,
+
     /// Exit with code 7 after writing the document when any package is a yanked release
     /// (PEP 592). Requires --fetch-licenses, which is what asks the index.
     #[arg(long)]

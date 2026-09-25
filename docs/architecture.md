@@ -17,6 +17,7 @@ once no matter how many output formats exist.
    filter.rs ───── --include/--exclude/--exclude-kind: drops packages and re-closes the graph first
    mapping.rs ──── enriches model::Sbom with PyPI purls (optional, via http.rs)
    pypi.rs ─────── fills PyPI licenses from the index (optional, via http.rs)
+   scorecard.rs ── --scorecard: the OpenSSF Scorecard of each repository (optional, via http.rs)
    pkgcache.rs ─── conda license files and metadata from the package cache (optional, offline)
    condaarchive.rs ─ the same from the channel archive by HTTP range (optional, via zipread.rs)
    wheel.rs ─────── PyPI license details from the wheel's dist-info (optional, via zipread.rs)
@@ -73,6 +74,7 @@ once no matter how many output formats exist.
 | `imports.rs` | Reading the workspace's `.py` files for the top-level modules they import, and the modules the workspace provides itself. No Python is executed and no parser crate is used. | — |
 | `phantom.rs` | `--report phantom`: which package provides which module (from an installed environment's `dist-info`, else the wheel names), and the phantom / undeclared / unused findings. | — |
 | `stdlib.rs` | The standard library's module names, so an `import os` is never a missing dependency. | — |
+| `scorecard.rs` | `--scorecard`: turns each package's repository URL into an OpenSSF Scorecard project path, fetches the score (cached a week) and records it and the failing checks as properties. | http.rs, parallel.rs, serde |
 | `vulnpolicy.rs` | `--fail-on-severity` / `--fail-on-kev` / `--ignore-vuln`: parses ignore entries (`ID[:STATE][:TEXT]`), marks matching findings (by id or alias) with an `Analysis`, and lists the open findings at or above the threshold or known exploited; exit code 4 is applied in `main`. | model.rs |
 | `cvss.rs` | CVSS v3.0 / v3.1 base scores from vector strings, for advisories that carry a vector but no qualitative severity. | |
 | `progress.rs` | Whether progress bars are drawn (terminal, not `-v`/`-q`, not `TERM=dumb`/`CI`/`PIXI_SBOM_NO_PROGRESS`) and the bar itself; one global `MultiProgress` so the tracing writer can suspend every live bar while a log line prints. | indicatif |

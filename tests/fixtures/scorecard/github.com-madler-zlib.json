@@ -1,0 +1,13 @@
+{
+  "date": "2026-09-01",
+  "repo": { "name": "github.com/madler/zlib", "commit": "51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf" },
+  "scorecard": { "version": "v5.2.1", "commit": "3f0b2c7b3d7a25d0f7f6d1c1e9d8b4a2c5f6e7d8" },
+  "score": 4.2,
+  "checks": [
+    { "name": "Maintained", "score": 10, "reason": "30 commit(s) and 2 issue activity found in the last 90 days" },
+    { "name": "Code-Review", "score": 8, "reason": "found 24 reviewed changesets out of 30" },
+    { "name": "Signed-Releases", "score": 0, "reason": "no releases found" },
+    { "name": "Pinned-Dependencies", "score": 3, "reason": "dependency not pinned by hash detected" },
+    { "name": "Branch-Protection", "score": -1, "reason": "internal error: no data" }
+  ]
+}
