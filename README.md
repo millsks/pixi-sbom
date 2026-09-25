@@ -127,6 +127,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--config` / `--no-config` | auto | Read `[tool.pixi-sbom]` in `pyproject.toml` or `pixi-sbom.toml` next to the lockfile before the command line; keys mirror the flags, the command line wins |
 | `--exclude` / `--include` / `--exclude-kind` | | Leave packages out (shell-style name patterns or a kind); what only they needed goes too, and the root records `pixi:excluded` |
 | `--fail-on-yanked` | off | With `--fetch-licenses`: exit 7 when a PyPI package is a yanked release (PEP 592) |
+| `--ignore-license <PACKAGE[:WHY]>` | | The license policy does not apply to these packages (name or pattern); they are listed as exempt and carry `pixi:license-exempt` |
 | `--fail-on-diff [<SECTION>...]` | off | With `--report diff`: exit 6 when the comparison is not empty (`added`, `removed`, `version`, `license`, `build`, `pip`; bare = any) |
 | `--fail-on-phantom` | off | With `--report phantom`: exit 8 when the workspace imports a package it never declared |
 | `--fetch-licenses` | off | Licenses for every package, conda and PyPI alike (conda from the local package cache or the channel archive, PyPI from the wheel or the index), plus license file names, summary and URLs |

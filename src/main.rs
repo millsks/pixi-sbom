@@ -160,12 +160,27 @@ fn main() -> Result<()> {
     let pypi_mapping = load_pypi_mapping(&args)?;
     tracing::debug!(documents = targets.len(), format = ?args.format, "resolved targets");
     let mut reports = Vec::new();
-    let policy =
-        policy::Policy::new(&args.allow_license, &args.deny_license, args.require_license).unwrap_or_else(|err| {
+    let exemptions: Vec<policy::Exemption> = args
+        .ignore_license
+        .iter()
+        .map(|text| policy::Exemption::parse(text))
+        .collect::<Result<_, _>>()
+        .unwrap_or_else(|err: String| {
             cli::Args::command()
-                .error(clap::error::ErrorKind::InvalidValue, err.to_string())
+                .error(clap::error::ErrorKind::InvalidValue, format!("--ignore-license: {err}"))
                 .exit()
         });
+    let policy = policy::Policy::new(
+        &args.allow_license,
+        &args.deny_license,
+        args.require_license,
+        exemptions,
+    )
+    .unwrap_or_else(|err| {
+        cli::Args::command()
+            .error(clap::error::ErrorKind::InvalidValue, err.to_string())
+            .exit()
+    });
     let mut violations: Vec<(String, String, policy::Violation)> = Vec::new();
     let ignores: Vec<vulnpolicy::Ignore> = args
         .ignore_vuln
@@ -385,9 +400,25 @@ fn main() -> Result<()> {
         }
         if let Some(policy) = &policy {
             let found = policy.check(&sbom);
-            tracing::info!(violations = found.len(), "checked the license policy");
+            tracing::info!(
+                violations = found.violations.len(),
+                exempt = found.exempt.len(),
+                "checked the license policy"
+            );
+            // An exemption is a decision, so it is recorded in the document rather than only
+            // being silent about the package.
+            for exempt in &found.exempt {
+                if let Some(package) = sbom.packages.iter_mut().find(|p| p.name == exempt.violation.package) {
+                    package.properties.insert(
+                        policy::EXEMPT_PROPERTY.to_string(),
+                        exempt.justification.clone().unwrap_or_else(|| "true".to_string()),
+                    );
+                }
+                tracing::info!(exempt = %exempt, "license policy exemption");
+            }
             violations.extend(
                 found
+                    .violations
                     .into_iter()
                     .map(|v| (sbom.environment.clone(), sbom.platform.clone(), v)),
             );
