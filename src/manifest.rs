@@ -262,8 +262,8 @@ impl Manifest {
             let pypi = match package.kind {
                 PackageKind::Pypi => true,
                 PackageKind::CondaBinary | PackageKind::CondaSource => false,
-                // Not installed as a package of its own, so nothing can declare it.
-                PackageKind::Embedded => continue,
+                // Not installed as a package of its own, and not from a manifest at all.
+                PackageKind::Embedded | PackageKind::External => continue,
             };
             let key = (pypi, matching_key(&package.name, pypi));
             if let Some(features) = wanted.get(&key) {

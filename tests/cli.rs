@@ -1267,6 +1267,137 @@ fn workspace_with_vulnerable_urllib3() -> tempfile::TempDir {
 }
 
 #[test]
+fn from_sbom_runs_the_pipeline_on_an_existing_document() {
+    let dir = workspace_with_vulnerable_urllib3();
+    let run = |args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "200")
+            .args(args);
+        command
+    };
+
+    // The document the lockfile produces, and the same document read back in.
+    let source = dir.path().join("source.cdx.json");
+    run(&["-e", "web", "-p", "linux-64", "--output"])
+        .arg(&source)
+        .assert()
+        .success();
+    let derived = dir.path().join("derived.cdx.json");
+    run(&["--from-sbom"])
+        .arg(&source)
+        .arg("--output")
+        .arg(&derived)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("read the source document"));
+
+    let (before, after) = (read_json(&source), read_json(&derived));
+    assert_valid(&cyclonedx_validator(), &after);
+    let packages = |document: &Value| -> Vec<(String, String)> {
+        document["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| (c["purl"].as_str().unwrap().to_string(), c["licenses"].to_string()))
+            .collect()
+    };
+    assert_eq!(packages(&before), packages(&after), "packages and licenses survive");
+    let edges = |document: &Value| -> Vec<String> {
+        document["dependencies"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| format!("{} -> {}", e["ref"], e["dependsOn"]))
+            .collect()
+    };
+    assert_eq!(edges(&before), edges(&after), "and so does the graph");
+    // The derivation is traceable, and the lockfile is no longer claimed as the input.
+    let properties: Vec<(&str, &str)> = after["metadata"]["properties"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| (p["name"].as_str().unwrap(), p["value"].as_str().unwrap()))
+        .collect();
+    assert!(
+        properties.contains(&("pixi:source-document", before["serialNumber"].as_str().unwrap())),
+        "{properties:?}"
+    );
+    assert!(!properties.iter().any(|(name, _)| *name == "pixi:lockfile"));
+
+    // The gates read the document as they read a lockfile: the same nine findings, and the
+    // same license violation.
+    let report: Value = serde_json::from_slice(
+        &run(&[
+            "--from-sbom",
+            source.to_str().unwrap(),
+            "--vulnerabilities",
+            "osv",
+            "--report",
+            "vulnerabilities",
+            "--report-format",
+            "json",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout,
+    )
+    .unwrap();
+    assert_eq!(report["vulnerabilities"].as_array().unwrap().len(), 9);
+    run(&[
+        "--from-sbom",
+        source.to_str().unwrap(),
+        "--deny-license",
+        "Zlib",
+        "--output",
+        "-",
+    ])
+    .assert()
+    .code(3)
+    .stderr(predicate::str::contains("License policy violated"));
+
+    // And the reports work on somebody else's document, purls being all they need.
+    let table = String::from_utf8(
+        run(&[
+            "--from-sbom",
+            source.to_str().unwrap(),
+            "--report",
+            "packages",
+            "--color",
+            "never",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone(),
+    )
+    .unwrap();
+    assert!(table.contains("urllib3"), "{table}");
+
+    // A file that is no document at all says so.
+    run(&["--from-sbom", "pixi.toml", "--output", "-"])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("pixi_sbom::from_sbom::parse"));
+    run(&[
+        "--from-sbom",
+        source.to_str().unwrap(),
+        "--all-environments",
+        "--output",
+        "out",
+    ])
+    .assert()
+    .code(2)
+    .stderr(predicate::str::contains("cannot be combined with '--from-sbom'"));
+}
+
+#[test]
 fn vulnerabilities_from_osv_are_recorded_in_cyclonedx() {
     let dir = workspace_with_vulnerable_urllib3();
     let run = |extra: &[&str]| {

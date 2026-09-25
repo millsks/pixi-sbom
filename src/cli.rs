@@ -137,6 +137,8 @@ pub enum Kind {
     Pypi,
     /// A component declared by an SBOM embedded in a wheel.
     Embedded,
+    /// A package from an existing document that is neither conda nor PyPI (`--from-sbom`).
+    External,
 }
 
 impl Kind {
@@ -147,6 +149,7 @@ impl Kind {
             Kind::CondaSource => crate::model::PackageKind::CondaSource,
             Kind::Pypi => crate::model::PackageKind::Pypi,
             Kind::Embedded => crate::model::PackageKind::Embedded,
+            Kind::External => crate::model::PackageKind::External,
         }
     }
 }
@@ -194,6 +197,11 @@ pub struct Args {
     /// Path to the pixi.lock file. Defaults to searching from the current directory upward.
     #[arg(long, value_name = "PATH", conflicts_with = "prefix")]
     pub lockfile: Option<PathBuf>,
+
+    /// Read an existing SBOM instead of a lockfile (CycloneDX 1.4-1.7, SPDX 2.x or SPDX 3.0
+    /// JSON) and run the reports, the license policy and the vulnerability gate on it.
+    #[arg(long, value_name = "FILE", conflicts_with_all = ["lockfile", "prefix", "scan"])]
+    pub from_sbom: Option<PathBuf>,
 
     /// Describe every pixi workspace under this directory: one document per `pixi.lock`
     /// found, in sorted order. Hidden directories, node_modules, target, build, dist, venv and

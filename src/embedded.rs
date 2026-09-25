@@ -42,9 +42,13 @@ pub struct Component {
     pub license: Option<String>,
     pub description: Option<String>,
     pub sha256: Option<String>,
+    pub md5: Option<String>,
     pub location: Option<String>,
     /// References of the components this one depends on.
     pub depends_on: Vec<String>,
+    /// The `pixi:*` facts the document records, which is how a document this tool wrote keeps
+    /// its channel, build string and declared-dependency marks when it is read back.
+    pub properties: BTreeMap<String, String>,
 }
 
 /// A parsed fragment: its components and the references of its top level (what the wheel
@@ -86,8 +90,17 @@ struct CdxComponent {
     licenses: Vec<serde_json::Value>,
     #[serde(default)]
     hashes: Vec<CdxHash>,
+    #[serde(default)]
+    properties: Vec<CdxProperty>,
     #[serde(default, rename = "externalReferences")]
     external_references: Vec<CdxExternalReference>,
+}
+
+#[derive(Deserialize)]
+struct CdxProperty {
+    name: String,
+    #[serde(default)]
+    value: String,
 }
 
 #[derive(Deserialize)]
@@ -161,11 +174,22 @@ fn parse_cyclonedx(text: &str) -> Option<Fragment> {
                 .iter()
                 .find(|h| h.alg.eq_ignore_ascii_case("SHA-256"))
                 .map(|h| h.content.to_lowercase()),
+            md5: c
+                .hashes
+                .iter()
+                .find(|h| h.alg.eq_ignore_ascii_case("MD5"))
+                .map(|h| h.content.to_lowercase()),
             location: c
                 .external_references
                 .iter()
                 .find(|r| r.kind == "distribution" || r.kind == "vcs")
                 .map(|r| r.url.clone()),
+            properties: c
+                .properties
+                .iter()
+                .filter(|p| p.name.starts_with("pixi:"))
+                .map(|p| (p.name.clone(), p.value.clone()))
+                .collect(),
         });
     }
     // The top level is what the fragment's own root depends on; without a root or a graph,
@@ -217,6 +241,7 @@ struct SpdxPackage {
     #[serde(rename = "licenseConcluded")]
     license_concluded: Option<String>,
     summary: Option<String>,
+    comment: Option<String>,
     #[serde(default)]
     checksums: Vec<SpdxChecksum>,
     #[serde(default, rename = "externalRefs")]
@@ -282,8 +307,23 @@ fn parse_spdx(text: &str) -> Option<Fragment> {
                 .iter()
                 .find(|c| c.algorithm.eq_ignore_ascii_case("SHA256"))
                 .map(|c| c.checksum_value.to_lowercase()),
+            md5: p
+                .checksums
+                .iter()
+                .find(|c| c.algorithm.eq_ignore_ascii_case("MD5"))
+                .map(|c| c.checksum_value.to_lowercase()),
             location: noassertion(&p.download_location),
             depends_on: depends.get(p.spdx_id.as_str()).cloned().unwrap_or_default(),
+            // SPDX has no properties, so this writer (and others) put `key=value` lines in the
+            // comment; anything else in there is not a `pixi:` key and is ignored.
+            properties: p
+                .comment
+                .iter()
+                .flat_map(|comment| comment.lines())
+                .filter_map(|line| line.split_once('='))
+                .filter(|(key, _)| key.starts_with("pixi:"))
+                .map(|(key, value)| (key.to_string(), value.to_string()))
+                .collect(),
         });
     }
     let known: BTreeSet<&str> = fragment.components.iter().map(|c| c.reference.as_str()).collect();

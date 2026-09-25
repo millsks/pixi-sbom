@@ -9,6 +9,7 @@ mod discover;
 mod embedded;
 mod filter;
 mod format;
+mod fromsbom;
 mod http;
 mod imports;
 mod kev;
@@ -51,13 +52,14 @@ fn main() -> Result<()> {
     let cwd = std::env::current_dir().into_diagnostic()?;
     // With --prefix there is no lockfile; a stand-in path in the working directory keeps the
     // output and configuration lookups (which are relative to the lockfile) working.
-    let lockfile = match (&args.prefix, &args.scan) {
-        // With --prefix there is no lockfile, and with --scan there are many; a stand-in path
-        // keeps the configuration lookup (which is relative to the lockfile) working, and for
-        // a scan it puts that lookup in the scanned directory rather than in each workspace.
-        (Some(_), _) => cwd.join(discover::LOCKFILE_NAME),
-        (None, Some(dir)) => dir.join(discover::LOCKFILE_NAME),
-        (None, None) => discover::resolve_lockfile(args.lockfile.as_deref(), &cwd)?,
+    let lockfile = match (&args.prefix, &args.scan, &args.from_sbom) {
+        // With --prefix or --from-sbom there is no lockfile, and with --scan there are many; a
+        // stand-in path keeps the configuration lookup (which is relative to the lockfile)
+        // working, and for a scan it puts that lookup in the scanned directory rather than in
+        // each workspace.
+        (Some(_), _, _) | (_, _, Some(_)) => cwd.join(discover::LOCKFILE_NAME),
+        (None, Some(dir), None) => dir.join(discover::LOCKFILE_NAME),
+        (None, None, None) => discover::resolve_lockfile(args.lockfile.as_deref(), &cwd)?,
     };
     if !args.no_config {
         let dir = lockfile.parent().unwrap_or(Path::new("."));
@@ -75,6 +77,22 @@ fn main() -> Result<()> {
     );
     // A scan reads its inputs per workspace, so there is no single one to read here.
     let input = match (&args.prefix, &args.scan) {
+        _ if args.from_sbom.is_some() => {
+            let path = args.from_sbom.as_deref().expect("just checked");
+            let root = model::Root {
+                name: args.name.clone().unwrap_or_default(),
+                version: args.root_version.clone(),
+                ..model::Root::default()
+            };
+            let loaded = fromsbom::read(path, root, args.platform.as_deref())?;
+            tracing::info!(
+                path = %path.display(),
+                format = %loaded.format,
+                packages = loaded.sbom.packages.len(),
+                "read the source document"
+            );
+            Some(Input::Document(Box::new(loaded)))
+        }
         (Some(dir), _) => Some(Input::Prefix {
             dir: dir.clone(),
             root: model::Root {
@@ -119,6 +137,11 @@ fn main() -> Result<()> {
                 Input::Lock { lock, .. } => resolve_targets(&args, lock, &lockfile, None)?,
                 Input::Prefix { dir, .. } => vec![Target {
                     environment: prefix::environment_name(dir),
+                    platform: args.platform.clone(),
+                    output: discover::resolve_output(args.output.as_deref(), &lockfile, args.format),
+                }],
+                Input::Document(loaded) => vec![Target {
+                    environment: loaded.sbom.environment.clone(),
                     platform: args.platform.clone(),
                     output: discover::resolve_output(args.output.as_deref(), &lockfile, args.format),
                 }],
@@ -220,6 +243,9 @@ fn main() -> Result<()> {
                 tracing::info!(prefix = %dir.display(), packages = sbom.packages.len(), "read the installed environment");
                 (sbom, contents)
             }
+            // Already read: the source document's own text is what identifies everything
+            // derived from it.
+            Input::Document(loaded) => (loaded.sbom.clone(), loaded.contents.clone()),
         };
         if !package_filter.is_empty() {
             let filter::Outcome { excluded, orphans } = package_filter.apply(&mut sbom);
@@ -624,6 +650,19 @@ fn validate(args: &cli::Args) {
             );
         }
     }
+    if args.from_sbom.is_some() {
+        for (set, flag) in [
+            (args.all_environments, "--all-environments"),
+            (args.all_platforms, "--all-platforms"),
+        ] {
+            if set {
+                usage(
+                    ArgumentConflict,
+                    &format!("'{flag}' reads a lockfile and cannot be combined with '--from-sbom'"),
+                );
+            }
+        }
+    }
     if args.scan.is_some() {
         if args.against.is_some() {
             usage(
@@ -757,6 +796,8 @@ enum Input {
     },
     /// An installed environment (`--prefix`).
     Prefix { dir: std::path::PathBuf, root: model::Root },
+    /// An existing document (`--from-sbom`), already read into the model.
+    Document(Box<fromsbom::Loaded>),
 }
 
 /// One document to write: an environment, a platform (`None` = host), and where it goes.

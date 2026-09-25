@@ -203,6 +203,7 @@ pub(crate) mod testing {
             platform: "linux-64".into(),
             lockfile: "pixi.lock".into(),
             prefix: None,
+            document: None,
             packages: vec![
                 Package {
                     id: libzlib_id.into(),

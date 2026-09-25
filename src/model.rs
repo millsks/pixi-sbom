@@ -21,6 +21,9 @@ pub struct Sbom {
     /// Name of the installed environment the SBOM was generated from with `--prefix` (its
     /// directory name, never a path), in place of a lockfile.
     pub prefix: Option<String>,
+    /// Identity of the document this one was derived from with `--from-sbom` (its serial
+    /// number or namespace, else its file name), in place of a lockfile.
+    pub document: Option<String>,
     /// Packages sorted by kind, then name, then version. Order is stable across runs.
     pub packages: Vec<Package>,
     /// Known vulnerabilities of the packages, when looked up. Sorted by severity (worst
@@ -174,17 +177,19 @@ impl Sbom {
     /// What the document was generated from, for provenance notes: `lockfile pixi.lock` or
     /// `prefix <name>`.
     pub fn input_description(&self) -> String {
-        match &self.prefix {
-            Some(prefix) => format!("prefix {prefix}"),
-            None => format!("lockfile {}", self.lockfile),
+        match (&self.prefix, &self.document) {
+            (Some(prefix), _) => format!("prefix {prefix}"),
+            (None, Some(document)) => format!("document {document}"),
+            (None, None) => format!("lockfile {}", self.lockfile),
         }
     }
 
     /// The `pixi:*` property naming the input and its value.
     pub fn input_property(&self) -> (&'static str, &str) {
-        match &self.prefix {
-            Some(prefix) => ("pixi:prefix", prefix),
-            None => ("pixi:lockfile", &self.lockfile),
+        match (&self.prefix, &self.document) {
+            (Some(prefix), _) => ("pixi:prefix", prefix),
+            (None, Some(document)) => (crate::fromsbom::SOURCE_DOCUMENT_PROPERTY, document),
+            (None, None) => ("pixi:lockfile", &self.lockfile),
         }
     }
 }
@@ -282,6 +287,10 @@ pub enum PackageKind {
     /// A component declared by an SBOM embedded in a wheel (PEP 770), e.g. a Rust crate
     /// compiled into it. Not installed as a package of its own.
     Embedded,
+    /// A package read from an existing document (`--from-sbom`) whose purl is neither conda
+    /// nor PyPI, or which has no purl at all: the document is the only thing that knows what
+    /// it is.
+    External,
 }
 
 impl PackageKind {
@@ -292,6 +301,7 @@ impl PackageKind {
             PackageKind::CondaSource => "conda-source",
             PackageKind::Pypi => "pypi",
             PackageKind::Embedded => "embedded",
+            PackageKind::External => "external",
         }
     }
 }
