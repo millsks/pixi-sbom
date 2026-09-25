@@ -81,6 +81,10 @@ pub struct Row {
     /// empty when the index gives none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub yanked: Option<String>,
+    /// Why the license policy does not apply to this package, when it was exempted with
+    /// `--ignore-license` (the justification, or `true` when none was given).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exempt: Option<String>,
     /// The manifest features whose dependency tables declare this package. Empty when the
     /// workspace did not ask for it itself, and for every package when there is no manifest.
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -143,6 +147,8 @@ pub struct LicenseSummary {
     pub unlicensed: Vec<String>,
     /// Packages whose license is not a valid SPDX expression, with the parser's reason.
     pub non_spdx: Vec<String>,
+    /// Packages the policy was told not to apply to, with their justification.
+    pub exempt: Vec<String>,
 }
 
 /// One package as the outdated report sees it.
@@ -926,6 +932,7 @@ fn row(package: &Package) -> Row {
         license_files: package.license_files.iter().map(|f| f.name.clone()).collect(),
         purl: package.purl.clone(),
         yanked: package.yanked.as_ref().map(|y| y.reason.clone().unwrap_or_default()),
+        exempt: package.properties.get(crate::policy::EXEMPT_PROPERTY).cloned(),
         declared_in: package
             .properties
             .get(crate::manifest::DECLARED_IN_PROPERTY)
@@ -949,6 +956,12 @@ fn summarize(rows: &[Row]) -> LicenseSummary {
                 }
             }
             None => summary.unlicensed.push(row.name.clone()),
+        }
+        if let Some(why) = &row.exempt {
+            summary.exempt.push(match why.as_str() {
+                "true" => row.name.clone(),
+                justification => format!("{} ({justification})", row.name),
+            });
         }
     }
     let mut by_license: Vec<(String, usize)> = counts.into_iter().map(|(k, v)| (k.to_string(), v)).collect();
@@ -1331,6 +1344,9 @@ fn render_summary(
     };
     writeln!(out, "{}", muted(list("No license", &summary.unlicensed)))?;
     writeln!(out, "{}", muted(list("Not an SPDX expression", &summary.non_spdx)))?;
+    if !summary.exempt.is_empty() {
+        writeln!(out, "{}", list("Exempt from the policy", &summary.exempt))?;
+    }
     Ok(())
 }
 

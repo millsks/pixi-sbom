@@ -61,6 +61,7 @@ pub struct Config {
     pub fail_on_kev: Option<bool>,
     pub fail_on_severity: Option<String>,
     pub ignore_vuln: Option<Vec<String>>,
+    pub ignore_license: Option<Vec<String>>,
     pub fail_on_diff: Option<Vec<String>>,
     pub source: Option<Vec<PathBuf>>,
     pub assume_used: Option<Vec<String>>,
@@ -236,6 +237,7 @@ pub fn apply(loaded: &Loaded, args: &mut Args, matches: &ArgMatches) -> Result<(
     set!(allow_license, "allow_license", config.allow_license.clone());
     set!(deny_license, "deny_license", config.deny_license.clone());
     set!(require_license, "require_license", config.require_license);
+    set!(ignore_license, "ignore_license", config.ignore_license.clone());
     set!(fail_on_yanked, "fail_on_yanked", config.fail_on_yanked);
     if let Some(source) = &config.vulnerabilities
         && !on_cli(matches, "vulnerabilities")
@@ -291,6 +293,7 @@ mod tests {
             fetch-licenses = true
             deny-license = ["GPL-3.0-only", "AGPL-3.0-only"]
             require-license = true
+            ignore-license = ["mylib:internal, reviewed"]
             exclude = ["pre-commit*"]
             exclude-kind = ["conda-source"]
             vulnerabilities = "osv"
@@ -312,6 +315,7 @@ mod tests {
         assert!(a.fetch_licenses);
         assert_eq!(a.deny_license, ["GPL-3.0-only", "AGPL-3.0-only"]);
         assert!(a.require_license);
+        assert_eq!(a.ignore_license, ["mylib:internal, reviewed"]);
         assert_eq!(a.exclude, ["pre-commit*"]);
         assert_eq!(a.exclude_kind, [Kind::CondaSource]);
         assert_eq!(a.vulnerabilities, Some(VulnerabilitySource::Osv));

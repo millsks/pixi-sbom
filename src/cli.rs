@@ -332,6 +332,13 @@ pub struct Args {
     #[arg(long, value_name = "LICENSE")]
     pub deny_license: Vec<String>,
 
+    /// The license policy does not apply to these packages (repeatable): a name or a
+    /// shell-style pattern as in --exclude, optionally followed by `:justification`. The
+    /// package is listed as exempt in the report and carries `pixi:license-exempt` in the
+    /// document.
+    #[arg(long, value_name = "PACKAGE[:WHY]")]
+    pub ignore_license: Vec<String>,
+
     /// Every package must declare a license that is an SPDX expression.
     #[arg(long)]
     pub require_license: bool,

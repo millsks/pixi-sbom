@@ -96,6 +96,12 @@ inputs:
     description: Fail the step when the license policy is violated (exit code 3).
     required: false
     default: "true"
+  ignore-license:
+    description: >-
+      Packages the license policy does not apply to, one per line, as `PACKAGE` or
+      `PACKAGE:justification` (a name or a shell-style pattern).
+    required: false
+    default: ""
   fail-on-yanked:
     description: With fetch-licenses, fail the step when any package is a yanked release (exit code 7).
     required: false
@@ -292,6 +298,7 @@ runs:
         IN_ALLOW_LICENSE: ${{ inputs.allow-license }}
         IN_DENY_LICENSE: ${{ inputs.deny-license }}
         IN_REQUIRE_LICENSE: ${{ inputs.require-license }}
+        IN_IGNORE_LICENSE: ${{ inputs.ignore-license }}
         IN_FAIL_ON_YANKED: ${{ inputs.fail-on-yanked }}
         IN_FAIL_ON_POLICY: ${{ inputs.fail-on-policy }}
         IN_VULNERABILITIES: ${{ inputs.vulnerabilities }}
@@ -348,6 +355,9 @@ runs:
         for l in $IN_ALLOW_LICENSE; do args+=(--allow-license "$l"); done
         for l in $IN_DENY_LICENSE; do args+=(--deny-license "$l"); done
         [ "$IN_REQUIRE_LICENSE" = "true" ] && args+=(--require-license)
+        while IFS= read -r line; do
+          [ -n "${line// }" ] && args+=(--ignore-license "$line")
+        done <<< "$IN_IGNORE_LICENSE"
         [ "$IN_FAIL_ON_YANKED" = "true" ] && args+=(--fail-on-yanked)
         args+=(${vuln[@]+"${vuln[@]}"})
         [ -n "$IN_FAIL_ON_SEVERITY" ] && args+=(--fail-on-severity "$IN_FAIL_ON_SEVERITY")

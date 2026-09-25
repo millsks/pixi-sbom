@@ -3274,6 +3274,91 @@ fn license_policy_violations_exit_3_after_writing_the_document() {
         .assert()
         .success()
         .stderr(predicate::str::contains("checked the license policy violations=0"));
+
+    // --ignore-license lets named packages through, records why in the document, and leaves
+    // everything else to the policy.
+    let exempt = |extra: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .args([
+                "-p",
+                "linux-64",
+                "--deny-license",
+                "GPL-3.0-only",
+                "--ignore-license",
+                "ld_impl_*:build-time only",
+                "--ignore-license",
+                "readline",
+            ])
+            .args(extra);
+        command
+    };
+    let document: Value = serde_json::from_slice(
+        &exempt(&["--output", "-"])
+            .assert()
+            .success()
+            .stderr(predicate::str::contains(
+                "ld_impl_linux-64 2.46.1: denied license (GPL-3.0-only) — build-time only",
+            ))
+            .stderr(predicate::str::contains("violations=0 exempt=2"))
+            .get_output()
+            .stdout,
+    )
+    .unwrap();
+    let property = |name: &str| -> Option<String> {
+        document["components"]
+            .as_array()?
+            .iter()
+            .find(|c| c["name"] == name)?
+            .get("properties")?
+            .as_array()?
+            .iter()
+            .find(|p| p["name"] == "pixi:license-exempt")?
+            .get("value")?
+            .as_str()
+            .map(str::to_string)
+    };
+    assert_eq!(property("ld_impl_linux-64").as_deref(), Some("build-time only"));
+    assert_eq!(property("readline").as_deref(), Some("true"), "no justification given");
+    assert_eq!(property("python"), None, "nothing exempted python");
+
+    // The licenses report lists them, and a package nobody exempted still fails the policy.
+    let table = String::from_utf8(
+        exempt(&["--report", "licenses", "--color", "never"])
+            .env("COLUMNS", "200")
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(
+        table.contains("Exempt from the policy (2): ld_impl_linux-64 (build-time only), readline"),
+        "{table}"
+    );
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args([
+            "-p",
+            "linux-64",
+            "--deny-license",
+            "GPL-3.0-only",
+            "--ignore-license",
+            "readline",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .code(3)
+        .stderr(predicate::str::contains("ld_impl_linux-64"));
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--require-license", "--ignore-license", ":why"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("--ignore-license"));
 }
 
 #[test]

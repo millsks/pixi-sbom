@@ -93,6 +93,7 @@ entry).
 | `pixi:source-path` | conda source (path) | Local path |
 | `pixi:direct` | any | `true` when the workspace manifest declares this package itself, rather than it coming along as somebody else's dependency |
 | `pixi:declared-in` | any | The features whose dependency tables declare it, comma separated (`default`, `default,docs`) |
+| `pixi:license-exempt` | any | Why the license policy does not apply (`--ignore-license`); `true` when no justification was given |
 | `pixi:index-url` | PyPI | Index the wheel was resolved from |
 | `pixi:requires-python` | PyPI | `Requires-Python` of the distribution |
 | `pixi:source` | PyPI | `true` for sdists / source trees |

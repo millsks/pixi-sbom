@@ -43,6 +43,7 @@ With no options this means:
 | `--allow-license <LICENSE>` | | Repeatable. Only these SPDX licenses are acceptable; a package whose license expression cannot be satisfied with them alone is a violation. |
 | `--deny-license <LICENSE>` | | Repeatable. These SPDX licenses are unacceptable; a package whose expression cannot be satisfied without them is a violation. |
 | `--require-license` | off | Every package must declare a license that is an SPDX expression. |
+| `--ignore-license <PACKAGE[:WHY]>` | | Repeatable. The policy does not apply to packages matching this name or pattern; they are listed as exempt in the report and carry `pixi:license-exempt` in the document. |
 | `--fail-on-yanked` | off | With `--fetch-licenses`: exit **7** after writing the document when any PyPI package is a yanked release (PEP 592). |
 | `--vulnerabilities <osv>` | off | Look up known vulnerabilities of every package with a purl OSV can answer and record them in the document (see below). |
 | `--kev` | off | With `--vulnerabilities`: mark findings whose CVE alias is in CISA's Known Exploited Vulnerabilities catalog (downloaded once a day). They are rated `critical`, sorted first, and carry the catalog's dates and required action. |
@@ -110,6 +111,7 @@ exclude-kind = ["conda-source"]
 keep-orphans = false
 allow-license = []                # or deny-license = ["GPL-3.0-only", "AGPL-3.0-only"]
 require-license = true
+ignore-license = ["internal-*:approved by legal, 2026-01"]
 vulnerabilities = "osv"
 kev = true
 fail-on-severity = "high"
@@ -169,6 +171,21 @@ identifiers match exactly. `GPL-2.0+` may be written for `GPL-2.0-or-later`.
 Packages without a license, or with one that is not an SPDX expression, are not violations of an allow or deny
 list (there is nothing to evaluate); `--require-license` makes them violations. Combine with `--fetch-licenses` so
 PyPI packages have a license to check. In batch mode each violation is prefixed with its environment and platform.
+
+One deliberately accepted package should not force the policy off, so `--ignore-license` exempts it by name or by
+a shell-style pattern, as `--ignore-vuln` does for a finding:
+
+```sh
+pixi sbom --deny-license GPL-3.0-only \
+  --ignore-license "ld_impl_*:build-time only, not shipped" \
+  --ignore-license internal-tool
+```
+
+An exempt package that would have failed is reported as exempt rather than as a violation: the run exits 0, the
+log and the licenses report list it with its justification (`Exempt from the policy (2): ...`), and the component
+carries `pixi:license-exempt` with the text (`true` when no justification was given) so the decision is in the
+document rather than only in the command line. A package nobody exempted still fails, and an exemption that never
+matches anything says nothing.
 
 ## Yanked releases
 

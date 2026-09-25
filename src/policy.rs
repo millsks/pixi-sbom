@@ -19,6 +19,63 @@ use crate::model::Sbom;
 /// Exit code of a run whose documents were written but whose policy was violated.
 pub const VIOLATION_EXIT_CODE: i32 = 3;
 
+/// The `pixi:*` property recording that a package was let through the policy deliberately,
+/// with the justification when one was given.
+pub const EXEMPT_PROPERTY: &str = "pixi:license-exempt";
+
+/// One package (or pattern of packages) the policy does not apply to, and why.
+#[derive(Debug, Clone)]
+pub struct Exemption {
+    /// Name or shell-style pattern, as `--exclude` spells it.
+    pub pattern: crate::filter::Glob,
+    /// Free text, for the report and the document.
+    pub justification: Option<String>,
+}
+
+impl Exemption {
+    /// Parse `PACKAGE` or `PACKAGE:justification`.
+    pub fn parse(text: &str) -> Result<Self, String> {
+        let text = text.trim();
+        let (pattern, justification) = match text.split_once(':') {
+            Some((pattern, rest)) => (pattern.trim(), Some(rest.trim()).filter(|r| !r.is_empty())),
+            None => (text, None),
+        };
+        if pattern.is_empty() {
+            return Err(format!("'{text}' names no package"));
+        }
+        Ok(Self {
+            pattern: crate::filter::Glob::parse(pattern)?,
+            justification: justification.map(str::to_string),
+        })
+    }
+}
+
+/// A package the policy would have failed, let through by an exemption.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Exempt {
+    pub violation: Violation,
+    pub justification: Option<String>,
+}
+
+impl fmt::Display for Exempt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.violation)?;
+        match &self.justification {
+            Some(justification) => write!(f, " — {justification}"),
+            None => Ok(()),
+        }
+    }
+}
+
+/// What a policy check found.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Outcome {
+    /// Packages that fail the policy and are not exempt.
+    pub violations: Vec<Violation>,
+    /// Packages that would have failed and were let through.
+    pub exempt: Vec<Exempt>,
+}
+
 /// A licensee given on the command line could not be parsed.
 #[derive(Debug, Error, Diagnostic)]
 #[error("'{text}' is not an SPDX license identifier: {reason}")]
@@ -124,6 +181,8 @@ pub struct Policy {
     allow: Vec<Lic>,
     deny: Vec<Lic>,
     require_license: bool,
+    /// Packages the policy deliberately does not apply to.
+    exemptions: Vec<Exemption>,
 }
 
 /// Why a package violates the policy.
@@ -175,7 +234,12 @@ impl fmt::Display for Violation {
 
 impl Policy {
     /// Build a policy from the command-line lists; `None` when nothing was asked for.
-    pub fn new(allow: &[String], deny: &[String], require_license: bool) -> Result<Option<Self>, LicenseeError> {
+    pub fn new(
+        allow: &[String],
+        deny: &[String],
+        require_license: bool,
+        exemptions: Vec<Exemption>,
+    ) -> Result<Option<Self>, LicenseeError> {
         if allow.is_empty() && deny.is_empty() && !require_license {
             return Ok(None);
         }
@@ -183,7 +247,13 @@ impl Policy {
             allow: allow.iter().map(|a| parse_licensee(a)).collect::<Result<_, _>>()?,
             deny: deny.iter().map(|d| parse_licensee(d)).collect::<Result<_, _>>()?,
             require_license,
+            exemptions,
         }))
+    }
+
+    /// The exemption that covers a package, if any.
+    fn exemption(&self, package: &str) -> Option<&Exemption> {
+        self.exemptions.iter().find(|e| e.pattern.matches(package))
     }
 
     /// Whether the policy restricts which licenses are acceptable (as opposed to only
@@ -193,8 +263,8 @@ impl Policy {
     }
 
     /// Every package in `sbom` that violates the policy, in document order.
-    pub fn check(&self, sbom: &Sbom) -> Vec<Violation> {
-        let mut violations = Vec::new();
+    pub fn check(&self, sbom: &Sbom) -> Outcome {
+        let mut outcome = Outcome::default();
         for package in &sbom.packages {
             let violation = |reason, license: Option<String>| Violation {
                 package: package.name.clone(),
@@ -202,9 +272,17 @@ impl Policy {
                 license,
                 reason,
             };
+            // A package the policy does not apply to is recorded, not failed.
+            let mut record = |reason, license: Option<String>| match self.exemption(&package.name) {
+                Some(exemption) => outcome.exempt.push(Exempt {
+                    violation: violation(reason, license),
+                    justification: exemption.justification.clone(),
+                }),
+                None => outcome.violations.push(violation(reason, license)),
+            };
             let Some(raw) = package.license.as_deref() else {
                 if self.require_license {
-                    violations.push(violation(Reason::Missing, None));
+                    record(Reason::Missing, None);
                 }
                 continue;
             };
@@ -215,7 +293,7 @@ impl Policy {
                         let detail = license::rejection_reason(raw)
                             .map(|why| format!("{text} ({why})"))
                             .unwrap_or(text);
-                        violations.push(violation(Reason::NotSpdx, Some(detail)));
+                        record(Reason::NotSpdx, Some(detail));
                     }
                     continue;
                 }
@@ -224,10 +302,10 @@ impl Policy {
                 continue;
             }
             if let Some(reason) = self.evaluate(&expression) {
-                violations.push(violation(reason, Some(expression)));
+                record(reason, Some(expression));
             }
         }
-        violations
+        outcome
     }
 
     /// `None` when `expression` is acceptable, otherwise why not.
@@ -281,7 +359,7 @@ mod tests {
     fn policy(allow: &[&str], deny: &[&str], require: bool) -> Policy {
         let allow: Vec<String> = allow.iter().map(|s| s.to_string()).collect();
         let deny: Vec<String> = deny.iter().map(|s| s.to_string()).collect();
-        Policy::new(&allow, &deny, require).unwrap().unwrap()
+        Policy::new(&allow, &deny, require, Vec::new()).unwrap().unwrap()
     }
 
     fn reason(p: &Policy, expression: &str) -> Option<Reason> {
@@ -289,13 +367,68 @@ mod tests {
     }
 
     #[test]
+    fn an_exempt_package_is_recorded_instead_of_failed() {
+        let mut sbom = sample_sbom();
+        // libzlib is Zlib, mylib is Proprietary: two different ways to fail one policy.
+        let deny = Policy::new(
+            &[],
+            &["Zlib".into()],
+            true,
+            vec![
+                Exemption::parse("libz*:vendored, reviewed 2026-01").unwrap(),
+                Exemption::parse("mylib").unwrap(),
+            ],
+        )
+        .unwrap()
+        .unwrap();
+        sbom.packages.iter_mut().find(|p| p.name == "mylib").unwrap().license = None;
+
+        let outcome = deny.check(&sbom);
+        // six declares no license and is nobody's exemption.
+        let failed: Vec<&str> = outcome.violations.iter().map(|v| v.package.as_str()).collect();
+        assert_eq!(failed, ["six"], "{outcome:?}");
+        let exempt: Vec<(&str, Option<&str>)> = outcome
+            .exempt
+            .iter()
+            .map(|e| (e.violation.package.as_str(), e.justification.as_deref()))
+            .collect();
+        assert_eq!(
+            exempt,
+            [("libzlib", Some("vendored, reviewed 2026-01")), ("mylib", None)]
+        );
+        assert_eq!(outcome.exempt[0].violation.reason, Reason::Denied);
+        assert_eq!(outcome.exempt[1].violation.reason, Reason::Missing);
+        assert!(
+            outcome.exempt[0].to_string().contains("vendored, reviewed 2026-01"),
+            "{}",
+            outcome.exempt[0]
+        );
+
+        // Without the exemptions the same policy fails both.
+        let strict = Policy::new(&[], &["Zlib".into()], true, Vec::new()).unwrap().unwrap();
+        assert_eq!(strict.check(&sbom).violations.len(), 3);
+    }
+
+    #[test]
+    fn an_exemption_needs_a_package_and_takes_a_justification() {
+        assert_eq!(Exemption::parse("six").unwrap().justification, None);
+        assert_eq!(
+            Exemption::parse(" six : because ").unwrap().justification.as_deref(),
+            Some("because")
+        );
+        assert_eq!(Exemption::parse("six:").unwrap().justification, None);
+        assert!(Exemption::parse(":why").is_err());
+        assert!(Exemption::parse("  ").is_err());
+    }
+
+    #[test]
     fn no_flags_means_no_policy_and_bad_licensees_are_errors() {
-        assert!(Policy::new(&[], &[], false).unwrap().is_none());
-        assert!(Policy::new(&[], &[], true).unwrap().is_some());
-        let err = Policy::new(&["not a license!!".into()], &[], false).unwrap_err();
+        assert!(Policy::new(&[], &[], false, Vec::new()).unwrap().is_none());
+        assert!(Policy::new(&[], &[], true, Vec::new()).unwrap().is_some());
+        let err = Policy::new(&["not a license!!".into()], &[], false, Vec::new()).unwrap_err();
         assert!(err.text.contains("not a license"));
         assert!(
-            Policy::new(&["mit".into()], &[], false).is_ok(),
+            Policy::new(&["mit".into()], &[], false, Vec::new()).is_ok(),
             "lax parsing accepts lower case"
         );
     }
@@ -370,14 +503,14 @@ mod tests {
         let sbom = sample_sbom();
         // libzlib: Zlib; zlib: MIT/Apache-2.0; mylib: Proprietary (text); six: none.
         let deny = policy(&[], &["Zlib"], false);
-        let v = deny.check(&sbom);
+        let v = deny.check(&sbom).violations;
         assert_eq!(v.len(), 1);
         assert_eq!(v[0].package, "libzlib");
         assert_eq!(v[0].reason, Reason::Denied);
         assert_eq!(v[0].to_string(), "libzlib 1.3.1: denied license (Zlib)");
 
         let allow = policy(&["Zlib", "MIT"], &[], false);
-        let v = allow.check(&sbom);
+        let v = allow.check(&sbom).violations;
         assert_eq!(
             v.len(),
             0,
@@ -385,7 +518,7 @@ mod tests {
         );
 
         let require = policy(&[], &[], true);
-        let v = require.check(&sbom);
+        let v = require.check(&sbom).violations;
         let names: Vec<_> = v.iter().map(|v| (v.package.as_str(), v.reason.clone())).collect();
         assert_eq!(names, [("mylib", Reason::NotSpdx), ("six", Reason::Missing)]);
         assert_eq!(v[1].to_string(), "six 1.17.0: no license declared");
