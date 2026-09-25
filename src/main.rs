@@ -24,6 +24,7 @@ mod prefix;
 mod purl;
 mod pypi;
 mod report;
+mod style;
 mod vulnpolicy;
 mod wheel;
 mod zipread;
@@ -317,8 +318,9 @@ fn main() -> Result<()> {
         );
     }
     if !reports.is_empty() {
+        let palette = style::Palette::new(args.color.enabled());
         let mut stdout = std::io::stdout().lock();
-        report::render(&reports, args.report_format, &mut stdout)
+        report::render(&reports, args.report_format, palette, &mut stdout)
             .and_then(|()| stdout.flush())
             .into_diagnostic()
             .wrap_err("cannot write the report to stdout")?;

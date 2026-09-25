@@ -65,10 +65,13 @@ codegen-units = 1
 strip = true
 
 [dependencies]
+anstream = "1.0.0"
+anstyle = "1.0.14"
 bzip2 = "0.6.1"
 chrono = { version = "0.4.45", features = ["serde"] }
 clap = { version = "4.6.7", features = ["derive", "string"] }
 clap-verbosity-flag = { version = "3.0.4", features = ["tracing"] }
+comfy-table = { version = "8", default-features = false, features = ["tty"] }
 flate2 = "1.1.10"
 miette = { version = "7.6.0", features = ["fancy"] }
 packageurl = "0.7.0"

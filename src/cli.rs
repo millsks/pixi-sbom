@@ -328,6 +328,11 @@ pub struct Args {
     #[arg(long, value_enum, default_value_t = crate::report::ReportFormat::Table, requires = "report")]
     pub report_format: crate::report::ReportFormat,
 
+    /// When to colour the terminal report: `auto` follows the terminal, `NO_COLOR` and
+    /// `CLICOLOR_FORCE`. Only the `table` format is ever coloured.
+    #[arg(long, value_enum, value_name = "WHEN", default_value_t = crate::style::ColorChoice::Auto)]
+    pub color: crate::style::ColorChoice,
+
     /// With --report diff: the previous document to compare against (CycloneDX, SPDX 2.3 or
     /// SPDX 3.0 JSON, as written by pixi-sbom or another tool).
     #[arg(long, value_name = "PATH", conflicts_with_all = ["all_environments", "all_platforms"])]
