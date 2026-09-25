@@ -61,12 +61,14 @@ pub struct Outcome {
 
 struct Job {
     index: usize,
+    /// Package name, for the progress bar.
+    name: String,
     location: String,
     key: String,
 }
 
 /// Fill in details for every PyPI wheel in the SBOM. Texts are read only with `texts`.
-pub fn enrich(sbom: &mut Sbom, cache_dir: &Path, texts: bool) -> Outcome {
+pub fn enrich(sbom: &mut Sbom, cache_dir: &Path, texts: bool, progress: crate::progress::Progress) -> Outcome {
     let mut outcome = Outcome::default();
     let mut jobs = Vec::new();
     for (index, package) in sbom.packages.iter().enumerate() {
@@ -81,13 +83,20 @@ pub fn enrich(sbom: &mut Sbom, cache_dir: &Path, texts: bool) -> Outcome {
         let key = cache_key(package);
         jobs.push(Job {
             index,
+            name: package.name.clone(),
             location: package.location.clone(),
             key,
         });
     }
-    let results = crate::parallel::map(&jobs, CONCURRENCY, |job| {
-        info_for(&job.location, &job.key, cache_dir, texts)
-    });
+    let bar = progress.bar("wheels", jobs.len());
+    let results = crate::parallel::map(
+        &jobs,
+        CONCURRENCY,
+        Some(&bar),
+        |job| job.name.clone(),
+        |job| info_for(&job.location, &job.key, cache_dir, texts),
+    );
+    bar.finish();
     for (job, result) in jobs.iter().zip(results) {
         match result {
             Ok(info) => {
@@ -420,7 +429,7 @@ mod tests {
         sdist.location = "https://files.pythonhosted.org/packages/other-1.0.tar.gz".into();
         sbom.packages.push(sdist);
 
-        let outcome = enrich(&mut sbom, dir.path(), false);
+        let outcome = enrich(&mut sbom, dir.path(), false, crate::progress::Progress::default());
         assert_eq!(
             outcome,
             Outcome {
@@ -451,7 +460,10 @@ mod tests {
         let mut again = sample_sbom();
         again.packages[3].location = "/gone/six.whl".into();
         again.packages[3].sha256 = Some("a".repeat(64));
-        assert_eq!(enrich(&mut again, dir.path(), true).fetched, 1);
+        assert_eq!(
+            enrich(&mut again, dir.path(), true, crate::progress::Progress::default()).fetched,
+            1
+        );
         assert!(again.packages[3].license_files[0].text.is_some());
 
         // Unreachable and uncached: a failure, not a crash; lock license untouched.
@@ -459,7 +471,10 @@ mod tests {
         missing.packages[3].location = "/gone/other.whl".into();
         missing.packages[3].sha256 = None;
         missing.packages[3].license = Some("Apache-2.0".into());
-        assert_eq!(enrich(&mut missing, dir.path(), false).failed, 1);
+        assert_eq!(
+            enrich(&mut missing, dir.path(), false, crate::progress::Progress::default()).failed,
+            1
+        );
         assert_eq!(missing.packages[3].license.as_deref(), Some("Apache-2.0"));
     }
 }

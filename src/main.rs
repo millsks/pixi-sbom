@@ -21,6 +21,7 @@ mod parallel;
 mod pkgcache;
 mod policy;
 mod prefix;
+mod progress;
 mod purl;
 mod pypi;
 mod report;
@@ -58,6 +59,11 @@ fn main() -> Result<()> {
     }
     tracing::debug!(?args, "effective arguments");
     validate(&args);
+    // Bars are drawn only for an interactive run whose log level would not overwrite them.
+    let progress = progress::Progress::resolve(
+        args.verbosity.tracing_level_filter() >= tracing::level_filters::LevelFilter::DEBUG,
+        args.verbosity.tracing_level_filter() < tracing::level_filters::LevelFilter::INFO,
+    );
     let input = match &args.prefix {
         Some(dir) => Input::Prefix {
             dir: dir.clone(),
@@ -187,7 +193,7 @@ fn main() -> Result<()> {
                 fetched,
                 failed,
                 skipped,
-            } = wheel::enrich(&mut sbom, &cache_dir, args.license_texts);
+            } = wheel::enrich(&mut sbom, &cache_dir, args.license_texts, progress);
             tracing::info!(fetched, failed, skipped, "read PyPI license details from wheels");
             if args.embedded_sboms {
                 let embedded::Outcome {
@@ -204,7 +210,7 @@ fn main() -> Result<()> {
                 files,
                 missing,
             } = if fetch_licenses {
-                pkgcache::enrich(&mut sbom, &pkgs, args.license_texts)
+                pkgcache::enrich(&mut sbom, &pkgs, args.license_texts, progress)
             } else {
                 pkgcache::Outcome::default()
             };
@@ -216,7 +222,7 @@ fn main() -> Result<()> {
                     fetched,
                     failed,
                     skipped,
-                } = condaarchive::enrich(&mut sbom, &missing, &cache_dir, args.license_texts);
+                } = condaarchive::enrich(&mut sbom, &missing, &cache_dir, args.license_texts, progress);
                 tracing::info!(
                     fetched,
                     failed,
@@ -229,7 +235,7 @@ fn main() -> Result<()> {
                     index_url: &pypi::index_url(),
                     cache_dir: &cache_dir,
                 };
-                let pypi::Outcome { found, missing, failed } = lookup.run(&mut sbom);
+                let pypi::Outcome { found, missing, failed } = lookup.run(&mut sbom, progress);
                 tracing::info!(found, missing, failed, "looked up PyPI licenses");
             }
         }
@@ -244,7 +250,7 @@ fn main() -> Result<()> {
                 without_identity,
                 findings,
                 failed,
-            } = lookup.run(&mut sbom)?;
+            } = lookup.run(&mut sbom, progress)?;
             tracing::info!(
                 queried,
                 without_identity,
@@ -583,8 +589,30 @@ fn init_tracing(args: &cli::Args) {
         .from_env_lossy();
     tracing_subscriber::fmt()
         .with_env_filter(filter)
-        .with_writer(std::io::stderr)
+        .with_writer(ProgressAwareStderr)
         .with_ansi(std::io::stderr().is_terminal())
         .without_time()
         .init();
+}
+
+/// Writes log lines to stderr with any progress bar hidden for the duration, so the two never
+/// overwrite each other.
+struct ProgressAwareStderr;
+
+impl std::io::Write for ProgressAwareStderr {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        progress::suspend(|| std::io::stderr().write(buf))
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        std::io::stderr().flush()
+    }
+}
+
+impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for ProgressAwareStderr {
+    type Writer = ProgressAwareStderr;
+
+    fn make_writer(&'a self) -> Self::Writer {
+        ProgressAwareStderr
+    }
 }

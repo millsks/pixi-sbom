@@ -21,6 +21,7 @@ once no matter how many output formats exist.
    embedded.rs ──── PEP 770 embedded SBOMs from the same wheels (optional)
    report.rs ───── --report: renders the model as a terminal table instead of a document
    style.rs ────── --color: when to colour, and which style each kind of cell gets
+   progress.rs ─── progress bars for the fetches, hidden while a log line prints
    diff.rs ─────── --report diff --against: reads a previous document (any family) and compares
    policy.rs ───── --allow/--deny/--require-license: violations -> exit 3 after writing
    osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
@@ -63,6 +64,7 @@ once no matter how many output formats exist.
 | `kev.rs` | `--kev`: downloads CISA's KEV catalog (cached a day, stale copy on failure), looks each finding's CVE aliases up, and marks hits critical with the catalog's dates and required action. | serde_json, http.rs |
 | `vulnpolicy.rs` | `--fail-on-severity` / `--fail-on-kev` / `--ignore-vuln`: parses ignore entries (`ID[:STATE][:TEXT]`), marks matching findings (by id or alias) with an `Analysis`, and lists the open findings at or above the threshold or known exploited; exit code 4 is applied in `main`. | model.rs |
 | `cvss.rs` | CVSS v3.0 / v3.1 base scores from vector strings, for advisories that carry a vector but no qualitative severity. | |
+| `progress.rs` | Whether progress bars are drawn (terminal, not `-v`/`-q`, not `TERM=dumb`/`CI`/`PIXI_SBOM_NO_PROGRESS`) and the bar itself; one global `MultiProgress` so the tracing writer can suspend every live bar while a log line prints. | indicatif |
 | `style.rs` | `--color` resolution (`NO_COLOR`, `CLICOLOR_FORCE`, `TERM=dumb`, terminal detection) and the palette: comfy-table cell styling for tables (so widths are measured on unstyled text) and `anstyle` for the plain lines around them. | anstyle, comfy-table, clap |
 | `diff.rs` | `--report diff --against`: reads a previous CycloneDX / SPDX 2.x document through `embedded::parse` or an SPDX 3.0.1 graph directly, reduces both sides to (purl type, normalized name, version, normalized license) and lists added, removed, version- and license-changed packages. | embedded.rs, license.rs |
 | `policy.rs` | `--allow-license` / `--deny-license` / `--require-license`: parses licensees, canonicalizes ids (base, `-or-later`, exception) and evaluates each package's expression with the `spdx` crate's `evaluate`, returning violations; exit code 3 is applied in `main`. | spdx, license.rs |

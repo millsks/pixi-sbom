@@ -1717,6 +1717,43 @@ fn wide_cells_wrap_instead_of_being_truncated() {
 }
 
 #[test]
+fn progress_bars_never_reach_a_pipe_or_a_ci_log() {
+    // Every e2e test runs with stderr captured, which is exactly the "not a terminal" case;
+    // this one states the expectation rather than relying on it silently.
+    let dir = workspace_with_vulnerable_urllib3();
+    let stderr = |extra: &[&str]| {
+        let assert = pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env_remove("CI")
+            .env_remove("PIXI_SBOM_NO_PROGRESS")
+            .args([
+                "-e",
+                "web",
+                "-p",
+                "linux-64",
+                "--vulnerabilities",
+                "osv",
+                "--output",
+                "-",
+            ])
+            .args(extra)
+            .assert()
+            .success();
+        String::from_utf8(assert.get_output().stderr.clone()).unwrap()
+    };
+    for extra in [vec![], vec!["-v"], vec!["-q"], vec!["--fetch-licenses"]] {
+        let text = stderr(&extra);
+        assert!(!text.contains('\r'), "no bar redraws with {extra:?}: {text:?}");
+        assert!(!text.contains("advisories"), "no bar labels with {extra:?}: {text:?}");
+    }
+    // The log lines themselves are unchanged.
+    assert!(stderr(&[]).contains("looked up vulnerabilities on OSV"));
+}
+
+#[test]
 fn vulnerabilities_without_a_cache_fail_offline_only_when_the_query_is_missing() {
     // The clean fixture pins have cached "no findings" answers; nothing is looked up.
     let dir = workspace_with_vulnerable_urllib3();
