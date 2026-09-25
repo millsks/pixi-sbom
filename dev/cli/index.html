@@ -1187,6 +1187,11 @@
 <td>How to render the report; <code>sarif</code> (2.1.0, for GitHub code scanning) applies to <code>--report vulnerabilities</code> only.</td>
 </tr>
 <tr>
+<td><code>--color &lt;auto\|always\|never&gt;</code></td>
+<td><code>auto</code></td>
+<td>Colour the <code>table</code> report. <code>auto</code> colours only when the output is a terminal, honouring <code>NO_COLOR</code>, <code>CLICOLOR_FORCE</code> and <code>TERM=dumb</code>.</td>
+</tr>
+<tr>
 <td><code>--pypi-licenses</code></td>
 <td></td>
 <td>Deprecated alias for <code>--fetch-licenses</code> (hidden from <code>--help</code>; removed in a future release).</td>
@@ -1371,8 +1376,17 @@ license policy and the vulnerability gate fail, both lists are printed and the e
 </code></pre></div>
 <p>Reports respect every selection and enrichment flag, so they show exactly what a document would contain; with
 <code>--all-environments</code> / <code>--all-platforms</code> there is one section (or JSON array element) per document. <code>--report</code>
-cannot be combined with <code>--output</code>. The <code>table</code> format fits the terminal width (<code>COLUMNS</code>, default 120) by
-truncating the last column; the other formats are never truncated.</p>
+cannot be combined with <code>--output</code>.</p>
+<p>The <code>table</code> format fits the terminal width (<code>COLUMNS</code>, default 120, minimum 40) by wrapping cells onto further
+lines, so nothing is ever cut: a narrow terminal costs height instead of content. Columns whose values are short
+(versions, severities, identifiers) keep their full width while there is room, so the prose columns absorb the
+squeeze and an advisory id is never broken in half. Markdown, CSV, JSON and SARIF are never wrapped or truncated.</p>
+<p>Colour is applied to the <code>table</code> format only, since the others are data someone pastes or parses elsewhere.
+<code>--color auto</code> (the default) colours when the output is a terminal and the environment allows it: a non-empty
+<code>NO_COLOR</code> turns it off, <code>CLICOLOR_FORCE</code> turns it on even through a pipe, and <code>TERM=dumb</code> turns it off.
+Severities are red through blue by level, <code>open</code> findings are yellow and <code>ignored</code> ones dim, KEV markers red,
+diff rows green (added), red (removed), cyan (version) and magenta (license), licenses that are not SPDX
+expressions yellow, and <code>-</code> placeholders dim.</p>
 <p>The vulnerabilities report has one row per finding and affected package (package, version, severity, the highest
 CVSS score, KEV, id, aliases, fixed version, status, summary; the CSV and JSON forms add the purl, the OSV URL, the
 <code>--ignore-vuln</code> justification and the KEV due date), open findings worst first and ignored ones last, followed by
