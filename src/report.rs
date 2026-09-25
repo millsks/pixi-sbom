@@ -740,6 +740,24 @@ fn diff_rows(diff: &crate::diff::Diff) -> Vec<Vec<String>> {
             c.new_license.clone().unwrap_or_else(dash),
         ]);
     }
+    for c in &diff.build_changed {
+        rows.push(vec![
+            "build".into(),
+            c.name.clone(),
+            c.kind.clone(),
+            c.old_build.clone().unwrap_or_else(dash),
+            c.new_build.clone().unwrap_or_else(dash),
+        ]);
+    }
+    for p in &diff.pip_installed {
+        rows.push(vec![
+            "pip".into(),
+            p.name.clone(),
+            p.kind.clone(),
+            dash(),
+            p.version.clone().unwrap_or_else(dash),
+        ]);
+    }
     rows
 }
 
@@ -1142,16 +1160,26 @@ pub fn render_with_width(
                             diff.against, diff.against_format, diff.unchanged
                         )
                     } else {
-                        format!(
-                            "Against {} ({}): {} added, {} removed, {} version changes, {} license changes, {} unchanged",
-                            diff.against,
-                            diff.against_format,
-                            diff.added.len(),
-                            diff.removed.len(),
-                            diff.version_changed.len(),
-                            diff.license_changed.len(),
-                            diff.unchanged
-                        )
+                        {
+                            // The drift sections only exist when one side is an installed
+                            // environment, so they are named only when they have something.
+                            let mut line = format!(
+                                "Against {} ({}): {} added, {} removed, {} version changes, {} license changes",
+                                diff.against,
+                                diff.against_format,
+                                diff.added.len(),
+                                diff.removed.len(),
+                                diff.version_changed.len(),
+                                diff.license_changed.len(),
+                            );
+                            if !diff.build_changed.is_empty() {
+                                line += &format!(", {} build changes", diff.build_changed.len());
+                            }
+                            if !diff.pip_installed.is_empty() {
+                                line += &format!(", {} pip installed", diff.pip_installed.len());
+                            }
+                            line + &format!(", {} unchanged", diff.unchanged)
+                        }
                     };
                     writeln!(out, "{line}")?;
                 }
@@ -2329,6 +2357,8 @@ mod tests {
                     new_version: Some("1.3.2".into()),
                     old_license: Some("Zlib".into()),
                     new_license: Some("Zlib".into()),
+                    old_build: None,
+                    new_build: None,
                 }],
                 license_changed: vec![Change {
                     name: "libzlib".into(),
@@ -2337,6 +2367,25 @@ mod tests {
                     new_version: Some("1.3.1".into()),
                     old_license: Some("Zlib".into()),
                     new_license: Some("MIT".into()),
+                    old_build: None,
+                    new_build: None,
+                }],
+                build_changed: vec![Change {
+                    name: "python".into(),
+                    kind: "conda".into(),
+                    old_version: Some("3.12.14".into()),
+                    new_version: Some("3.12.14".into()),
+                    old_license: None,
+                    new_license: None,
+                    old_build: Some("h5f976f7_3_cpython".into()),
+                    new_build: Some("hd05a0c4_3_cpython".into()),
+                }],
+                pip_installed: vec![Presence {
+                    name: "attrs".into(),
+                    kind: "pypi".into(),
+                    version: Some("25.4.0".into()),
+                    license: None,
+                    purl: Some("pkg:pypi/attrs@25.4.0".into()),
                 }],
                 unchanged: 1,
             },
@@ -2386,7 +2435,9 @@ mod tests {
         assert!(csv.starts_with("environment,platform,change,package,kind,before,after\n"));
         assert!(csv.contains("default,linux-64,version,zlib,conda,1.3.1,1.3.2\n"));
         assert!(csv.contains("default,linux-64,license,libzlib,conda,Zlib,MIT\n"));
-        assert_eq!(csv.lines().count(), 5);
+        assert!(csv.contains("default,linux-64,build,python,conda,h5f976f7_3_cpython,hd05a0c4_3_cpython\n"));
+        assert!(csv.contains("default,linux-64,pip,attrs,pypi,-,25.4.0\n"));
+        assert_eq!(csv.lines().count(), 7);
 
         let mut out = Vec::new();
         render_with_width(
@@ -2404,6 +2455,8 @@ mod tests {
         assert_eq!(value["removed"][0]["name"], "mylib");
         assert_eq!(value["version_changed"][0]["new_version"], "1.3.2");
         assert_eq!(value["license_changed"][0]["new_license"], "MIT");
+        assert_eq!(value["build_changed"][0]["new_build"], "hd05a0c4_3_cpython");
+        assert_eq!(value["pip_installed"][0]["name"], "attrs");
         assert_eq!(value["unchanged"], 1);
         assert!(value.get("packages").is_none());
 

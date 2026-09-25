@@ -1,7 +1,9 @@
-//! `--report diff --against <sbom.json>`: what changed between a previous document and the
-//! one this run would write. The previous document may be CycloneDX (1.4–1.7), SPDX 2.x or
-//! SPDX 3.0.1 JSON, whichever this tool or another wrote; packages are matched by purl type and
-//! normalized name, so a version bump is a change rather than a removal plus an addition.
+//! `--report diff --against <PATH>`: what changed between another environment and the one this
+//! run describes. The other side may be a document this tool or another wrote (CycloneDX
+//! 1.4–1.7, SPDX 2.x or SPDX 3.0.1 JSON), a `pixi.lock`, or an installed environment, which is
+//! what makes `--prefix <DIR> --against pixi.lock` a drift check for a container image.
+//! Packages are matched by purl type and normalized name, so a version bump is a change rather
+//! than a removal plus an addition.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -21,12 +23,60 @@ pub enum DiffError {
         #[source]
         source: std::io::Error,
     },
-    #[error("{path} is not a CycloneDX, SPDX 2.x or SPDX 3.0 JSON document")]
+    #[error("{path} is not a document, a pixi lockfile or an installed environment")]
     #[diagnostic(
         code(pixi_sbom::diff::parse),
-        help("--against takes a document pixi-sbom (or another tool) wrote in one of the formats pixi-sbom writes")
+        help(
+            "--against takes a CycloneDX, SPDX 2.x or SPDX 3.0 JSON document (written by pixi-sbom or \
+             another tool), a pixi.lock, or the directory of an installed environment"
+        )
     )]
     Parse { path: PathBuf },
+}
+
+/// What `--against` points at: the comparison is the same, the side it reads differs.
+#[derive(Debug)]
+pub enum Against {
+    /// A document a previous run — of this tool or another — wrote.
+    Document(Previous),
+    /// A lockfile, read for the same environment and platform as the run describes.
+    Lock {
+        lock: Box<rattler_lock::LockFile>,
+        /// The lockfile's name, for the model's provenance.
+        name: String,
+    },
+    /// An installed environment, which is what makes `--prefix <DIR> --against pixi.lock` a
+    /// drift check.
+    Prefix(PathBuf),
+}
+
+/// Decide what `--against` points at, and read what can be read once. A lockfile and a prefix
+/// are turned into the comparison side per document, because they answer per environment.
+pub fn resolve_against(path: &Path) -> Result<Against, DiffError> {
+    if path.join("conda-meta").is_dir() {
+        return Ok(Against::Prefix(path.to_path_buf()));
+    }
+    let text = std::fs::read_to_string(path).map_err(|source| DiffError::Read {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    if let Some(previous) = parse_previous(&text) {
+        return Ok(Against::Document(previous));
+    }
+    match crate::lock::load(path) {
+        Ok(loaded) => Ok(Against::Lock {
+            lock: Box::new(loaded.lock),
+            name: crate::discover::lockfile_name(path),
+        }),
+        // Neither a document nor a lockfile: one message for both, since the file is simply
+        // not something to compare with.
+        Err(err) => {
+            tracing::debug!(path = %path.display(), %err, "not a lockfile either");
+            Err(DiffError::Parse {
+                path: path.to_path_buf(),
+            })
+        }
+    }
 }
 
 /// One package as the diff sees it, on either side.
@@ -38,25 +88,55 @@ pub struct Entry {
     pub version: Option<String>,
     pub license: Option<String>,
     pub purl: Option<String>,
+    /// What installed it, when the side knows (`pip`, `conda`): only an installed environment
+    /// records it, and only it can say that something was pip-installed into a conda prefix.
+    pub installer: Option<String>,
+}
+
+/// One package of an [`Sbom`] as an [`Entry`].
+fn entry_of(package: &crate::model::Package) -> Entry {
+    // The document carries the normalized spelling, so compare that, not the raw one.
+    let license = package
+        .license
+        .as_deref()
+        .map(crate::license::normalize)
+        .map(|l| match l {
+            crate::license::License::Expression(e) => e,
+            crate::license::License::Text(t) => t,
+        });
+    Entry {
+        kind: kind_of(Some(&package.purl)),
+        name: package.name.clone(),
+        version: package.version.clone(),
+        license,
+        purl: Some(package.purl.clone()),
+        installer: package.properties.get("pixi:installer").cloned(),
+    }
+}
+
+/// Reduce a model this run built — from a lockfile or from an installed environment — to the
+/// side the comparison reads.
+pub fn previous_from_sbom(sbom: &Sbom) -> Previous {
+    Previous {
+        entries: sbom.packages.iter().map(entry_of).collect(),
+        format: sbom.input_description(),
+    }
+}
+
+/// The conda build string a purl carries, which distinguishes two builds of one version.
+fn build_of(purl: Option<&String>) -> Option<String> {
+    let (_, qualifiers) = purl?.split_once('?')?;
+    qualifiers
+        .split('&')
+        .find_map(|q| q.strip_prefix("build=").map(str::to_string))
 }
 
 /// The previous document, reduced to what the diff compares.
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Previous {
     pub entries: Vec<Entry>,
     /// The family of the document (`CycloneDX`, `SPDX 2.3`, `SPDX 3.0`).
     pub format: String,
-}
-
-/// Read and reduce a previous document.
-pub fn read_previous(path: &Path) -> Result<Previous, DiffError> {
-    let text = std::fs::read_to_string(path).map_err(|source| DiffError::Read {
-        path: path.to_path_buf(),
-        source,
-    })?;
-    parse_previous(&text).ok_or_else(|| DiffError::Parse {
-        path: path.to_path_buf(),
-    })
 }
 
 /// Reduce a document's text; `None` when it is none of the three families.
@@ -92,6 +172,8 @@ pub fn parse_previous(text: &str) -> Option<Previous> {
                 version: c.version,
                 license: c.license,
                 purl: c.purl,
+                // A document does not say what installed a package; only a prefix does.
+                installer: None,
             })
             .collect();
         return Some(Previous { entries, format });
@@ -170,6 +252,7 @@ fn parse_spdx3(text: &str) -> Option<Previous> {
                 .map(str::to_string),
             license: declared.get(id).cloned(),
             purl,
+            installer: None,
         });
     }
     if entries.is_empty() && !seen_root {
@@ -219,6 +302,11 @@ pub struct Change {
     pub old_license: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub new_license: Option<String>,
+    /// Conda build strings, when the change is between two builds of one version.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub old_build: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub new_build: Option<String>,
 }
 
 /// The comparison.
@@ -233,6 +321,13 @@ pub struct Diff {
     pub version_changed: Vec<Change>,
     /// Same package and version, different license.
     pub license_changed: Vec<Change>,
+    /// Same package and version, different conda build string: a rebuild of the same sources
+    /// against different dependencies, which a version comparison alone misses.
+    pub build_changed: Vec<Change>,
+    /// Packages `pip` installed into the environment that the other side does not have. They
+    /// are the reason an image drifts from its lockfile, so they are called out rather than
+    /// counted as ordinary additions.
+    pub pip_installed: Vec<Presence>,
     pub unchanged: usize,
 }
 
@@ -243,17 +338,21 @@ impl Diff {
             && self.removed.is_empty()
             && self.version_changed.is_empty()
             && self.license_changed.is_empty()
+            && self.build_changed.is_empty()
+            && self.pip_installed.is_empty()
     }
 
     /// The sections `--fail-on-diff` asked about that are not empty, in the order the flag
     /// names them, as `<section> (<count>)` for the message on stderr.
     pub fn gate_hits(&self, sections: &[crate::cli::DiffSection]) -> Vec<String> {
-        use crate::cli::DiffSection::{Added, Any, License, Removed, Version};
+        use crate::cli::DiffSection::{Added, Any, Build, License, Pip, Removed, Version};
         let counts = [
             (Added, self.added.len()),
             (Removed, self.removed.len()),
             (Version, self.version_changed.len()),
             (License, self.license_changed.len()),
+            (Build, self.build_changed.len()),
+            (Pip, self.pip_installed.len()),
         ];
         counts
             .into_iter()
@@ -264,6 +363,8 @@ impl Diff {
                     Removed => "removed",
                     Version => "version changes",
                     License => "license changes",
+                    Build => "build changes",
+                    Pip => "pip installed",
                     Any => unreachable!("Any is not one of the counted sections"),
                 };
                 format!("{name} ({count})")
@@ -282,18 +383,7 @@ pub fn compare(sbom: &Sbom, previous: &Previous, against: &Path) -> Diff {
         .packages
         .iter()
         .map(|p| {
-            // The document carries the normalized spelling, so compare that, not the raw one.
-            let license = p.license.as_deref().map(crate::license::normalize).map(|l| match l {
-                crate::license::License::Expression(e) => e,
-                crate::license::License::Text(t) => t,
-            });
-            let entry = Entry {
-                kind: kind_of(Some(&p.purl)),
-                name: p.name.clone(),
-                version: p.version.clone(),
-                license,
-                purl: Some(p.purl.clone()),
-            };
+            let entry = entry_of(p);
             (key(&entry.kind, &entry.name), entry)
         })
         .collect();
@@ -311,8 +401,12 @@ pub fn compare(sbom: &Sbom, previous: &Previous, against: &Path) -> Diff {
     };
     for (k, entry) in &new {
         match old.get(k) {
+            // A package pip put into the environment is the reason an image drifts from its
+            // lockfile, so it is named as that rather than as an ordinary addition.
+            None if entry.installer.as_deref() == Some("pip") => diff.pip_installed.push(presence(entry)),
             None => diff.added.push(presence(entry)),
             Some(before) => {
+                let (old_build, new_build) = (build_of(before.purl.as_ref()), build_of(entry.purl.as_ref()));
                 let change = Change {
                     name: entry.name.clone(),
                     kind: entry.kind.clone(),
@@ -320,9 +414,13 @@ pub fn compare(sbom: &Sbom, previous: &Previous, against: &Path) -> Diff {
                     new_version: entry.version.clone(),
                     old_license: before.license.clone(),
                     new_license: entry.license.clone(),
+                    old_build: old_build.clone(),
+                    new_build: new_build.clone(),
                 };
                 if before.version != entry.version {
                     diff.version_changed.push(change);
+                } else if old_build.is_some() && new_build.is_some() && old_build != new_build {
+                    diff.build_changed.push(change);
                 } else if before.license != entry.license {
                     diff.license_changed.push(change);
                 } else {
@@ -417,6 +515,61 @@ mod tests {
     }
 
     #[test]
+    fn a_rebuild_and_a_pip_install_are_their_own_sections() {
+        let previous = previous_from_sbom(&sample_sbom());
+        assert_eq!(previous.format, "lockfile pixi.lock");
+        let mut sbom = sample_sbom();
+        // The same zlib version, built differently: a version comparison alone misses it.
+        let zlib = sbom.packages.iter_mut().find(|p| p.name == "zlib").unwrap();
+        zlib.purl = zlib.purl.replace("build=h1", "build=h2");
+        // And something pip put into the environment that the other side never had.
+        let mut attrs = sbom.packages[3].clone();
+        attrs.name = "attrs".into();
+        attrs.purl = "pkg:pypi/attrs@25.4.0".into();
+        attrs.version = Some("25.4.0".into());
+        attrs.properties.insert("pixi:installer".into(), "pip".into());
+        sbom.packages.push(attrs);
+
+        let diff = compare(&sbom, &previous, Path::new("pixi.lock"));
+        assert!(diff.added.is_empty(), "a pip install is not an ordinary addition");
+        assert_eq!(diff.pip_installed.len(), 1);
+        assert_eq!(diff.pip_installed[0].name, "attrs");
+        assert_eq!(diff.build_changed.len(), 1);
+        assert_eq!(diff.build_changed[0].name, "zlib");
+        assert_eq!(diff.build_changed[0].old_build.as_deref(), Some("h1"));
+        assert_eq!(diff.build_changed[0].new_build.as_deref(), Some("h2"));
+        assert!(diff.version_changed.is_empty(), "the version did not change");
+        assert!(!diff.is_empty());
+
+        use crate::cli::DiffSection::{Build, Pip, Version};
+        assert_eq!(diff.gate_hits(&[Build]), ["build changes (1)"]);
+        assert_eq!(diff.gate_hits(&[Pip]), ["pip installed (1)"]);
+        assert!(diff.gate_hits(&[Version]).is_empty());
+    }
+
+    #[test]
+    fn against_is_a_document_a_lockfile_or_an_installed_environment() {
+        let dir = tempfile::tempdir().unwrap();
+        let document = dir.path().join("previous.cdx.json");
+        std::fs::write(&document, written(Format::Cyclonedx, SpecVersion::V1_6)).unwrap();
+        assert!(matches!(resolve_against(&document).unwrap(), Against::Document(_)));
+
+        let lockfile = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/with-pypi/pixi.lock");
+        assert!(matches!(resolve_against(&lockfile).unwrap(), Against::Lock { .. }));
+
+        let prefix = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/prefix");
+        assert!(matches!(resolve_against(&prefix).unwrap(), Against::Prefix(_)));
+
+        let neither = dir.path().join("notes.txt");
+        std::fs::write(&neither, "hello").unwrap();
+        assert!(matches!(resolve_against(&neither), Err(DiffError::Parse { .. })));
+        assert!(matches!(
+            resolve_against(&dir.path().join("missing.json")),
+            Err(DiffError::Read { .. })
+        ));
+    }
+
+    #[test]
     fn the_gate_only_fires_on_the_sections_it_was_given() {
         use crate::cli::DiffSection::{Added, Any, License, Removed, Version};
         let previous = parse_previous(&written(Format::Cyclonedx, SpecVersion::V1_6)).unwrap();
@@ -449,6 +602,7 @@ mod tests {
                     version: Some("3.0".into()),
                     license: None,
                     purl: None,
+                    installer: None,
                 },
                 Entry {
                     name: "six".into(),
@@ -456,6 +610,7 @@ mod tests {
                     version: Some("1.17.0".into()),
                     license: None,
                     purl: None,
+                    installer: None,
                 },
             ],
             format: "CycloneDX".into(),

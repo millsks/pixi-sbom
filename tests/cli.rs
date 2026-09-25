@@ -2038,6 +2038,124 @@ fn copy_dir(from: &Path, to: &Path) {
 }
 
 #[test]
+fn drift_between_an_installed_environment_and_its_lockfile() {
+    let dir = installed_prefix();
+    let prefix = dir.path().join("envs").join("demo");
+    let workspace = workspace("with-pypi");
+    let lockfile = workspace.path().join("pixi.lock");
+    let site_packages = prefix.join("lib").join("python3.12").join("site-packages");
+
+    let run = |args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("sbom-cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "160")
+            .arg("--prefix")
+            .arg(&prefix)
+            .args(["-p", "linux-64", "--report", "diff", "--against"])
+            .arg(&lockfile)
+            .args(args);
+        command
+    };
+    let report = |args: &[&str]| -> Value {
+        let out = run(args).args(["--report-format", "json"]).assert().success();
+        serde_json::from_slice(&out.get_output().stdout).unwrap()
+    };
+
+    // As the fixture ships: the environment holds an older tzdata than the lockfile, and most
+    // of the lockfile is simply not installed in it.
+    let first = report(&[]);
+    assert_eq!(first["against_format"], "lockfile pixi.lock");
+    let versions: Vec<(&str, &str, &str)> = first["version_changed"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| {
+            (
+                c["name"].as_str().unwrap(),
+                c["old_version"].as_str().unwrap(),
+                c["new_version"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(versions, [("tzdata", "2026c", "2026b")]);
+    assert!(!first["removed"].as_array().unwrap().is_empty());
+    assert!(first["pip_installed"].as_array().unwrap().is_empty());
+    assert!(first["build_changed"].as_array().unwrap().is_empty());
+
+    // Now the two ways an image drifts without the version changing: something pip put there,
+    // and the same version rebuilt.
+    let attrs = site_packages.join("attrs-25.4.0.dist-info");
+    std::fs::create_dir_all(&attrs).unwrap();
+    std::fs::write(
+        attrs.join("METADATA"),
+        "Metadata-Version: 2.1\nName: attrs\nVersion: 25.4.0\n",
+    )
+    .unwrap();
+    std::fs::write(attrs.join("INSTALLER"), "pip\n").unwrap();
+    let meta = prefix.join("conda-meta");
+    let record = std::fs::read_to_string(meta.join("libzlib-1.3.2-h25fd6f3_3.json")).unwrap();
+    std::fs::remove_file(meta.join("libzlib-1.3.2-h25fd6f3_3.json")).unwrap();
+    std::fs::write(
+        meta.join("libzlib-1.3.2-hdrift_9.json"),
+        record.replace("h25fd6f3_3", "hdrift_9"),
+    )
+    .unwrap();
+
+    let second = report(&[]);
+    let pip = second["pip_installed"].as_array().unwrap();
+    assert_eq!(pip.len(), 1, "{pip:?}");
+    assert_eq!(pip[0]["name"], "attrs");
+    assert!(
+        second["added"].as_array().unwrap().is_empty(),
+        "a pip install is not an ordinary addition"
+    );
+    let builds = second["build_changed"].as_array().unwrap();
+    assert_eq!(builds.len(), 1, "{builds:?}");
+    assert_eq!(builds[0]["name"], "libzlib");
+    assert_eq!(builds[0]["old_build"], "h25fd6f3_3");
+    assert_eq!(builds[0]["new_build"], "hdrift_9");
+
+    let table = String::from_utf8(run(&[]).assert().success().get_output().stdout.clone()).unwrap();
+    assert!(table.contains("1 build changes, 1 pip installed"), "{table}");
+
+    // The gate names the drift it was asked about, and nothing else.
+    run(&["--fail-on-diff", "pip", "build"])
+        .assert()
+        .code(6)
+        .stderr(predicate::str::contains("build changes (1), pip installed (1)"));
+    run(&["--fail-on-diff", "added"]).assert().success();
+}
+
+#[test]
+fn a_lockfile_compared_with_itself_has_not_changed() {
+    let dir = workspace("with-pypi");
+    let lockfile = dir.path().join("pixi.lock");
+    let run = |args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .args(["-e", "web", "-p", "linux-64", "--report", "diff", "--against"])
+            .arg(&lockfile)
+            .args(args);
+        command
+    };
+    let same = String::from_utf8(run(&[]).assert().success().get_output().stdout.clone()).unwrap();
+    assert!(same.contains("No changes against"), "{same}");
+    assert!(same.contains("(lockfile pixi.lock)"), "{same}");
+
+    // The same lockfile with one package filtered out of the new side is a removal, and the
+    // gate sees it.
+    run(&["--exclude", "requests", "--keep-orphans", "--fail-on-diff", "removed"])
+        .assert()
+        .code(6)
+        .stderr(predicate::str::contains("removed (1)"));
+}
+
+#[test]
 fn prefix_describes_an_installed_environment_in_every_format() {
     let dir = installed_prefix();
     let prefix = dir.path().join("envs").join("demo");

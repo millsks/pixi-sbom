@@ -84,6 +84,23 @@ the comparison in the job summary:
     fail-on-diff: removed version    # adding a package is fine; losing or bumping one is not
 ```
 
+## Does the image still match the lockfile?
+
+The check for a container built earlier, or one whose base image was rebuilt: compare what is installed with what
+was locked. `pip` installs into the conda environment and packages rebuilt at the same version are sections of
+their own, so they are not lost among ordinary additions.
+
+```yaml
+- name: Drift check
+  run: |
+    pixi sbom --prefix /opt/conda/envs/app --against pixi.lock       --report diff --report-format markdown --fail-on-diff >> "$GITHUB_STEP_SUMMARY"
+```
+
+```sh
+# Locally, against a running container
+docker run --rm -v "$PWD:/w" -w /w myimage   pixi-sbom --prefix /opt/conda/envs/app --against pixi.lock --report diff --fail-on-diff pip build
+```
+
 ## Diffing SBOMs between commits
 
 With `SOURCE_DATE_EPOCH` set, two runs over the same lockfile are byte-identical (the serial number is derived from

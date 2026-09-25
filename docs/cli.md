@@ -54,8 +54,8 @@ With no options this means:
 | `--source <DIR>` | the lockfile's directory | With `--report phantom`: where the workspace's Python sources are (repeatable). |
 | `--assume-used <GLOB>` | | With `--report phantom`: packages matching this are never reported as unused or undeclared (repeatable). |
 | `--fail-on-phantom` | off | With `--report phantom`: exit **8** when the workspace imports a package it never declared. |
-| `--against <PATH>` | | With `--report diff`: the previous document to compare with (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON). |
-| `--fail-on-diff [<SECTION>...]` | off | With `--report diff`: exit **6** when the named sections (`added`, `removed`, `version`, `license`) are not empty. The bare flag means any change. |
+| `--against <PATH>` | | With `--report diff`: what to compare with — a document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON), a `pixi.lock`, or the directory of an installed environment. |
+| `--fail-on-diff [<SECTION>...]` | off | With `--report diff`: exit **6** when the named sections (`added`, `removed`, `version`, `license`, `build`, `pip`) are not empty. The bare flag means any change. |
 | `--report-format <table\|markdown\|csv\|json\|sarif>` | `table` | How to render the report; `sarif` (2.1.0, for GitHub code scanning) applies to `--report vulnerabilities` only. |
 | `--color <auto\|always\|never>` | `auto` | Colour the `table` report. `auto` colours only when the output is a terminal, honouring `NO_COLOR`, `CLICOLOR_FORCE` and `TERM=dumb`. |
 | `--pypi-licenses` | | Deprecated alias for `--fetch-licenses` (hidden from `--help`; removed in a future release). |
@@ -417,8 +417,9 @@ answer. `--report-format sarif` renders it as a SARIF 2.1.0 log instead: one run
 advisory (with `security-severity` for GitHub code scanning: the CVSS score, or 10 for known-exploited findings),
 one result per finding and affected package located at the lockfile, and accepted findings as suppressions.
 
-The diff report compares the document this run would write with a previous one (`--against`, any of the formats
-pixi-sbom writes, from this tool or another). Packages are matched by purl type and normalized name, so a version
+The diff report compares the environment this run describes with another one. `--against` takes a document (any of
+the formats pixi-sbom writes, from this tool or another), a `pixi.lock`, or the directory of an installed
+environment; the last two are read for the same environment and platform as the run. Packages are matched by purl type and normalized name, so a version
 bump is one `version` row (before and after) rather than a removal plus an addition; the sections are `added`,
 `removed`, `version` and `license` (same package and version, different declared license), and a summary line
 counts each plus the unchanged packages. Filters, mapping and license fetching apply to the new side as usual.
@@ -437,6 +438,29 @@ pixi sbom --report diff --against release/sbom.cdx.json --fail-on-diff
 # Only care that nothing was removed or relicensed
 pixi sbom --report diff --against release/sbom.cdx.json --fail-on-diff removed license
 ```
+
+### Does this container still match the lockfile?
+
+`--prefix <DIR> --against pixi.lock` compares what is installed with what was locked, which is the check a
+container image, a long-lived development environment or an incident response actually wants:
+
+```sh
+pixi sbom --prefix /opt/conda/envs/app --against pixi.lock --report diff --fail-on-diff
+```
+
+The installed environment is the new side and the lockfile the old one, so a package the image is missing is
+`removed` and one it has that the lock does not is `added` — with two sections of their own for the ways an image
+drifts without a version changing:
+
+| Section | Meaning |
+|---|---|
+| `pip` | Installed by `pip` into the environment and absent from the lockfile: the classic way a conda environment stops matching its lock |
+| `build` | Same package and version, different conda build string: a rebuild against different dependencies, which comparing versions alone misses |
+
+With `--prefix` the document is named after the environment's directory, which says nothing about the lockfile, so
+`--environment` (default `default`) names the side to compare with. The comparison also works the other way round —
+a lockfile run with `--against <prefix directory>` — and between two lockfiles, where `--against pixi.lock` on the
+workspace's own lockfile is the "nothing has changed" baseline.
 
 ## One document per environment and platform
 
