@@ -1413,6 +1413,16 @@ entry).</p>
 <td>Local path</td>
 </tr>
 <tr>
+<td><code>pixi:direct</code></td>
+<td>any</td>
+<td><code>true</code> when the workspace manifest declares this package itself, rather than it coming along as somebody else's dependency</td>
+</tr>
+<tr>
+<td><code>pixi:declared-in</code></td>
+<td>any</td>
+<td>The features whose dependency tables declare it, comma separated (<code>default</code>, <code>default,docs</code>)</td>
+</tr>
+<tr>
 <td><code>pixi:index-url</code></td>
 <td>PyPI</td>
 <td>Index the wheel was resolved from</td>
@@ -1658,14 +1668,16 @@ to the graph instead of floating as extra roots.</p>
 </tr>
 <tr>
 <td>Root → packages</td>
-<td><code>dependencies[0]</code> (<code>ref: root</code>) lists the packages that nothing else depends on</td>
+<td><code>dependencies[0]</code> (<code>ref: root</code>) lists what the workspace declared, plus the packages nothing else depends on</td>
 <td><code>SPDXRef-Package-root DEPENDS_ON ...</code> for the same set</td>
 </tr>
 </tbody>
 </table>
-<p>The root's edges are a graph-root heuristic, not the manifest's declared dependencies: the lockfile does not record
-what was requested directly, so a declared dependency that is also depended on by something else (<code>python</code> is the
-usual example) is reachable transitively rather than listed on the root.</p>
+<p>The declared half comes from the manifest next to the lockfile: the dependency tables of the environment's features
+(see <a href="#pixi-properties"><code>pixi:direct</code></a>), so a declared dependency that something else also needs — <code>python</code> is
+the usual example — is on the root where it belongs. The other half is the graph-root heuristic: packages nothing
+else depends on. Without a readable manifest (<code>--prefix</code>, a lockfile on its own) the heuristic is the whole answer,
+and nothing is marked direct.</p>
 <h2 id="vulnerabilities">Vulnerabilities<a class="headerlink" href="#vulnerabilities" title="Permanent link">&para;</a></h2>
 <p>With <code>--vulnerabilities osv</code> the CycloneDX document carries a <code>vulnerabilities[]</code> array (1.6 and 1.7 alike); SPDX
 2.3 and 3.0.1 documents do not record them. One entry per finding, after records describing the same vulnerability

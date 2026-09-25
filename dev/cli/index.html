@@ -1498,7 +1498,7 @@ is not a ceiling, since it says nothing about how far up the 3.x series you may 
 no ceiling at all, which is itself the answer.</p>
 <h2 id="looking-instead-of-writing">Looking instead of writing<a class="headerlink" href="#looking-instead-of-writing" title="Permanent link">&para;</a></h2>
 <p><code>--report</code> prints a report to the terminal and writes nothing:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># The inventory: name, version, kind, source, license, purl</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># The inventory: name, version, kind, what declared it, source, license, purl</span>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>packages
 <a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
 <a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># The license view, with a per-license summary, unlicensed and non-SPDX packages called out</span>
@@ -1539,6 +1539,10 @@ expressions yellow, and <code>-</code> placeholders dim.</p>
 satisfies it, ceiling) and a summary naming the interpreter, the ceiling and the packages holding it.</p>
 <p>The packages report carries a <code>Yanked</code> column (<code>yes: &lt;reason&gt;</code> for a withdrawn release, <code>-</code> otherwise) once
 <code>--fetch-licenses</code> has asked the index; the CSV and JSON forms carry <code>yanked</code> and <code>yanked_reason</code> fields.</p>
+<p>Its <code>Declared</code> column names the manifest features whose dependency tables asked for the package — <code>default</code>,
+<code>default,docs</code> — and <code>-</code> for everything that came along as somebody else's dependency; the summary under the table
+counts them and lists the names the manifest declares that this environment has no package for (a dependency of
+another platform is the usual reason). Both are absent when there is no manifest to read, as with <code>--prefix</code>.</p>
 <p>The vulnerabilities report has one row per finding and affected package (package, version, severity, the highest
 CVSS score, KEV, id, aliases, fixed version, status, summary; the CSV and JSON forms add the purl, the OSV URL, the
 <code>--ignore-vuln</code> justification and the KEV due date), open findings worst first and ignored ones last, followed by
