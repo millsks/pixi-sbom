@@ -520,6 +520,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#what-is-imported-but-never-declared" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is imported but never declared
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#looking-instead-of-writing" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -986,6 +997,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#what-is-imported-but-never-declared" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is imported but never declared
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#looking-instead-of-writing" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1243,7 +1265,7 @@
 <td>Repeatable, with <code>--vulnerabilities</code>. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX <code>analysis</code> block (<code>state</code> defaults to <code>not_affected</code>; <code>TEXT</code> is the justification), is excluded from <code>--fail-on-severity</code> and listed separately in the report.</td>
 </tr>
 <tr>
-<td><code>--report &lt;packages\|licenses\|vulnerabilities\|diff\|outdated\|python&gt;</code></td>
+<td><code>--report &lt;packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom&gt;</code></td>
 <td></td>
 <td>Print a report to the terminal instead of writing a document (see below). Cannot be combined with <code>--output</code>; <code>vulnerabilities</code> needs <code>--vulnerabilities</code>, <code>diff</code> needs <code>--against</code>.</td>
 </tr>
@@ -1251,6 +1273,21 @@
 <td><code>--outdated-only &lt;patch\|minor\|major&gt;</code></td>
 <td></td>
 <td>With <code>--report outdated</code>: list only packages at least that far behind.</td>
+</tr>
+<tr>
+<td><code>--source &lt;DIR&gt;</code></td>
+<td>the lockfile's directory</td>
+<td>With <code>--report phantom</code>: where the workspace's Python sources are (repeatable).</td>
+</tr>
+<tr>
+<td><code>--assume-used &lt;GLOB&gt;</code></td>
+<td></td>
+<td>With <code>--report phantom</code>: packages matching this are never reported as unused or undeclared (repeatable).</td>
+</tr>
+<tr>
+<td><code>--fail-on-phantom</code></td>
+<td>off</td>
+<td>With <code>--report phantom</code>: exit <strong>8</strong> when the workspace imports a package it never declared.</td>
 </tr>
 <tr>
 <td><code>--against &lt;PATH&gt;</code></td>
@@ -1496,25 +1533,77 @@ that ceiling, which packages the current interpreter does <em>not</em> satisfy, 
 3.12, <code>&lt;=3.11</code> of 3.11, <code>==3.10</code> of 3.10, and <code>!=3.9.*</code> an exclusion. A bound on the major version alone (<code>&lt;4</code>)
 is not a ceiling, since it says nothing about how far up the 3.x series you may go. Most real environments have
 no ceiling at all, which is itself the answer.</p>
+<h2 id="what-is-imported-but-never-declared">What is imported but never declared<a class="headerlink" href="#what-is-imported-but-never-declared" title="Permanent link">&para;</a></h2>
+<p>A <em>phantom dependency</em> is a package the code imports although nothing declares it: it is in the environment only
+because something else pulled it in, and the day that upstream drops it the import breaks. <code>--report phantom</code>
+names them, together with the two inverses that make environments grow without limit.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>phantom
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Meaning</th>
+<th>What to do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>phantom</code></td>
+<td>Imported by the workspace, declared nowhere, present transitively</td>
+<td>Declare it before the transitive path disappears</td>
+</tr>
+<tr>
+<td><code>undeclared</code></td>
+<td>In the environment, declared nowhere, and nothing in the environment depends on it</td>
+<td>A leftover pin or a manual install; remove it or declare it</td>
+</tr>
+<tr>
+<td><code>unused</code></td>
+<td>Declared, and none of the modules it provides is imported</td>
+<td>Dead weight — unless it is a plugin or a command (see below)</td>
+</tr>
+</tbody>
+</table>
+<p>Nothing is executed and nothing is downloaded. The declared set comes from the manifest (the same reading that
+marks <a href="../output-format/#pixi-properties"><code>pixi:direct</code></a>), the installed set from the lockfile or the prefix, and
+the imports from the workspace's own <code>.py</code> files: every <code>import x[.y]</code> and <code>from x[.y] import ...</code>, read line by
+line, skipping comments, docstrings and relative imports. <code>--source &lt;DIR&gt;</code> (repeatable) points at the sources when
+they are not in the directory holding the lockfile; <code>.pixi/</code>, <code>site-packages/</code>, <code>build/</code>, <code>dist/</code>, <code>node_modules/</code>,
+<code>__pycache__/</code>, <code>target/</code> and hidden directories are never scanned, and a top-level package or module of the
+workspace itself is never a finding. Standard-library imports are excluded from a bundled table.</p>
+<p>Which package provides which module is the one fact a lockfile does not contain. When the environment is
+installed — <code>--prefix</code>, or pixi's own <code>.pixi/envs/&lt;environment&gt;</code> next to the lockfile — it is read from each
+distribution's <code>dist-info</code> (<code>top_level.txt</code>, else the top of every path in <code>RECORD</code>), which is exact. Without one,
+a wheel is assumed to provide the module its name spells (<code>charset-normalizer</code> → <code>charset_normalizer</code>) and conda
+packages are left out of the mapping entirely, since most of them ship no Python module at all and guessing would
+make every compiler look unused. The summary says which of the two answered.</p>
+<p>False positives are inevitable for packages nothing imports by name: pytest plugins, stub packages, tools invoked
+as commands, imports that only happen under <code>TYPE_CHECKING</code>. <code>--assume-used &lt;GLOB&gt;</code> (repeatable, or <code>assume-used</code>
+in the configuration file) keeps them out of the <code>unused</code> and <code>undeclared</code> lists; <code>pytest-*</code>, <code>types-*</code> and
+<code>*-stubs</code> are the usual ones, and are never applied silently. <code>--fail-on-phantom</code> exits <strong>8</strong> when the workspace
+imports something it never declared, and ignores the other two findings.</p>
+<p>Every finding is measured against what the manifest declares, so a workspace with no manifest — <code>--prefix</code>, or a
+lockfile on its own — produces no findings at all, and the report says so.</p>
 <h2 id="looking-instead-of-writing">Looking instead of writing<a class="headerlink" href="#looking-instead-of-writing" title="Permanent link">&para;</a></h2>
 <p><code>--report</code> prints a report to the terminal and writes nothing:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># The inventory: name, version, kind, what declared it, source, license, purl</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>packages
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># The license view, with a per-license summary, unlicensed and non-SPDX packages called out</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="c1"># (each non-SPDX license names the token the parser rejected, e.g. "unknown term: 'PSF'")</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--report<span class="w"> </span>licenses
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="c1"># The findings of --vulnerabilities, one row per finding and affected package, worst first</span>
-<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--report<span class="w"> </span>vulnerabilities
-<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="c1"># What changed since the last release's document: added, removed, version and license changes</span>
-<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>diff<span class="w"> </span>--against<span class="w"> </span>release/sbom.cdx.json<span class="w"> </span>--report-format<span class="w"> </span>markdown
-<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>
-<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="c1"># For a PR comment, a spreadsheet, or a script</span>
-<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>markdown
-<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>csv<span class="w"> </span>&gt;<span class="w"> </span>licenses.csv
-<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>packages<span class="w"> </span>--report-format<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.packages[] | select(.license == null)'</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># The inventory: name, version, kind, what declared it, source, license, purl</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>packages
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># The license view, with a per-license summary, unlicensed and non-SPDX packages called out</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="c1"># (each non-SPDX license names the token the parser rejected, e.g. "unknown term: 'PSF'")</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--report<span class="w"> </span>licenses
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="c1"># The findings of --vulnerabilities, one row per finding and affected package, worst first</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--report<span class="w"> </span>vulnerabilities
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="c1"># What changed since the last release's document: added, removed, version and license changes</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>diff<span class="w"> </span>--against<span class="w"> </span>release/sbom.cdx.json<span class="w"> </span>--report-format<span class="w"> </span>markdown
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="c1"># For a PR comment, a spreadsheet, or a script</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>markdown
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>csv<span class="w"> </span>&gt;<span class="w"> </span>licenses.csv
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>packages<span class="w"> </span>--report-format<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.packages[] | select(.license == null)'</span>
 </code></pre></div>
 <p>Reports respect every selection and enrichment flag, so they show exactly what a document would contain; with
 <code>--all-environments</code> / <code>--all-platforms</code> there is one section (or JSON array element) per document. <code>--report</code>
@@ -1535,6 +1624,9 @@ print, so the two never overwrite each other.</p>
 Severities are red through blue by level, <code>open</code> findings are yellow and <code>ignored</code> ones dim, KEV markers red,
 diff rows green (added), red (removed), cyan (version) and magenta (license), licenses that are not SPDX
 expressions yellow, and <code>-</code> placeholders dim.</p>
+<p>The phantom report has one row per finding (what it is, the package, its kind and version, the modules it
+provides, and the workspace files that import them — at most five, then a count of the rest), followed by the
+three counts and how much source was read.</p>
 <p>The python report has one row per PyPI package (package, version, <code>Requires-Python</code>, whether the interpreter
 satisfies it, ceiling) and a summary naming the interpreter, the ceiling and the packages holding it.</p>
 <p>The packages report carries a <code>Yanked</code> column (<code>yes: &lt;reason&gt;</code> for a withdrawn release, <code>-</code> otherwise) once
@@ -1653,47 +1745,47 @@ CycloneDX metadata properties; the root package <code>sourceInfo</code> in SPDX)
 </tbody>
 </table>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># SPDX instead of CycloneDX</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--format<span class="w"> </span>spdx
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># CycloneDX 1.7 instead of 1.6</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--spec-version<span class="w"> </span><span class="m">1</span>.7
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># SPDX 3.0.1 (JSON-LD) instead of SPDX 2.3</span>
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--format<span class="w"> </span>spdx<span class="w"> </span>--spec-version<span class="w"> </span><span class="m">3</span>.0
-<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>
-<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="c1"># Straight into a consumer, nothing written to disk</span>
-<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
-<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>
-<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="c1"># Scannable: give conda-forge Python packages their PyPI identity and make it primary</span>
-<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--primary-purl<span class="w"> </span>pypi<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
-<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>
-<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="c1"># The same, air-gapped, from a saved copy of the mapping</span>
-<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping-file<span class="w"> </span>/srv/mirrors/compressed_mapping.json<span class="w"> </span>--primary-purl<span class="w"> </span>pypi
-<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>
-<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="c1"># Licenses for everything: expressions and license file names</span>
-<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses
-<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>
-<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a><span class="c1"># What was compiled into the wheels (PEP 770 embedded SBOMs), e.g. Rust crates</span>
-<a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--embedded-sboms
-<a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a>
-<a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a><span class="c1"># The same plus the full license texts</span>
-<a id="__codelineno-12-26" name="__codelineno-12-26" href="#__codelineno-12-26"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--license-texts
-<a id="__codelineno-12-27" name="__codelineno-12-27" href="#__codelineno-12-27"></a>
-<a id="__codelineno-12-28" name="__codelineno-12-28" href="#__codelineno-12-28"></a><span class="c1"># A specific lockfile and output file, from anywhere</span>
-<a id="__codelineno-12-29" name="__codelineno-12-29" href="#__codelineno-12-29"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>~/proj/pixi.lock<span class="w"> </span>--output<span class="w"> </span>~/reports/proj.cdx.json
-<a id="__codelineno-12-30" name="__codelineno-12-30" href="#__codelineno-12-30"></a>
-<a id="__codelineno-12-31" name="__codelineno-12-31" href="#__codelineno-12-31"></a><span class="c1"># The environment you actually ship, for the platform you ship it on</span>
-<a id="__codelineno-12-32" name="__codelineno-12-32" href="#__codelineno-12-32"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-e<span class="w"> </span>prod<span class="w"> </span>-p<span class="w"> </span>linux-64
-<a id="__codelineno-12-33" name="__codelineno-12-33" href="#__codelineno-12-33"></a>
-<a id="__codelineno-12-34" name="__codelineno-12-34" href="#__codelineno-12-34"></a><span class="c1"># Every environment, each on linux-64, into a directory</span>
-<a id="__codelineno-12-35" name="__codelineno-12-35" href="#__codelineno-12-35"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--all-environments<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--output<span class="w"> </span>sboms/
-<a id="__codelineno-12-36" name="__codelineno-12-36" href="#__codelineno-12-36"></a>
-<a id="__codelineno-12-37" name="__codelineno-12-37" href="#__codelineno-12-37"></a><span class="c1"># Every platform the prod environment is locked for</span>
-<a id="__codelineno-12-38" name="__codelineno-12-38" href="#__codelineno-12-38"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-e<span class="w"> </span>prod<span class="w"> </span>--all-platforms<span class="w"> </span>--output<span class="w"> </span>sboms/
-<a id="__codelineno-12-39" name="__codelineno-12-39" href="#__codelineno-12-39"></a>
-<a id="__codelineno-12-40" name="__codelineno-12-40" href="#__codelineno-12-40"></a><span class="c1"># Everything: one document per environment and platform</span>
-<a id="__codelineno-12-41" name="__codelineno-12-41" href="#__codelineno-12-41"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--all-environments<span class="w"> </span>--all-platforms<span class="w"> </span>--output<span class="w"> </span>sboms/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># SPDX instead of CycloneDX</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--format<span class="w"> </span>spdx
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># CycloneDX 1.7 instead of 1.6</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--spec-version<span class="w"> </span><span class="m">1</span>.7
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="c1"># SPDX 3.0.1 (JSON-LD) instead of SPDX 2.3</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--format<span class="w"> </span>spdx<span class="w"> </span>--spec-version<span class="w"> </span><span class="m">3</span>.0
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="c1"># Straight into a consumer, nothing written to disk</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="c1"># Scannable: give conda-forge Python packages their PyPI identity and make it primary</span>
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--primary-purl<span class="w"> </span>pypi<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
+<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>
+<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="c1"># The same, air-gapped, from a saved copy of the mapping</span>
+<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping-file<span class="w"> </span>/srv/mirrors/compressed_mapping.json<span class="w"> </span>--primary-purl<span class="w"> </span>pypi
+<a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>
+<a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a><span class="c1"># Licenses for everything: expressions and license file names</span>
+<a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses
+<a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>
+<a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a><span class="c1"># What was compiled into the wheels (PEP 770 embedded SBOMs), e.g. Rust crates</span>
+<a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--embedded-sboms
+<a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a>
+<a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a><span class="c1"># The same plus the full license texts</span>
+<a id="__codelineno-13-26" name="__codelineno-13-26" href="#__codelineno-13-26"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--license-texts
+<a id="__codelineno-13-27" name="__codelineno-13-27" href="#__codelineno-13-27"></a>
+<a id="__codelineno-13-28" name="__codelineno-13-28" href="#__codelineno-13-28"></a><span class="c1"># A specific lockfile and output file, from anywhere</span>
+<a id="__codelineno-13-29" name="__codelineno-13-29" href="#__codelineno-13-29"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>~/proj/pixi.lock<span class="w"> </span>--output<span class="w"> </span>~/reports/proj.cdx.json
+<a id="__codelineno-13-30" name="__codelineno-13-30" href="#__codelineno-13-30"></a>
+<a id="__codelineno-13-31" name="__codelineno-13-31" href="#__codelineno-13-31"></a><span class="c1"># The environment you actually ship, for the platform you ship it on</span>
+<a id="__codelineno-13-32" name="__codelineno-13-32" href="#__codelineno-13-32"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-e<span class="w"> </span>prod<span class="w"> </span>-p<span class="w"> </span>linux-64
+<a id="__codelineno-13-33" name="__codelineno-13-33" href="#__codelineno-13-33"></a>
+<a id="__codelineno-13-34" name="__codelineno-13-34" href="#__codelineno-13-34"></a><span class="c1"># Every environment, each on linux-64, into a directory</span>
+<a id="__codelineno-13-35" name="__codelineno-13-35" href="#__codelineno-13-35"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--all-environments<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--output<span class="w"> </span>sboms/
+<a id="__codelineno-13-36" name="__codelineno-13-36" href="#__codelineno-13-36"></a>
+<a id="__codelineno-13-37" name="__codelineno-13-37" href="#__codelineno-13-37"></a><span class="c1"># Every platform the prod environment is locked for</span>
+<a id="__codelineno-13-38" name="__codelineno-13-38" href="#__codelineno-13-38"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-e<span class="w"> </span>prod<span class="w"> </span>--all-platforms<span class="w"> </span>--output<span class="w"> </span>sboms/
+<a id="__codelineno-13-39" name="__codelineno-13-39" href="#__codelineno-13-39"></a>
+<a id="__codelineno-13-40" name="__codelineno-13-40" href="#__codelineno-13-40"></a><span class="c1"># Everything: one document per environment and platform</span>
+<a id="__codelineno-13-41" name="__codelineno-13-41" href="#__codelineno-13-41"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--all-environments<span class="w"> </span>--all-platforms<span class="w"> </span>--output<span class="w"> </span>sboms/
 </code></pre></div>
 <h2 id="exit-codes-and-errors">Exit codes and errors<a class="headerlink" href="#exit-codes-and-errors" title="Permanent link">&para;</a></h2>
 <table>
@@ -1723,6 +1815,10 @@ CycloneDX metadata properties; the root package <code>sourceInfo</code> in SPDX)
 <tr>
 <td>7</td>
 <td><code>--fail-on-yanked</code> found a yanked release; the documents were written and the releases listed on stderr.</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>--fail-on-phantom</code> found an import the manifest never declared; the report was printed and the packages listed on stderr.</td>
 </tr>
 <tr>
 <td>2</td>

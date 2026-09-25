@@ -830,21 +830,23 @@ once no matter how many output formats exist.</p>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>   pkgcache.rs ─── conda license files and metadata from the package cache (optional, offline)
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>   condaarchive.rs ─ the same from the channel archive by HTTP range (optional, via zipread.rs)
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>   wheel.rs ─────── PyPI license details from the wheel's dist-info (optional, via zipread.rs)
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>   embedded.rs ──── PEP 770 embedded SBOMs from the same wheels (optional)
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>   report.rs ───── --report: renders the model as a terminal table instead of a document
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>   style.rs ────── --color: when to colour, and which style each kind of cell gets
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>   progress.rs ─── progress bars for the fetches, hidden while a log line prints
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>   diff.rs ─────── --report diff --against: reads a previous document (any family) and compares
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>   outdated.rs ─── --report outdated: newest release, age and releases behind, per index
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>   pyversion.rs ── --report python: Requires-Python bounds and what caps the interpreter
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>   policy.rs ───── --allow/--deny/--require-license: violations -&gt; exit 3 after writing
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>   osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>   kev.rs ──────── --kev: CISA's Known Exploited Vulnerabilities catalog onto the findings (via http.rs)
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>   vulnpolicy.rs ─ --fail-on-severity / --fail-on-kev / --ignore-vuln: analysis blocks and exit 4 after writing
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>   license.rs ◀── used by both writers
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>   discover.rs ── finds the lockfile, decides output paths
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>   cli.rs ──────── clap definitions
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>   main.rs ─────── wires it together, logging, error reporting
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>   imports.rs ───── --report phantom: what the workspace's own .py files import
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>   phantom.rs ───── --report phantom: those imports against the declared and installed sets
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>   embedded.rs ──── PEP 770 embedded SBOMs from the same wheels (optional)
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>   report.rs ───── --report: renders the model as a terminal table instead of a document
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>   style.rs ────── --color: when to colour, and which style each kind of cell gets
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>   progress.rs ─── progress bars for the fetches, hidden while a log line prints
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>   diff.rs ─────── --report diff --against: reads a previous document (any family) and compares
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>   outdated.rs ─── --report outdated: newest release, age and releases behind, per index
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>   pyversion.rs ── --report python: Requires-Python bounds and what caps the interpreter
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>   policy.rs ───── --allow/--deny/--require-license: violations -&gt; exit 3 after writing
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>   osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>   kev.rs ──────── --kev: CISA's Known Exploited Vulnerabilities catalog onto the findings (via http.rs)
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>   vulnpolicy.rs ─ --fail-on-severity / --fail-on-kev / --ignore-vuln: analysis blocks and exit 4 after writing
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>   license.rs ◀── used by both writers
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>   discover.rs ── finds the lockfile, decides output paths
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>   cli.rs ──────── clap definitions
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>   main.rs ─────── wires it together, logging, error reporting
 </code></pre></div>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <table>
@@ -982,6 +984,21 @@ once no matter how many output formats exist.</p>
 <td>serde_json, http.rs</td>
 </tr>
 <tr>
+<td><code>imports.rs</code></td>
+<td>Reading the workspace's <code>.py</code> files for the top-level modules they import, and the modules the workspace provides itself. No Python is executed and no parser crate is used.</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>phantom.rs</code></td>
+<td><code>--report phantom</code>: which package provides which module (from an installed environment's <code>dist-info</code>, else the wheel names), and the phantom / undeclared / unused findings.</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>stdlib.rs</code></td>
+<td>The standard library's module names, so an <code>import os</code> is never a missing dependency.</td>
+<td>—</td>
+</tr>
+<tr>
 <td><code>vulnpolicy.rs</code></td>
 <td><code>--fail-on-severity</code> / <code>--fail-on-kev</code> / <code>--ignore-vuln</code>: parses ignore entries (<code>ID[:STATE][:TEXT]</code>), marks matching findings (by id or alias) with an <code>Analysis</code>, and lists the open findings at or above the threshold or known exploited; exit code 4 is applied in <code>main</code>.</td>
 <td>model.rs</td>
@@ -1095,6 +1112,16 @@ that misses a declared dependency something else also needs (<code>python</code>
 record it, so the declared set of the environment's features is read from there and marked <code>pixi:direct</code>; the root
 depends on that set together with the graph roots. Without a readable manifest (<code>--prefix</code>, a bare lockfile) the
 graph roots are still the whole answer, which is what <a href="../output-format/">output-format.md</a> documents.</p>
+<p><strong>Imports read line by line, not parsed.</strong> <code>--report phantom</code> needs the top-level modules a source file imports,
+and an import statement is the one Python construct that is unambiguous on the line it starts on. A tokenizer over
+the lines — tracking docstrings, skipping comments and relative imports — costs no dependency and no execution,
+where an AST crate would add a Python grammar that has to track the language. The cost is that an import built at
+runtime (<code>importlib.import_module(name)</code>) is invisible, which no static tool can see either.</p>
+<p><strong>Module ownership from the installed environment, never from a table.</strong> Which distribution provides which module
+is not in the lockfile, and a curated name-to-module table would be wrong the moment a package renames a module.
+When the environment is installed, each <code>dist-info</code> answers exactly (<code>top_level.txt</code>, else <code>RECORD</code>); when it is
+not, a wheel is assumed to provide the module its name spells and conda packages are left out rather than guessed
+at. The report says which of the two answered, so a weaker answer is never passed off as the strong one.</p>
 <p><strong>pixi as the only task runner.</strong> Cargo is never invoked directly in docs, hooks, or CI; every command goes through
 a <code>pixi run</code> task so the toolchain is the pinned one from <code>pixi.lock</code>. See <a href="../development/">development.md</a>.</p>
 <h2 id="adding-a-format">Adding a format<a class="headerlink" href="#adding-a-format" title="Permanent link">&para;</a></h2>
