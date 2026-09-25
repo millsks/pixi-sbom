@@ -49,7 +49,8 @@ With no options this means:
 | `--fail-on-kev` | off | With `--kev`: exit **4** after writing the document when any open finding is known exploited, regardless of severity. |
 | `--fail-on-severity <low\|medium\|high\|critical>` | | With `--vulnerabilities`: exit **4** after writing the document when any open finding is at or above the level. Findings of unknown severity never trip it. |
 | `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification), is excluded from `--fail-on-severity` and listed separately in the report. |
-| `--report <packages\|licenses\|vulnerabilities\|diff>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
+| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
+| `--outdated-only <patch\|minor\|major>` | | With `--report outdated`: list only packages at least that far behind. |
 | `--against <PATH>` | | With `--report diff`: the previous document to compare with (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON). |
 | `--report-format <table\|markdown\|csv\|json\|sarif>` | `table` | How to render the report; `sarif` (2.1.0, for GitHub code scanning) applies to `--report vulnerabilities` only. |
 | `--color <auto\|always\|never>` | `auto` | Colour the `table` report. `auto` colours only when the output is a terminal, honouring `NO_COLOR`, `CLICOLOR_FORCE` and `TERM=dumb`. |
@@ -256,6 +257,31 @@ otherwise ignored, so a list of accepted findings can be kept across upgrades. F
 (records without a rating) never trip the gate; the report shows them so they can be assessed. When both the
 license policy and the vulnerability gate fail, both lists are printed and the exit code is 3.
 
+## How far behind the environment is
+
+`--report outdated` asks each package's index what the newest release is, how many releases sit between it and
+the pinned one, and when each was published:
+
+```sh
+pixi sbom --report outdated
+pixi sbom --report outdated --outdated-only major --report-format markdown
+```
+
+| Column | Meaning |
+|---|---|
+| `Version`, `Age` | What is pinned, and how many days ago it was published |
+| `Latest`, `Released` | The newest release that is neither a prerelease nor yanked, and its date |
+| `Behind` | How many such releases were published after the pinned one |
+| `Step` | `patch`, `minor` or `major`, by the leading numeric segments; `current` when nothing is newer |
+
+Rows are ordered furthest behind first, then oldest. PyPI packages are read from the project document
+(`/pypi/<name>/json`); conda packages from anaconda.org's package API
+(`https://api.anaconda.org/package/<channel>/<name>`, `PIXI_SBOM_ANACONDA_URL` for a mirror), which covers
+conda-forge and the other channels hosted there. A channel hosted elsewhere would mean downloading its
+`repodata.json`, which is hundreds of megabytes, so those packages, along with source packages and anything the
+index cannot answer for, are listed under *No index to ask* rather than guessed at. Both documents are cached for
+a day, so a second run is free.
+
 ## Looking instead of writing
 
 `--report` prints a report to the terminal and writes nothing:
@@ -354,6 +380,7 @@ CycloneDX metadata properties; the root package `sourceInfo` in SPDX), so a batc
 | `PIXI_SBOM_OFFLINE` | Set to `1` to forbid every network request: the mapping, wheel, archive, OSV and KEV caches are used when present and everything else is skipped with a warning. The run still succeeds. |
 | `PIXI_SBOM_OSV_URL` | Base of the OSV API queried by `--vulnerabilities osv` (default `https://api.osv.dev`). |
 | `PIXI_SBOM_NO_PROGRESS` | Set to `1` to turn the progress bars off even on a terminal. |
+| `PIXI_SBOM_ANACONDA_URL` | Base of the anaconda.org API used by `--report outdated` for conda packages (default `https://api.anaconda.org`). |
 | `PIXI_SBOM_KEV_URL` | Where `--kev` downloads CISA's Known Exploited Vulnerabilities catalog (default `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json`). |
 | `PIXI_SBOM_PYPI_URL` | Base of the PyPI JSON API queried by `--fetch-licenses` (default `https://pypi.org/pypi`); point it at a mirror such as devpi or Artifactory. |
 | `PIXI_SBOM_CACHE_DIR` | Where downloaded data (the PyPI mapping, PyPI metadata, extracted conda `info` directories, wheel `dist-info` files) is cached. Default: `pixi-sbom` inside the pixi cache directory (`PIXI_CACHE_DIR` / `RATTLER_CACHE_DIR`, else `~/.cache/rattler/cache`, `~/Library/Caches/rattler/cache`, `%LOCALAPPDATA%\rattler\cache`), so `pixi clean cache` removes it too. |

@@ -96,6 +96,17 @@ pub enum PrimaryPurl {
     Pypi,
 }
 
+/// How far behind a package must be to appear in `--report outdated`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum OutdatedOnly {
+    /// Any package behind its index.
+    Patch,
+    /// A minor or major step behind.
+    Minor,
+    /// A major step behind.
+    Major,
+}
+
 /// A package kind, as `--exclude-kind` names it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Kind {
@@ -337,6 +348,10 @@ pub struct Args {
     /// `CLICOLOR_FORCE`. Only the `table` format is ever coloured.
     #[arg(long, value_enum, value_name = "WHEN", default_value_t = crate::style::ColorChoice::Auto)]
     pub color: crate::style::ColorChoice,
+
+    /// With --report outdated: list only packages at least this far behind.
+    #[arg(long, value_enum, value_name = "STEP")]
+    pub outdated_only: Option<OutdatedOnly>,
 
     /// With --report diff: the previous document to compare against (CycloneDX, SPDX 2.3 or
     /// SPDX 3.0 JSON, as written by pixi-sbom or another tool).
