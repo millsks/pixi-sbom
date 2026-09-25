@@ -155,6 +155,7 @@ pub fn build_sbom(prefix: &Path, root: Root, platform: Option<&str>) -> Result<S
         platform,
         lockfile: String::new(),
         prefix: Some(environment_name(prefix)),
+        document: None,
         packages,
         vulnerabilities: Vec::new(),
         excluded: Vec::new(),

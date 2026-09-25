@@ -11,6 +11,7 @@ once no matter how many output formats exist.
    purl.rs ──────┘             │
    manifest.rs ────────────────┘   (workspace metadata and declared dependencies)
    prefix.rs ───── --prefix: conda-meta records + site-packages dist-info into the same model
+   fromsbom.rs ─── --from-sbom: an existing CycloneDX / SPDX document into the same model
    config.rs ───── pixi-sbom.toml / [tool.pixi-sbom]: fills what the command line did not say
    filter.rs ───── --include/--exclude/--exclude-kind: drops packages and re-closes the graph first
    mapping.rs ──── enriches model::Sbom with PyPI purls (optional, via http.rs)
@@ -66,6 +67,7 @@ once no matter how many output formats exist.
 | `format/spdx.rs` | Same for SPDX 2.3, including `SPDXRef` id assignment and `LicenseRef` extraction. | serde |
 | `osv.rs` | `--vulnerabilities osv`: collects every queryable purl (conda purls excluded), asks OSV's `querybatch` in thousands, fetches each record in parallel, caches queries (one hour) and records (until `modified` moves), merges GHSA / PYSEC twins by alias, picks the fixed version above the installed one, and fills `Sbom::vulnerabilities`. A failed query is fatal; a failed record is not. | serde_json, http.rs, cvss.rs, parallel.rs |
 | `kev.rs` | `--kev`: downloads CISA's KEV catalog (cached a day, stale copy on failure), looks each finding's CVE aliases up, and marks hits critical with the catalog's dates and required action. | serde_json, http.rs |
+| `fromsbom.rs` | `--from-sbom`: reads an existing CycloneDX / SPDX document into `model::Sbom` through the same reader `--against` uses, keeping the graph, the hashes and the `pixi:*` properties so a document of ours round-trips. | embedded.rs, diff.rs |
 | `imports.rs` | Reading the workspace's `.py` files for the top-level modules they import, and the modules the workspace provides itself. No Python is executed and no parser crate is used. | — |
 | `phantom.rs` | `--report phantom`: which package provides which module (from an installed environment's `dist-info`, else the wheel names), and the phantom / undeclared / unused findings. | — |
 | `stdlib.rs` | The standard library's module names, so an `import os` is never a missing dependency. | — |

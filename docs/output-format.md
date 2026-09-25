@@ -76,7 +76,7 @@ entry).
 
 | Property | Set for | Value |
 |---|---|---|
-| `pixi:kind` | all | `conda`, `conda-source`, `pypi` |
+| `pixi:kind` | all | `conda`, `conda-source`, `pypi`, `embedded`, `external` |
 | `pixi:channel` | conda binary | Channel name, e.g. `conda-forge` (last path segment of the channel URL) |
 | `pixi:channel-url` | conda binary | Full channel base URL |
 | `pixi:subdir` | conda | `linux-64`, `noarch`, ... |
@@ -229,6 +229,14 @@ says `prefix <name>`, and pip-installed packages are located by a `file://` URL 
 `<vcs>+<url>` for direct VCS installs, with `pixi:direct-url` and `pixi:source-rev`), carry `pixi:installer`, and
 have no hashes. Conda packages carry `pixi:extracted-package-dir`, where the record says the archive was
 unpacked.
+
+### Documents derived from documents
+
+With `--from-sbom` the document describes what another document described: the metadata property is
+`pixi:source-document` — the source's CycloneDX serial number or SPDX document namespace — rather than
+`pixi:lockfile`, and the SPDX root package's source info says `document <identity>`. Everything the source records
+is carried over, including the `pixi:*` properties, so a document this tool wrote round-trips unchanged; a package
+whose purl is neither `pkg:conda` nor `pkg:pypi`, or which has no purl, gets `pixi:kind=external`.
 
 ### Yanked releases
 

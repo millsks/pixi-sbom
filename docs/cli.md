@@ -35,7 +35,7 @@ With no options this means:
 | `--primary-purl <conda\|pypi>` | `conda` | With `pypi`, a conda package that has a PyPI purl uses it as its primary `purl` so vulnerability scanners can match it. |
 | `--exclude <GLOB>` | | Repeatable. Leave packages whose name matches the shell-style pattern (`*`, `?`; case-insensitive, `-` and `_` alike) out of the document, together with whatever only they needed (see below). |
 | `--include <GLOB>` | | Repeatable. Keep only packages whose name matches one of the patterns. |
-| `--exclude-kind <conda\|conda-source\|pypi\|embedded>` | | Repeatable. Leave every package of that kind out. |
+| `--exclude-kind <conda\|conda-source\|pypi\|embedded\|external>` | | Repeatable. Leave every package of that kind out. |
 | `--keep-orphans` | off | With the filters above: keep the packages that only excluded packages needed. |
 | `--fetch-licenses` | off | Fetch the license of every package, conda and PyPI alike, where the lockfile has none, plus the names of the license files it ships and its summary and project URLs. Conda details come from the local package cache pixi filled at install time, or from the archive on the channel via HTTP range requests (a few KB per package, cached); PyPI details from the wheel's `dist-info` the same way, then the index JSON API for what is still missing. Failures are logged and the run continues. |
 | `--license-texts` | off | With `--fetch-licenses`, also embed the full text of every license file. |
@@ -54,6 +54,7 @@ With no options this means:
 | `--source <DIR>` | the lockfile's directory | With `--report phantom`: where the workspace's Python sources are (repeatable). |
 | `--assume-used <GLOB>` | | With `--report phantom`: packages matching this are never reported as unused or undeclared (repeatable). |
 | `--fail-on-phantom` | off | With `--report phantom`: exit **8** when the workspace imports a package it never declared. |
+| `--from-sbom <FILE>` | | Read an existing document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON) instead of a lockfile and run the reports, the license policy and the vulnerability gate on it. |
 | `--scan <DIR>` | | Describe every pixi workspace under the directory: one document per `pixi.lock` found. Cannot be combined with `--lockfile`, `--prefix`, `--against` or `--output -`. |
 | `--scan-depth <N>` | unlimited | With `--scan`: how far below the directory to walk (`0` is the directory itself). |
 | `--against <PATH>` | | With `--report diff`: what to compare with — a document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON), a `pixi.lock`, or the directory of an installed environment. |
@@ -463,6 +464,35 @@ With `--prefix` the document is named after the environment's directory, which s
 `--environment` (default `default`) names the side to compare with. The comparison also works the other way round —
 a lockfile run with `--against <prefix directory>` — and between two lockfiles, where `--against pixi.lock` on the
 workspace's own lockfile is the "nothing has changed" baseline.
+
+## Working from an existing SBOM
+
+`--from-sbom <FILE>` reads a document instead of a lockfile, so everything the tool does to a pixi environment can
+be done to an SBOM somebody else wrote — including one from a project that does not use pixi at all:
+
+```sh
+pixi sbom --from-sbom sbom.cdx.json --vulnerabilities osv --report vulnerabilities
+pixi sbom --from-sbom sbom.spdx.json --deny-license GPL-3.0-only --output -
+pixi sbom --from-sbom sbom.cdx.json --format spdx --output sbom.spdx.json   # convert
+```
+
+The reader is the one behind `--against`, so CycloneDX 1.4–1.7, SPDX 2.x and SPDX 3.0.1 are all accepted. From
+CycloneDX and SPDX 2.x it takes the packages, versions, purls, licenses, hashes, descriptions, download locations,
+the dependency graph and the `pixi:*` properties a document this tool wrote carries — so a document of ours
+round-trips unchanged, declared dependencies and all. SPDX 3.0.1 is read as packages, versions, purls and
+licenses; its graph, hashes and properties do not come back.
+
+The described application's name and version come from the document's own root component unless `--name` and
+`--root-version` say otherwise, and the environment and platform from what the document records (`default` and
+empty when it records nothing, or whatever `--platform` says). A purl that is neither `pkg:conda` nor `pkg:pypi`,
+and a package with no purl at all, is recorded as the `external` kind: the document is the only thing that knows
+what it is.
+
+What is written carries `pixi:source-document` — the source's serial number or namespace — in place of
+`pixi:lockfile`, so the derivation is traceable. Enrichment that needs a lockfile or a local package cache
+(`--pypi-mapping`, the package-cache license reads) has nothing to work with and finds nothing; everything keyed on
+purls works unchanged. `--all-environments` and `--all-platforms` do not apply, since a document is one
+environment.
 
 ## A monorepo: every workspace in one run
 
