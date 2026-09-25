@@ -1,5 +1,6 @@
 //! `pixi-sbom`: a pixi extension that generates CycloneDX or SPDX SBOMs from `pixi.lock`.
 
+mod auditable;
 mod cli;
 mod condaarchive;
 mod config;
@@ -297,6 +298,16 @@ fn main() -> Result<()> {
                     merged,
                 } = embedded::enrich(&mut sbom, &cache_dir);
                 tracing::info!(files, unreadable, added, merged, "attached embedded SBOM components");
+                // An installed environment is the only place the binaries themselves are, and
+                // conda-forge builds its Rust packages with `cargo auditable`.
+                if let Input::Prefix { dir, .. } = input {
+                    let auditable::Outcome {
+                        binaries,
+                        added,
+                        merged,
+                    } = auditable::enrich(&mut sbom, dir, progress);
+                    tracing::info!(binaries, added, merged, "read cargo auditable crate lists");
+                }
             }
             let pkgcache::Outcome {
                 found,

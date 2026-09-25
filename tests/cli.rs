@@ -2506,6 +2506,130 @@ fn scan_usage_errors() {
         .stderr(predicate::str::contains("pixi_sbom::discover::none_found"));
 }
 
+/// An ELF binary carrying `json` in a `.dep-v0` section, the way `cargo auditable` writes it.
+fn audited_binary(json: &str) -> Vec<u8> {
+    use object::write::{Object, StandardSegment};
+    use object::{Architecture, BinaryFormat, Endianness, SectionKind};
+    use std::io::Write;
+
+    let mut compressed = Vec::new();
+    let mut encoder = flate2::write::ZlibEncoder::new(&mut compressed, flate2::Compression::default());
+    encoder.write_all(json.as_bytes()).unwrap();
+    encoder.finish().unwrap();
+
+    let mut object = Object::new(BinaryFormat::Elf, Architecture::X86_64, Endianness::Little);
+    let section = object.add_section(
+        object.segment_name(StandardSegment::Data).to_vec(),
+        b".dep-v0".to_vec(),
+        SectionKind::ReadOnlyData,
+    );
+    object.set_section_data(section, compressed, 1);
+    object.write().unwrap()
+}
+
+#[test]
+fn cargo_auditable_crates_are_read_out_of_an_installed_environment() {
+    let dir = installed_prefix();
+    let prefix = dir.path().join("envs").join("demo");
+    // libzlib ships an audited program, as a conda-forge Rust package would.
+    std::fs::create_dir_all(prefix.join("bin")).unwrap();
+    std::fs::write(
+        prefix.join("bin").join("rg"),
+        audited_binary(
+            r#"{"packages":[
+                {"name":"ripgrep","version":"14.1.0","source":"local","root":true,"dependencies":[1]},
+                {"name":"memchr","version":"2.7.4","source":"crates.io"},
+                {"name":"cc","version":"1.0.0","source":"crates.io","kind":"build"}
+            ]}"#,
+        ),
+    )
+    .unwrap();
+    let record = prefix.join("conda-meta").join("libzlib-1.3.2-h25fd6f3_3.json");
+    let mut value: Value = serde_json::from_str(&std::fs::read_to_string(&record).unwrap()).unwrap();
+    value["files"] = serde_json::json!(["bin/rg", "lib/libz.so.1"]);
+    std::fs::write(&record, value.to_string()).unwrap();
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("sbom-cache"))
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .arg("--prefix")
+        .arg(&prefix)
+        .args(["-p", "linux-64", "--embedded-sboms", "--output", "-"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("read cargo auditable crate lists binaries=1"));
+    let document: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &document);
+
+    let components = document["components"].as_array().unwrap();
+    let crate_ = |name: &str| components.iter().find(|c| c["name"] == name);
+    let ripgrep = crate_("ripgrep").expect("the crate the binary was built from");
+    assert_eq!(ripgrep["purl"], "pkg:cargo/ripgrep@14.1.0");
+    let properties: Vec<(&str, &str)> = ripgrep["properties"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| (p["name"].as_str().unwrap(), p["value"].as_str().unwrap()))
+        .collect();
+    assert!(properties.contains(&("pixi:kind", "embedded")), "{properties:?}");
+    assert!(
+        properties.contains(&("pixi:embedded-sbom", "cargo-auditable:bin/rg")),
+        "{properties:?}"
+    );
+    assert!(properties.contains(&("pixi:cargo-source", "local")), "{properties:?}");
+    assert!(crate_("memchr").is_some());
+    assert!(crate_("cc").is_none(), "a build dependency is not in the program");
+
+    // The conda package depends on the crate, and the crate on its own dependencies.
+    let edges = |reference: &str| -> Vec<String> {
+        document["dependencies"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["ref"] == reference)
+            .map(|e| {
+                e["dependsOn"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|d| d.as_str().unwrap().to_string())
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let libzlib = components.iter().find(|c| c["name"] == "libzlib").unwrap()["bom-ref"]
+        .as_str()
+        .unwrap();
+    assert!(
+        edges(libzlib).contains(&"pkg:cargo/ripgrep@14.1.0".to_string()),
+        "{:?}",
+        edges(libzlib)
+    );
+    assert_eq!(edges("pkg:cargo/ripgrep@14.1.0"), ["pkg:cargo/memchr@2.7.4"]);
+
+    // Without --embedded-sboms nothing is read out of the binaries.
+    let plain = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("sbom-cache"))
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .arg("--prefix")
+        .arg(&prefix)
+        .args(["-p", "linux-64", "--output", "-"])
+        .assert()
+        .success();
+    let document: Value = serde_json::from_slice(&plain.get_output().stdout).unwrap();
+    assert!(
+        !document["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["name"] == "ripgrep")
+    );
+}
+
 #[test]
 fn drift_between_an_installed_environment_and_its_lockfile() {
     let dir = installed_prefix();
