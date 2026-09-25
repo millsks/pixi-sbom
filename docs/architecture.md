@@ -24,6 +24,7 @@ once no matter how many output formats exist.
    progress.rs ─── progress bars for the fetches, hidden while a log line prints
    diff.rs ─────── --report diff --against: reads a previous document (any family) and compares
    outdated.rs ─── --report outdated: newest release, age and releases behind, per index
+   pyversion.rs ── --report python: Requires-Python bounds and what caps the interpreter
    policy.rs ───── --allow/--deny/--require-license: violations -> exit 3 after writing
    osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
    kev.rs ──────── --kev: CISA's Known Exploited Vulnerabilities catalog onto the findings (via http.rs)
@@ -67,6 +68,7 @@ once no matter how many output formats exist.
 | `cvss.rs` | CVSS v3.0 / v3.1 base scores from vector strings, for advisories that carry a vector but no qualitative severity. | |
 | `progress.rs` | Whether progress bars are drawn (terminal, not `-v`/`-q`, not `TERM=dumb`/`CI`/`PIXI_SBOM_NO_PROGRESS`) and the bar itself; one global `MultiProgress` so the tracing writer can suspend every live bar while a log line prints. | indicatif |
 | `style.rs` | `--color` resolution (`NO_COLOR`, `CLICOLOR_FORCE`, `TERM=dumb`, terminal detection) and the palette: comfy-table cell styling for tables (so widths are measured on unstyled text) and `anstyle` for the plain lines around them. | anstyle, comfy-table, clap |
+| `pyversion.rs` | `--report python`: parses PEP 440 specifier sets at `MAJOR.MINOR` granularity (floor, ceiling, exclusions), decides whether the environment's interpreter satisfies each package, and finds the lowest ceiling and the packages imposing it. No network: everything comes from `pixi:requires-python` and the `python` package. | model.rs |
 | `outdated.rs` | `--report outdated`: PyPI project documents and anaconda.org package documents (cached a day, ten at a time), prerelease and yanked filtering, version comparison through rattler's `Version`, and the patch/minor/major step. Packages from channels the API does not cover are reported as unknown. | serde_json, http.rs, parallel.rs |
 | `diff.rs` | `--report diff --against`: reads a previous CycloneDX / SPDX 2.x document through `embedded::parse` or an SPDX 3.0.1 graph directly, reduces both sides to (purl type, normalized name, version, normalized license) and lists added, removed, version- and license-changed packages. | embedded.rs, license.rs |
 | `policy.rs` | `--allow-license` / `--deny-license` / `--require-license`: parses licensees, canonicalizes ids (base, `-or-later`, exception) and evaluates each package's expression with the `spdx` crate's `evaluate`, returning violations; exit code 3 is applied in `main`. | spdx, license.rs |

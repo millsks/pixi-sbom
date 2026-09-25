@@ -49,7 +49,7 @@ With no options this means:
 | `--fail-on-kev` | off | With `--kev`: exit **4** after writing the document when any open finding is known exploited, regardless of severity. |
 | `--fail-on-severity <low\|medium\|high\|critical>` | | With `--vulnerabilities`: exit **4** after writing the document when any open finding is at or above the level. Findings of unknown severity never trip it. |
 | `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification), is excluded from `--fail-on-severity` and listed separately in the report. |
-| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
+| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
 | `--outdated-only <patch\|minor\|major>` | | With `--report outdated`: list only packages at least that far behind. |
 | `--against <PATH>` | | With `--report diff`: the previous document to compare with (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON). |
 | `--report-format <table\|markdown\|csv\|json\|sarif>` | `table` | How to render the report; `sarif` (2.1.0, for GitHub code scanning) applies to `--report vulnerabilities` only. |
@@ -282,6 +282,26 @@ conda-forge and the other channels hosted there. A channel hosted elsewhere woul
 index cannot answer for, are listed under *No index to ask* rather than guessed at. Both documents are cached for
 a day, so a second run is free.
 
+## What Python the environment allows
+
+`--report python` answers "why can we not move to the next Python yet?" from facts the document already has: the
+`Requires-Python` of every wheel (from the lockfile or its `dist-info`) and the environment's own `python`
+package. No network, no index.
+
+```sh
+pixi sbom --report python
+```
+
+Each row gives the package, its version, the specifier as written, whether the current interpreter satisfies it,
+and the highest Python minor version it still allows; the lowest ceiling comes first. The summary names the
+interpreter, the highest Python the environment could move to without dropping a package, which packages impose
+that ceiling, which packages the current interpreter does *not* satisfy, and how many say nothing at all.
+
+Bounds are read at `MAJOR.MINOR` granularity, which is the level upgrades happen at: `<3.13` becomes a ceiling of
+3.12, `<=3.11` of 3.11, `==3.10` of 3.10, and `!=3.9.*` an exclusion. A bound on the major version alone (`<4`)
+is not a ceiling, since it says nothing about how far up the 3.x series you may go. Most real environments have
+no ceiling at all, which is itself the answer.
+
 ## Looking instead of writing
 
 `--report` prints a report to the terminal and writes nothing:
@@ -328,6 +348,9 @@ Colour is applied to the `table` format only, since the others are data someone 
 Severities are red through blue by level, `open` findings are yellow and `ignored` ones dim, KEV markers red,
 diff rows green (added), red (removed), cyan (version) and magenta (license), licenses that are not SPDX
 expressions yellow, and `-` placeholders dim.
+
+The python report has one row per PyPI package (package, version, `Requires-Python`, whether the interpreter
+satisfies it, ceiling) and a summary naming the interpreter, the ceiling and the packages holding it.
 
 The packages report carries a `Yanked` column (`yes: <reason>` for a withdrawn release, `-` otherwise) once
 `--fetch-licenses` has asked the index; the CSV and JSON forms carry `yanked` and `yanked_reason` fields.

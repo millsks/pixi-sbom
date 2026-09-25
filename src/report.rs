@@ -31,6 +31,8 @@ pub enum ReportKind {
     Diff,
     /// Outdated: how far behind its index each package is.
     Outdated,
+    /// Python: which packages constrain the interpreter version.
+    Python,
 }
 
 /// How to render a report.
@@ -206,6 +208,43 @@ pub struct Report {
     pub outdated: Option<Vec<OutdatedRow>>,
     #[serde(rename = "summary", skip_serializing_if = "Option::is_none")]
     pub outdated_summary: Option<OutdatedSummary>,
+    /// Rows of the python report.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub python: Option<Vec<PythonRow>>,
+    #[serde(rename = "summary", skip_serializing_if = "Option::is_none")]
+    pub python_summary: Option<PythonSummary>,
+}
+
+/// One package's Python requirement, as the report prints it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PythonRow {
+    pub name: String,
+    pub kind: &'static str,
+    pub version: String,
+    /// The `Requires-Python` specifier, when the package names one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requires_python: Option<String>,
+    /// Whether the environment's interpreter satisfies it.
+    pub satisfied: bool,
+    /// The highest Python minor version it still allows.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ceiling: Option<String>,
+}
+
+/// What the python report says about the environment as a whole.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct PythonSummary {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub interpreter: Option<String>,
+    /// The highest Python the environment could move to without dropping a package.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ceiling: Option<String>,
+    /// The packages that impose it.
+    pub blocking: Vec<String>,
+    /// Packages the current interpreter does not satisfy.
+    pub unsatisfied: Vec<String>,
+    /// Packages that say nothing about Python.
+    pub unconstrained: usize,
 }
 
 impl Report {
@@ -225,6 +264,7 @@ impl Report {
                 ReportKind::Vulnerabilities => "vulnerabilities",
                 ReportKind::Diff => "diff",
                 ReportKind::Outdated => "outdated",
+                ReportKind::Python => "python",
             },
             workspace: sbom.root.name.clone(),
             environment: sbom.environment.clone(),
@@ -239,6 +279,8 @@ impl Report {
             diff: None,
             outdated: None,
             outdated_summary: None,
+            python: None,
+            python_summary: None,
         };
         match kind {
             ReportKind::Packages => report.packages = Some(sbom.packages.iter().map(row).collect()),
@@ -258,6 +300,29 @@ impl Report {
                     .collect();
                 report.vulnerability_summary = Some(summarize_vulnerabilities(&rows, sbom));
                 report.vulnerabilities = Some(rows);
+            }
+            ReportKind::Python => {
+                let rows = crate::pyversion::rows(sbom);
+                let summary = crate::pyversion::summarize(sbom, &rows);
+                report.python_summary = Some(PythonSummary {
+                    interpreter: summary.interpreter,
+                    ceiling: summary.ceiling,
+                    blocking: summary.blocking,
+                    unsatisfied: summary.unsatisfied,
+                    unconstrained: summary.unconstrained,
+                });
+                report.python = Some(
+                    rows.into_iter()
+                        .map(|row| PythonRow {
+                            name: row.name,
+                            kind: row.kind,
+                            version: row.version,
+                            requires_python: row.requires,
+                            satisfied: row.satisfied,
+                            ceiling: row.ceiling.map(|c| c.to_string()),
+                        })
+                        .collect(),
+                );
             }
             ReportKind::Diff | ReportKind::Outdated => {}
         }
@@ -335,6 +400,7 @@ impl Report {
             "vulnerabilities" => ReportKind::Vulnerabilities,
             "diff" => ReportKind::Diff,
             "outdated" => ReportKind::Outdated,
+            "python" => ReportKind::Python,
             _ => ReportKind::Packages,
         }
     }
@@ -350,6 +416,7 @@ impl Report {
             ReportKind::Outdated => vec![
                 "Package", "Kind", "Version", "Age", "Latest", "Released", "Behind", "Step",
             ],
+            ReportKind::Python => vec!["Package", "Version", "Requires-Python", "Satisfied", "Ceiling"],
         }
     }
 
@@ -358,6 +425,7 @@ impl Report {
         match self.kind() {
             ReportKind::Diff => self.diff.as_ref().map(diff_rows).unwrap_or_default(),
             ReportKind::Outdated => self.outdated.iter().flatten().map(outdated_cells).collect(),
+            ReportKind::Python => self.python.iter().flatten().map(python_cells).collect(),
             ReportKind::Vulnerabilities => self.vulnerabilities.iter().flatten().map(vulnerability_cells).collect(),
             _ => self.packages.iter().flatten().map(|r| self.cells(r)).collect(),
         }
@@ -376,6 +444,8 @@ impl Report {
             ReportKind::Diff => vec![Change, Plain, Plain, Plain, Plain],
             // Package, Kind, Version, Age, Latest, Released, Behind, Step
             ReportKind::Outdated => vec![Plain, Plain, Plain, Plain, Plain, Plain, Plain, Change],
+            // Package, Version, Requires-Python, Satisfied, Ceiling
+            ReportKind::Python => vec![Plain, Plain, Plain, Status, Plain],
             // Name, Version, Kind, License, Family, Source, Files
             ReportKind::Licenses => vec![Plain, Plain, Plain, NonSpdx, Plain, Plain, Plain],
             // Name, Version, Kind, Source, License, Yanked, Purl
@@ -439,6 +509,18 @@ impl Report {
 /// Rows of unstyled cells, for the summary tables that carry no meaning per column.
 fn plain_cells(rows: &[Vec<String>]) -> Vec<Vec<Cell>> {
     rows.iter().map(|row| row.iter().map(Cell::new).collect()).collect()
+}
+
+/// One python row as cells.
+fn python_cells(row: &PythonRow) -> Vec<String> {
+    let dash = || "-".to_string();
+    vec![
+        row.name.clone(),
+        row.version.clone(),
+        row.requires_python.clone().unwrap_or_else(dash),
+        if row.satisfied { "yes".into() } else { "no".into() },
+        row.ceiling.clone().unwrap_or_else(dash),
+    ]
 }
 
 /// One outdated row as cells.
@@ -756,6 +838,43 @@ pub fn render_with_width(
                 if let Some(summary) = &report.vulnerability_summary {
                     render_vulnerability_summary(summary, format, &palette, out)?;
                 }
+                if let Some(summary) = &report.python_summary {
+                    writeln!(out)?;
+                    let heading = palette.header(&format!(
+                        "Summary: interpreter {}, highest Python these packages allow: {}",
+                        summary.interpreter.as_deref().unwrap_or("unknown"),
+                        summary.ceiling.as_deref().unwrap_or("unbounded")
+                    ));
+                    match format {
+                        ReportFormat::Markdown => writeln!(out, "### {heading}\n")?,
+                        _ => writeln!(out, "{heading}")?,
+                    }
+                    let list = |label: &str, names: &[String]| -> String {
+                        if names.is_empty() {
+                            format!("{label}: none")
+                        } else {
+                            format!("{label} ({}): {}", names.len(), names.join(", "))
+                        }
+                    };
+                    let muted = |line: String| {
+                        if line.ends_with(": none") {
+                            palette.dim(&line)
+                        } else {
+                            line
+                        }
+                    };
+                    writeln!(out, "{}", muted(list("Holding the ceiling", &summary.blocking)))?;
+                    writeln!(
+                        out,
+                        "{}",
+                        muted(list("Not satisfied by this interpreter", &summary.unsatisfied))
+                    )?;
+                    writeln!(
+                        out,
+                        "{}",
+                        palette.dim(&format!("Saying nothing about Python: {}", summary.unconstrained))
+                    )?;
+                }
                 if let Some(summary) = &report.outdated_summary {
                     writeln!(out)?;
                     let behind: usize = summary.by_step.iter().map(|(_, count)| count).sum();
@@ -1045,6 +1164,32 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
     if kind == ReportKind::Vulnerabilities {
         return render_vulnerabilities_csv(reports, out);
     }
+    if kind == ReportKind::Python {
+        writeln!(
+            out,
+            "environment,platform,package,kind,version,requires_python,satisfied,ceiling"
+        )?;
+        for report in reports {
+            for row in report.python.iter().flatten() {
+                let cells = [
+                    report.environment.clone(),
+                    report.platform.clone(),
+                    row.name.clone(),
+                    row.kind.to_string(),
+                    row.version.clone(),
+                    row.requires_python.clone().unwrap_or_default(),
+                    row.satisfied.to_string(),
+                    row.ceiling.clone().unwrap_or_default(),
+                ];
+                writeln!(
+                    out,
+                    "{}",
+                    cells.iter().map(|c| csv_field(c)).collect::<Vec<_>>().join(",")
+                )?;
+            }
+        }
+        return Ok(());
+    }
     if kind == ReportKind::Outdated {
         writeln!(
             out,
@@ -1091,7 +1236,11 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
     }
     let mut columns = vec!["environment", "platform"];
     columns.extend(match kind {
-        ReportKind::Packages | ReportKind::Vulnerabilities | ReportKind::Diff | ReportKind::Outdated => {
+        ReportKind::Packages
+        | ReportKind::Vulnerabilities
+        | ReportKind::Diff
+        | ReportKind::Outdated
+        | ReportKind::Python => {
             vec![
                 "name",
                 "version",
@@ -1121,7 +1270,11 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
         for row in report.packages.iter().flatten() {
             let mut cells = vec![report.environment.clone(), report.platform.clone()];
             cells.extend(match kind {
-                ReportKind::Packages | ReportKind::Vulnerabilities | ReportKind::Diff | ReportKind::Outdated => vec![
+                ReportKind::Packages
+                | ReportKind::Vulnerabilities
+                | ReportKind::Diff
+                | ReportKind::Outdated
+                | ReportKind::Python => vec![
                     row.name.clone(),
                     row.version.clone(),
                     row.kind.to_string(),
@@ -2019,6 +2172,106 @@ mod tests {
         assert_eq!(value["outdated"][0]["behind"], 12);
         assert_eq!(value["summary"]["unknown"][0], "mylib");
         assert!(value.get("packages").is_none());
+    }
+
+    /// The sample with an interpreter and wheels that bound it in different ways.
+    fn python_sbom() -> Sbom {
+        let mut sbom = sample_sbom();
+        let template = sbom
+            .packages
+            .iter()
+            .find(|p| p.kind == crate::model::PackageKind::Pypi)
+            .unwrap()
+            .clone();
+        sbom.packages.retain(|p| p.kind != crate::model::PackageKind::Pypi);
+        let interpreter = sbom.packages.iter_mut().find(|p| p.name == "libzlib").unwrap();
+        interpreter.name = "python".into();
+        interpreter.version = Some("3.12.14".into());
+        for (name, requires) in [
+            ("bounded", Some(">=3.8,<3.13")),
+            ("open", Some(">=3.9")),
+            ("silent", None),
+        ] {
+            let mut package = template.clone();
+            package.id = format!("pkg:pypi/{name}@1.0");
+            package.name = name.into();
+            package.version = Some("1.0".into());
+            package.properties.remove(crate::pyversion::REQUIRES_PYTHON_PROPERTY);
+            if let Some(requires) = requires {
+                package
+                    .properties
+                    .insert(crate::pyversion::REQUIRES_PYTHON_PROPERTY.into(), requires.into());
+            }
+            sbom.packages.push(package);
+        }
+        sbom
+    }
+
+    #[test]
+    fn python_report_orders_by_ceiling_and_summarises_the_blockers() {
+        let report = Report::new(ReportKind::Python, &python_sbom());
+        let rows = report.python.as_ref().unwrap();
+        assert_eq!(rows.len(), 3, "one row per wheel");
+        assert_eq!(rows[0].name, "bounded", "the lowest ceiling first");
+        assert_eq!(rows[0].ceiling.as_deref(), Some("3.12"));
+        assert!(rows.iter().all(|r| r.satisfied));
+        let summary = report.python_summary.as_ref().unwrap();
+        assert_eq!(summary.interpreter.as_deref(), Some("3.12"));
+        assert_eq!(summary.ceiling.as_deref(), Some("3.12"));
+        assert_eq!(summary.blocking, ["bounded >=3.8,<3.13"]);
+        assert_eq!(summary.unconstrained, 1);
+        assert!(report.packages.is_none());
+    }
+
+    #[test]
+    fn python_table_snapshot() {
+        let mut out = Vec::new();
+        let report = Report::new(ReportKind::Python, &python_sbom());
+        render_with_width(
+            &[report],
+            ReportFormat::Table,
+            DEFAULT_WIDTH,
+            Palette::new(false),
+            &mut out,
+        )
+        .unwrap();
+        insta::assert_snapshot!(String::from_utf8(out).unwrap());
+    }
+
+    #[test]
+    fn python_csv_and_json() {
+        let report = Report::new(ReportKind::Python, &python_sbom());
+        let mut out = Vec::new();
+        render_with_width(
+            std::slice::from_ref(&report),
+            ReportFormat::Csv,
+            DEFAULT_WIDTH,
+            Palette::new(false),
+            &mut out,
+        )
+        .unwrap();
+        let csv = String::from_utf8(out).unwrap();
+        assert!(csv.starts_with("environment,platform,package,kind,version,requires_python,satisfied,ceiling\n"));
+        assert!(
+            csv.contains(r#"default,linux-64,bounded,pypi,1.0,">=3.8,<3.13",true,3.12"#),
+            "{csv}"
+        );
+
+        let mut out = Vec::new();
+        render_with_width(
+            &[report],
+            ReportFormat::Json,
+            DEFAULT_WIDTH,
+            Palette::new(false),
+            &mut out,
+        )
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&out).unwrap();
+        assert_eq!(value["report"], "python");
+        assert_eq!(value["python"][0]["name"], "bounded");
+        assert_eq!(value["python"][0]["ceiling"], "3.12");
+        assert_eq!(value["summary"]["ceiling"], "3.12");
+        assert_eq!(value["summary"]["unconstrained"], 1);
     }
 
     #[test]

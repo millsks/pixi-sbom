@@ -25,6 +25,7 @@ mod prefix;
 mod progress;
 mod purl;
 mod pypi;
+mod pyversion;
 mod report;
 mod style;
 mod vulnpolicy;

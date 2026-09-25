@@ -2453,6 +2453,65 @@ fn outdated_report_reads_both_indexes_from_the_cache() {
 }
 
 #[test]
+fn python_report_names_what_blocks_the_next_interpreter() {
+    let dir = workspace("with-pypi");
+    // The fixture's wheels are open-ended; cap one of them so there is a ceiling to find.
+    let lock = std::fs::read_to_string(dir.path().join("pixi.lock"))
+        .unwrap()
+        .replace("\r\n", "\n")
+        .replacen("  requires_python: '>=3.10'", "  requires_python: '>=3.10,<3.13'", 1);
+    std::fs::write(dir.path().join("pixi.lock"), lock).unwrap();
+
+    let run = |args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("COLUMNS", "160")
+            .args(["-e", "web", "-p", "linux-64", "--report", "python"])
+            .args(args)
+            .assert()
+            .success()
+    };
+    let report: Value = serde_json::from_slice(&run(&["--report-format", "json"]).get_output().stdout).unwrap();
+    assert_eq!(report["report"], "python");
+    assert_eq!(report["summary"]["interpreter"], "3.12");
+    assert_eq!(report["summary"]["ceiling"], "3.12", "the capped wheel decides");
+    let blocking = report["summary"]["blocking"].as_array().unwrap();
+    assert_eq!(blocking.len(), 1, "{blocking:?}");
+    // The lockfile parser normalizes the specifier, so match on its parts.
+    assert!(
+        blocking[0].as_str().unwrap().starts_with("urllib3 >=3.10"),
+        "{blocking:?}"
+    );
+    assert!(blocking[0].as_str().unwrap().contains("<3.13"), "{blocking:?}");
+    assert!(report["summary"]["unsatisfied"].as_array().unwrap().is_empty());
+    // Every wheel has a row, with its specifier as written.
+    let rows = report["python"].as_array().unwrap();
+    assert!(rows.len() >= 6, "{rows:?}");
+    assert_eq!(rows[0]["ceiling"], "3.12", "the ceiling comes first");
+    assert!(
+        rows.iter()
+            .any(|r| r["name"] == "six" && r["requires_python"].as_str().unwrap().starts_with(">=2.7")),
+        "{rows:?}"
+    );
+
+    let table = String::from_utf8(run(&[]).get_output().stdout.clone()).unwrap();
+    let header = table.lines().next().unwrap();
+    assert!(
+        header.starts_with("Package") && header.contains("Requires-Python"),
+        "{header}"
+    );
+    assert!(
+        table.contains("Summary: interpreter 3.12, highest Python these packages allow: 3.12"),
+        "{table}"
+    );
+    assert!(table.contains("Holding the ceiling (1):"), "{table}");
+
+    let csv = String::from_utf8(run(&["--report-format", "csv"]).get_output().stdout.clone()).unwrap();
+    assert!(csv.starts_with("environment,platform,package,kind,version,requires_python,satisfied,ceiling\n"));
+    assert!(csv.lines().any(|l| l.contains(",urllib3,pypi,")));
+}
+
+#[test]
 fn fetch_licenses_reads_wheel_metadata_and_license_files() {
     // The with-pypi fixture with the six wheel pointed at the local copy; everything else offline.
     let dir = workspace("with-pypi");
