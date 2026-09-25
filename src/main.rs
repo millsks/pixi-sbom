@@ -80,7 +80,7 @@ fn main() -> Result<()> {
             Input::Lock {
                 lock,
                 contents,
-                root: manifest::root_for_lockfile(&lockfile),
+                manifest: manifest::read(&lockfile),
             }
         }
     };
@@ -149,12 +149,23 @@ fn main() -> Result<()> {
     } in &targets
     {
         let (mut sbom, contents) = match &input {
-            Input::Lock { lock, contents, root } => {
+            Input::Lock {
+                lock,
+                contents,
+                manifest,
+            } => {
                 let selection = lock::Selection {
                     environment,
                     platform: platform.as_deref(),
                 };
-                let sbom = lock::sbom_from_lock(lock, selection, root.clone(), &discover::lockfile_name(&lockfile))?;
+                let mut sbom = lock::sbom_from_lock(
+                    lock,
+                    selection,
+                    manifest.root.clone(),
+                    &discover::lockfile_name(&lockfile),
+                )?;
+                // What the workspace asked for itself, as opposed to what came along.
+                manifest.apply(&mut sbom);
                 (sbom, contents.clone())
             }
             Input::Prefix { dir, root } => {
@@ -544,11 +555,12 @@ const YANKED_EXIT_CODE: i32 = 7;
 
 /// Where the packages come from.
 enum Input {
-    /// A `pixi.lock`, with its text (the document identity) and the workspace it belongs to.
+    /// A `pixi.lock`, with its text (the document identity) and the manifest of the
+    /// workspace it belongs to.
     Lock {
         lock: rattler_lock::LockFile,
         contents: String,
-        root: model::Root,
+        manifest: manifest::Manifest,
     },
     /// An installed environment (`--prefix`).
     Prefix { dir: std::path::PathBuf, root: model::Root },

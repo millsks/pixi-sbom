@@ -2512,6 +2512,100 @@ fn python_report_names_what_blocks_the_next_interpreter() {
 }
 
 #[test]
+fn manifest_declarations_mark_direct_packages_and_the_root_edges() {
+    let dir = workspace("with-pypi");
+    let run = |args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("COLUMNS", "200")
+            .args(args)
+            .assert()
+            .success()
+    };
+
+    let output = dir.path().join("default.cdx.json");
+    run(&["-p", "linux-64", "--output", output.to_str().unwrap()]);
+    let document: Value = read_json(&output);
+    let python = document["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "python")
+        .unwrap();
+    let properties: Vec<(&str, &str)> = python["properties"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| (p["name"].as_str().unwrap(), p["value"].as_str().unwrap()))
+        .collect();
+    assert!(properties.contains(&("pixi:direct", "true")), "{properties:?}");
+    assert!(properties.contains(&("pixi:declared-in", "default")), "{properties:?}");
+    let libzlib = document["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "libzlib")
+        .unwrap();
+    assert!(
+        !libzlib["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["name"] == "pixi:direct"),
+        "nothing declared libzlib"
+    );
+
+    let python_ref = python["bom-ref"].as_str().unwrap();
+    let edges = document["dependencies"].as_array().unwrap();
+    let root = edges.iter().find(|e| e["ref"] == "root").unwrap();
+    let root_deps: Vec<&str> = root["dependsOn"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r.as_str().unwrap())
+        .collect();
+    assert!(root_deps.contains(&python_ref), "the workspace asked for python");
+    // And it is a root edge although something else needs it too, which the old graph-root
+    // heuristic could not say.
+    assert!(
+        edges.iter().any(|e| e["ref"] != "root"
+            && e["dependsOn"]
+                .as_array()
+                .is_some_and(|d| d.iter().any(|r| r == python_ref))),
+        "something depends on python"
+    );
+
+    // A feature's dependency belongs to the environments that include the feature.
+    let web = dir.path().join("web.cdx.json");
+    run(&["-e", "web", "-p", "linux-64", "--output", web.to_str().unwrap()]);
+    let declared: Vec<String> = read_json(&web)["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|c| {
+            let features = c["properties"]
+                .as_array()?
+                .iter()
+                .find(|p| p["name"] == "pixi:declared-in")?["value"]
+                .as_str()?;
+            Some(format!("{}:{features}", c["name"].as_str()?))
+        })
+        .collect();
+    assert_eq!(declared, ["python:default", "requests:web", "six:default"]);
+
+    let table = String::from_utf8(
+        run(&["-p", "linux-64", "--report", "packages", "--color", "never"])
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(table.lines().next().unwrap().contains("Declared"), "{table}");
+    assert!(table.contains(", 2 declared by the workspace"), "{table}");
+    assert!(table.contains("Declared but not in this environment: none"), "{table}");
+}
+
+#[test]
 fn fetch_licenses_reads_wheel_metadata_and_license_files() {
     // The with-pypi fixture with the six wheel pointed at the local copy; everything else offline.
     let dir = workspace("with-pypi");

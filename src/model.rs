@@ -29,6 +29,9 @@ pub struct Sbom {
     /// Names of packages left out by `--include` / `--exclude`, so the omission is visible in
     /// the document. Sorted, deduplicated.
     pub excluded: Vec<String>,
+    /// Names the manifest declares for this environment that no package in it matches — a
+    /// dependency of another platform is the usual reason. Sorted, deduplicated.
+    pub declared_missing: Vec<String>,
 }
 
 /// How bad a vulnerability is, on the CycloneDX / common scanner scale.

@@ -125,7 +125,9 @@ pub fn to_value(format: Format, sbom: &Sbom, ctx: &WriteContext) -> Result<serde
     Ok(value)
 }
 
-/// Ids of packages nothing else in the SBOM depends on: the environment's top level.
+/// Ids of the packages the root component depends on: the ones the workspace manifest
+/// declared itself, plus the ones nothing else in the SBOM depends on. Without a manifest the
+/// second half is the whole answer, which is the graph-root heuristic this always used.
 pub(crate) fn top_level_ids(sbom: &Sbom) -> Vec<&str> {
     let depended_on: std::collections::HashSet<&str> = sbom
         .packages
@@ -134,8 +136,8 @@ pub(crate) fn top_level_ids(sbom: &Sbom) -> Vec<&str> {
         .collect();
     sbom.packages
         .iter()
+        .filter(|p| !depended_on.contains(p.id.as_str()) || p.properties.contains_key(crate::manifest::DIRECT_PROPERTY))
         .map(|p| p.id.as_str())
-        .filter(|id| !depended_on.contains(id))
         .collect()
 }
 
@@ -320,6 +322,7 @@ pub(crate) mod testing {
             ],
             vulnerabilities: Vec::new(),
             excluded: Vec::new(),
+            declared_missing: Vec::new(),
         }
     }
 }
@@ -333,6 +336,23 @@ mod tests {
         let sbom = testing::sample_sbom();
         let ids = top_level_ids(&sbom);
         assert_eq!(ids, ["pkg:conda/mylib@0.1.0", "pkg:pypi/six@1.17.0"]);
+    }
+
+    #[test]
+    fn a_declared_package_is_top_level_even_when_something_depends_on_it() {
+        let mut sbom = testing::sample_sbom();
+        let libzlib = sbom.packages.iter_mut().find(|p| p.name == "libzlib").unwrap();
+        libzlib
+            .properties
+            .insert(crate::manifest::DIRECT_PROPERTY.to_string(), "true".to_string());
+        assert_eq!(
+            top_level_ids(&sbom),
+            [
+                "pkg:conda/libzlib@1.3.1?build=h1&channel=conda-forge&subdir=linux-64&type=conda",
+                "pkg:conda/mylib@0.1.0",
+                "pkg:pypi/six@1.17.0"
+            ]
+        );
     }
 
     #[test]

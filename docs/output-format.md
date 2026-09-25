@@ -91,6 +91,8 @@ entry).
 | `pixi:source-git`, `pixi:source-rev`, `pixi:source-tag` / `pixi:source-branch`, `pixi:source-subdirectory` | conda source (git) | The pinned build source |
 | `pixi:source-url`, `pixi:source-subdirectory` | conda source (archive) | The pinned build source; its SHA-256 goes into the hashes |
 | `pixi:source-path` | conda source (path) | Local path |
+| `pixi:direct` | any | `true` when the workspace manifest declares this package itself, rather than it coming along as somebody else's dependency |
+| `pixi:declared-in` | any | The features whose dependency tables declare it, comma separated (`default`, `default,docs`) |
 | `pixi:index-url` | PyPI | Index the wheel was resolved from |
 | `pixi:requires-python` | PyPI | `Requires-Python` of the distribution |
 | `pixi:source` | PyPI | `true` for sdists / source trees |
@@ -255,11 +257,13 @@ to the graph instead of floating as extra roots.
 | | CycloneDX | SPDX |
 |---|---|---|
 | Package → package | `dependencies[]`: `{ ref, dependsOn[] }` for every component | `DEPENDS_ON` relationship per edge |
-| Root → packages | `dependencies[0]` (`ref: root`) lists the packages that nothing else depends on | `SPDXRef-Package-root DEPENDS_ON ...` for the same set |
+| Root → packages | `dependencies[0]` (`ref: root`) lists what the workspace declared, plus the packages nothing else depends on | `SPDXRef-Package-root DEPENDS_ON ...` for the same set |
 
-The root's edges are a graph-root heuristic, not the manifest's declared dependencies: the lockfile does not record
-what was requested directly, so a declared dependency that is also depended on by something else (`python` is the
-usual example) is reachable transitively rather than listed on the root.
+The declared half comes from the manifest next to the lockfile: the dependency tables of the environment's features
+(see [`pixi:direct`](#pixi-properties)), so a declared dependency that something else also needs — `python` is
+the usual example — is on the root where it belongs. The other half is the graph-root heuristic: packages nothing
+else depends on. Without a readable manifest (`--prefix`, a lockfile on its own) the heuristic is the whole answer,
+and nothing is marked direct.
 
 ## Vulnerabilities
 

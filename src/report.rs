@@ -79,6 +79,19 @@ pub struct Row {
     /// empty when the index gives none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub yanked: Option<String>,
+    /// The manifest features whose dependency tables declare this package. Empty when the
+    /// workspace did not ask for it itself, and for every package when there is no manifest.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub declared_in: Vec<String>,
+}
+
+/// Summary of what one document's packages are, beyond the rows themselves.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct PackageSummary {
+    /// Packages the workspace manifest declares itself.
+    pub direct: usize,
+    /// Names the manifest declares for this environment that it has no package for.
+    pub declared_missing: Vec<String>,
 }
 
 /// Summary of the licenses in one document.
@@ -195,6 +208,9 @@ pub struct Report {
     pub packages: Option<Vec<Row>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<LicenseSummary>,
+    /// What the manifest declared, when it declared anything (the packages report).
+    #[serde(rename = "summary", skip_serializing_if = "Option::is_none")]
+    pub package_summary: Option<PackageSummary>,
     /// Finding rows (the vulnerabilities report).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vulnerabilities: Option<Vec<VulnerabilityRow>>,
@@ -274,6 +290,7 @@ impl Report {
             lockfile: sbom.prefix.clone().unwrap_or_else(|| sbom.lockfile.clone()),
             packages: None,
             summary: None,
+            package_summary: None,
             vulnerabilities: None,
             vulnerability_summary: None,
             diff: None,
@@ -283,7 +300,19 @@ impl Report {
             python_summary: None,
         };
         match kind {
-            ReportKind::Packages => report.packages = Some(sbom.packages.iter().map(row).collect()),
+            ReportKind::Packages => {
+                let packages: Vec<Row> = sbom.packages.iter().map(row).collect();
+                let direct = packages.iter().filter(|r| !r.declared_in.is_empty()).count();
+                // Without a manifest nothing is declared and there is nothing to summarize;
+                // the report then reads exactly as it always did.
+                if direct > 0 || !sbom.declared_missing.is_empty() {
+                    report.package_summary = Some(PackageSummary {
+                        direct,
+                        declared_missing: sbom.declared_missing.clone(),
+                    });
+                }
+                report.packages = Some(packages);
+            }
             ReportKind::Licenses => {
                 let packages: Vec<Row> = sbom.packages.iter().map(row).collect();
                 report.summary = Some(summarize(&packages));
@@ -407,7 +436,9 @@ impl Report {
 
     fn columns(&self) -> Vec<&'static str> {
         match self.kind() {
-            ReportKind::Packages => vec!["Name", "Version", "Kind", "Source", "License", "Yanked", "Purl"],
+            ReportKind::Packages => vec![
+                "Name", "Version", "Kind", "Declared", "Source", "License", "Yanked", "Purl",
+            ],
             ReportKind::Licenses => vec!["Name", "Version", "Kind", "License", "Family", "Source", "Files"],
             ReportKind::Vulnerabilities => vec![
                 "Package", "Version", "Severity", "Score", "KEV", "ID", "Aliases", "Fixed", "Status", "Summary",
@@ -448,8 +479,8 @@ impl Report {
             ReportKind::Python => vec![Plain, Plain, Plain, Status, Plain],
             // Name, Version, Kind, License, Family, Source, Files
             ReportKind::Licenses => vec![Plain, Plain, Plain, NonSpdx, Plain, Plain, Plain],
-            // Name, Version, Kind, Source, License, Yanked, Purl
-            ReportKind::Packages => vec![Plain, Plain, Plain, Plain, NonSpdx, Status, Muted],
+            // Name, Version, Kind, Declared, Source, License, Yanked, Purl
+            ReportKind::Packages => vec![Plain, Plain, Plain, Status, Plain, NonSpdx, Status, Muted],
         }
     }
 
@@ -493,6 +524,11 @@ impl Report {
                 row.name.clone(),
                 row.version.clone(),
                 row.kind.to_string(),
+                if row.declared_in.is_empty() {
+                    dash()
+                } else {
+                    row.declared_in.join(",")
+                },
                 row.source.clone(),
                 row.license.clone().unwrap_or_else(dash),
                 match &row.yanked {
@@ -757,6 +793,11 @@ fn row(package: &Package) -> Row {
         license_files: package.license_files.iter().map(|f| f.name.clone()).collect(),
         purl: package.purl.clone(),
         yanked: package.yanked.as_ref().map(|y| y.reason.clone().unwrap_or_default()),
+        declared_in: package
+            .properties
+            .get(crate::manifest::DECLARED_IN_PROPERTY)
+            .map(|features| features.split(',').map(str::to_string).collect())
+            .unwrap_or_default(),
     }
 }
 
@@ -834,6 +875,28 @@ pub fn render_with_width(
                 }
                 if let Some(summary) = &report.summary {
                     render_summary(summary, rows.len(), format, &palette, out)?;
+                }
+                if let Some(summary) = &report.package_summary {
+                    writeln!(out)?;
+                    let heading = palette.header(&format!(
+                        "Summary: {} packages, {} declared by the workspace",
+                        rows.len(),
+                        summary.direct
+                    ));
+                    match format {
+                        ReportFormat::Markdown => writeln!(out, "### {heading}\n")?,
+                        _ => writeln!(out, "{heading}")?,
+                    }
+                    if summary.declared_missing.is_empty() {
+                        writeln!(out, "{}", palette.dim("Declared but not in this environment: none"))?;
+                    } else {
+                        writeln!(
+                            out,
+                            "Declared but not in this environment ({}): {}",
+                            summary.declared_missing.len(),
+                            summary.declared_missing.join(", ")
+                        )?;
+                    }
                 }
                 if let Some(summary) = &report.vulnerability_summary {
                     render_vulnerability_summary(summary, format, &palette, out)?;
@@ -1245,6 +1308,7 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
                 "name",
                 "version",
                 "kind",
+                "declared_in",
                 "source",
                 "license",
                 "yanked",
@@ -1278,6 +1342,7 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
                     row.name.clone(),
                     row.version.clone(),
                     row.kind.to_string(),
+                    row.declared_in.join(" "),
                     row.source.clone(),
                     row.license.clone().unwrap_or_default(),
                     if row.yanked.is_some() { "true" } else { "false" }.to_string(),
@@ -1628,6 +1693,56 @@ mod tests {
         assert_eq!(value[1]["summary"]["unlicensed"][0], "six");
     }
 
+    /// The sample with `zlib` declared by two features and one declaration the environment
+    /// has no package for.
+    fn declared_sbom() -> Sbom {
+        let mut sbom = sample_sbom();
+        let zlib = sbom.packages.iter_mut().find(|p| p.name == "zlib").unwrap();
+        zlib.properties
+            .insert(crate::manifest::DIRECT_PROPERTY.into(), "true".into());
+        zlib.properties
+            .insert(crate::manifest::DECLARED_IN_PROPERTY.into(), "default,docs".into());
+        sbom.declared_missing = vec!["vs2019_win-64".into()];
+        sbom
+    }
+
+    #[test]
+    fn the_packages_report_names_the_features_that_declared_a_package() {
+        let report = Report::new(ReportKind::Packages, &declared_sbom());
+        let zlib = report
+            .packages
+            .as_ref()
+            .unwrap()
+            .iter()
+            .find(|r| r.name == "zlib")
+            .unwrap();
+        assert_eq!(zlib.declared_in, ["default", "docs"]);
+        let summary = report.package_summary.as_ref().unwrap();
+        assert_eq!(summary.direct, 1);
+        assert_eq!(summary.declared_missing, ["vs2019_win-64"]);
+
+        let text = render_string(ReportKind::Packages, ReportFormat::Table, &[declared_sbom()]);
+        assert!(text.contains("default,docs"), "{text}");
+        assert!(
+            text.contains("Summary: 4 packages, 1 declared by the workspace"),
+            "{text}"
+        );
+        assert!(
+            text.contains("Declared but not in this environment (1): vs2019_win-64"),
+            "{text}"
+        );
+        let csv = render_string(ReportKind::Packages, ReportFormat::Csv, &[declared_sbom()]);
+        assert!(csv.contains("zlib,1.3.1,conda,default docs,conda-forge"), "{csv}");
+    }
+
+    #[test]
+    fn a_document_without_a_manifest_gets_no_package_summary() {
+        let report = Report::new(ReportKind::Packages, &sample_sbom());
+        assert!(report.package_summary.is_none());
+        let text = render_string(ReportKind::Packages, ReportFormat::Table, &[sample_sbom()]);
+        assert!(!text.contains("declared by the workspace"), "{text}");
+    }
+
     #[test]
     fn batch_table_has_headings_and_csv_has_environment_columns() {
         let mut other = sample_sbom();
@@ -1636,8 +1751,10 @@ mod tests {
         assert!(text.contains("packages (demo, environment default, platform linux-64)"));
         assert!(text.contains("packages (demo, environment default, platform osx-arm64)"));
         let csv = render_string(ReportKind::Packages, ReportFormat::Csv, &[sample_sbom()]);
-        assert!(csv.starts_with("environment,platform,name,version,kind,source,license,yanked,yanked_reason,purl\n"));
-        assert!(csv.contains("default,linux-64,zlib,1.3.1,conda,conda-forge,MIT OR Apache-2.0,false,,pkg:conda/zlib"));
+        assert!(csv.starts_with(
+            "environment,platform,name,version,kind,declared_in,source,license,yanked,yanked_reason,purl\n"
+        ));
+        assert!(csv.contains("default,linux-64,zlib,1.3.1,conda,,conda-forge,MIT OR Apache-2.0,false,,pkg:conda/zlib"));
     }
 
     #[test]
