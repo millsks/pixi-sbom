@@ -148,6 +148,7 @@ fn table_style_for(role: Role, text: &str) -> (Option<Color>, Vec<Attribute>) {
             _ => (None, vec![]),
         },
         Role::Status => match text {
+            _ if text.starts_with("yes: ") => (Some(Color::Red), vec![]),
             "open" => (Some(Color::Yellow), vec![]),
             "ignored" => (None, vec![Attribute::Dim]),
             "yes" => (Some(Color::Red), vec![]),

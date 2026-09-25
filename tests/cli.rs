@@ -2262,6 +2262,101 @@ fn diff_report_shows_what_changed_since_a_previous_document() {
 }
 
 #[test]
+fn yanked_releases_are_flagged_and_can_fail_the_run() {
+    let dir = workspace("with-pypi");
+    // The recorded index metadata, with urllib3 pinned to the yanked 2.0.0 release.
+    let cache = dir.path().join("cache").join("pypi");
+    std::fs::create_dir_all(&cache).unwrap();
+    for entry in std::fs::read_dir(tests_dir().join("fixtures").join("pypi-metadata")).unwrap() {
+        let entry = entry.unwrap();
+        std::fs::copy(entry.path(), cache.join(entry.file_name())).unwrap();
+    }
+    let lock = std::fs::read_to_string(dir.path().join("pixi.lock"))
+        .unwrap()
+        .replace("\r\n", "\n")
+        .replace("\n  version: 2.8.0\n", "\n  version: 2.0.0\n");
+    std::fs::write(dir.path().join("pixi.lock"), lock).unwrap();
+
+    let run = |args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "200")
+            .args(["-e", "web", "-p", "linux-64", "--fetch-licenses"])
+            .args(args)
+            .assert()
+    };
+    let assert = run(&["--output", "-"])
+        .success()
+        .stderr(predicate::str::contains("looked up PyPI releases"))
+        .stderr(predicate::str::contains("yanked=1"));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let urllib3 = doc["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "urllib3")
+        .unwrap();
+    let props = urllib3["properties"].as_array().unwrap();
+    assert!(props.iter().any(|p| p["name"] == "pixi:yanked" && p["value"] == "true"));
+    assert!(
+        props.iter().any(|p| p["name"] == "pixi:yanked-reason"
+            && p["value"].as_str().unwrap().starts_with("Truncated response bodies")),
+        "{props:#?}"
+    );
+    // Nothing else is flagged.
+    assert_eq!(
+        doc["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|c| c["properties"]
+                .as_array()
+                .map(|p| p.iter().any(|p| p["name"] == "pixi:yanked"))
+                .unwrap_or(false))
+            .count(),
+        1
+    );
+
+    // The packages report says so, in the table and in the CSV.
+    let table = String::from_utf8(run(&["--report", "packages"]).success().get_output().stdout.clone()).unwrap();
+    let line = table.lines().find(|l| l.starts_with("urllib3")).unwrap();
+    assert!(line.contains("yes: Truncated response bodies"), "{line}");
+    let csv = String::from_utf8(
+        run(&["--report", "packages", "--report-format", "csv"])
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(csv.lines().next().unwrap().contains(",yanked,yanked_reason,"));
+    assert!(
+        csv.lines()
+            .any(|l| l.contains(",urllib3,2.0.0,") && l.contains(",true,"))
+    );
+
+    // The gate: exit 7 with the document still written, and the reason on stderr.
+    let out = dir.path().join("gated.cdx.json");
+    run(&["--fail-on-yanked", "--output", out.to_str().unwrap()])
+        .code(7)
+        .stderr(predicate::str::contains("Yanked release(s) in the environment: 1"))
+        .stderr(predicate::str::contains("urllib3 2.0.0: Truncated response bodies"));
+    assert!(out.exists());
+
+    // It needs the flag that asks the index.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--fail-on-yanked"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("needs '--fetch-licenses'"));
+}
+
+#[test]
 fn fetch_licenses_reads_wheel_metadata_and_license_files() {
     // The with-pypi fixture with the six wheel pointed at the local copy; everything else offline.
     let dir = workspace("with-pypi");

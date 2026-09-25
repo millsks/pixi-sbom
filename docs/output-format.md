@@ -228,6 +228,12 @@ says `prefix <name>`, and pip-installed packages are located by a `file://` URL 
 have no hashes. Conda packages carry `pixi:extracted-package-dir`, where the record says the archive was
 unpacked.
 
+### Yanked releases
+
+With `--fetch-licenses`, a PyPI package whose release the index has yanked (PEP 592) carries `pixi:yanked=true`
+and, when the index gives one, `pixi:yanked-reason` (CycloneDX properties; SPDX package comment lines, as for
+every other `pixi:*` fact).
+
 ### Excluded packages
 
 With `--exclude` / `--include` / `--exclude-kind` the document lists only what survived the filter, and the root

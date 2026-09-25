@@ -90,6 +90,10 @@ inputs:
     description: Fail the step when the license policy is violated (exit code 3).
     required: false
     default: "true"
+  fail-on-yanked:
+    description: With fetch-licenses, fail the step when any package is a yanked release (exit code 7).
+    required: false
+    default: "false"
   vulnerabilities:
     description: "`osv` to look up known vulnerabilities and record them in the document."
     required: false
@@ -264,6 +268,7 @@ runs:
         IN_ALLOW_LICENSE: ${{ inputs.allow-license }}
         IN_DENY_LICENSE: ${{ inputs.deny-license }}
         IN_REQUIRE_LICENSE: ${{ inputs.require-license }}
+        IN_FAIL_ON_YANKED: ${{ inputs.fail-on-yanked }}
         IN_FAIL_ON_POLICY: ${{ inputs.fail-on-policy }}
         IN_VULNERABILITIES: ${{ inputs.vulnerabilities }}
         IN_KEV: ${{ inputs.kev }}
@@ -318,6 +323,7 @@ runs:
         for l in $IN_ALLOW_LICENSE; do args+=(--allow-license "$l"); done
         for l in $IN_DENY_LICENSE; do args+=(--deny-license "$l"); done
         [ "$IN_REQUIRE_LICENSE" = "true" ] && args+=(--require-license)
+        [ "$IN_FAIL_ON_YANKED" = "true" ] && args+=(--fail-on-yanked)
         args+=(${vuln[@]+"${vuln[@]}"})
         [ -n "$IN_FAIL_ON_SEVERITY" ] && args+=(--fail-on-severity "$IN_FAIL_ON_SEVERITY")
         [ "$IN_FAIL_ON_KEV" = "true" ] && args+=(--fail-on-kev)
@@ -336,6 +342,10 @@ runs:
           fi
           echo "::warning::license policy violated (see the log above)"
           exit 0
+        fi
+        if [ "$code" -eq 7 ]; then
+          echo "::error::a yanked release is in the environment (see the log above)"
+          exit 7
         fi
         if [ "$code" -eq 4 ]; then
           echo "vulnerabilities-found=true" >> "$GITHUB_OUTPUT"

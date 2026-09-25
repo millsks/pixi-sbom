@@ -241,6 +241,14 @@ impl Author {
     }
 }
 
+/// A release the index still serves but has withdrawn (PEP 592): it is broken or unsafe, and
+/// a resolver will not pick it again.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Yanked {
+    /// Why it was withdrawn, when the index says.
+    pub reason: Option<String>,
+}
+
 /// A license file shipped with a package, optionally with its text.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LicenseFile {
@@ -325,6 +333,8 @@ pub struct Package {
     pub repository: Option<String>,
     /// Documentation URL, when known.
     pub documentation: Option<String>,
+    /// Set when the index says this release is yanked (PEP 592).
+    pub yanked: Option<Yanked>,
     /// Extra facts that have no first-class field in the SBOM specs
     /// (channel, subdir, build string, ...). Keys are prefixed `pixi:`.
     pub properties: BTreeMap<String, String>,

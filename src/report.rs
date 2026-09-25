@@ -70,6 +70,10 @@ pub struct Row {
     pub license_source: Option<String>,
     pub license_files: Vec<String>,
     pub purl: String,
+    /// `Some(reason)` when the index has yanked this release (PEP 592); the reason may be
+    /// empty when the index gives none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub yanked: Option<String>,
 }
 
 /// Summary of the licenses in one document.
@@ -228,7 +232,7 @@ impl Report {
 
     fn columns(&self) -> Vec<&'static str> {
         match self.kind() {
-            ReportKind::Packages => vec!["Name", "Version", "Kind", "Source", "License", "Purl"],
+            ReportKind::Packages => vec!["Name", "Version", "Kind", "Source", "License", "Yanked", "Purl"],
             ReportKind::Licenses => vec!["Name", "Version", "Kind", "License", "Family", "Source", "Files"],
             ReportKind::Vulnerabilities => vec![
                 "Package", "Version", "Severity", "Score", "KEV", "ID", "Aliases", "Fixed", "Status", "Summary",
@@ -259,8 +263,8 @@ impl Report {
             ReportKind::Diff => vec![Change, Plain, Plain, Plain, Plain],
             // Name, Version, Kind, License, Family, Source, Files
             ReportKind::Licenses => vec![Plain, Plain, Plain, NonSpdx, Plain, Plain, Plain],
-            // Name, Version, Kind, Source, License, Purl
-            ReportKind::Packages => vec![Plain, Plain, Plain, Plain, NonSpdx, Muted],
+            // Name, Version, Kind, Source, License, Yanked, Purl
+            ReportKind::Packages => vec![Plain, Plain, Plain, Plain, NonSpdx, Status, Muted],
         }
     }
 
@@ -306,6 +310,11 @@ impl Report {
                 row.kind.to_string(),
                 row.source.clone(),
                 row.license.clone().unwrap_or_else(dash),
+                match &row.yanked {
+                    Some(reason) if !reason.is_empty() => format!("yes: {reason}"),
+                    Some(_) => "yes".into(),
+                    None => dash(),
+                },
                 row.purl.clone(),
             ],
         }
@@ -524,6 +533,7 @@ fn row(package: &Package) -> Row {
         license_source,
         license_files: package.license_files.iter().map(|f| f.name.clone()).collect(),
         purl: package.purl.clone(),
+        yanked: package.yanked.as_ref().map(|y| y.reason.clone().unwrap_or_default()),
     }
 }
 
@@ -873,7 +883,16 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
     let mut columns = vec!["environment", "platform"];
     columns.extend(match kind {
         ReportKind::Packages | ReportKind::Vulnerabilities | ReportKind::Diff => {
-            vec!["name", "version", "kind", "source", "license", "purl"]
+            vec![
+                "name",
+                "version",
+                "kind",
+                "source",
+                "license",
+                "yanked",
+                "yanked_reason",
+                "purl",
+            ]
         }
         ReportKind::Licenses => vec![
             "name",
@@ -899,6 +918,8 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
                     row.kind.to_string(),
                     row.source.clone(),
                     row.license.clone().unwrap_or_default(),
+                    if row.yanked.is_some() { "true" } else { "false" }.to_string(),
+                    row.yanked.clone().unwrap_or_default(),
                     row.purl.clone(),
                 ],
                 ReportKind::Licenses => vec![
@@ -1253,8 +1274,8 @@ mod tests {
         assert!(text.contains("packages (demo, environment default, platform linux-64)"));
         assert!(text.contains("packages (demo, environment default, platform osx-arm64)"));
         let csv = render_string(ReportKind::Packages, ReportFormat::Csv, &[sample_sbom()]);
-        assert!(csv.starts_with("environment,platform,name,version,kind,source,license,purl\n"));
-        assert!(csv.contains("default,linux-64,zlib,1.3.1,conda,conda-forge,MIT OR Apache-2.0,pkg:conda/zlib"));
+        assert!(csv.starts_with("environment,platform,name,version,kind,source,license,yanked,yanked_reason,purl\n"));
+        assert!(csv.contains("default,linux-64,zlib,1.3.1,conda,conda-forge,MIT OR Apache-2.0,false,,pkg:conda/zlib"));
     }
 
     #[test]

@@ -250,6 +250,7 @@ fn conda_package(record: &Record) -> Result<Package, PrefixError> {
         homepage: None,
         repository: None,
         documentation: None,
+        yanked: None,
         properties,
         dependencies: Vec::new(),
     })
@@ -368,6 +369,7 @@ fn pypi_package(dist_info: &Path) -> Result<Option<(Package, Vec<String>)>, Pref
             homepage: info.homepage,
             repository: info.repository,
             documentation: info.documentation,
+            yanked: None,
             properties,
             dependencies: Vec::new(),
         },

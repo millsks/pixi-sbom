@@ -1,10 +1,15 @@
-//! License lookup for PyPI packages via the index JSON API.
+//! Release facts for PyPI packages from the index JSON API: the license, and whether the
+//! release has been yanked.
 //!
 //! `pixi.lock` records no license for wheels and sdists, so PyPI packages would otherwise
 //! carry none at all. This opt-in step asks the index (`https://pypi.org/pypi/<name>/<version>/json`
 //! by default) and reads, in order, the PEP 639 `license_expression`, the classic `license`
-//! field, and the `License ::` trove classifiers. Responses are cached forever, since a
-//! released version's metadata does not change, and a failed lookup never fails the run.
+//! field, and the `License ::` trove classifiers -- but only for packages whose license is
+//! still missing after their wheel was read. It also reads PEP 592 `yanked` / `yanked_reason`,
+//! which apply to every package: a yanked release is one the index still serves but has
+//! withdrawn as broken or unsafe, and nothing in a lockfile says so. Responses are cached
+//! forever, since a released version's metadata does not change, and a failed lookup never
+//! fails the run.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -12,7 +17,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use serde::Deserialize;
 
 use crate::http;
-use crate::model::{PackageKind, Sbom};
+use crate::model::{PackageKind, Sbom, Yanked};
 
 /// Default base of the JSON API; `PIXI_SBOM_PYPI_URL` overrides it (mirrors, devpi, ...).
 pub const DEFAULT_INDEX_URL: &str = "https://pypi.org/pypi";
@@ -22,6 +27,12 @@ pub const INDEX_URL_ENV: &str = "PIXI_SBOM_PYPI_URL";
 
 /// Property recorded on every package whose license came from the index.
 pub const LICENSE_SOURCE_PROPERTY: &str = "pixi:license-source";
+
+/// Property recorded on a package whose release the index has yanked.
+pub const YANKED_PROPERTY: &str = "pixi:yanked";
+
+/// Property carrying the index's reason for the yank, when it gives one.
+pub const YANKED_REASON_PROPERTY: &str = "pixi:yanked-reason";
 
 /// Largest metadata document accepted, in bytes.
 const MAX_METADATA_BYTES: u64 = 8 * 1024 * 1024;
@@ -44,6 +55,21 @@ struct Info {
     license: Option<String>,
     #[serde(default)]
     classifiers: Vec<String>,
+    #[serde(default)]
+    yanked: bool,
+    #[serde(default)]
+    yanked_reason: Option<String>,
+}
+
+/// Whether a JSON API response says the release is yanked, and why.
+pub fn yanked_from_metadata(json: &str) -> Option<Yanked> {
+    let info = serde_json::from_str::<Metadata>(json).ok()?.info;
+    info.yanked.then(|| Yanked {
+        reason: info
+            .yanked_reason
+            .map(|r| r.trim().to_string())
+            .filter(|r| !r.is_empty()),
+    })
 }
 
 /// Pick the license from a JSON API response: `license_expression`, then `license`, then the
@@ -123,6 +149,8 @@ pub struct Outcome {
     pub missing: usize,
     /// Requests that failed; the network is left alone once it looks unavailable.
     pub failed: usize,
+    /// Packages whose release the index has yanked.
+    pub yanked: usize,
 }
 
 /// Configuration for a lookup pass.
@@ -157,12 +185,13 @@ impl Lookup<'_> {
         fetch: &(dyn Fn(&str) -> Result<String, Box<ureq::Error>> + Sync),
         progress: crate::progress::Progress,
     ) -> Outcome {
-        // One job per package that needs a license and can be asked about.
+        // One job per PyPI package: the license is only filled in when it is still missing,
+        // but whether a release was yanked has to be asked for every one of them.
         let jobs: Vec<Job> = sbom
             .packages
             .iter()
             .enumerate()
-            .filter(|(_, p)| p.kind == PackageKind::Pypi && p.license.is_none())
+            .filter(|(_, p)| p.kind == PackageKind::Pypi)
             .filter_map(|(index, package)| {
                 Some(Job {
                     index,
@@ -175,7 +204,7 @@ impl Lookup<'_> {
 
         let mut outcome = Outcome::default();
         let network_down = AtomicBool::new(false);
-        let bar = progress.bar("PyPI lookups", jobs.len());
+        let bar = progress.bar("PyPI releases", jobs.len());
         let results = crate::parallel::map(
             &jobs,
             CONCURRENCY,
@@ -190,6 +219,22 @@ impl Lookup<'_> {
                 outcome.failed += 1;
                 continue;
             };
+            if let Some(yanked) = yanked_from_metadata(&json) {
+                let package = &mut sbom.packages[job.index];
+                package
+                    .properties
+                    .insert(YANKED_PROPERTY.to_string(), "true".to_string());
+                if let Some(reason) = &yanked.reason {
+                    package
+                        .properties
+                        .insert(YANKED_REASON_PROPERTY.to_string(), reason.clone());
+                }
+                package.yanked = Some(yanked);
+                outcome.yanked += 1;
+            }
+            if sbom.packages[job.index].license.is_some() {
+                continue;
+            }
             match license_from_metadata(&json) {
                 Some(license) => {
                     let package = &mut sbom.packages[job.index];
@@ -371,7 +416,8 @@ mod tests {
             Outcome {
                 found: 1,
                 missing: 0,
-                failed: 0
+                failed: 0,
+                yanked: 0,
             }
         );
         assert_eq!(
@@ -397,6 +443,66 @@ mod tests {
                 .found,
             1
         );
+    }
+
+    #[test]
+    fn yanked_releases_are_read_for_every_package_not_only_licenseless_ones() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut sbom = sample_sbom();
+        // six already has a license in this fixture only after we set one; give it one so the
+        // lookup would previously have skipped it entirely.
+        let six = sbom.packages.iter_mut().find(|p| p.name == "six").unwrap();
+        six.license = Some("MIT".into());
+        let fetch = |_: &str| {
+            Ok(serde_json::json!({"info": {
+                "license": "BSD",
+                "yanked": true,
+                "yanked_reason": "  broken wheels  ",
+            }})
+            .to_string())
+        };
+        let lookup = Lookup {
+            index_url: DEFAULT_INDEX_URL,
+            cache_dir: dir.path(),
+        };
+        let outcome = lookup.run_with(&mut sbom, &fetch, crate::progress::Progress::default());
+        assert_eq!(outcome.yanked, 1);
+        assert_eq!(outcome.found, 0, "the license it already had is kept");
+        let six = sbom.packages.iter().find(|p| p.name == "six").unwrap();
+        assert_eq!(six.license.as_deref(), Some("MIT"));
+        assert_eq!(
+            six.yanked,
+            Some(Yanked {
+                reason: Some("broken wheels".into())
+            })
+        );
+        assert_eq!(six.properties[YANKED_PROPERTY], "true");
+        assert_eq!(six.properties[YANKED_REASON_PROPERTY], "broken wheels");
+    }
+
+    #[test]
+    fn yanked_parsing() {
+        assert_eq!(yanked_from_metadata(r#"{"info":{"yanked":false}}"#), None);
+        assert_eq!(yanked_from_metadata(r#"{"info":{}}"#), None);
+        assert_eq!(yanked_from_metadata("nonsense"), None);
+        assert_eq!(
+            yanked_from_metadata(r#"{"info":{"yanked":true}}"#),
+            Some(Yanked { reason: None })
+        );
+        // An empty reason is no reason.
+        assert_eq!(
+            yanked_from_metadata(r#"{"info":{"yanked":true,"yanked_reason":"  "}}"#),
+            Some(Yanked { reason: None })
+        );
+        // The real thing, as the index serves it.
+        let recorded = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/pypi-metadata/urllib3-2.0.0.json"),
+        )
+        .unwrap();
+        let yanked = yanked_from_metadata(&recorded).unwrap();
+        assert!(yanked.reason.unwrap().starts_with("Truncated response bodies"));
+        // ... and its license still reads through the classifiers.
+        assert_eq!(license_from_metadata(&recorded).as_deref(), Some("MIT"));
     }
 
     #[test]
