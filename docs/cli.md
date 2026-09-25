@@ -43,6 +43,7 @@ With no options this means:
 | `--allow-license <LICENSE>` | | Repeatable. Only these SPDX licenses are acceptable; a package whose license expression cannot be satisfied with them alone is a violation. |
 | `--deny-license <LICENSE>` | | Repeatable. These SPDX licenses are unacceptable; a package whose expression cannot be satisfied without them is a violation. |
 | `--require-license` | off | Every package must declare a license that is an SPDX expression. |
+| `--fail-on-yanked` | off | With `--fetch-licenses`: exit **7** after writing the document when any PyPI package is a yanked release (PEP 592). |
 | `--vulnerabilities <osv>` | off | Look up known vulnerabilities of every package with a purl OSV can answer and record them in the document (see below). |
 | `--kev` | off | With `--vulnerabilities`: mark findings whose CVE alias is in CISA's Known Exploited Vulnerabilities catalog (downloaded once a day). They are rated `critical`, sorted first, and carry the catalog's dates and required action. |
 | `--fail-on-kev` | off | With `--kev`: exit **4** after writing the document when any open finding is known exploited, regardless of severity. |
@@ -160,6 +161,25 @@ identifiers match exactly. `GPL-2.0+` may be written for `GPL-2.0-or-later`.
 Packages without a license, or with one that is not an SPDX expression, are not violations of an allow or deny
 list (there is nothing to evaluate); `--require-license` makes them violations. Combine with `--fetch-licenses` so
 PyPI packages have a license to check. In batch mode each violation is prefixed with its environment and platform.
+
+## Yanked releases
+
+A yanked release (PEP 592) is one the index still serves but has withdrawn: it is broken or unsafe, and a
+resolver will not choose it again. A lockfile records nothing about this, so an environment pinned to a yanked
+release looks perfectly healthy. With `--fetch-licenses` the index is asked about every PyPI package (not only the
+ones still missing a license), and a yanked one gets `pixi:yanked=true` plus `pixi:yanked-reason` in the document,
+a `Yanked` column in the packages report, and a line in the log (`yanked=1`). The responses are the same cached
+ones the license lookup uses, so this costs one cached request per package and nothing at all on a second run.
+
+`--fail-on-yanked` turns it into a gate: the document is still written, the releases and their reasons are listed
+on stderr, and the run exits with code **7**.
+
+```sh
+pixi sbom --fetch-licenses --fail-on-yanked
+```
+
+Conda packages are not covered: a channel withdraws a build by removing it from `repodata.json`, which would mean
+downloading the channel index to detect. That is tracked separately.
 
 ## Looking up vulnerabilities
 
@@ -283,6 +303,9 @@ Severities are red through blue by level, `open` findings are yellow and `ignore
 diff rows green (added), red (removed), cyan (version) and magenta (license), licenses that are not SPDX
 expressions yellow, and `-` placeholders dim.
 
+The packages report carries a `Yanked` column (`yes: <reason>` for a withdrawn release, `-` otherwise) once
+`--fetch-licenses` has asked the index; the CSV and JSON forms carry `yanked` and `yanked_reason` fields.
+
 The vulnerabilities report has one row per finding and affected package (package, version, severity, the highest
 CVSS score, KEV, id, aliases, fixed version, status, summary; the CSV and JSON forms add the purl, the OSV URL, the
 `--ignore-vuln` justification and the KEV due date), open findings worst first and ignored ones last, followed by
@@ -392,6 +415,7 @@ pixi sbom --all-environments --all-platforms --output sboms/
 | 1 | A runtime error; a diagnostic is printed to stderr. |
 | 3 | The license policy was violated; the documents were written and the violations listed on stderr. |
 | 4 | The vulnerability gate (`--fail-on-severity` / `--fail-on-kev`) failed; the documents were written and the findings listed on stderr. |
+| 7 | `--fail-on-yanked` found a yanked release; the documents were written and the releases listed on stderr. |
 | 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments` or `--all-platforms`, or a `--spec-version` of the other format, or a `--allow-license` / `--deny-license` value that is not an SPDX identifier). |
 
 Runtime diagnostics carry a stable code you can grep for in CI logs:

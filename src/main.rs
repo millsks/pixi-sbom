@@ -121,6 +121,7 @@ fn main() -> Result<()> {
                 .exit()
         });
     let mut gate_hits: Vec<(String, String, vulnpolicy::Hit)> = Vec::new();
+    let mut yanked: Vec<(String, String, String)> = Vec::new();
     let package_filter = filter::Filter {
         include: parse_globs(&args.include, "--include"),
         exclude: parse_globs(&args.exclude, "--exclude"),
@@ -235,8 +236,13 @@ fn main() -> Result<()> {
                     index_url: &pypi::index_url(),
                     cache_dir: &cache_dir,
                 };
-                let pypi::Outcome { found, missing, failed } = lookup.run(&mut sbom, progress);
-                tracing::info!(found, missing, failed, "looked up PyPI licenses");
+                let pypi::Outcome {
+                    found,
+                    missing,
+                    failed,
+                    yanked,
+                } = lookup.run(&mut sbom, progress);
+                tracing::info!(found, missing, failed, yanked, "looked up PyPI releases");
             }
         }
         if let Some(cli::VulnerabilitySource::Osv) = args.vulnerabilities {
@@ -284,6 +290,20 @@ fn main() -> Result<()> {
                         .map(|h| (sbom.environment.clone(), sbom.platform.clone(), h)),
                 );
             }
+        }
+        if args.fail_on_yanked {
+            yanked.extend(sbom.packages.iter().filter_map(|package| {
+                let reason = package.yanked.as_ref()?;
+                let version = package.version.as_deref().unwrap_or("-");
+                Some((
+                    sbom.environment.clone(),
+                    sbom.platform.clone(),
+                    match &reason.reason {
+                        Some(reason) => format!("{} {version}: {reason}", package.name),
+                        None => format!("{} {version}", package.name),
+                    },
+                ))
+            }));
         }
         if let Some(policy) = &policy {
             let found = policy.check(&sbom);
@@ -352,6 +372,18 @@ fn main() -> Result<()> {
         }
         let _ = stderr.flush();
     }
+    if !yanked.is_empty() {
+        let mut stderr = std::io::stderr().lock();
+        let _ = writeln!(stderr, "Yanked release(s) in the environment: {}", yanked.len());
+        for (environment, platform, line) in &yanked {
+            let _ = if targets.len() > 1 {
+                writeln!(stderr, "  [{environment}/{platform}] {line}")
+            } else {
+                writeln!(stderr, "  {line}")
+            };
+        }
+        let _ = stderr.flush();
+    }
     if !violations.is_empty() {
         let mut stderr = std::io::stderr().lock();
         let _ = writeln!(stderr, "License policy violated by {} package(s):", violations.len());
@@ -367,6 +399,9 @@ fn main() -> Result<()> {
     }
     if !gate_hits.is_empty() {
         std::process::exit(vulnpolicy::GATE_EXIT_CODE);
+    }
+    if !yanked.is_empty() {
+        std::process::exit(YANKED_EXIT_CODE);
     }
     Ok(())
 }
@@ -402,6 +437,12 @@ fn validate(args: &cli::Args) {
     }
     if args.fail_on_kev && !args.kev {
         usage(MissingRequiredArgument, "'--fail-on-kev' needs '--kev'");
+    }
+    if args.fail_on_yanked && !(args.fetch_licenses || args.pypi_licenses) {
+        usage(
+            MissingRequiredArgument,
+            "'--fail-on-yanked' needs '--fetch-licenses', which is what asks the index",
+        );
     }
     if args.report_format == report::ReportFormat::Sarif && args.report != Some(report::ReportKind::Vulnerabilities) {
         usage(
@@ -468,6 +509,9 @@ fn load_pypi_mapping(args: &cli::Args) -> Result<Option<mapping::PypiMapping>> {
     tracing::debug!(entries = mapping.len(), "loaded PyPI mapping");
     Ok(Some(mapping))
 }
+
+/// Exit code when `--fail-on-yanked` finds a yanked release.
+const YANKED_EXIT_CODE: i32 = 7;
 
 /// Where the packages come from.
 enum Input {

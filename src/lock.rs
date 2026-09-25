@@ -311,6 +311,7 @@ fn convert_conda(conda: &CondaPackageData) -> Result<Package, LockError> {
         homepage: None,
         repository: None,
         documentation: None,
+        yanked: None,
         properties,
         dependencies: Vec::new(),
     })
@@ -422,6 +423,7 @@ fn convert_pypi(pypi: &PypiPackageData) -> Result<Package, LockError> {
         homepage: None,
         repository: None,
         documentation: None,
+        yanked: None,
         properties,
         dependencies: Vec::new(),
     })

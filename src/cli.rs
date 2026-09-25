@@ -287,6 +287,11 @@ pub struct Args {
     #[arg(long)]
     pub require_license: bool,
 
+    /// Exit with code 7 after writing the document when any package is a yanked release
+    /// (PEP 592). Requires --fetch-licenses, which is what asks the index.
+    #[arg(long)]
+    pub fail_on_yanked: bool,
+
     /// Look up known vulnerabilities of every package with a queryable purl and record them
     /// in the document (CycloneDX `vulnerabilities`). Conda packages are matched through their
     /// PyPI purl, so combine with --pypi-mapping prefix. Results are cached for an hour.

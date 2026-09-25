@@ -55,6 +55,7 @@ pub struct Config {
     pub allow_license: Option<Vec<String>>,
     pub deny_license: Option<Vec<String>>,
     pub require_license: Option<bool>,
+    pub fail_on_yanked: Option<bool>,
     pub vulnerabilities: Option<String>,
     pub kev: Option<bool>,
     pub fail_on_kev: Option<bool>,
@@ -231,6 +232,7 @@ pub fn apply(loaded: &Loaded, args: &mut Args, matches: &ArgMatches) -> Result<(
     set!(allow_license, "allow_license", config.allow_license.clone());
     set!(deny_license, "deny_license", config.deny_license.clone());
     set!(require_license, "require_license", config.require_license);
+    set!(fail_on_yanked, "fail_on_yanked", config.fail_on_yanked);
     if let Some(source) = &config.vulnerabilities
         && !on_cli(matches, "vulnerabilities")
     {

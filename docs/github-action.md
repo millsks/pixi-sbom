@@ -27,6 +27,7 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 | `output` | `sboms` | Output file (`*.json`, or `-` for the log) or directory; a single document lands in the directory as `sbom.cdx.json` / `sbom.spdx.json` |
 | `fetch-licenses`, `license-texts`, `embedded-sboms`, `pypi-mapping`, `primary-purl` | as the CLI | Enrichment |
 | `allow-license`, `deny-license`, `require-license` | | License policy; whitespace-separated lists |
+| `fail-on-yanked` | `false` | With `fetch-licenses`, fail the step on a yanked release (exit code 7) |
 | `fail-on-policy` | `true` | Fail the step on a policy violation; with `false` it becomes a warning and the `policy-violated` output is `true` |
 | `vulnerabilities`, `kev` | | `osv` looks findings up and records them; `kev: "true"` marks the known-exploited ones |
 | `fail-on-severity`, `fail-on-kev` | | The vulnerability gate (exit code 4) |

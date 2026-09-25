@@ -434,6 +434,7 @@ fn to_package(component: &Component, id: String, source: &str) -> Package {
         homepage: None,
         repository: None,
         documentation: None,
+        yanked: None,
         properties: BTreeMap::from([(SOURCE_PROPERTY.to_string(), source.to_string())]),
         dependencies: Vec::new(),
     }

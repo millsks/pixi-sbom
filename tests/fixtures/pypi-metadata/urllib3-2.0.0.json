@@ -1,0 +1,1 @@
+{"info":{"license_expression":null,"license":"","classifiers":["License :: OSI Approved :: MIT License"],"yanked":true,"yanked_reason":"Truncated response bodies when streaming a large compressed body. Upgrade to at least 2.0.2 (See: https://github.com/urllib3/urllib3/issues/3009)"}}
