@@ -42,7 +42,7 @@ once no matter how many output formats exist.
 | Module | Owns | Depends on |
 |---|---|---|
 | `cli.rs` | The `Args` struct (clap derive) and the `Format` enum with its file-name helpers. Nothing else knows about clap. | clap |
-| `discover.rs` | Locating `pixi.lock` (explicit path or upward search) and resolving output paths for single- and all-environment runs. Pure path logic; the only I/O is `is_file()`. | — |
+| `discover.rs` | Locating `pixi.lock` (explicit path, upward search, or the `--scan` walk over a tree) and resolving output paths for single-, all-environment and per-workspace runs. Pure path logic; the only I/O is reading directories. | — |
 | `manifest.rs` | Reading `pixi.toml` or `pyproject.toml`: the workspace metadata into `model::Root`, and the dependency tables of every feature, which mark the packages an environment declared (`pixi:direct`). Never fails: problems are logged and the directory name is used. | toml, serde |
 | `lock.rs` | Parsing the lockfile with `rattler_lock`, selecting an environment and platform, converting each locked package into `model::Package`, and resolving the dependency graph. All lockfile-shape knowledge lives here. | rattler_lock, rattler_conda_types, purl.rs |
 | `prefix.rs` | `--prefix`: reads `conda-meta/*.json` into conda packages (purl, channel, hashes, license, `pixi:extracted-package-dir`) and `site-packages/*.dist-info` into PyPI packages (`METADATA` through `wheel::info_from_metadata`, `direct_url.json`, `INSTALLER` to skip conda-installed ones), then links dependencies with `lock::link_dependencies`. | serde_json, lock.rs, wheel.rs, purl.rs |
@@ -106,7 +106,7 @@ Two consequences of this design are worth knowing:
 ## How a run proceeds
 
 1. `main` parses arguments and initializes logging and error reporting.
-2. `discover::resolve_lockfile` finds the lockfile. `lock::load` parses it once.
+2. `discover::resolve_lockfile` finds the lockfile, or `discover::scan` walks a tree for every workspace in it. `lock::load` parses each one once.
 3. `manifest::read` reads the manifest next to the lockfile: the workspace name/version, and the dependency tables that say what the workspace asked for.
 4. The list of `(environment, output path)` targets is built: a single pair, or one per environment with
    `--all-environments` (`default` first, then alphabetical).

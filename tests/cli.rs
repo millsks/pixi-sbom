@@ -2037,6 +2037,145 @@ fn copy_dir(from: &Path, to: &Path) {
     }
 }
 
+/// A monorepo: two workspaces at different depths, plus a lockfile inside an installed
+/// environment that a scan must never pick up.
+fn monorepo() -> tempfile::TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    for (relative, fixture) in [("services/api", "with-pypi"), ("tools/ci", "conda-only")] {
+        let target = dir.path().join(relative);
+        std::fs::create_dir_all(&target).unwrap();
+        for file in ["pixi.toml", "pixi.lock"] {
+            std::fs::copy(tests_dir().join("fixtures").join(fixture).join(file), target.join(file)).unwrap();
+        }
+    }
+    let installed = dir.path().join("services/api/.pixi/envs/default");
+    std::fs::create_dir_all(&installed).unwrap();
+    std::fs::copy(
+        tests_dir().join("fixtures/with-pypi/pixi.lock"),
+        installed.join("pixi.lock"),
+    )
+    .unwrap();
+    dir
+}
+
+#[test]
+fn scan_writes_one_document_per_workspace_in_the_tree() {
+    let dir = monorepo();
+    let out = dir.path().join("sboms");
+    pixi_sbom()
+        .current_dir(dir.path())
+        .env("SOURCE_DATE_EPOCH", "0")
+        .args(["-p", "linux-64", "--scan"])
+        .arg(dir.path())
+        .arg("--output")
+        .arg(&out)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("scanned for workspaces"));
+
+    let api = out.join("services/api/sbom.cdx.json");
+    let ci = out.join("tools/ci/sbom.cdx.json");
+    assert!(api.is_file() && ci.is_file(), "{out:?}");
+    assert_eq!(
+        std::fs::read_dir(out.join("services/api")).unwrap().count(),
+        1,
+        "the lockfile inside .pixi/ is not a workspace"
+    );
+    // Each workspace keeps its own identity, not the scanned directory's.
+    let document = read_json(&api);
+    assert_eq!(document["metadata"]["component"]["name"], "with-pypi");
+    assert_eq!(read_json(&ci)["metadata"]["component"]["name"], "conda-only");
+
+    // And each document is exactly what the single-workspace run would have written.
+    let single = dir.path().join("single.cdx.json");
+    pixi_sbom()
+        .current_dir(dir.path())
+        .env("SOURCE_DATE_EPOCH", "0")
+        .args(["-p", "linux-64", "--lockfile"])
+        .arg(dir.path().join("services/api/pixi.lock"))
+        .arg("--output")
+        .arg(&single)
+        .assert()
+        .success();
+    assert_eq!(
+        std::fs::read_to_string(&single).unwrap(),
+        std::fs::read_to_string(&api).unwrap()
+    );
+}
+
+#[test]
+fn scan_reports_and_gates_across_every_workspace() {
+    let dir = monorepo();
+    // One report over the whole tree: a section per workspace, and the license policy sees
+    // them all at once.
+    let table = String::from_utf8(
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("COLUMNS", "160")
+            .args(["-p", "linux-64", "--report", "packages", "--color", "never", "--scan"])
+            .arg(dir.path())
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(table.contains("packages (with-pypi, environment default"), "{table}");
+    assert!(table.contains("packages (conda-only, environment default"), "{table}");
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--deny-license", "Zlib", "--output"])
+        .arg(dir.path().join("sboms"))
+        .arg("--scan")
+        .arg(dir.path())
+        .assert()
+        .code(3)
+        .stderr(predicate::str::contains("License policy violated"));
+}
+
+#[test]
+fn scan_usage_errors() {
+    let dir = monorepo();
+    let empty = tempfile::tempdir().unwrap();
+    // A directory with nothing in it says so rather than writing nothing quietly.
+    pixi_sbom()
+        .current_dir(empty.path())
+        .arg("--scan")
+        .arg(empty.path())
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("pixi_sbom::discover::none_found"));
+    pixi_sbom()
+        .arg("--scan")
+        .arg(dir.path().join("services/api/pixi.lock"))
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("pixi_sbom::discover::not_a_directory"));
+    for extra in [
+        vec!["--output", "-"],
+        vec!["--against", "previous.cdx.json", "--report", "diff"],
+    ] {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .arg("--scan")
+            .arg(dir.path())
+            .args(&extra)
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains("--scan"));
+    }
+    // --scan-depth 0 finds nothing here, because neither workspace is at the top.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--scan-depth", "0", "--scan"])
+        .arg(dir.path())
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("pixi_sbom::discover::none_found"));
+}
+
 #[test]
 fn drift_between_an_installed_environment_and_its_lockfile() {
     let dir = installed_prefix();

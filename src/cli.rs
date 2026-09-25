@@ -195,6 +195,17 @@ pub struct Args {
     #[arg(long, value_name = "PATH", conflicts_with = "prefix")]
     pub lockfile: Option<PathBuf>,
 
+    /// Describe every pixi workspace under this directory: one document per `pixi.lock`
+    /// found, in sorted order. Hidden directories, node_modules, target, build, dist, venv and
+    /// __pycache__ are never entered and symlinked directories are not followed. With
+    /// --output the documents land under it, mirroring each workspace's path.
+    #[arg(long, value_name = "DIR", conflicts_with_all = ["lockfile", "prefix"])]
+    pub scan: Option<PathBuf>,
+
+    /// With --scan: how far below the directory to walk (0 is the directory itself).
+    #[arg(long, value_name = "N", requires = "scan")]
+    pub scan_depth: Option<usize>,
+
     /// Describe an installed environment instead of a lockfile: a `pixi global` environment
     /// (~/.pixi/envs/<name>), a conda / mamba environment, or one inside a container. Conda
     /// packages come from its conda-meta records, pip-installed ones from site-packages.

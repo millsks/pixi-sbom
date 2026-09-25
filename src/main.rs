@@ -51,9 +51,13 @@ fn main() -> Result<()> {
     let cwd = std::env::current_dir().into_diagnostic()?;
     // With --prefix there is no lockfile; a stand-in path in the working directory keeps the
     // output and configuration lookups (which are relative to the lockfile) working.
-    let lockfile = match &args.prefix {
-        Some(_) => cwd.join("pixi.lock"),
-        None => discover::resolve_lockfile(args.lockfile.as_deref(), &cwd)?,
+    let lockfile = match (&args.prefix, &args.scan) {
+        // With --prefix there is no lockfile, and with --scan there are many; a stand-in path
+        // keeps the configuration lookup (which is relative to the lockfile) working, and for
+        // a scan it puts that lookup in the scanned directory rather than in each workspace.
+        (Some(_), _) => cwd.join(discover::LOCKFILE_NAME),
+        (None, Some(dir)) => dir.join(discover::LOCKFILE_NAME),
+        (None, None) => discover::resolve_lockfile(args.lockfile.as_deref(), &cwd)?,
     };
     if !args.no_config {
         let dir = lockfile.parent().unwrap_or(Path::new("."));
@@ -69,22 +73,24 @@ fn main() -> Result<()> {
         args.verbosity.tracing_level_filter() >= tracing::level_filters::LevelFilter::DEBUG,
         args.verbosity.tracing_level_filter() < tracing::level_filters::LevelFilter::INFO,
     );
-    let input = match &args.prefix {
-        Some(dir) => Input::Prefix {
+    // A scan reads its inputs per workspace, so there is no single one to read here.
+    let input = match (&args.prefix, &args.scan) {
+        (Some(dir), _) => Some(Input::Prefix {
             dir: dir.clone(),
             root: model::Root {
                 name: args.name.clone().unwrap_or_else(|| prefix::environment_name(dir)),
                 version: args.root_version.clone(),
                 ..model::Root::default()
             },
-        },
-        None => {
+        }),
+        (None, Some(_)) => None,
+        (None, None) => {
             let lock::LoadedLock { lock, contents } = lock::load(&lockfile)?;
-            Input::Lock {
+            Some(Input::Lock {
                 lock,
                 contents,
                 manifest: manifest::read(&lockfile),
-            }
+            })
         }
     };
 
@@ -97,16 +103,39 @@ fn main() -> Result<()> {
         Some(path) => Some((path.clone(), diff::resolve_against(path)?)),
         None => None,
     };
-    let targets = match &input {
-        Input::Lock { lock, .. } => resolve_targets(&args, lock, &lockfile)?,
-        Input::Prefix { dir, .. } => vec![Target {
-            environment: prefix::environment_name(dir),
-            platform: args.platform.clone(),
-            output: discover::resolve_output(args.output.as_deref(), &lockfile, args.format),
-        }],
+    // One workspace normally; with --scan, one per lockfile found under the directory.
+    let workspaces: Vec<Workspace> = match &args.scan {
+        Some(dir) => {
+            let found = discover::scan(dir, args.scan_depth)?;
+            tracing::info!(lockfiles = found.len(), dir = %dir.display(), "scanned for workspaces");
+            found
+                .into_iter()
+                .map(|lockfile| scanned_workspace(&args, dir, lockfile))
+                .collect::<Result<_>>()?
+        }
+        None => {
+            let input = input.expect("only a scan leaves the input unread");
+            let targets = match &input {
+                Input::Lock { lock, .. } => resolve_targets(&args, lock, &lockfile, None)?,
+                Input::Prefix { dir, .. } => vec![Target {
+                    environment: prefix::environment_name(dir),
+                    platform: args.platform.clone(),
+                    output: discover::resolve_output(args.output.as_deref(), &lockfile, args.format),
+                }],
+            };
+            vec![Workspace {
+                lockfile: lockfile.clone(),
+                input,
+                targets,
+            }]
+        }
     };
+    let targets: Vec<(&Workspace, &Target)> = workspaces
+        .iter()
+        .flat_map(|workspace| workspace.targets.iter().map(move |target| (workspace, target)))
+        .collect();
     let pypi_mapping = load_pypi_mapping(&args)?;
-    tracing::debug!(lockfile = %lockfile.display(), ?targets, format = ?args.format, "resolved targets");
+    tracing::debug!(documents = targets.len(), format = ?args.format, "resolved targets");
     let mut reports = Vec::new();
     let policy =
         policy::Policy::new(&args.allow_license, &args.deny_license, args.require_license).unwrap_or_else(|err| {
@@ -148,13 +177,17 @@ fn main() -> Result<()> {
         None
     };
 
-    for Target {
-        environment,
-        platform,
-        output,
-    } in &targets
+    for (
+        workspace,
+        Target {
+            environment,
+            platform,
+            output,
+        },
+    ) in &targets
     {
-        let (mut sbom, contents) = match &input {
+        let (lockfile, input) = (&workspace.lockfile, &workspace.input);
+        let (mut sbom, contents) = match input {
             Input::Lock {
                 lock,
                 contents,
@@ -168,7 +201,7 @@ fn main() -> Result<()> {
                     lock,
                     selection,
                     manifest.root.clone(),
-                    &discover::lockfile_name(&lockfile),
+                    &discover::lockfile_name(lockfile),
                 )?;
                 // What the workspace asked for itself, as opposed to what came along.
                 manifest.apply(&mut sbom);
@@ -591,6 +624,20 @@ fn validate(args: &cli::Args) {
             );
         }
     }
+    if args.scan.is_some() {
+        if args.against.is_some() {
+            usage(
+                ArgumentConflict,
+                "'--against' compares one environment and cannot be combined with '--scan'",
+            );
+        }
+        if discover::is_stdout(args.output.as_deref()) {
+            usage(
+                ArgumentConflict,
+                "'--output -' writes one document to stdout and cannot be combined with '--scan'",
+            );
+        }
+    }
     if !args.fail_on_diff.is_empty() && args.report != Some(report::ReportKind::Diff) {
         usage(ArgumentConflict, "'--fail-on-diff' only applies to '--report diff'");
     }
@@ -667,6 +714,39 @@ const YANKED_EXIT_CODE: i32 = 7;
 const PHANTOM_EXIT_CODE: i32 = 8;
 
 /// Where the packages come from.
+/// One workspace to describe: its lockfile (or installed environment) and the documents that
+/// come out of it.
+#[derive(Debug)]
+struct Workspace {
+    lockfile: std::path::PathBuf,
+    input: Input,
+    targets: Vec<Target>,
+}
+
+/// One workspace a `--scan` found: its lockfile read, and its documents placed under the
+/// output directory at the same relative path, so two workspaces never collide.
+fn scanned_workspace(args: &cli::Args, scanned: &Path, lockfile: std::path::PathBuf) -> Result<Workspace> {
+    let lock::LoadedLock { lock, contents } = lock::load(&lockfile)?;
+    let dir = lockfile.parent().unwrap_or(Path::new(".")).to_path_buf();
+    let relative = dir.strip_prefix(scanned).unwrap_or(Path::new(""));
+    let output_dir = match &args.output {
+        Some(output) => output.join(relative),
+        None => dir.clone(),
+    };
+    let targets = resolve_targets(args, &lock, &lockfile, Some(&output_dir))?;
+    let manifest = manifest::read(&lockfile);
+    Ok(Workspace {
+        lockfile,
+        input: Input::Lock {
+            lock,
+            contents,
+            manifest,
+        },
+        targets,
+    })
+}
+
+#[derive(Debug)]
 enum Input {
     /// A `pixi.lock`, with its text (the document identity) and the manifest of the
     /// workspace it belongs to.
@@ -689,7 +769,14 @@ struct Target {
 
 /// Expand `--all-environments` / `--all-platforms` into the list of documents to write, and
 /// decide each one's output location.
-fn resolve_targets(args: &cli::Args, lock: &rattler_lock::LockFile, lockfile: &Path) -> Result<Vec<Target>> {
+/// The documents one lockfile produces. `dir`, set only by `--scan`, is the directory this
+/// workspace's documents go in, which replaces `--output` for them.
+fn resolve_targets(
+    args: &cli::Args,
+    lock: &rattler_lock::LockFile,
+    lockfile: &Path,
+    dir: Option<&Path>,
+) -> Result<Vec<Target>> {
     let batch = args.all_environments || args.all_platforms;
     if batch && discover::is_stdout(args.output.as_deref()) {
         let flag = if args.all_environments {
@@ -721,20 +808,23 @@ fn resolve_targets(args: &cli::Args, lock: &rattler_lock::LockFile, lockfile: &P
             vec![args.platform.clone()]
         };
         for platform in platforms {
-            let output = if batch {
-                let labels = args
-                    .all_environments
-                    .then_some(environment.as_str())
-                    .into_iter()
-                    .chain(platform.as_deref().filter(|_| args.all_platforms));
-                discover::Output::File(discover::resolve_batch_output(
+            let labels = args
+                .all_environments
+                .then_some(environment.as_str())
+                .into_iter()
+                .chain(platform.as_deref().filter(|_| args.all_platforms));
+            let output = match (dir, batch) {
+                // A scanned workspace always writes into its own directory, under the same
+                // file name the equivalent single-workspace run would have used.
+                (Some(dir), true) => discover::Output::File(dir.join(args.format.batch_file_name(labels))),
+                (Some(dir), false) => discover::Output::File(dir.join(args.format.default_file_name())),
+                (None, true) => discover::Output::File(discover::resolve_batch_output(
                     args.output.as_deref(),
                     lockfile,
                     args.format,
                     labels,
-                ))
-            } else {
-                discover::resolve_output(args.output.as_deref(), lockfile, args.format)
+                )),
+                (None, false) => discover::resolve_output(args.output.as_deref(), lockfile, args.format),
             };
             targets.push(Target {
                 environment: environment.clone(),
