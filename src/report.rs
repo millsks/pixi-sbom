@@ -570,6 +570,12 @@ pub fn render_with_width(
         ReportFormat::Csv => render_csv(reports, out),
         ReportFormat::Sarif => writeln!(out, "{}", serde_json::to_string_pretty(&sarif(reports))?),
         ReportFormat::Table | ReportFormat::Markdown => {
+            // Colour is for the terminal only; markdown is data someone pastes elsewhere.
+            let palette = if format == ReportFormat::Markdown {
+                Palette::new(false)
+            } else {
+                palette
+            };
             for (i, report) in reports.iter().enumerate() {
                 if i > 0 {
                     writeln!(out)?;
@@ -586,12 +592,6 @@ pub fn render_with_width(
                 }
                 let columns = report.columns();
                 let rows = report.rows();
-                // Colour is for the terminal only; markdown is data someone pastes elsewhere.
-                let palette = if format == ReportFormat::Markdown {
-                    Palette::new(false)
-                } else {
-                    palette
-                };
                 match format {
                     ReportFormat::Markdown => render_markdown(&columns, &rows, out)?,
                     _ => {
