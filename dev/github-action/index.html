@@ -880,6 +880,16 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 <td>Write the findings as SARIF and upload them to GitHub code scanning (see below)</td>
 </tr>
 <tr>
+<td><code>diff-against</code></td>
+<td></td>
+<td>Also compare the environment with the document at this path and put the comparison in the job summary; the file has to be there already (the action fetches nothing)</td>
+</tr>
+<tr>
+<td><code>fail-on-diff</code></td>
+<td></td>
+<td>With <code>diff-against</code>: <code>true</code> fails the step (exit code 6) on any change, or name the sections — <code>added removed version license</code></td>
+</tr>
+<tr>
 <td><code>attest</code>, <code>attest-subject</code></td>
 <td><code>false</code>,</td>
 <td>Sign the documents with a GitHub artifact attestation (see below)</td>
@@ -897,7 +907,7 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 </tbody>
 </table>
 <p>Outputs: <code>version</code>, <code>output</code>, <code>document</code> (the file, in single-document mode), <code>policy-violated</code>,
-<code>vulnerabilities-found</code>, <code>sarif</code>, <code>attestation-url</code>. The action runs on Linux (x64, arm64), macOS (Intel, Apple
+<code>vulnerabilities-found</code>, <code>diff-changed</code>, <code>sarif</code>, <code>attestation-url</code>. The action runs on Linux (x64, arm64), macOS (Intel, Apple
 Silicon) and Windows runners, and describes any platform in the lockfile regardless of the runner (<code>platform:
 linux-64</code> on a macOS runner is fine).</p>
 <h2 id="without-the-action">Without the action<a class="headerlink" href="#without-the-action" title="Permanent link">&para;</a></h2>
