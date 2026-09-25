@@ -1506,6 +1506,16 @@ entry).</p>
 <td>Why the license policy does not apply (<code>--ignore-license</code>); <code>true</code> when no justification was given</td>
 </tr>
 <tr>
+<td><code>pixi:scorecard</code>, <code>pixi:scorecard-date</code></td>
+<td>any</td>
+<td>With <code>--scorecard</code>: the OpenSSF Scorecard aggregate out of ten and when the repository was scored</td>
+</tr>
+<tr>
+<td><code>pixi:scorecard-check-&lt;name&gt;</code></td>
+<td>any</td>
+<td>One per check below <code>--scorecard-min</code>, e.g. <code>pixi:scorecard-check-Signed-Releases=0.0</code></td>
+</tr>
+<tr>
 <td><code>pixi:cargo-source</code></td>
 <td>embedded (cargo)</td>
 <td>Where a crate read from a <code>cargo auditable</code> binary came from: <code>crates.io</code>, <code>git</code>, <code>local</code>, ...</td>
