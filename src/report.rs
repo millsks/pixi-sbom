@@ -5,6 +5,7 @@
 
 use std::collections::BTreeMap;
 use std::io::{self, Write};
+use std::time::SystemTime;
 
 use clap::ValueEnum;
 use comfy_table::Row as TableRow;
@@ -28,6 +29,8 @@ pub enum ReportKind {
     /// Diff: what changed since the document given with --against (added, removed, version
     /// and license changes).
     Diff,
+    /// Outdated: how far behind its index each package is.
+    Outdated,
 }
 
 /// How to render a report.
@@ -85,6 +88,38 @@ pub struct LicenseSummary {
     pub unlicensed: Vec<String>,
     /// Packages whose license is not a valid SPDX expression, with the parser's reason.
     pub non_spdx: Vec<String>,
+}
+
+/// One package as the outdated report sees it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct OutdatedRow {
+    pub name: String,
+    pub kind: &'static str,
+    pub version: String,
+    /// When the pinned version was published, and how long ago in days.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub published: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub age_days: Option<i64>,
+    /// The newest release the index offers, and when it appeared.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latest: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latest_published: Option<String>,
+    /// Releases in between, and the size of the step.
+    pub behind: usize,
+    pub step: &'static str,
+}
+
+/// Summary of how current one document's packages are.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct OutdatedSummary {
+    /// Packages the indexes answered for.
+    pub checked: usize,
+    /// Packages behind their newest release, by step.
+    pub by_step: Vec<(String, usize)>,
+    /// Packages no index could be asked about (private channels, source packages).
+    pub unknown: Vec<String>,
 }
 
 /// One finding for one affected package, as the vulnerabilities report sees it.
@@ -166,6 +201,11 @@ pub struct Report {
     /// The comparison (the diff report).
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub diff: Option<crate::diff::Diff>,
+    /// Rows of the outdated report.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outdated: Option<Vec<OutdatedRow>>,
+    #[serde(rename = "summary", skip_serializing_if = "Option::is_none")]
+    pub outdated_summary: Option<OutdatedSummary>,
 }
 
 impl Report {
@@ -184,6 +224,7 @@ impl Report {
                 ReportKind::Licenses => "licenses",
                 ReportKind::Vulnerabilities => "vulnerabilities",
                 ReportKind::Diff => "diff",
+                ReportKind::Outdated => "outdated",
             },
             workspace: sbom.root.name.clone(),
             environment: sbom.environment.clone(),
@@ -196,6 +237,8 @@ impl Report {
             vulnerabilities: None,
             vulnerability_summary: None,
             diff: None,
+            outdated: None,
+            outdated_summary: None,
         };
         match kind {
             ReportKind::Packages => report.packages = Some(sbom.packages.iter().map(row).collect()),
@@ -216,8 +259,73 @@ impl Report {
                 report.vulnerability_summary = Some(summarize_vulnerabilities(&rows, sbom));
                 report.vulnerabilities = Some(rows);
             }
-            ReportKind::Diff => {}
+            ReportKind::Diff | ReportKind::Outdated => {}
         }
+        report
+    }
+
+    /// Drop the rows that are not at least `only` behind.
+    pub fn keep_outdated(&mut self, only: crate::cli::OutdatedOnly) {
+        use crate::cli::OutdatedOnly;
+        let wanted = |step: &str| match only {
+            OutdatedOnly::Patch => true,
+            OutdatedOnly::Minor => step == "minor" || step == "major",
+            OutdatedOnly::Major => step == "major",
+        };
+        if let Some(rows) = &mut self.outdated {
+            rows.retain(|row| row.behind > 0 && wanted(row.step));
+        }
+    }
+
+    /// The outdated report for `sbom`, given what each index said (by package position).
+    pub fn outdated(sbom: &Sbom, statuses: &[Option<crate::outdated::Status>], now: SystemTime) -> Self {
+        let mut report = Self::new(ReportKind::Outdated, sbom);
+        let mut rows = Vec::new();
+        let mut unknown = Vec::new();
+        let mut by_step: BTreeMap<&str, usize> = BTreeMap::new();
+        for (package, status) in sbom
+            .packages
+            .iter()
+            .zip(statuses.iter().chain(std::iter::repeat(&None)))
+        {
+            let Some(status) = status else {
+                unknown.push(package.name.clone());
+                continue;
+            };
+            if status.behind > 0 {
+                *by_step.entry(status.step.name()).or_default() += 1;
+            }
+            rows.push(OutdatedRow {
+                name: package.name.clone(),
+                kind: package.kind.name(),
+                version: package.version.clone().unwrap_or_else(|| "-".into()),
+                age_days: status
+                    .current_published
+                    .as_deref()
+                    .and_then(|published| crate::outdated::age_in_days(published, now)),
+                published: status.current_published.clone(),
+                latest: status.latest.clone(),
+                latest_published: status.latest_published.clone(),
+                behind: status.behind,
+                step: status.step.name(),
+            });
+        }
+        // Furthest behind first, then oldest, then by name.
+        rows.sort_by(|a, b| {
+            b.behind
+                .cmp(&a.behind)
+                .then_with(|| b.age_days.unwrap_or(0).cmp(&a.age_days.unwrap_or(0)))
+                .then_with(|| a.name.cmp(&b.name))
+        });
+        report.outdated_summary = Some(OutdatedSummary {
+            checked: rows.len(),
+            by_step: ["major", "minor", "patch", "-"]
+                .into_iter()
+                .filter_map(|step| by_step.get(step).map(|count| (step.to_string(), *count)))
+                .collect(),
+            unknown,
+        });
+        report.outdated = Some(rows);
         report
     }
 
@@ -226,6 +334,7 @@ impl Report {
             "licenses" => ReportKind::Licenses,
             "vulnerabilities" => ReportKind::Vulnerabilities,
             "diff" => ReportKind::Diff,
+            "outdated" => ReportKind::Outdated,
             _ => ReportKind::Packages,
         }
     }
@@ -238,6 +347,9 @@ impl Report {
                 "Package", "Version", "Severity", "Score", "KEV", "ID", "Aliases", "Fixed", "Status", "Summary",
             ],
             ReportKind::Diff => vec!["Change", "Package", "Kind", "Before", "After"],
+            ReportKind::Outdated => vec![
+                "Package", "Kind", "Version", "Age", "Latest", "Released", "Behind", "Step",
+            ],
         }
     }
 
@@ -245,6 +357,7 @@ impl Report {
     fn rows(&self) -> Vec<Vec<String>> {
         match self.kind() {
             ReportKind::Diff => self.diff.as_ref().map(diff_rows).unwrap_or_default(),
+            ReportKind::Outdated => self.outdated.iter().flatten().map(outdated_cells).collect(),
             ReportKind::Vulnerabilities => self.vulnerabilities.iter().flatten().map(vulnerability_cells).collect(),
             _ => self.packages.iter().flatten().map(|r| self.cells(r)).collect(),
         }
@@ -261,6 +374,8 @@ impl Report {
             ],
             // Change, Package, Kind, Before, After
             ReportKind::Diff => vec![Change, Plain, Plain, Plain, Plain],
+            // Package, Kind, Version, Age, Latest, Released, Behind, Step
+            ReportKind::Outdated => vec![Plain, Plain, Plain, Plain, Plain, Plain, Plain, Change],
             // Name, Version, Kind, License, Family, Source, Files
             ReportKind::Licenses => vec![Plain, Plain, Plain, NonSpdx, Plain, Plain, Plain],
             // Name, Version, Kind, Source, License, Yanked, Purl
@@ -324,6 +439,32 @@ impl Report {
 /// Rows of unstyled cells, for the summary tables that carry no meaning per column.
 fn plain_cells(rows: &[Vec<String>]) -> Vec<Vec<Cell>> {
     rows.iter().map(|row| row.iter().map(Cell::new).collect()).collect()
+}
+
+/// One outdated row as cells.
+fn outdated_cells(row: &OutdatedRow) -> Vec<String> {
+    let dash = || "-".to_string();
+    vec![
+        row.name.clone(),
+        row.kind.to_string(),
+        row.version.clone(),
+        row.age_days.map(|days| format!("{days}d")).unwrap_or_else(dash),
+        row.latest.clone().unwrap_or_else(dash),
+        row.latest_published
+            .as_deref()
+            .map(|p| p.split('T').next().unwrap_or(p).to_string())
+            .unwrap_or_else(dash),
+        if row.behind == 0 {
+            dash()
+        } else {
+            row.behind.to_string()
+        },
+        if row.behind == 0 {
+            "current".into()
+        } else {
+            row.step.to_string()
+        },
+    ]
 }
 
 /// The diff as rows: additions, removals, version changes, license changes, in that order.
@@ -615,6 +756,45 @@ pub fn render_with_width(
                 if let Some(summary) = &report.vulnerability_summary {
                     render_vulnerability_summary(summary, format, &palette, out)?;
                 }
+                if let Some(summary) = &report.outdated_summary {
+                    writeln!(out)?;
+                    let behind: usize = summary.by_step.iter().map(|(_, count)| count).sum();
+                    let heading = palette.header(&format!(
+                        "Summary: {behind} of {} packages behind their index",
+                        summary.checked
+                    ));
+                    match format {
+                        ReportFormat::Markdown => writeln!(out, "### {heading}\n")?,
+                        _ => writeln!(out, "{heading}")?,
+                    }
+                    if !summary.by_step.is_empty() {
+                        let plain: Vec<Vec<String>> = summary
+                            .by_step
+                            .iter()
+                            .map(|(step, count)| vec![step.clone(), count.to_string()])
+                            .collect();
+                        let rows: Vec<Vec<Cell>> = summary
+                            .by_step
+                            .iter()
+                            .map(|(step, count)| vec![palette.cell(Role::Change, step), Cell::new(count.to_string())])
+                            .collect();
+                        match format {
+                            ReportFormat::Markdown => render_markdown(&["Step", "Packages"], &plain, out)?,
+                            _ => render_table(&["Step", "Packages"], rows, usize::MAX, &palette, out)?,
+                        }
+                    }
+                    writeln!(out)?;
+                    if summary.unknown.is_empty() {
+                        writeln!(out, "{}", palette.dim("No index to ask: none"))?;
+                    } else {
+                        writeln!(
+                            out,
+                            "No index to ask ({}): {}",
+                            summary.unknown.len(),
+                            summary.unknown.join(", ")
+                        )?;
+                    }
+                }
                 if let Some(diff) = &report.diff {
                     writeln!(out)?;
                     let line = if diff.is_empty() {
@@ -865,6 +1045,35 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
     if kind == ReportKind::Vulnerabilities {
         return render_vulnerabilities_csv(reports, out);
     }
+    if kind == ReportKind::Outdated {
+        writeln!(
+            out,
+            "environment,platform,package,kind,version,published,age_days,latest,latest_published,behind,step"
+        )?;
+        for report in reports {
+            for row in report.outdated.iter().flatten() {
+                let cells = [
+                    report.environment.clone(),
+                    report.platform.clone(),
+                    row.name.clone(),
+                    row.kind.to_string(),
+                    row.version.clone(),
+                    row.published.clone().unwrap_or_default(),
+                    row.age_days.map(|d| d.to_string()).unwrap_or_default(),
+                    row.latest.clone().unwrap_or_default(),
+                    row.latest_published.clone().unwrap_or_default(),
+                    row.behind.to_string(),
+                    row.step.to_string(),
+                ];
+                writeln!(
+                    out,
+                    "{}",
+                    cells.iter().map(|c| csv_field(c)).collect::<Vec<_>>().join(",")
+                )?;
+            }
+        }
+        return Ok(());
+    }
     if kind == ReportKind::Diff {
         writeln!(out, "environment,platform,change,package,kind,before,after")?;
         for report in reports {
@@ -882,7 +1091,7 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
     }
     let mut columns = vec!["environment", "platform"];
     columns.extend(match kind {
-        ReportKind::Packages | ReportKind::Vulnerabilities | ReportKind::Diff => {
+        ReportKind::Packages | ReportKind::Vulnerabilities | ReportKind::Diff | ReportKind::Outdated => {
             vec![
                 "name",
                 "version",
@@ -912,7 +1121,7 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
         for row in report.packages.iter().flatten() {
             let mut cells = vec![report.environment.clone(), report.platform.clone()];
             cells.extend(match kind {
-                ReportKind::Packages | ReportKind::Vulnerabilities | ReportKind::Diff => vec![
+                ReportKind::Packages | ReportKind::Vulnerabilities | ReportKind::Diff | ReportKind::Outdated => vec![
                     row.name.clone(),
                     row.version.clone(),
                     row.kind.to_string(),
@@ -1705,6 +1914,111 @@ mod tests {
             text.contains("No changes against old.cdx.json (CycloneDX 1.6); 4 packages unchanged"),
             "{text}"
         );
+    }
+
+    fn outdated_report() -> Report {
+        use crate::outdated::{Status, Step};
+        let sbom = sample_sbom();
+        let status = |behind, step, published: &str, latest: &str| {
+            Some(Status {
+                current_published: Some(published.into()),
+                latest: Some(latest.into()),
+                latest_published: Some("2026-09-15T19:29:34Z".into()),
+                behind,
+                step,
+            })
+        };
+        let statuses = vec![
+            status(1, Step::Patch, "2024-01-01T00:00:00Z", "1.3.2"),
+            status(12, Step::Major, "2021-03-15T00:00:00Z", "2.8.0"),
+            None,
+            status(0, Step::Patch, "2026-09-01T00:00:00Z", "1.17.0"),
+        ];
+        let now = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_800_000_000);
+        Report::outdated(&sbom, &statuses, now)
+    }
+
+    #[test]
+    fn outdated_rows_sort_by_how_far_behind_and_summarise_by_step() {
+        let report = outdated_report();
+        let rows = report.outdated.as_ref().unwrap();
+        assert_eq!(rows.len(), 3, "the source package has no row");
+        assert_eq!(rows[0].name, "zlib", "furthest behind first");
+        assert_eq!(rows[0].behind, 12);
+        assert_eq!(rows[0].step, "major");
+        assert!(rows[0].age_days.unwrap() > 1500);
+        assert_eq!(rows[2].name, "six");
+        assert_eq!(rows[2].behind, 0);
+        let summary = report.outdated_summary.as_ref().unwrap();
+        assert_eq!(summary.checked, 3);
+        assert_eq!(summary.by_step, [("major".to_string(), 1), ("patch".to_string(), 1)]);
+        assert_eq!(summary.unknown, ["mylib"]);
+    }
+
+    #[test]
+    fn outdated_only_keeps_the_bigger_steps() {
+        let mut report = outdated_report();
+        report.keep_outdated(crate::cli::OutdatedOnly::Major);
+        let names: Vec<&str> = report
+            .outdated
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|r| r.name.as_str())
+            .collect();
+        assert_eq!(names, ["zlib"]);
+
+        let mut report = outdated_report();
+        report.keep_outdated(crate::cli::OutdatedOnly::Patch);
+        assert_eq!(report.outdated.as_ref().unwrap().len(), 2, "current packages drop out");
+    }
+
+    #[test]
+    fn outdated_table_snapshot() {
+        let mut out = Vec::new();
+        render_with_width(
+            &[outdated_report()],
+            ReportFormat::Table,
+            DEFAULT_WIDTH,
+            Palette::new(false),
+            &mut out,
+        )
+        .unwrap();
+        insta::assert_snapshot!(String::from_utf8(out).unwrap());
+    }
+
+    #[test]
+    fn outdated_csv_and_json() {
+        let mut out = Vec::new();
+        render_with_width(
+            &[outdated_report()],
+            ReportFormat::Csv,
+            DEFAULT_WIDTH,
+            Palette::new(false),
+            &mut out,
+        )
+        .unwrap();
+        let csv = String::from_utf8(out).unwrap();
+        assert!(csv.starts_with(
+            "environment,platform,package,kind,version,published,age_days,latest,latest_published,behind,step\n"
+        ));
+        assert!(csv.contains("default,linux-64,zlib,conda,1.3.1,2021-03-15T00:00:00Z,"));
+
+        let mut out = Vec::new();
+        render_with_width(
+            &[outdated_report()],
+            ReportFormat::Json,
+            DEFAULT_WIDTH,
+            Palette::new(false),
+            &mut out,
+        )
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&out).unwrap();
+        assert_eq!(value["report"], "outdated");
+        assert_eq!(value["outdated"][0]["name"], "zlib");
+        assert_eq!(value["outdated"][0]["behind"], 12);
+        assert_eq!(value["summary"]["unknown"][0], "mylib");
+        assert!(value.get("packages").is_none());
     }
 
     #[test]

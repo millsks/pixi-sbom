@@ -17,6 +17,7 @@ mod manifest;
 mod mapping;
 mod model;
 mod osv;
+mod outdated;
 mod parallel;
 mod pkgcache;
 mod policy;
@@ -314,6 +315,27 @@ fn main() -> Result<()> {
                     .map(|v| (sbom.environment.clone(), sbom.platform.clone(), v)),
             );
         }
+        if args.report == Some(report::ReportKind::Outdated) {
+            let cache_dir = mapping::cache_dir();
+            let lookup = outdated::Lookup {
+                index_url: &pypi::index_url(),
+                anaconda_url: &outdated::anaconda_url(),
+                cache_dir: &cache_dir,
+            };
+            let (statuses, outcome) = lookup.run(&sbom, progress);
+            tracing::info!(
+                checked = outcome.checked,
+                outdated = outcome.outdated,
+                unknown = outcome.unknown,
+                "checked how far behind the packages are"
+            );
+            let mut report = report::Report::outdated(&sbom, &statuses, std::time::SystemTime::now());
+            if let Some(only) = args.outdated_only {
+                report.keep_outdated(only);
+            }
+            reports.push(report);
+            continue;
+        }
         if let Some(kind) = args.report {
             reports.push(match (kind, &previous) {
                 (report::ReportKind::Diff, Some((path, previous))) => {
@@ -448,6 +470,12 @@ fn validate(args: &cli::Args) {
         usage(
             ArgumentConflict,
             "'--report-format sarif' only applies to '--report vulnerabilities'",
+        );
+    }
+    if args.outdated_only.is_some() && args.report != Some(report::ReportKind::Outdated) {
+        usage(
+            ArgumentConflict,
+            "'--outdated-only' only applies to '--report outdated'",
         );
     }
     match (args.report, &args.against) {

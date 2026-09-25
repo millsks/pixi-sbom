@@ -2357,6 +2357,102 @@ fn yanked_releases_are_flagged_and_can_fail_the_run() {
 }
 
 #[test]
+fn outdated_report_reads_both_indexes_from_the_cache() {
+    let dir = workspace("with-pypi");
+    // Recorded project documents: one PyPI project behind by two releases, one conda package
+    // behind by one, both served from the cache so the run is offline.
+    let cache = dir.path().join("cache").join("outdated");
+    std::fs::create_dir_all(&cache).unwrap();
+    std::fs::write(
+        cache.join("pypi-urllib3.json"),
+        serde_json::json!({
+            "releases": {
+                "2.8.0": [{"upload_time_iso_8601": "2026-09-15T19:29:34Z", "yanked": false}],
+                "2.9.0": [{"upload_time_iso_8601": "2026-09-20T00:00:00Z", "yanked": false}],
+                "3.0.0": [{"upload_time_iso_8601": "2026-09-22T00:00:00Z", "yanked": false}],
+                "3.1.0rc1": [{"upload_time_iso_8601": "2026-09-23T00:00:00Z", "yanked": false}],
+                "3.2.0": [{"upload_time_iso_8601": "2026-09-24T00:00:00Z", "yanked": true}],
+            }
+        })
+        .to_string(),
+    )
+    .unwrap();
+    std::fs::write(
+        cache.join("conda-conda-forge-python.json"),
+        serde_json::json!({
+            "versions": ["3.12.14", "3.13.1"],
+            "files": [{"version": "3.13.1", "attrs": {"timestamp": 1_780_000_000_000i64}}]
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    let run = |args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "160")
+            .args(["-e", "web", "-p", "linux-64", "--report", "outdated"])
+            .args(args)
+            .assert()
+            .success()
+    };
+    let assert =
+        run(&["--report-format", "json"]).stderr(predicate::str::contains("checked how far behind the packages are"));
+    let report: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_eq!(report["report"], "outdated");
+    let rows = report["outdated"].as_array().unwrap();
+    let urllib3 = rows.iter().find(|r| r["name"] == "urllib3").unwrap();
+    assert_eq!(urllib3["version"], "2.8.0");
+    assert_eq!(
+        urllib3["latest"], "3.0.0",
+        "the prerelease and the yanked release do not count"
+    );
+    assert_eq!(urllib3["behind"], 2);
+    assert_eq!(urllib3["step"], "major");
+    let python = rows.iter().find(|r| r["name"] == "python").unwrap();
+    assert_eq!(python["latest"], "3.13.1");
+    assert_eq!(python["behind"], 1);
+    assert_eq!(python["step"], "minor");
+    // Everything the caches could not answer for is named rather than silently dropped.
+    let unknown = report["summary"]["unknown"].as_array().unwrap();
+    assert!(unknown.len() > 10, "{unknown:?}");
+    assert!(unknown.iter().any(|n| n == "libzlib"));
+
+    // The table sorts the furthest behind first and the CSV carries the raw fields.
+    let table = String::from_utf8(run(&[]).get_output().stdout.clone()).unwrap();
+    let first = table.lines().nth(2).unwrap();
+    assert!(first.starts_with("urllib3"), "{table}");
+    assert!(table.contains("Summary: 2 of 2 packages behind their index"), "{table}");
+    let csv = String::from_utf8(run(&["--report-format", "csv"]).get_output().stdout.clone()).unwrap();
+    assert!(csv.lines().next().unwrap().ends_with(",behind,step"));
+    assert!(csv.lines().any(|l| l.contains(",urllib3,pypi,2.8.0,")));
+
+    // --outdated-only filters by step, and only applies to this report.
+    let json: Value = serde_json::from_slice(
+        &run(&["--report-format", "json", "--outdated-only", "major"])
+            .get_output()
+            .stdout,
+    )
+    .unwrap();
+    let names: Vec<&str> = json["outdated"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["urllib3"]);
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--report", "packages", "--outdated-only", "major"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("only applies to '--report outdated'"));
+}
+
+#[test]
 fn fetch_licenses_reads_wheel_metadata_and_license_files() {
     // The with-pypi fixture with the six wheel pointed at the local copy; everything else offline.
     let dir = workspace("with-pypi");
