@@ -107,6 +107,21 @@ pub enum OutdatedOnly {
     Major,
 }
 
+/// A section of the diff report `--fail-on-diff` can gate on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum DiffSection {
+    /// Any of the four below.
+    Any,
+    /// Packages the previous document does not have.
+    Added,
+    /// Packages the previous document has and this one does not.
+    Removed,
+    /// Same package, different version.
+    Version,
+    /// Same package and version, different license.
+    License,
+}
+
 /// A package kind, as `--exclude-kind` names it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Kind {
@@ -352,6 +367,11 @@ pub struct Args {
     /// With --report outdated: list only packages at least this far behind.
     #[arg(long, value_enum, value_name = "STEP")]
     pub outdated_only: Option<OutdatedOnly>,
+
+    /// With --report diff: exit with code 6 when the named sections of the comparison are not
+    /// empty. Repeatable; the bare flag means any change at all.
+    #[arg(long, value_enum, value_name = "SECTION", num_args = 0.., default_missing_value = "any")]
+    pub fail_on_diff: Vec<DiffSection>,
 
     /// With --report phantom: where the workspace's Python sources are (repeatable). Defaults
     /// to the directory holding the lockfile.

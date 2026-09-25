@@ -244,7 +244,36 @@ impl Diff {
             && self.version_changed.is_empty()
             && self.license_changed.is_empty()
     }
+
+    /// The sections `--fail-on-diff` asked about that are not empty, in the order the flag
+    /// names them, as `<section> (<count>)` for the message on stderr.
+    pub fn gate_hits(&self, sections: &[crate::cli::DiffSection]) -> Vec<String> {
+        use crate::cli::DiffSection::{Added, Any, License, Removed, Version};
+        let counts = [
+            (Added, self.added.len()),
+            (Removed, self.removed.len()),
+            (Version, self.version_changed.len()),
+            (License, self.license_changed.len()),
+        ];
+        counts
+            .into_iter()
+            .filter(|(section, count)| *count > 0 && (sections.contains(section) || sections.contains(&Any)))
+            .map(|(section, count)| {
+                let name = match section {
+                    Added => "added",
+                    Removed => "removed",
+                    Version => "version changes",
+                    License => "license changes",
+                    Any => unreachable!("Any is not one of the counted sections"),
+                };
+                format!("{name} ({count})")
+            })
+            .collect()
+    }
 }
+
+/// Exit code when `--fail-on-diff` finds a change it was asked to gate on.
+pub const DIFF_EXIT_CODE: i32 = 6;
 
 /// Compare `sbom` (the new side) with `previous`.
 pub fn compare(sbom: &Sbom, previous: &Previous, against: &Path) -> Diff {
@@ -385,6 +414,29 @@ mod tests {
         let same = compare(&sample_sbom(), &previous, Path::new("old.cdx.json"));
         assert!(same.is_empty());
         assert_eq!(same.unchanged, 4);
+    }
+
+    #[test]
+    fn the_gate_only_fires_on_the_sections_it_was_given() {
+        use crate::cli::DiffSection::{Added, Any, License, Removed, Version};
+        let previous = parse_previous(&written(Format::Cyclonedx, SpecVersion::V1_6)).unwrap();
+        let mut sbom = sample_sbom();
+        sbom.packages.retain(|p| p.name != "mylib");
+        let libzlib = sbom.packages.iter().position(|p| p.name == "libzlib").unwrap();
+        sbom.packages[libzlib].license = Some("MIT".into());
+        let diff = compare(&sbom, &previous, Path::new("old.cdx.json"));
+
+        assert_eq!(diff.gate_hits(&[Any]), ["removed (1)", "license changes (1)"]);
+        assert_eq!(diff.gate_hits(&[Removed]), ["removed (1)"]);
+        assert_eq!(
+            diff.gate_hits(&[License, Removed]),
+            ["removed (1)", "license changes (1)"]
+        );
+        assert!(diff.gate_hits(&[Added, Version]).is_empty(), "nothing was added");
+        assert!(diff.gate_hits(&[]).is_empty(), "no gate, no hits");
+        // An unchanged environment never fires, whatever was asked for.
+        let same = compare(&sample_sbom(), &previous, Path::new("old.cdx.json"));
+        assert!(same.gate_hits(&[Any]).is_empty());
     }
 
     #[test]

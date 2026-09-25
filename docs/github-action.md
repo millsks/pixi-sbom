@@ -34,12 +34,14 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 | `ignore-vuln` | | Accepted findings, one per line: `ID`, `ID:justification` or `ID:state:justification` |
 | `fail-on-vulnerabilities` | `true` | Fail the step when the gate trips; with `false` it becomes a warning and the `vulnerabilities-found` output is `true` |
 | `upload-sarif`, `sarif-category` | `false`, `pixi-sbom` | Write the findings as SARIF and upload them to GitHub code scanning (see below) |
+| `diff-against` | | Also compare the environment with the document at this path and put the comparison in the job summary; the file has to be there already (the action fetches nothing) |
+| `fail-on-diff` | | With `diff-against`: `true` fails the step (exit code 6) on any change, or name the sections — `added removed version license` |
 | `attest`, `attest-subject` | `false`, | Sign the documents with a GitHub artifact attestation (see below) |
 | `extra-args` | | Any other CLI arguments |
 | `upload-artifact`, `artifact-name` | `true`, `sboms` | Artifact upload |
 
 Outputs: `version`, `output`, `document` (the file, in single-document mode), `policy-violated`,
-`vulnerabilities-found`, `sarif`, `attestation-url`. The action runs on Linux (x64, arm64), macOS (Intel, Apple
+`vulnerabilities-found`, `diff-changed`, `sarif`, `attestation-url`. The action runs on Linux (x64, arm64), macOS (Intel, Apple
 Silicon) and Windows runners, and describes any platform in the lockfile regardless of the runner (`platform:
 linux-64` on a macOS runner is fine).
 

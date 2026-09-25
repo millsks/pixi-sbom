@@ -128,6 +128,7 @@ fn main() -> Result<()> {
     let mut gate_hits: Vec<(String, String, vulnpolicy::Hit)> = Vec::new();
     let mut yanked: Vec<(String, String, String)> = Vec::new();
     let mut phantoms: Vec<(String, String, String)> = Vec::new();
+    let mut diff_hits: Vec<(String, String, String)> = Vec::new();
     let assume_used = parse_globs(&args.assume_used, "--assume-used");
     let package_filter = filter::Filter {
         include: parse_globs(&args.include, "--include"),
@@ -395,6 +396,12 @@ fn main() -> Result<()> {
                         unchanged = diff.unchanged,
                         "compared with the previous document"
                     );
+                    if !args.fail_on_diff.is_empty() {
+                        let hits = diff.gate_hits(&args.fail_on_diff);
+                        if !hits.is_empty() {
+                            diff_hits.push((sbom.environment.clone(), sbom.platform.clone(), hits.join(", ")));
+                        }
+                    }
                     report::Report::diff(&sbom, diff)
                 }
                 _ => report::Report::new(kind, &sbom),
@@ -437,6 +444,18 @@ fn main() -> Result<()> {
                 writeln!(stderr, "  [{environment}/{platform}] {hit}")
             } else {
                 writeln!(stderr, "  {hit}")
+            };
+        }
+        let _ = stderr.flush();
+    }
+    if !diff_hits.is_empty() {
+        let mut stderr = std::io::stderr().lock();
+        let _ = writeln!(stderr, "The environment changed against the previous document:");
+        for (environment, platform, hits) in &diff_hits {
+            let _ = if targets.len() > 1 {
+                writeln!(stderr, "  [{environment}/{platform}] {hits}")
+            } else {
+                writeln!(stderr, "  {hits}")
             };
         }
         let _ = stderr.flush();
@@ -486,6 +505,9 @@ fn main() -> Result<()> {
     }
     if args.fail_on_phantom && !phantoms.is_empty() {
         std::process::exit(PHANTOM_EXIT_CODE);
+    }
+    if !diff_hits.is_empty() {
+        std::process::exit(diff::DIFF_EXIT_CODE);
     }
     Ok(())
 }
@@ -545,6 +567,9 @@ fn validate(args: &cli::Args) {
                 &format!("'{flag}' only applies to '--report phantom'"),
             );
         }
+    }
+    if !args.fail_on_diff.is_empty() && args.report != Some(report::ReportKind::Diff) {
+        usage(ArgumentConflict, "'--fail-on-diff' only applies to '--report diff'");
     }
     if args.outdated_only.is_some() && args.report != Some(report::ReportKind::Outdated) {
         usage(
