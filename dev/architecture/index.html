@@ -931,7 +931,7 @@ once no matter how many output formats exist.</p>
 </tr>
 <tr>
 <td><code>pypi.rs</code></td>
-<td>License lookup for PyPI packages from the index JSON API (part of <code>--fetch-licenses</code>): field precedence, classifier-to-SPDX table, per-release cache, ten lookups at a time on the shared pool, and the "stop when the network is down" rule (a shared flag, so the jobs already in flight finish and the rest fall through to their cache).</td>
+<td>Release facts for PyPI packages from the index JSON API: the license (only where one is still missing) and PEP 592 <code>yanked</code> / <code>yanked_reason</code> (for every package) (part of <code>--fetch-licenses</code>): field precedence, classifier-to-SPDX table, per-release cache, ten lookups at a time on the shared pool, and the "stop when the network is down" rule (a shared flag, so the jobs already in flight finish and the rest fall through to their cache).</td>
 <td>serde_json, http.rs, parallel.rs</td>
 </tr>
 <tr>

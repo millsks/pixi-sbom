@@ -646,6 +646,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#yanked-releases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Yanked releases
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#excluded-packages" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1020,6 +1031,17 @@
     <span class="md-ellipsis">
       
         Installed environments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#yanked-releases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Yanked releases
       
     </span>
   </a>
@@ -1602,6 +1624,10 @@ says <code>prefix &lt;name&gt;</code>, and pip-installed packages are located by
 <code>&lt;vcs&gt;+&lt;url&gt;</code> for direct VCS installs, with <code>pixi:direct-url</code> and <code>pixi:source-rev</code>), carry <code>pixi:installer</code>, and
 have no hashes. Conda packages carry <code>pixi:extracted-package-dir</code>, where the record says the archive was
 unpacked.</p>
+<h3 id="yanked-releases">Yanked releases<a class="headerlink" href="#yanked-releases" title="Permanent link">&para;</a></h3>
+<p>With <code>--fetch-licenses</code>, a PyPI package whose release the index has yanked (PEP 592) carries <code>pixi:yanked=true</code>
+and, when the index gives one, <code>pixi:yanked-reason</code> (CycloneDX properties; SPDX package comment lines, as for
+every other <code>pixi:*</code> fact).</p>
 <h3 id="excluded-packages">Excluded packages<a class="headerlink" href="#excluded-packages" title="Permanent link">&para;</a></h3>
 <p>With <code>--exclude</code> / <code>--include</code> / <code>--exclude-kind</code> the document lists only what survived the filter, and the root
 says so: a <code>pixi:excluded</code> metadata property (CycloneDX) or a <code>pixi:excluded=...</code> comment on the root package
