@@ -833,15 +833,16 @@ once no matter how many output formats exist.</p>
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>   embedded.rs ──── PEP 770 embedded SBOMs from the same wheels (optional)
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>   report.rs ───── --report: renders the model as a terminal table instead of a document
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>   style.rs ────── --color: when to colour, and which style each kind of cell gets
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>   diff.rs ─────── --report diff --against: reads a previous document (any family) and compares
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>   policy.rs ───── --allow/--deny/--require-license: violations -&gt; exit 3 after writing
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>   osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>   kev.rs ──────── --kev: CISA's Known Exploited Vulnerabilities catalog onto the findings (via http.rs)
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>   vulnpolicy.rs ─ --fail-on-severity / --fail-on-kev / --ignore-vuln: analysis blocks and exit 4 after writing
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>   license.rs ◀── used by both writers
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>   discover.rs ── finds the lockfile, decides output paths
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>   cli.rs ──────── clap definitions
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>   main.rs ─────── wires it together, logging, error reporting
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>   progress.rs ─── progress bars for the fetches, hidden while a log line prints
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>   diff.rs ─────── --report diff --against: reads a previous document (any family) and compares
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>   policy.rs ───── --allow/--deny/--require-license: violations -&gt; exit 3 after writing
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>   osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>   kev.rs ──────── --kev: CISA's Known Exploited Vulnerabilities catalog onto the findings (via http.rs)
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>   vulnpolicy.rs ─ --fail-on-severity / --fail-on-kev / --ignore-vuln: analysis blocks and exit 4 after writing
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>   license.rs ◀── used by both writers
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>   discover.rs ── finds the lockfile, decides output paths
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>   cli.rs ──────── clap definitions
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>   main.rs ─────── wires it together, logging, error reporting
 </code></pre></div>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <table>
@@ -987,6 +988,11 @@ once no matter how many output formats exist.</p>
 <td><code>cvss.rs</code></td>
 <td>CVSS v3.0 / v3.1 base scores from vector strings, for advisories that carry a vector but no qualitative severity.</td>
 <td></td>
+</tr>
+<tr>
+<td><code>progress.rs</code></td>
+<td>Whether progress bars are drawn (terminal, not <code>-v</code>/<code>-q</code>, not <code>TERM=dumb</code>/<code>CI</code>/<code>PIXI_SBOM_NO_PROGRESS</code>) and the bar itself; one global <code>MultiProgress</code> so the tracing writer can suspend every live bar while a log line prints.</td>
+<td>indicatif</td>
 </tr>
 <tr>
 <td><code>style.rs</code></td>

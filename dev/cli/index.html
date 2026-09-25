@@ -1381,6 +1381,12 @@ cannot be combined with <code>--output</code>.</p>
 lines, so nothing is ever cut: a narrow terminal costs height instead of content. Columns whose values are short
 (versions, severities, identifiers) keep their full width while there is room, so the prose columns absorb the
 squeeze and an advisory id is never broken in half. Markdown, CSV, JSON and SARIF are never wrapped or truncated.</p>
+<p>While <code>--fetch-licenses</code>, <code>--vulnerabilities</code> and <code>--embedded-sboms</code> are fetching, a progress bar on stderr counts
+the archives, wheels, package-cache reads, PyPI lookups and advisory records as they finish, naming the package or
+advisory in flight. Bars are drawn only for an interactive run: never when stderr is not a terminal (a pipe, a
+file, a CI log), never with <code>-v</code> or <code>-q</code> (the log lines would overwrite them or you asked for silence), and never
+when <code>TERM=dumb</code>, <code>CI</code> or <code>PIXI_SBOM_NO_PROGRESS</code> is set. Log lines and diagnostics hide every live bar while they
+print, so the two never overwrite each other.</p>
 <p>Colour is applied to the <code>table</code> format only, since the others are data someone pastes or parses elsewhere.
 <code>--color auto</code> (the default) colours when the output is a terminal and the environment allows it: a non-empty
 <code>NO_COLOR</code> turns it off, <code>CLICOLOR_FORCE</code> turns it on even through a pipe, and <code>TERM=dumb</code> turns it off.
@@ -1461,6 +1467,10 @@ CycloneDX metadata properties; the root package <code>sourceInfo</code> in SPDX)
 <tr>
 <td><code>PIXI_SBOM_OSV_URL</code></td>
 <td>Base of the OSV API queried by <code>--vulnerabilities osv</code> (default <code>https://api.osv.dev</code>).</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_NO_PROGRESS</code></td>
+<td>Set to <code>1</code> to turn the progress bars off even on a terminal.</td>
 </tr>
 <tr>
 <td><code>PIXI_SBOM_KEV_URL</code></td>
