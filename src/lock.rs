@@ -187,6 +187,7 @@ pub fn sbom_from_lock(
         packages,
         vulnerabilities: Vec::new(),
         excluded: Vec::new(),
+        declared_missing: Vec::new(),
     })
 }
 

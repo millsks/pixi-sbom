@@ -158,6 +158,7 @@ pub fn build_sbom(prefix: &Path, root: Root, platform: Option<&str>) -> Result<S
         packages,
         vulnerabilities: Vec::new(),
         excluded: Vec::new(),
+        declared_missing: Vec::new(),
     })
 }
 

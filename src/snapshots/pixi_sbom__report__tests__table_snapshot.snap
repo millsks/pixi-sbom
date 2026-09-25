@@ -2,11 +2,12 @@
 source: src/report.rs
 expression: "render_string(ReportKind::Packages, ReportFormat::Table, &[sample_sbom()])"
 ---
-Name     Version  Kind          Source       License            Yanked  Purl
+Name     Version  Kind          Declared  Source       License            Yanked  Purl
 ------------------------------------------------------------------------------------------------------------------------
-libzlib  1.3.1    conda         conda-forge  Zlib               -       pkg:conda/libzlib@1.3.1?build=h1&channel=conda-f
-                                                                        orge&subdir=linux-64&type=conda
-zlib     1.3.1    conda         conda-forge  MIT OR Apache-2.0  -       pkg:conda/zlib@1.3.1?build=h1&channel=conda-forg
-                                                                        e&subdir=linux-64&type=conda
-mylib    -        conda-source  -            Proprietary        -       pkg:conda/mylib@0.1.0
-six      1.17.0   pypi          pypi.org     -                  -       pkg:pypi/six@1.17.0
+libzlib  1.3.1    conda         -         conda-forge  Zlib               -       pkg:conda/libzlib@1.3.1?build=h1&chann
+                                                                                  el=conda-forge&subdir=linux-64&type=co
+                                                                                  nda
+zlib     1.3.1    conda         -         conda-forge  MIT OR Apache-2.0  -       pkg:conda/zlib@1.3.1?build=h1&channel=
+                                                                                  conda-forge&subdir=linux-64&type=conda
+mylib    -        conda-source  -         -            Proprietary        -       pkg:conda/mylib@0.1.0
+six      1.17.0   pypi          -         pypi.org     -                  -       pkg:pypi/six@1.17.0

@@ -307,7 +307,7 @@ no ceiling at all, which is itself the answer.
 `--report` prints a report to the terminal and writes nothing:
 
 ```sh
-# The inventory: name, version, kind, source, license, purl
+# The inventory: name, version, kind, what declared it, source, license, purl
 pixi sbom --report packages
 
 # The license view, with a per-license summary, unlicensed and non-SPDX packages called out
@@ -354,6 +354,11 @@ satisfies it, ceiling) and a summary naming the interpreter, the ceiling and the
 
 The packages report carries a `Yanked` column (`yes: <reason>` for a withdrawn release, `-` otherwise) once
 `--fetch-licenses` has asked the index; the CSV and JSON forms carry `yanked` and `yanked_reason` fields.
+
+Its `Declared` column names the manifest features whose dependency tables asked for the package — `default`,
+`default,docs` — and `-` for everything that came along as somebody else's dependency; the summary under the table
+counts them and lists the names the manifest declares that this environment has no package for (a dependency of
+another platform is the usual reason). Both are absent when there is no manifest to read, as with `--prefix`.
 
 The vulnerabilities report has one row per finding and affected package (package, version, severity, the highest
 CVSS score, KEV, id, aliases, fixed version, status, summary; the CSV and JSON forms add the purl, the OSV URL, the

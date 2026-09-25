@@ -69,7 +69,7 @@ pixi sbom --pypi-mapping prefix --vulnerabilities osv --fail-on-severity high --
 # Flag what CISA lists as actively exploited, and fail on it
 pixi sbom --pypi-mapping prefix --vulnerabilities osv --kev --fail-on-kev
 
-# Just look: an inventory or license table in the terminal, nothing written
+# Just look: an inventory (with what the manifest declared) or a license table, nothing written
 pixi sbom --report packages
 pixi sbom --fetch-licenses --report licenses --report-format markdown
 
@@ -147,6 +147,7 @@ One document describes one environment on one platform, which is what SBOM consu
 | License file names, summary, project URLs (`--fetch-licenses`); texts (`--license-texts`) | `pixi:license-file` properties, `description`, `externalReferences[]`; `licenses[].license.text` | `licenseComments`, `summary`, `homepage`; extracted licensing infos | `licenseDeclared`, with `LicenseRef-pixi-*` + `hasExtractedLicensingInfos` for non-SPDX text |
 | Channel, subdir, build string, build number, size, index URL, ... | `properties[]` (`pixi:*`) | package `comment` (`key=value` lines) |
 | Dependency graph (resolved within the environment) | `dependencies[]` | `DEPENDS_ON` relationships |
+| What the workspace declared itself, per feature (from the manifest's dependency tables) | `pixi:direct` / `pixi:declared-in` properties, and the root's `dependencies` | the same properties in `comment`, and the root's `DEPENDS_ON` |
 | Environment, platform, lockfile name | `metadata.properties[]` | root package `sourceInfo` |
 
 The documents cover every [CISA 2026 SBOM minimum element](https://www.cisa.gov/sbom) that a lockfile can support:

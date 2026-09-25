@@ -9,7 +9,7 @@ once no matter how many output formats exist.
                  ▲             ▲       ├──▶ format/spdx.rs      ──▶ sbom.spdx.json (2.3)
                  │             │       └──▶ format/spdx3.rs     ──▶ sbom.spdx.json (3.0.1)
    purl.rs ──────┘             │
-   manifest.rs ────────────────┘   (workspace metadata)
+   manifest.rs ────────────────┘   (workspace metadata and declared dependencies)
    prefix.rs ───── --prefix: conda-meta records + site-packages dist-info into the same model
    config.rs ───── pixi-sbom.toml / [tool.pixi-sbom]: fills what the command line did not say
    filter.rs ───── --include/--exclude/--exclude-kind: drops packages and re-closes the graph first
@@ -41,7 +41,7 @@ once no matter how many output formats exist.
 |---|---|---|
 | `cli.rs` | The `Args` struct (clap derive) and the `Format` enum with its file-name helpers. Nothing else knows about clap. | clap |
 | `discover.rs` | Locating `pixi.lock` (explicit path or upward search) and resolving output paths for single- and all-environment runs. Pure path logic; the only I/O is `is_file()`. | — |
-| `manifest.rs` | Reading workspace name/version from `pixi.toml` or `pyproject.toml` into `model::Root`. Never fails: problems are logged and the directory name is used. | toml, serde |
+| `manifest.rs` | Reading `pixi.toml` or `pyproject.toml`: the workspace metadata into `model::Root`, and the dependency tables of every feature, which mark the packages an environment declared (`pixi:direct`). Never fails: problems are logged and the directory name is used. | toml, serde |
 | `lock.rs` | Parsing the lockfile with `rattler_lock`, selecting an environment and platform, converting each locked package into `model::Package`, and resolving the dependency graph. All lockfile-shape knowledge lives here. | rattler_lock, rattler_conda_types, purl.rs |
 | `prefix.rs` | `--prefix`: reads `conda-meta/*.json` into conda packages (purl, channel, hashes, license, `pixi:extracted-package-dir`) and `site-packages/*.dist-info` into PyPI packages (`METADATA` through `wheel::info_from_metadata`, `direct_url.json`, `INSTALLER` to skip conda-installed ones), then links dependencies with `lock::link_dependencies`. | serde_json, lock.rs, wheel.rs, purl.rs |
 | `purl.rs` | Building `pkg:conda` and `pkg:pypi` purls, PEP 503 name normalization, channel-name and archive-type helpers. | packageurl |
@@ -102,12 +102,12 @@ Two consequences of this design are worth knowing:
 
 1. `main` parses arguments and initializes logging and error reporting.
 2. `discover::resolve_lockfile` finds the lockfile. `lock::load` parses it once.
-3. `manifest::root_for_lockfile` reads the workspace name/version from the manifest next to the lockfile.
+3. `manifest::read` reads the manifest next to the lockfile: the workspace name/version, and the dependency tables that say what the workspace asked for.
 4. The list of `(environment, output path)` targets is built: a single pair, or one per environment with
    `--all-environments` (`default` first, then alphabetical).
 5. For each target, `lock::sbom_from_lock` selects the environment and platform (host platform via
    `rattler_conda_types::Platform::current()` when `-p` is absent), converts every locked package, resolves
-   dependencies, and sorts.
+   dependencies, and sorts. `Manifest::apply` then marks the packages the environment's features declare.
 6. `format::write` serializes with a fresh `WriteContext` and `main::write_output` writes the file, creating parent
    directories as needed.
 
@@ -134,17 +134,21 @@ guarded by validating output against the vendored official JSON schemas in tests
 Merging would force consumers to filter by property, and most tooling does not. `--all-environments` is a loop over
 the same single-document path, not a different document shape.
 
-**Workspace metadata from the manifest via `toml`.** Only name and version are needed. A 60-line reader covering
-`pixi.toml` and `pyproject.toml` is enough; failures degrade to the directory name rather than blocking output.
+**The manifest read with `toml`, not with pixi's own crates.** The reader covers `pixi.toml` and `pyproject.toml`:
+the workspace metadata, and the dependency tables of the top level, of each `[feature.<name>]`, and of their
+`[target.<platform>]` tables. Only the keys are read — a dependency's version spec is the solver's business, and the
+lockfile already has the answer. Failures degrade to the directory name rather than blocking output.
 
 **Intermediate model instead of writing directly from lock types.** Adds one small module but means every lockfile
 rule (source packages, partial metadata, purl construction, dependency resolution) is implemented and tested once,
 and a third format could be added without touching `lock.rs`.
 
-**Graph roots for the root component's dependencies.** The lockfile does not record which packages the manifest
-requested, so "direct" versus "transitive" cannot be derived from it. Packages that nothing else depends on are
-used as the root's dependencies; this is documented as a heuristic in [output-format.md](output-format.md). Reading
-the manifest's feature/dependency tables to recover the true direct set was considered and set aside as not needed.
+**Declared dependencies from the manifest, graph roots as the fallback.** The lockfile does not record which
+packages were requested, so the root component's edges were once the packages nothing else depends on — a heuristic
+that misses a declared dependency something else also needs (`python` is the usual example). The manifest does
+record it, so the declared set of the environment's features is read from there and marked `pixi:direct`; the root
+depends on that set together with the graph roots. Without a readable manifest (`--prefix`, a bare lockfile) the
+graph roots are still the whole answer, which is what [output-format.md](output-format.md) documents.
 
 **pixi as the only task runner.** Cargo is never invoked directly in docs, hooks, or CI; every command goes through
 a `pixi run` task so the toolchain is the pinned one from `pixi.lock`. See [development.md](development.md).
