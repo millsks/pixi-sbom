@@ -12,6 +12,7 @@ once no matter how many output formats exist.
    manifest.rs ────────────────┘   (workspace metadata and declared dependencies)
    prefix.rs ───── --prefix: conda-meta records + site-packages dist-info into the same model
    fromsbom.rs ─── --from-sbom: an existing CycloneDX / SPDX document into the same model
+   auditable.rs ── --prefix: the cargo auditable crate list inside installed binaries
    config.rs ───── pixi-sbom.toml / [tool.pixi-sbom]: fills what the command line did not say
    filter.rs ───── --include/--exclude/--exclude-kind: drops packages and re-closes the graph first
    mapping.rs ──── enriches model::Sbom with PyPI purls (optional, via http.rs)
@@ -68,6 +69,7 @@ once no matter how many output formats exist.
 | `osv.rs` | `--vulnerabilities osv`: collects every queryable purl (conda purls excluded), asks OSV's `querybatch` in thousands, fetches each record in parallel, caches queries (one hour) and records (until `modified` moves), merges GHSA / PYSEC twins by alias, picks the fixed version above the installed one, and fills `Sbom::vulnerabilities`. A failed query is fatal; a failed record is not. | serde_json, http.rs, cvss.rs, parallel.rs |
 | `kev.rs` | `--kev`: downloads CISA's KEV catalog (cached a day, stale copy on failure), looks each finding's CVE aliases up, and marks hits critical with the catalog's dates and required action. | serde_json, http.rs |
 | `fromsbom.rs` | `--from-sbom`: reads an existing CycloneDX / SPDX document into `model::Sbom` through the same reader `--against` uses, keeping the graph, the hashes and the `pixi:*` properties so a document of ours round-trips. | embedded.rs, diff.rs |
+| `auditable.rs` | `--prefix --embedded-sboms`: finds the `.dep-v0` section in the environment's ELF / Mach-O / PE binaries, inflates the `cargo auditable` crate list and attaches the crates under the conda package that ships the binary. | object, flate2, serde |
 | `imports.rs` | Reading the workspace's `.py` files for the top-level modules they import, and the modules the workspace provides itself. No Python is executed and no parser crate is used. | — |
 | `phantom.rs` | `--report phantom`: which package provides which module (from an installed environment's `dist-info`, else the wheel names), and the phantom / undeclared / unused findings. | — |
 | `stdlib.rs` | The standard library's module names, so an `import os` is never a missing dependency. | — |
@@ -168,6 +170,11 @@ is not in the lockfile, and a curated name-to-module table would be wrong the mo
 When the environment is installed, each `dist-info` answers exactly (`top_level.txt`, else `RECORD`); when it is
 not, a wheel is assumed to provide the module its name spells and conda packages are left out rather than guessed
 at. The report says which of the two answered, so a weaker answer is never passed off as the strong one.
+
+**`object` for the binary formats, not three hand-rolled parsers.** Finding one section in ELF, Mach-O (universal
+binaries included) and PE is exactly the job of the `object` crate, which the compiler ecosystem already depends
+on; with `default-features = false` and the read features for those three formats it brings only `memchr`. The
+crate list itself is a four-field JSON schema, so `auditable-serde` is not needed on top of it.
 
 **pixi as the only task runner.** Cargo is never invoked directly in docs, hooks, or CI; every command goes through
 a `pixi run` task so the toolchain is the pinned one from `pixi.lock`. See [development.md](development.md).

@@ -94,6 +94,7 @@ entry).
 | `pixi:direct` | any | `true` when the workspace manifest declares this package itself, rather than it coming along as somebody else's dependency |
 | `pixi:declared-in` | any | The features whose dependency tables declare it, comma separated (`default`, `default,docs`) |
 | `pixi:license-exempt` | any | Why the license policy does not apply (`--ignore-license`); `true` when no justification was given |
+| `pixi:cargo-source` | embedded (cargo) | Where a crate read from a `cargo auditable` binary came from: `crates.io`, `git`, `local`, ... |
 | `pixi:index-url` | PyPI | Index the wheel was resolved from |
 | `pixi:requires-python` | PyPI | `Requires-Python` of the distribution |
 | `pixi:source` | PyPI | `true` for sdists / source trees |
@@ -221,6 +222,16 @@ Every embedded package carries `pixi:kind=embedded` and `pixi:embedded-sbom=<whe
 separated, when more than one fragment declares the same purl; fragments merge into one package per purl).
 Embedded packages take part in `--report`, `--fetch-licenses` (their declared licenses) and the license policy.
 SPDX 3 fragments are not read yet. Conda packages have no equivalent convention.
+
+### Rust crates inside a binary (`cargo auditable`)
+
+conda-forge builds its Rust packages with `cargo auditable`, which embeds the resolved crate graph in the
+binary's own `.dep-v0` section. With `--prefix` and `--embedded-sboms` those crates are read out of the binaries
+the environment installed (ELF, Mach-O and PE alike) and attached like any other embedded component:
+`pixi:kind=embedded`, a `pkg:cargo/<name>@<version>` purl, `pixi:embedded-sbom=cargo-auditable:<file>` naming the
+binary, `pixi:cargo-source` (`crates.io`, `git`, `local`, ...), and an edge from the conda package to the crate
+its program was built from. Crates that only built the program (`kind: build`) are not in it and are left out.
+Because the purls are `pkg:cargo`, `--vulnerabilities osv` covers them through RUSTSEC.
 
 ### Installed environments
 

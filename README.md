@@ -144,7 +144,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--vulnerabilities osv` | off | Look every package with a PyPI / crates.io / npm purl up on [OSV](https://osv.dev) and record the findings in CycloneDX `vulnerabilities[]` (severity, CVSS, fixed version, aliases) |
 | `--kev` / `--fail-on-kev` | off | Mark findings in CISA's Known Exploited Vulnerabilities catalog (rated critical, with due dates); optionally exit 4 on them |
 | `--fail-on-severity` / `--ignore-vuln` | | Vulnerability gate: exit 4 on open findings at or above a severity; accepted findings keep a VEX-style `analysis` block |
-| `--embedded-sboms` | off | Attach the components declared by SBOMs embedded in wheels (PEP 770, e.g. Rust crates) under the wheel |
+| `--embedded-sboms` | off | Attach the components declared by SBOMs embedded in wheels (PEP 770, e.g. Rust crates) under the wheel; with `--prefix`, also the `cargo auditable` crate list inside the environment's binaries |
 | `--from-sbom <FILE>` | | Read an existing document (CycloneDX, SPDX 2.x or SPDX 3.0 JSON) instead of a lockfile and run the reports, policy and vulnerability gate on it |
 | `--scan <DIR>` | | Describe every pixi workspace under the directory: one document per `pixi.lock`, written under `--output` at the same relative path |
 | `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`, plus `sarif` for vulnerabilities); `diff --against <previous>` lists what changed, `outdated` how far behind each package is, `python` what caps the interpreter, `phantom` which imports and declarations do not line up |
