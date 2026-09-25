@@ -824,30 +824,31 @@ once no matter how many output formats exist.</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>   manifest.rs ────────────────┘   (workspace metadata and declared dependencies)
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>   prefix.rs ───── --prefix: conda-meta records + site-packages dist-info into the same model
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>   fromsbom.rs ─── --from-sbom: an existing CycloneDX / SPDX document into the same model
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>   config.rs ───── pixi-sbom.toml / [tool.pixi-sbom]: fills what the command line did not say
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>   filter.rs ───── --include/--exclude/--exclude-kind: drops packages and re-closes the graph first
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>   mapping.rs ──── enriches model::Sbom with PyPI purls (optional, via http.rs)
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>   pypi.rs ─────── fills PyPI licenses from the index (optional, via http.rs)
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>   pkgcache.rs ─── conda license files and metadata from the package cache (optional, offline)
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>   condaarchive.rs ─ the same from the channel archive by HTTP range (optional, via zipread.rs)
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>   wheel.rs ─────── PyPI license details from the wheel's dist-info (optional, via zipread.rs)
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>   imports.rs ───── --report phantom: what the workspace's own .py files import
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>   phantom.rs ───── --report phantom: those imports against the declared and installed sets
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>   embedded.rs ──── PEP 770 embedded SBOMs from the same wheels (optional)
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>   report.rs ───── --report: renders the model as a terminal table instead of a document
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>   style.rs ────── --color: when to colour, and which style each kind of cell gets
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>   progress.rs ─── progress bars for the fetches, hidden while a log line prints
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>   diff.rs ─────── --report diff --against: reads a previous document (any family) and compares
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>   outdated.rs ─── --report outdated: newest release, age and releases behind, per index
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>   pyversion.rs ── --report python: Requires-Python bounds and what caps the interpreter
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>   policy.rs ───── --allow/--deny/--require-license: violations -&gt; exit 3 after writing
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>   osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>   kev.rs ──────── --kev: CISA's Known Exploited Vulnerabilities catalog onto the findings (via http.rs)
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>   vulnpolicy.rs ─ --fail-on-severity / --fail-on-kev / --ignore-vuln: analysis blocks and exit 4 after writing
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>   license.rs ◀── used by both writers
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>   discover.rs ── finds the lockfile, decides output paths
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>   cli.rs ──────── clap definitions
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>   main.rs ─────── wires it together, logging, error reporting
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>   auditable.rs ── --prefix: the cargo auditable crate list inside installed binaries
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>   config.rs ───── pixi-sbom.toml / [tool.pixi-sbom]: fills what the command line did not say
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>   filter.rs ───── --include/--exclude/--exclude-kind: drops packages and re-closes the graph first
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>   mapping.rs ──── enriches model::Sbom with PyPI purls (optional, via http.rs)
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>   pypi.rs ─────── fills PyPI licenses from the index (optional, via http.rs)
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>   pkgcache.rs ─── conda license files and metadata from the package cache (optional, offline)
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>   condaarchive.rs ─ the same from the channel archive by HTTP range (optional, via zipread.rs)
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>   wheel.rs ─────── PyPI license details from the wheel's dist-info (optional, via zipread.rs)
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>   imports.rs ───── --report phantom: what the workspace's own .py files import
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>   phantom.rs ───── --report phantom: those imports against the declared and installed sets
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>   embedded.rs ──── PEP 770 embedded SBOMs from the same wheels (optional)
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>   report.rs ───── --report: renders the model as a terminal table instead of a document
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>   style.rs ────── --color: when to colour, and which style each kind of cell gets
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>   progress.rs ─── progress bars for the fetches, hidden while a log line prints
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>   diff.rs ─────── --report diff --against: reads a previous document (any family) and compares
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>   outdated.rs ─── --report outdated: newest release, age and releases behind, per index
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>   pyversion.rs ── --report python: Requires-Python bounds and what caps the interpreter
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>   policy.rs ───── --allow/--deny/--require-license: violations -&gt; exit 3 after writing
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>   osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>   kev.rs ──────── --kev: CISA's Known Exploited Vulnerabilities catalog onto the findings (via http.rs)
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>   vulnpolicy.rs ─ --fail-on-severity / --fail-on-kev / --ignore-vuln: analysis blocks and exit 4 after writing
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>   license.rs ◀── used by both writers
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>   discover.rs ── finds the lockfile, decides output paths
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>   cli.rs ──────── clap definitions
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>   main.rs ─────── wires it together, logging, error reporting
 </code></pre></div>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <table>
@@ -990,6 +991,11 @@ once no matter how many output formats exist.</p>
 <td>embedded.rs, diff.rs</td>
 </tr>
 <tr>
+<td><code>auditable.rs</code></td>
+<td><code>--prefix --embedded-sboms</code>: finds the <code>.dep-v0</code> section in the environment's ELF / Mach-O / PE binaries, inflates the <code>cargo auditable</code> crate list and attaches the crates under the conda package that ships the binary.</td>
+<td>object, flate2, serde</td>
+</tr>
+<tr>
 <td><code>imports.rs</code></td>
 <td>Reading the workspace's <code>.py</code> files for the top-level modules they import, and the modules the workspace provides itself. No Python is executed and no parser crate is used.</td>
 <td>—</td>
@@ -1128,6 +1134,10 @@ is not in the lockfile, and a curated name-to-module table would be wrong the mo
 When the environment is installed, each <code>dist-info</code> answers exactly (<code>top_level.txt</code>, else <code>RECORD</code>); when it is
 not, a wheel is assumed to provide the module its name spells and conda packages are left out rather than guessed
 at. The report says which of the two answered, so a weaker answer is never passed off as the strong one.</p>
+<p><strong><code>object</code> for the binary formats, not three hand-rolled parsers.</strong> Finding one section in ELF, Mach-O (universal
+binaries included) and PE is exactly the job of the <code>object</code> crate, which the compiler ecosystem already depends
+on; with <code>default-features = false</code> and the read features for those three formats it brings only <code>memchr</code>. The
+crate list itself is a four-field JSON schema, so <code>auditable-serde</code> is not needed on top of it.</p>
 <p><strong>pixi as the only task runner.</strong> Cargo is never invoked directly in docs, hooks, or CI; every command goes through
 a <code>pixi run</code> task so the toolchain is the pinned one from <code>pixi.lock</code>. See <a href="../development/">development.md</a>.</p>
 <h2 id="adding-a-format">Adding a format<a class="headerlink" href="#adding-a-format" title="Permanent link">&para;</a></h2>

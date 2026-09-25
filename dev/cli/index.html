@@ -1317,7 +1317,7 @@
 <tr>
 <td><code>--embedded-sboms</code></td>
 <td>off</td>
-<td>Add the components declared by SBOMs embedded in wheels (PEP 770, e.g. the Rust crates maturin compiled in) as dependencies of the wheel. Reads each wheel's <code>dist-info</code> like <code>--fetch-licenses</code>.</td>
+<td>Add the components declared by SBOMs embedded in wheels (PEP 770, e.g. the Rust crates maturin compiled in) as dependencies of the wheel. Reads each wheel's <code>dist-info</code> like <code>--fetch-licenses</code>. With <code>--prefix</code>, also reads the <code>cargo auditable</code> crate list out of the environment's binaries.</td>
 </tr>
 <tr>
 <td><code>--allow-license &lt;LICENSE&gt;</code></td>
@@ -1493,6 +1493,13 @@ instead of <code>pixi:lockfile</code>. <code>--fetch-licenses</code> reads the l
 package was extracted to (<code>extracted_package_dir</code>, the package cache), so it needs no network on the machine
 that installed the environment. The default output is <code>sbom.cdx.json</code> in the working directory, and the
 configuration file is looked up there too.</p>
+<p>With <code>--embedded-sboms</code> the binaries themselves are read too: conda-forge builds its Rust packages with
+<code>cargo auditable</code>, which embeds the resolved crate graph in the program's <code>.dep-v0</code> section, and that is the only
+record of what went into <code>ripgrep</code> or <code>fd</code> — the lockfile knows the conda package and nothing below it. Every
+program and shared library the environment installed (<code>bin/</code>, <code>sbin/</code>, <code>libexec/</code>, <code>Scripts/</code>, and <code>.so</code> / <code>.dylib</code>
+/ <code>.dll</code> / <code>.pyd</code> files) is checked by its first four bytes and read only when it is an object file. The crates
+become components with <code>pkg:cargo</code> purls under the package that ships the binary, so <code>--vulnerabilities osv</code>
+covers them through RUSTSEC; crates that only built the program are left out.</p>
 <h2 id="configuration-file">Configuration file<a class="headerlink" href="#configuration-file" title="Permanent link">&para;</a></h2>
 <p>The settings that make CI invocations long can live with the project. Before the command line is applied,
 <code>pixi sbom</code> reads <code>[tool.pixi-sbom]</code> from the <code>pyproject.toml</code> next to the lockfile when that table exists, else a

@@ -635,6 +635,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#rust-crates-inside-a-binary-cargo-auditable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rust crates inside a binary (cargo auditable)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#installed-environments" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1048,6 +1059,17 @@
     <span class="md-ellipsis">
       
         Embedded SBOMs (PEP 770)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rust-crates-inside-a-binary-cargo-auditable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rust crates inside a binary (cargo auditable)
       
     </span>
   </a>
@@ -1484,6 +1506,11 @@ entry).</p>
 <td>Why the license policy does not apply (<code>--ignore-license</code>); <code>true</code> when no justification was given</td>
 </tr>
 <tr>
+<td><code>pixi:cargo-source</code></td>
+<td>embedded (cargo)</td>
+<td>Where a crate read from a <code>cargo auditable</code> binary came from: <code>crates.io</code>, <code>git</code>, <code>local</code>, ...</td>
+</tr>
+<tr>
 <td><code>pixi:index-url</code></td>
 <td>PyPI</td>
 <td>Index the wheel was resolved from</td>
@@ -1688,6 +1715,14 @@ kind <code>embedded</code>:</p>
 separated, when more than one fragment declares the same purl; fragments merge into one package per purl).
 Embedded packages take part in <code>--report</code>, <code>--fetch-licenses</code> (their declared licenses) and the license policy.
 SPDX 3 fragments are not read yet. Conda packages have no equivalent convention.</p>
+<h3 id="rust-crates-inside-a-binary-cargo-auditable">Rust crates inside a binary (<code>cargo auditable</code>)<a class="headerlink" href="#rust-crates-inside-a-binary-cargo-auditable" title="Permanent link">&para;</a></h3>
+<p>conda-forge builds its Rust packages with <code>cargo auditable</code>, which embeds the resolved crate graph in the
+binary's own <code>.dep-v0</code> section. With <code>--prefix</code> and <code>--embedded-sboms</code> those crates are read out of the binaries
+the environment installed (ELF, Mach-O and PE alike) and attached like any other embedded component:
+<code>pixi:kind=embedded</code>, a <code>pkg:cargo/&lt;name&gt;@&lt;version&gt;</code> purl, <code>pixi:embedded-sbom=cargo-auditable:&lt;file&gt;</code> naming the
+binary, <code>pixi:cargo-source</code> (<code>crates.io</code>, <code>git</code>, <code>local</code>, ...), and an edge from the conda package to the crate
+its program was built from. Crates that only built the program (<code>kind: build</code>) are not in it and are left out.
+Because the purls are <code>pkg:cargo</code>, <code>--vulnerabilities osv</code> covers them through RUSTSEC.</p>
 <h3 id="installed-environments">Installed environments<a class="headerlink" href="#installed-environments" title="Permanent link">&para;</a></h3>
 <p>With <code>--prefix</code> the document describes an installed environment instead of a lockfile: the metadata property is
 <code>pixi:prefix</code> (the environment directory's name) rather than <code>pixi:lockfile</code>, the SPDX root package's source info
