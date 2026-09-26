@@ -37,6 +37,7 @@ mod report;
 mod scorecard;
 mod stdlib;
 mod style;
+mod timings;
 mod vulnpolicy;
 mod wheel;
 mod zipread;
@@ -62,6 +63,7 @@ pub fn assert_actionable(err: &dyn miette::Diagnostic) {
 }
 
 fn main() -> Result<()> {
+    let started = std::time::Instant::now();
     let matches = cli::Args::command().get_matches();
     let mut args = cli::Args::from_arg_matches(&matches).into_diagnostic()?;
     init_tracing(&args);
@@ -153,11 +155,11 @@ fn main() -> Result<()> {
         }),
         (None, Some(_)) => None,
         (None, None) => {
-            let lock::LoadedLock { lock, contents } = lock::load(&lockfile)?;
+            let lock::LoadedLock { lock, contents } = timings::time(timings::Phase::Input, || lock::load(&lockfile))?;
             Some(Input::Lock {
                 lock,
                 contents,
-                manifest: manifest::read(&lockfile),
+                manifest: timings::time(timings::Phase::Manifest, || manifest::read(&lockfile)),
             })
         }
     };
@@ -210,7 +212,7 @@ fn main() -> Result<()> {
         .iter()
         .flat_map(|workspace| workspace.targets.iter().map(move |target| (workspace, target)))
         .collect();
-    let pypi_mapping = load_pypi_mapping(&args)?;
+    let pypi_mapping = timings::time(timings::Phase::Mapping, || load_pypi_mapping(&args))?;
     tracing::debug!(documents = targets.len(), format = ?args.format, "resolved targets");
     let mut reports = Vec::new();
     let exemptions: Vec<policy::Exemption> = args
@@ -352,7 +354,9 @@ fn main() -> Result<()> {
                 fetched,
                 failed,
                 skipped,
-            } = wheel::enrich(&mut sbom, &cache_dir, args.license_texts, progress);
+            } = timings::time(timings::Phase::Wheels, || {
+                wheel::enrich(&mut sbom, &cache_dir, args.license_texts, progress)
+            });
             tracing::info!(fetched, failed, skipped, "read PyPI license details from wheels");
             sbom.incomplete
                 .note_failures("wheel-licenses", failed, fetched + failed, "wheel reads");
@@ -381,7 +385,9 @@ fn main() -> Result<()> {
                 files,
                 missing,
             } = if fetch_licenses {
-                pkgcache::enrich(&mut sbom, &pkgs, args.license_texts, progress)
+                timings::time(timings::Phase::PackageCache, || {
+                    pkgcache::enrich(&mut sbom, &pkgs, args.license_texts, progress)
+                })
             } else {
                 pkgcache::Outcome::default()
             };
@@ -393,7 +399,9 @@ fn main() -> Result<()> {
                     fetched,
                     failed,
                     skipped,
-                } = condaarchive::enrich(&mut sbom, &missing, &cache_dir, args.license_texts, progress);
+                } = timings::time(timings::Phase::Archives, || {
+                    condaarchive::enrich(&mut sbom, &missing, &cache_dir, args.license_texts, progress)
+                });
                 tracing::info!(
                     fetched,
                     failed,
@@ -413,7 +421,8 @@ fn main() -> Result<()> {
                     missing,
                     failed,
                     yanked,
-                } = lookup.run(&mut sbom, progress);
+                } = timings::time(timings::Phase::Pypi, || lookup.run(&mut sbom, progress));
+                timings::describe(timings::Phase::Pypi, format!("{found} found, {failed} failed"));
                 tracing::info!(found, missing, failed, yanked, "looked up PyPI releases");
                 sbom.incomplete
                     .note_failures("pypi-releases", failed, found + missing + failed, "index lookups");
@@ -431,7 +440,11 @@ fn main() -> Result<()> {
                 findings,
                 failed,
                 unanswered,
-            } = lookup.run(&mut sbom, progress)?;
+            } = timings::time(timings::Phase::Vulnerabilities, || lookup.run(&mut sbom, progress))?;
+            timings::describe(
+                timings::Phase::Vulnerabilities,
+                format!("{queried} queried, {findings} findings"),
+            );
             tracing::info!(
                 queried,
                 without_identity,
@@ -531,7 +544,7 @@ fn main() -> Result<()> {
                 anaconda_url: &outdated::anaconda_url(),
                 cache_dir: &cache_dir,
             };
-            let (statuses, outcome) = lookup.run(&sbom, progress);
+            let (statuses, outcome) = timings::time(timings::Phase::Outdated, || lookup.run(&sbom, progress));
             tracing::info!(
                 checked = outcome.checked,
                 outdated = outcome.outdated,
@@ -555,7 +568,9 @@ fn main() -> Result<()> {
                 scored,
                 unknown,
                 failed,
-            } = lookup.run(&mut sbom, args.scorecard_min, progress);
+            } = timings::time(timings::Phase::Scorecard, || {
+                lookup.run(&mut sbom, args.scorecard_min, progress)
+            });
             tracing::info!(scored, unknown, failed, "read OpenSSF scorecards");
             sbom.incomplete
                 .note_failures("scorecard", failed, scored + unknown + failed, "lookups");
@@ -596,7 +611,7 @@ fn main() -> Result<()> {
             } else {
                 args.source.clone()
             };
-            let scanned = imports::scan(&roots);
+            let scanned = timings::time(timings::Phase::Imports, || imports::scan(&roots));
             let environment = phantom::environment_dir(
                 &sbom,
                 lockfile.parent().unwrap_or(Path::new(".")),
@@ -688,7 +703,7 @@ fn main() -> Result<()> {
             );
         }
         let ctx = format::WriteContext::for_document(&contents, &sbom, args.format, spec_version);
-        write_output(output, args.format, &sbom, &ctx)?;
+        timings::time(timings::Phase::Write, || write_output(output, args.format, &sbom, &ctx))?;
         tracing::info!(
             output = %output,
             format = ?args.format,
@@ -707,6 +722,13 @@ fn main() -> Result<()> {
                 "wrote VEX"
             );
         }
+    }
+    if args.timings {
+        let mut stderr = std::io::stderr().lock();
+        for line in timings::table(started.elapsed()) {
+            let _ = writeln!(stderr, "{line}");
+        }
+        let _ = stderr.flush();
     }
     // Where the answers came from: a run that is fast because everything was cached should
     // say so, and one that refreshed should show the fetches.
@@ -1343,7 +1365,7 @@ fn scanned_workspace(args: &cli::Args, scanned: &Path, lockfile: std::path::Path
         None => dir.clone(),
     };
     let targets = resolve_targets(args, &lock, &lockfile, Some(&output_dir))?;
-    let manifest = manifest::read(&lockfile);
+    let manifest = timings::time(timings::Phase::Manifest, || manifest::read(&lockfile));
     Ok(Workspace {
         lockfile,
         input: Input::Lock {

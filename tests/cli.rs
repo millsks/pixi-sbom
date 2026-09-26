@@ -1033,6 +1033,47 @@ fn an_empty_vulnerability_report_says_whether_anything_could_be_asked() {
 }
 
 #[test]
+fn timings_say_where_the_run_spent_its_time() {
+    let dir = workspace("with-pypi");
+    let stderr = |args: &[&str]| -> String {
+        String::from_utf8(
+            pixi_sbom()
+                .current_dir(dir.path())
+                .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+                .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+                .env("PIXI_SBOM_OFFLINE", "1")
+                .args(["-e", "web", "-p", "linux-64", "--output", "-"])
+                .args(args)
+                .assert()
+                .success()
+                .get_output()
+                .stderr
+                .clone(),
+        )
+        .unwrap()
+    };
+
+    let table = stderr(&["--timings", "-q"]);
+    assert!(table.contains("Phase") && table.contains("Detail"), "{table}");
+    // The phases a plain run goes through, and the total.
+    for phase in ["input", "manifest", "write", "total"] {
+        assert!(table.contains(phase), "{phase} is missing from {table}");
+    }
+    // Offline, nothing was spent waiting, and the line says so rather than leaving it out.
+    assert!(table.contains("of which 0.00 s waiting on the network"), "{table}");
+
+    // The enrichment phases appear only when they run.
+    assert!(!table.contains("pypi metadata"), "{table}");
+    let enriched = stderr(&["--timings", "-q", "--fetch-licenses"]);
+    assert!(enriched.contains("pypi metadata"), "{enriched}");
+    assert!(enriched.contains("wheels (dist-info)"), "{enriched}");
+
+    // And nothing is printed without the flag.
+    let quiet = stderr(&["-q"]);
+    assert!(!quiet.contains("Phase"), "{quiet}");
+}
+
+#[test]
 fn every_request_is_visible_at_debug_and_a_failure_names_its_cause() {
     let dir = workspace("with-pypi");
     let run = |args: &[&str]| {
