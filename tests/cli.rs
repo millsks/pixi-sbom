@@ -5146,3 +5146,48 @@ fn a_private_ca_bundle_is_checked_before_the_first_request() {
     let text = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
     assert!(text.contains("TLS roots  the platform verifier"), "{text}");
 }
+
+#[test]
+fn the_number_of_jobs_at_once_is_configurable_and_never_changes_the_document() {
+    let dir = workspace("with-pypi");
+    let run = |concurrency: Option<&str>| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("SOURCE_DATE_EPOCH", "1700000000")
+            .args(["-e", "web", "-p", "linux-64", "--fetch-licenses", "--output", "-"]);
+        match concurrency {
+            Some(value) => command.env("PIXI_SBOM_CONCURRENCY", value),
+            None => command.env_remove("PIXI_SBOM_CONCURRENCY"),
+        };
+        command
+    };
+
+    // One job at a time and the default produce the same document, byte for byte: a scheduler
+    // that could change the output would make the documents unreproducible.
+    let default = run(None).assert().success().get_output().stdout.clone();
+    let serial = run(Some("1")).assert().success().get_output().stdout.clone();
+    let many = run(Some("16")).assert().success().get_output().stdout.clone();
+    assert_eq!(default, serial, "one job at a time writes the same document");
+    assert_eq!(default, many, "sixteen jobs at a time write the same document");
+    assert!(!default.is_empty());
+
+    // A value that is not a number is named and ignored rather than stopping the run.
+    let assert = run(Some("plenty")).assert().success();
+    let log = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+    assert!(log.contains("not a positive number of jobs"), "{log}");
+    assert!(log.contains("value=\"plenty\""), "{log}");
+    assert_eq!(assert.get_output().stdout, default, "and the document is unchanged");
+
+    // The chosen limits are in the debug log, where a run that is slower than expected can be
+    // checked against what it was allowed to do.
+    let assert = run(Some("3")).args(["-v"]).assert().success();
+    let log = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+    assert!(
+        log.contains("concurrency") && log.contains("network=3") && log.contains("cpu=3"),
+        "{log}"
+    );
+}

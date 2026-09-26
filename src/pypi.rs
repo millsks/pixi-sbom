@@ -41,9 +41,6 @@ const MAX_METADATA_BYTES: u64 = 8 * 1024 * 1024;
 /// this are not a name and are ignored.
 const MAX_LICENSE_FIELD_LEN: usize = 200;
 
-/// Lookups in flight at once, as for the archive and wheel fetches.
-const CONCURRENCY: usize = 10;
-
 #[derive(Debug, Deserialize)]
 struct Metadata {
     info: Info,
@@ -205,9 +202,8 @@ impl Lookup<'_> {
         let mut outcome = Outcome::default();
         let network_down = AtomicBool::new(false);
         let bar = progress.bar("PyPI releases", jobs.len());
-        let results = crate::parallel::map(
+        let results = crate::concurrency::map(
             &jobs,
-            CONCURRENCY,
             Some(&bar),
             |job| job.display_name.clone(),
             |job| self.metadata(&job.name, &job.version, fetch, &network_down),
@@ -594,7 +590,7 @@ mod tests {
         let outcome = lookup_in("b").run_with(&mut sbom, &offline, crate::progress::Progress::default());
         assert_eq!(outcome.failed, 2);
         assert!(
-            calls.load(std::sync::atomic::Ordering::SeqCst) <= CONCURRENCY,
+            calls.load(std::sync::atomic::Ordering::SeqCst) <= crate::concurrency::network(),
             "stops asking once the network is gone"
         );
 

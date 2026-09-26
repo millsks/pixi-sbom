@@ -17,9 +17,6 @@ use crate::zipread;
 /// Property value recorded on packages whose details came from the wheel.
 pub const LICENSE_SOURCE: &str = "wheel";
 
-/// Fetches in flight at once.
-const CONCURRENCY: usize = 10;
-
 /// Largest license file read, in bytes.
 const MAX_LICENSE_FILE_BYTES: u64 = 1024 * 1024;
 
@@ -89,9 +86,8 @@ pub fn enrich(sbom: &mut Sbom, cache_dir: &Path, texts: bool, progress: crate::p
         });
     }
     let bar = progress.bar("wheels", jobs.len());
-    let results = crate::parallel::map(
+    let results = crate::concurrency::map(
         &jobs,
-        CONCURRENCY,
         Some(&bar),
         |job| job.name.clone(),
         |job| info_for(&job.location, &job.key, cache_dir, texts),

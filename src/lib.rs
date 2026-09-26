@@ -8,6 +8,7 @@
 pub mod auditable;
 pub mod cache;
 pub mod cli;
+pub mod concurrency;
 pub mod condaarchive;
 pub mod config;
 pub mod cvss;
@@ -29,7 +30,6 @@ pub mod mapping;
 pub mod model;
 pub mod osv;
 pub mod outdated;
-pub mod parallel;
 pub mod phantom;
 pub mod pkgcache;
 pub mod policy;

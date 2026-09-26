@@ -29,9 +29,6 @@ const CACHE_MAX_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 /// Largest project document accepted, in bytes.
 const MAX_BYTES: u64 = 32 * 1024 * 1024;
 
-/// Lookups in flight at once.
-const CONCURRENCY: usize = 10;
-
 /// The anaconda.org API base from the environment or the default.
 pub fn anaconda_url() -> String {
     std::env::var(ANACONDA_URL_ENV)
@@ -349,9 +346,8 @@ impl Lookup<'_> {
         }
 
         let bar = progress.bar("releases", jobs.len());
-        let documents = crate::parallel::map(
+        let documents = crate::concurrency::map(
             &jobs,
-            CONCURRENCY,
             Some(&bar),
             |job| job.display_name.clone(),
             |job| self.document(job, fetch, now),
