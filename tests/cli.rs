@@ -659,6 +659,76 @@ fn the_run_says_which_input_and_which_settings_it_chose() {
 }
 
 #[test]
+fn the_run_says_what_it_will_talk_to_before_it_talks_to_anything() {
+    let dir = workspace("with-pypi");
+    // The block is logged before anything is fetched, so it is there whether or not the run
+    // goes on to fail: offline, a missing KEV or mapping cache is fatal by design.
+    let stderr = |args: &[&str], envs: &[(&str, &str)]| -> String {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(["-e", "web", "-p", "linux-64", "--output", "-"])
+            .args(args);
+        for (name, value) in envs {
+            command.env(name, value);
+        }
+        String::from_utf8(command.assert().get_output().stderr.clone()).unwrap()
+    };
+
+    // Every upstream the flags bring in is named, with where its address came from.
+    let log = stderr(
+        &[
+            "-v",
+            "--fetch-licenses",
+            "--pypi-mapping",
+            "prefix",
+            "--vulnerabilities",
+            "osv",
+            "--kev",
+        ],
+        &[("PIXI_SBOM_OSV_URL", "https://osv.internal")],
+    );
+    assert!(log.contains("network configuration"), "{log}");
+    assert!(log.contains("offline=true"), "{log}");
+    assert!(log.contains("service=\"PyPI index\""), "{log}");
+    assert!(log.contains("service=\"conda-forge PyPI mapping\""), "{log}");
+    assert!(log.contains("service=\"CISA KEV\""), "{log}");
+    assert!(
+        log.contains("url=https://osv.internal source=\"PIXI_SBOM_OSV_URL\""),
+        "an overridden address says which variable set it: {log}"
+    );
+    assert!(log.contains("cache directory"), "{log}");
+
+    // The proxy in effect is named, with its password taken out.
+    let proxied = stderr(
+        &["-v", "--fetch-licenses"],
+        &[("HTTPS_PROXY", "http://someone:hunter2@proxy.corp:8080")],
+    );
+    assert!(
+        proxied.contains("proxy=\"HTTPS_PROXY=http://someone:***@proxy.corp:8080\""),
+        "{proxied}"
+    );
+    assert!(!proxied.contains("hunter2"), "the password never reaches the log");
+
+    // A run that touches nothing says nothing about the network.
+    let quiet = String::from_utf8(
+        pixi_sbom()
+            .current_dir(dir.path())
+            .args(["-e", "web", "-p", "linux-64", "-v", "--output", "-"])
+            .assert()
+            .success()
+            .get_output()
+            .stderr
+            .clone(),
+    )
+    .unwrap();
+    assert!(!quiet.contains("network configuration"), "{quiet}");
+}
+
+#[test]
 fn every_request_is_visible_at_debug_and_a_failure_names_its_cause() {
     let dir = workspace("with-pypi");
     let run = |args: &[&str]| {
