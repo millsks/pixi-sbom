@@ -217,31 +217,41 @@ impl Lookup<'_> {
             .ok()
             .map(|modified| now.duration_since(modified).unwrap_or(Duration::ZERO));
         let text = match (&cached, age) {
-            (Some(text), Some(age)) if age <= CACHE_MAX_AGE || http::offline() => text.clone(),
-            _ => match fetch(&job.url) {
-                Ok(text) => {
-                    if let Err(err) = job
-                        .cache_file
-                        .parent()
-                        .map_or(Ok(()), std::fs::create_dir_all)
-                        .and_then(|()| std::fs::write(&job.cache_file, &text))
-                    {
-                        tracing::warn!(path = %job.cache_file.display(), %err, "cannot cache the scorecard");
+            (Some(text), Some(age))
+                if (age <= CACHE_MAX_AGE || http::offline())
+                    && crate::cache::may_read(crate::cache::Service::Scorecard) =>
+            {
+                crate::cache::hit(crate::cache::Service::Scorecard, age);
+                text.clone()
+            }
+            _ => {
+                crate::cache::miss(crate::cache::Service::Scorecard);
+                match fetch(&job.url) {
+                    Ok(text) => {
+                        if crate::cache::may_write(crate::cache::Service::Scorecard)
+                            && let Err(err) = job
+                                .cache_file
+                                .parent()
+                                .map_or(Ok(()), std::fs::create_dir_all)
+                                .and_then(|()| std::fs::write(&job.cache_file, &text))
+                        {
+                            tracing::warn!(path = %job.cache_file.display(), %err, "cannot cache the scorecard");
+                        }
+                        text
                     }
-                    text
+                    Err(err) => {
+                        // A repository the service has never scored answers 404; that is an
+                        // answer, not a failure of the run.
+                        tracing::debug!(
+                            package = %job.display_name,
+                            project = %job.project,
+                            cause = crate::http::error_chain(err.as_ref()),
+                            "no scorecard"
+                        );
+                        cached?
+                    }
                 }
-                Err(err) => {
-                    // A repository the service has never scored answers 404; that is an
-                    // answer, not a failure of the run.
-                    tracing::debug!(
-                        package = %job.display_name,
-                        project = %job.project,
-                        cause = crate::http::error_chain(err.as_ref()),
-                        "no scorecard"
-                    );
-                    cached?
-                }
-            },
+            }
         };
         match serde_json::from_str::<Scorecard>(&text) {
             Ok(card) => Some(card),

@@ -729,6 +729,78 @@ fn the_run_says_what_it_will_talk_to_before_it_talks_to_anything() {
 }
 
 #[test]
+fn the_caches_can_be_bypassed_and_say_what_they_served() {
+    let dir = workspace_with_vulnerable_urllib3();
+    let run = |args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args([
+                "-e",
+                "web",
+                "-p",
+                "linux-64",
+                "--vulnerabilities",
+                "osv",
+                "--output",
+                "-",
+            ])
+            .args(args);
+        command
+    };
+    let findings = |assert: assert_cmd::assert::Assert| -> usize {
+        let document: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+        document["vulnerabilities"].as_array().map(Vec::len).unwrap_or_default()
+    };
+
+    // The recorded answers are on disk, so the run finds everything and says where it came from.
+    let assert = run(&[]).assert().success();
+    let served = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+    assert_eq!(findings(assert), 9);
+    assert!(served.contains("cache=\"osv\""), "{served}");
+    assert!(served.contains("from_cache=6"), "{served}");
+
+    // --refresh ignores them, and offline there is nothing to replace them with: the run still
+    // succeeds, and the difference is the point.
+    let assert = run(&["--refresh", "osv"]).assert().success();
+    assert_eq!(findings(assert), 0, "the cached answers were not used");
+
+    // --no-cache is the same for reading and also leaves nothing behind.
+    let empty = dir.path().join("fresh-cache");
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", &empty)
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args([
+            "-e",
+            "web",
+            "-p",
+            "linux-64",
+            "--vulnerabilities",
+            "osv",
+            "--no-cache",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .success();
+    assert_eq!(findings(assert), 0);
+    assert!(!empty.join("osv").is_dir(), "--no-cache wrote a cache directory anyway");
+
+    // The two flags are not compatible.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--refresh", "osv", "--refresh", "kev", "--no-cache"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("cannot be used with"));
+}
+
+#[test]
 fn every_request_is_visible_at_debug_and_a_failure_names_its_cause() {
     let dir = workspace("with-pypi");
     let run = |args: &[&str]| {

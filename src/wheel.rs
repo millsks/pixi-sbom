@@ -137,9 +137,14 @@ fn apply(package: &mut crate::model::Package, info: WheelInfo) {
 /// The wheel's details: from the cache when present, otherwise read from the wheel and cached.
 fn info_for(location: &str, key: &str, cache_dir: &Path, texts: bool) -> io::Result<WheelInfo> {
     let dir = cache_dir.join("wheel-info").join(key);
-    if let Some(info) = read_cached(&dir, texts) {
+    if crate::cache::may_read(crate::cache::Service::Wheels)
+        && let Some(info) = read_cached(&dir, texts)
+    {
+        let age = crate::cache::age(&dir.join("METADATA"), std::time::SystemTime::now());
+        crate::cache::hit(crate::cache::Service::Wheels, age.unwrap_or_default());
         return Ok(info);
     }
+    crate::cache::miss(crate::cache::Service::Wheels);
     extract(location, &dir)?;
     read_cached(&dir, texts).ok_or_else(|| io::Error::other("wheel has no METADATA"))
 }

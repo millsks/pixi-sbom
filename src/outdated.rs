@@ -397,16 +397,20 @@ impl Lookup<'_> {
             .map(|modified| now.duration_since(modified).unwrap_or(Duration::ZERO));
         if let (Some(json), Some(age)) = (&cached, age)
             && (age <= CACHE_MAX_AGE || http::offline())
+            && crate::cache::may_read(crate::cache::Service::Outdated)
         {
+            crate::cache::hit(crate::cache::Service::Outdated, age);
             return Some(json.clone());
         }
+        crate::cache::miss(crate::cache::Service::Outdated);
         match fetch(&job.url) {
             Ok(json) => {
-                if let Err(err) = job
-                    .cache_file
-                    .parent()
-                    .map_or(Ok(()), std::fs::create_dir_all)
-                    .and_then(|()| std::fs::write(&job.cache_file, &json))
+                if crate::cache::may_write(crate::cache::Service::Outdated)
+                    && let Err(err) = job
+                        .cache_file
+                        .parent()
+                        .map_or(Ok(()), std::fs::create_dir_all)
+                        .and_then(|()| std::fs::write(&job.cache_file, &json))
                 {
                     tracing::warn!(path = %job.cache_file.display(), %err, "cannot cache the project document");
                 }

@@ -164,18 +164,22 @@ impl Catalog {
             .map(|modified| now.duration_since(modified).unwrap_or(Duration::ZERO));
         if let (Some(json), Some(age)) = (&cached, age)
             && (age <= max_age || http::offline())
+            && crate::cache::may_read(crate::cache::Service::Kev)
         {
             tracing::debug!(path = %cache_file.display(), age_secs = age.as_secs(), "using the cached KEV catalog");
+            crate::cache::hit(crate::cache::Service::Kev, age);
             return Self::from_json(json, &cache_file.display().to_string());
         }
+        crate::cache::miss(crate::cache::Service::Kev);
         tracing::info!(url, "downloading the CISA KEV catalog");
         match download(url) {
             Ok(json) => {
                 let catalog = Self::from_json(&json, url)?;
-                if let Err(err) = cache_file
-                    .parent()
-                    .map_or(Ok(()), std::fs::create_dir_all)
-                    .and_then(|()| std::fs::write(&cache_file, &json))
+                if crate::cache::may_write(crate::cache::Service::Kev)
+                    && let Err(err) = cache_file
+                        .parent()
+                        .map_or(Ok(()), std::fs::create_dir_all)
+                        .and_then(|()| std::fs::write(&cache_file, &json))
                 {
                     tracing::warn!(path = %cache_file.display(), %err, "cannot cache the KEV catalog");
                 }

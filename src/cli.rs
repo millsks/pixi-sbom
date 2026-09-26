@@ -107,6 +107,36 @@ pub enum OutdatedOnly {
     Major,
 }
 
+/// What `--refresh` may be pointed at: one cache, or all of them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum RefreshTarget {
+    /// Every cache.
+    All,
+    Mapping,
+    Osv,
+    Kev,
+    Wheels,
+    Pypi,
+    Outdated,
+    Scorecard,
+}
+
+impl RefreshTarget {
+    /// The cache it names, or `None` for `all`.
+    pub fn service(self) -> Option<crate::cache::Service> {
+        Some(match self {
+            RefreshTarget::All => return None,
+            RefreshTarget::Mapping => crate::cache::Service::Mapping,
+            RefreshTarget::Osv => crate::cache::Service::Osv,
+            RefreshTarget::Kev => crate::cache::Service::Kev,
+            RefreshTarget::Wheels => crate::cache::Service::Wheels,
+            RefreshTarget::Pypi => crate::cache::Service::Pypi,
+            RefreshTarget::Outdated => crate::cache::Service::Outdated,
+            RefreshTarget::Scorecard => crate::cache::Service::Scorecard,
+        })
+    }
+}
+
 /// How the licenses report is grouped.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum GroupBy {
@@ -433,6 +463,15 @@ pub struct Args {
     /// The analysis state a VEX gives findings nobody has assessed with --ignore-vuln.
     #[arg(long, value_enum, value_name = "STATE", default_value_t = VexOpenState::InTriage, requires = "vex")]
     pub vex_open: VexOpenState,
+
+    /// Ignore cached answers for this run and ask again. Without a value every cache is
+    /// refreshed; with one (repeatable) only that one is. What is fetched is still cached.
+    #[arg(long, value_enum, value_name = "CACHE", num_args = 0.., default_missing_value = "all")]
+    pub refresh: Vec<RefreshTarget>,
+
+    /// Neither read nor write any cache, for a clean reproduction.
+    #[arg(long, conflicts_with = "refresh")]
+    pub no_cache: bool,
 
     /// Print a report to the terminal instead of writing an SBOM document: `packages` is the
     /// inventory, `licenses` the license view with a summary, `vulnerabilities` the findings

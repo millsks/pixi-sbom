@@ -152,16 +152,22 @@ impl PypiMapping {
 
         if let (Some(json), Some(age)) = (&cached, age)
             && age <= max_age
+            && crate::cache::may_read(crate::cache::Service::Mapping)
         {
             tracing::debug!(path = %cache_file.display(), age_secs = age.as_secs(), "using cached PyPI mapping");
+            crate::cache::hit(crate::cache::Service::Mapping, age);
             return Self::from_json(json, &cache_file.display().to_string(), "prefix");
         }
+        crate::cache::miss(crate::cache::Service::Mapping);
 
         tracing::info!(url = PREFIX_MAPPING_URL, "downloading the conda-forge PyPI mapping");
         match download(PREFIX_MAPPING_URL) {
             Ok(json) => {
                 let mapping = Self::from_json(&json, PREFIX_MAPPING_URL, "prefix")?;
-                if let Err(err) = std::fs::create_dir_all(cache_dir).and_then(|()| std::fs::write(&cache_file, &json)) {
+                if crate::cache::may_write(crate::cache::Service::Mapping)
+                    && let Err(err) =
+                        std::fs::create_dir_all(cache_dir).and_then(|()| std::fs::write(&cache_file, &json))
+                {
                     tracing::warn!(path = %cache_file.display(), %err, "cannot cache the PyPI mapping");
                 }
                 Ok(mapping)

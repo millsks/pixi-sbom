@@ -260,9 +260,14 @@ impl Lookup<'_> {
         network_down: &AtomicBool,
     ) -> Option<String> {
         let cache_file = self.cache_file(name, version);
-        if let Ok(json) = std::fs::read_to_string(&cache_file) {
+        if crate::cache::may_read(crate::cache::Service::Pypi)
+            && let Ok(json) = std::fs::read_to_string(&cache_file)
+        {
+            let age = crate::cache::age(&cache_file, std::time::SystemTime::now());
+            crate::cache::hit(crate::cache::Service::Pypi, age.unwrap_or_default());
             return Some(json);
         }
+        crate::cache::miss(crate::cache::Service::Pypi);
         // Once the network is gone the remaining lookups are pointless; jobs already in
         // flight finish, the rest fall through to their cache or fail.
         if network_down.load(Ordering::Relaxed) {
@@ -271,10 +276,11 @@ impl Lookup<'_> {
         let url = format!("{}/{name}/{version}/json", self.index_url.trim_end_matches('/'));
         match fetch(&url) {
             Ok(json) => {
-                if let Err(err) = cache_file
-                    .parent()
-                    .map_or(Ok(()), std::fs::create_dir_all)
-                    .and_then(|()| std::fs::write(&cache_file, &json))
+                if crate::cache::may_write(crate::cache::Service::Pypi)
+                    && let Err(err) = cache_file
+                        .parent()
+                        .map_or(Ok(()), std::fs::create_dir_all)
+                        .and_then(|()| std::fs::write(&cache_file, &json))
                 {
                     tracing::warn!(path = %cache_file.display(), %err, "cannot cache PyPI metadata");
                 }

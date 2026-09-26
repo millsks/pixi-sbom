@@ -354,7 +354,19 @@ impl Lookup<'_> {
         let mut pending = Vec::new();
         for purl in purls {
             match self.cached_query(purl) {
-                Some(cached) if offline || is_fresh(cached.fetched_at, now) => {
+                Some(cached)
+                    if (offline || is_fresh(cached.fetched_at, now))
+                        && crate::cache::may_read(crate::cache::Service::Osv) =>
+                {
+                    // A hand-made cache entry can carry no stamp at all; an age of "since the
+                    // epoch" would be a lie, so it counts as unknown.
+                    let age = now
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .ok()
+                        .filter(|_| cached.fetched_at > 0)
+                        .map(|since| since.saturating_sub(Duration::from_secs(cached.fetched_at)))
+                        .unwrap_or_default();
+                    crate::cache::hit(crate::cache::Service::Osv, age);
                     out.insert(purl, cached.vulns);
                 }
                 _ if offline => {
@@ -364,7 +376,10 @@ impl Lookup<'_> {
                     );
                     out.insert(purl, Vec::new());
                 }
-                _ => pending.push(purl),
+                _ => {
+                    crate::cache::miss(crate::cache::Service::Osv);
+                    pending.push(purl);
+                }
             }
         }
         let url = format!("{}/v1/querybatch", self.api_url.trim_end_matches('/'));
@@ -426,10 +441,11 @@ impl Lookup<'_> {
             vulns: vulns.to_vec(),
         };
         let file = self.query_cache_file(purl);
-        if let Err(err) = file
-            .parent()
-            .map_or(Ok(()), std::fs::create_dir_all)
-            .and_then(|()| std::fs::write(&file, serde_json::to_vec(&cached).expect("serializable cache")))
+        if crate::cache::may_write(crate::cache::Service::Osv)
+            && let Err(err) = file
+                .parent()
+                .map_or(Ok(()), std::fs::create_dir_all)
+                .and_then(|()| std::fs::write(&file, serde_json::to_vec(&cached).expect("serializable cache")))
         {
             tracing::warn!(path = %file.display(), %err, "cannot cache the OSV query result");
         }
@@ -443,7 +459,8 @@ impl Lookup<'_> {
     /// otherwise. `None` when it cannot be obtained.
     fn record(&self, id: &str, modified: Option<&str>, client: &dyn Client, offline: bool) -> Option<Record> {
         let file = self.record_cache_file(id);
-        if let Ok(text) = std::fs::read_to_string(&file)
+        if crate::cache::may_read(crate::cache::Service::Osv)
+            && let Ok(text) = std::fs::read_to_string(&file)
             && let Ok(record) = serde_json::from_str::<Record>(&text)
             && (offline || modified.is_none() || same_instant(record.modified.as_deref(), modified))
         {
@@ -472,10 +489,11 @@ impl Lookup<'_> {
                 return None;
             }
         };
-        if let Err(err) = file
-            .parent()
-            .map_or(Ok(()), std::fs::create_dir_all)
-            .and_then(|()| std::fs::write(&file, &text))
+        if crate::cache::may_write(crate::cache::Service::Osv)
+            && let Err(err) = file
+                .parent()
+                .map_or(Ok(()), std::fs::create_dir_all)
+                .and_then(|()| std::fs::write(&file, &text))
         {
             tracing::warn!(path = %file.display(), %err, "cannot cache the OSV record");
         }
