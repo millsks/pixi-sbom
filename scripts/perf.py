@@ -236,16 +236,12 @@ SIZE_FLOOR_BYTES = 256 * 1024
 # The binary is byte-exact, so a small share of it means something.
 SIZE_LIMIT_PERCENT = 5.0
 
-# Peak memory is steady within one allocator and moves by tens of percent across a change of
-# allocator. 0.9.5 to 0.10.0 is one such change: mimalloc took peak memory up by as much as
-# 45.4% on Linux, Windows and aarch64, deliberately, to buy 25-35% off the run, and
-# docs/benchmarks.md records the trade. A limit tight enough to catch that fails every
-# comparison spanning the change, so this one is set above it with room for a noisy runner,
-# and catches what nobody would choose: something approaching a doubling.
-#
-# Worth bringing back towards 15% once 0.10.0 is the baseline every comparison starts from.
-# Within one allocator the real numbers are single digits, so it costs nothing then.
-MEMORY_LIMIT_PERCENT = 60.0
+# Peak memory is steady within a few percent as long as both sides use the same allocator.
+# Every comparison now starts from v0.10.0, which has mimalloc, so they do. The limit was 60%
+# for one release, to let the 0.9.5 -> 0.10.0 allocator change through without failing every
+# comparison spanning it; that window is closed and docs/benchmarks.md keeps the record of
+# what that change cost.
+MEMORY_LIMIT_PERCENT = 15.0
 
 
 def compare(base: dict, head: dict, size_limit: float, memory_limit: float) -> tuple[list[str], list[str]]:

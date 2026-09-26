@@ -189,7 +189,7 @@ deal.
 | Metric | How steady | What the workflow does |
 |---|---|---|
 | Binary size | byte-exact | fails at +5% **and** more than 256 KiB |
-| Peak memory | a few percent within one allocator | fails at +60% **and** more than 8 MiB |
+| Peak memory | a few percent within one allocator | fails at +15% **and** more than 8 MiB |
 | Wall time | tens of percent on a shared runner | reported in the job summary, never fails |
 
 A gate needs both a share and an amount. A share on its own fails a build over mimalloc reserving an arena in a
@@ -197,10 +197,10 @@ A gate needs both a share and an amount. A share on its own fails a build over m
 scenario doubling. `pixi run perf-test` covers what the comparison does with a given pair of numbers, and CI runs
 it, because this gate decides whether a build fails.
 
-The memory limit is 60% rather than something tighter because a change of allocator moves peak memory by tens of
-percent, and the 0.9.5 → 0.10.0 comparison spans exactly that (up to +45.4%, deliberately — see above). Within
-one allocator the real numbers are single digits, so once 0.10.0 is the baseline every comparison starts from,
-this should come back towards 15%; it costs nothing then and catches much more.
+The memory limit was 60% for one release, so that comparisons spanning the 0.9.5 → 0.10.0 allocator change — up
+to +45.4%, deliberately — did not fail on a documented decision. Every comparison now starts from v0.10.0, which
+already has mimalloc, so both sides use the same allocator and the real numbers are single digits again. The
+limit is back to 15%, where it catches far more.
 
 Peak memory is the child process's own high-water mark: `wait4` on Linux and macOS,
 `GetProcessMemoryInfo` on the handle of the finished child on Windows. Not a poller, which would miss the peak.
