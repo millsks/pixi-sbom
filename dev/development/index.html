@@ -1318,6 +1318,11 @@ release containing them exists; keep <code>action.yml</code> inputs and the CLI 
 <td><code>pixi run bench-test</code>: every benchmark runs once, untimed</td>
 </tr>
 <tr>
+<td>Performance (separate workflow)</td>
+<td>all five release platforms</td>
+<td><code>pixi run perf</code>: builds two refs on one runner and compares them; fails on binary size or peak memory, reports wall time. On demand, weekly and on pushes to <code>main</code> — not on pull requests. See <a href="../benchmarks/">benchmarks.md</a></td>
+</tr>
+<tr>
 <td>Build</td>
 <td>same three</td>
 <td><code>pixi run build</code> and <code>--version</code> smoke test</td>
