@@ -3,8 +3,8 @@
 
 use pixi_sbom::{
     auditable, batch, cache, cli, concurrency, condaarchive, config, diff, discover, doctor, embedded, explain, filter,
-    format, fromsbom, http, imports, kev, lock, manifest, mapping, model, osv, outdated, phantom, pkgcache, policy,
-    prefix, progress, pypi, report, scorecard, style, timings, vulnpolicy, wheel,
+    format, fromsbom, http, imports, kev, license, lock, manifest, mapping, model, osv, outdated, phantom, pkgcache,
+    policy, prefix, progress, pypi, report, scorecard, style, timings, vulnpolicy, wheel,
 };
 
 use std::io::{IsTerminal, Write};
@@ -580,6 +580,20 @@ fn main() -> Result<()> {
         // What the run could not finish belongs in the document too: the warnings on stderr
         // do not survive the upload, and a reader months later cannot tell an empty result
         // from an unasked question.
+        // A document that holds only some of its license texts should say which it is.
+        let (dropped, held) = license::text_budget();
+        if dropped > 0 {
+            tracing::warn!(
+                dropped,
+                held_bytes = held,
+                limit_bytes = license::MAX_TOTAL_TEXT_BYTES,
+                "the document holds as much license text as it may; the rest are listed by name only"
+            );
+            sbom.incomplete.note(format!(
+                "license-texts: {dropped} file(s) listed by name only, at the {} MiB the document may hold",
+                license::MAX_TOTAL_TEXT_BYTES / (1024 * 1024)
+            ));
+        }
         sbom.incomplete.stale = cache::stale_lines();
         if !sbom.incomplete.is_empty() {
             tracing::warn!(

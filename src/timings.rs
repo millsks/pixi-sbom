@@ -123,7 +123,12 @@ pub fn tally() -> Vec<(Phase, Timing)> {
 /// The table, as lines, with the totals at the end. `total` is the whole run, so the gap
 /// between it and the phases is visible rather than hidden.
 pub fn table(total: Duration) -> Vec<String> {
-    let tally = tally();
+    table_of(tally(), total)
+}
+
+/// [`table`] over a tally given to it, which is how the zero-network case is tested: the
+/// run's own tally is global and one test cannot empty it for another.
+fn table_of(tally: Vec<(Phase, Timing)>, total: Duration) -> Vec<String> {
     let width = tally
         .iter()
         .map(|(phase, _)| phase.name().len())
@@ -148,8 +153,11 @@ pub fn table(total: Duration) -> Vec<String> {
         "{:<width$}  {:>8}  {}",
         "total",
         seconds(total),
+        // Always said, even when it is none of it: "the network was not the problem" is the
+        // answer the table is most often consulted for, and a line that disappears when the
+        // answer is no cannot give it.
         if network.is_zero() {
-            String::new()
+            "none of it waiting on the network".to_string()
         } else {
             format!("of which {} waiting on the network", seconds(network))
         }
@@ -213,6 +221,39 @@ mod tests {
         );
         // Phases that do not touch the network are not counted as waiting.
         assert!(!Phase::Input.is_network() && Phase::Pypi.is_network());
+    }
+
+    #[test]
+    fn a_run_that_never_waited_says_so_rather_than_leaving_the_line_out() {
+        let offline = vec![(
+            Phase::Input,
+            Timing {
+                elapsed: Duration::from_millis(40),
+                detail: "240 packages".into(),
+            },
+        )];
+        let lines = table_of(offline, Duration::from_millis(50));
+        assert!(
+            lines.last().unwrap().contains("none of it waiting on the network"),
+            "{:?}",
+            lines.last()
+        );
+
+        // And the same when a network phase ran but took no measurable time, which is what an
+        // offline run with a warm cache looks like.
+        let cached = vec![(
+            Phase::Pypi,
+            Timing {
+                elapsed: Duration::ZERO,
+                detail: String::new(),
+            },
+        )];
+        assert!(
+            table_of(cached, Duration::from_millis(10))
+                .last()
+                .unwrap()
+                .contains("none of it waiting on the network")
+        );
     }
 
     #[test]
