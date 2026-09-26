@@ -277,7 +277,8 @@ the upload, so what a run could not finish is recorded in the document as well.
 | `pixi:incomplete-detail` | `osv: 14 of 14 purls unasked (offline, nothing cached); pypi-releases: 12 of 38 index lookups failed`, separated by `; ` |
 | `pixi:stale-cache` | `kev: 9 days old` — data served past its lifetime because the fetch failed |
 
-The steps are named after what they do: `wheel-licenses`, `conda-archives`, `pypi-releases`, `osv`, `scorecard`.
+The steps are named after what they do: `wheel-licenses`, `conda-archives`, `pypi-releases`, `osv`, `scorecard`,
+`license-texts`.
 OSV records three things separately, because an empty `vulnerabilities[]` has three causes and only one of them is
 good news: no package carried a purl the database answers to, the purls could not be asked about (offline with a
 cold cache), or an advisory record could not be fetched and is recorded by id alone.

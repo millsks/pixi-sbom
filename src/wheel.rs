@@ -259,14 +259,19 @@ fn collect_files(dir: &Path, prefix: &Path, texts: bool, out: &mut Vec<LicenseFi
             continue;
         }
         let name = relative.to_string_lossy().replace('\\', "/");
-        let text = texts
+        let size = std::fs::metadata(&path).map(|meta| meta.len()).unwrap_or(u64::MAX) as usize;
+        let within_budget = !texts || crate::license::keep_text(size);
+        if !within_budget {
+            tracing::debug!(path = %path.display(), size, "the document is already holding its fill of license text");
+        }
+        let text = (texts && within_budget)
             .then(|| {
                 std::fs::read(&path)
                     .map(|b| String::from_utf8_lossy(&b).into_owned())
                     .ok()
             })
             .flatten();
-        if texts && text.is_none() {
+        if texts && within_budget && text.is_none() {
             continue;
         }
         out.push(LicenseFile { name, text });

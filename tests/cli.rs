@@ -1063,8 +1063,12 @@ fn timings_say_where_the_run_spent_its_time() {
     for phase in ["input", "manifest", "write", "total"] {
         assert!(table.contains(phase), "{phase} is missing from {table}");
     }
-    // Offline, nothing was spent waiting, and the line says so rather than leaving it out.
-    assert!(table.contains("of which 0.00 s waiting on the network"), "{table}");
+    // Offline, nothing was spent waiting, and the line says so rather than leaving it out —
+    // whether the network phases took a measurable moment or no time at all.
+    assert!(
+        table.contains("none of it waiting on the network") || table.contains("of which 0.00 s waiting on the network"),
+        "{table}"
+    );
 
     // The enrichment phases appear only when they run.
     assert!(!table.contains("pypi metadata"), "{table}");

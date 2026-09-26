@@ -88,6 +88,32 @@ worth 15% on its own, and it is what lets the concurrency setting pay off — th
 
 With a warm cache the whole batch takes about 0.05 s either way, so none of this is visible on a second run.
 
+## Memory
+
+Documents are serialized straight from the writers' own structs to the output. Building a
+`serde_json::Value` first — which is what happened before 0.10.0 — held the whole document twice: once as a tree
+of boxed strings and maps, once as the bytes.
+
+Peak resident set size writing one document from a generated lockfile, measured with `/usr/bin/time -l`:
+
+| Lockfile | Format | Before | After |
+|---|---|---|---|
+| 2000 packages | CycloneDX 1.6 | 59.3 MB | 60.1 MB |
+| 10000 packages | CycloneDX 1.6 | 227.6 MB | **151.5 MB** |
+| 10000 packages | SPDX 2.3 | 203.1 MB | **148.0 MB** |
+
+At 2000 packages the difference is inside the noise — the high-water mark there is the lockfile parser, not the
+writer. At 10000 it is a third of the peak. The output is byte-identical either way, which a unit test asserts by
+writing each format both ways and comparing.
+
+### The license-text budget
+
+`--license-texts` embeds the text of every licence file, and each file is capped at 1 MiB on its own. Across a
+large environment that is still unbounded, so a document holds at most **64 MiB** of licence text in total. Past
+that the files are still listed by name, the run warns, and the document records it as
+`license-texts: N file(s) listed by name only` in `pixi:incomplete` — the same bargain the per-file cap already
+strikes, and visible in the document rather than silent.
+
 ## Reading a regression
 
 Criterion compares each run with the previous one in `target/criterion/` and prints the change, so the useful

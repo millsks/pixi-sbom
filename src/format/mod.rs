@@ -120,9 +120,18 @@ pub enum WriteError {
 }
 
 /// Serialize `sbom` in `format` to `out` as pretty-printed JSON.
+///
+/// Straight from the writer's own structs to the output. Going through a
+/// [`serde_json::Value`] first would hold the whole document twice — once as a tree of boxed
+/// strings and maps, once as the bytes — which with `--license-texts` on a large environment
+/// is tens of megabytes of each. The bytes are identical either way: the structs are written
+/// in field order and `Value` preserves insertion order.
 pub fn write(format: Format, sbom: &Sbom, ctx: &WriteContext, out: &mut dyn Write) -> Result<(), WriteError> {
-    let value = to_value(format, sbom, ctx)?;
-    serde_json::to_writer_pretty(&mut *out, &value)?;
+    match (format, ctx.spec_version) {
+        (Format::Cyclonedx, _) => serde_json::to_writer_pretty(&mut *out, &cyclonedx::document(sbom, ctx))?,
+        (Format::Spdx, SpecVersion::V3_0) => serde_json::to_writer_pretty(&mut *out, &spdx3::document(sbom, ctx))?,
+        (Format::Spdx, _) => serde_json::to_writer_pretty(&mut *out, &spdx::document(sbom, ctx))?,
+    }
     out.write_all(b"\n")?;
     Ok(())
 }
@@ -137,7 +146,8 @@ pub fn vex_to_value(
     Ok(serde_json::to_value(cyclonedx::vex(sbom, ctx, open_state))?)
 }
 
-/// Build the JSON document for `format` without writing it anywhere.
+/// Build the JSON document for `format` without writing it anywhere. The schema validators in
+/// the tests and the report writers need a tree; [`write`] does not and does not build one.
 pub fn to_value(format: Format, sbom: &Sbom, ctx: &WriteContext) -> Result<serde_json::Value, WriteError> {
     let value = match (format, ctx.spec_version) {
         (Format::Cyclonedx, _) => serde_json::to_value(cyclonedx::document(sbom, ctx))?,
@@ -354,6 +364,35 @@ pub(crate) mod testing {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn writing_straight_out_produces_the_same_bytes_as_building_a_tree_first() {
+        // `write` no longer builds a `serde_json::Value`, which is where the memory went. The
+        // bytes must not have moved with it: every document this tool has written compares
+        // against these, and a reordered key would be a silent change to all of them.
+        let sbom = testing::sample_sbom();
+        for ctx in [
+            testing::fixed_context(),
+            testing::fixed_context_1_7(),
+            testing::fixed_context_3_0(),
+        ] {
+            for format in [Format::Cyclonedx, Format::Spdx] {
+                let mut streamed = Vec::new();
+                write(format, &sbom, &ctx, &mut streamed).expect("writes");
+
+                let mut through_a_tree =
+                    serde_json::to_vec_pretty(&to_value(format, &sbom, &ctx).expect("builds")).expect("serializes");
+                through_a_tree.push(b'\n');
+
+                assert_eq!(
+                    String::from_utf8(streamed).expect("utf-8"),
+                    String::from_utf8(through_a_tree).expect("utf-8"),
+                    "{format:?} at {:?}",
+                    ctx.spec_version
+                );
+            }
+        }
+    }
 
     #[test]
     fn every_error_carries_a_code_and_a_next_step() {

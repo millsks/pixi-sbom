@@ -3,6 +3,48 @@
 use spdx::ParseMode;
 use spdx::expression::{ExprNode, Operator};
 
+/// The most license text a document will hold in memory, over every package in it.
+///
+/// Each file is already capped on its own, but a large environment with `--license-texts` can
+/// hold thousands of them, and the document holds every one until it is written. Past this
+/// budget the files are still listed by name and the run says what it left out, which is the
+/// same bargain the per-file cap already strikes.
+pub const MAX_TOTAL_TEXT_BYTES: usize = 64 * 1024 * 1024;
+
+/// What has been kept so far, against [`MAX_TOTAL_TEXT_BYTES`].
+static TEXT_BYTES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// How many texts were left out because the budget ran out.
+static TEXTS_DROPPED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Whether a license text of `bytes` still fits in the document's budget. Counts it when it
+/// does, and counts the omission when it does not.
+pub fn keep_text(bytes: usize) -> bool {
+    use std::sync::atomic::Ordering;
+    let kept = TEXT_BYTES.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |held| {
+        (held + bytes <= MAX_TOTAL_TEXT_BYTES).then_some(held + bytes)
+    });
+    if kept.is_err() {
+        TEXTS_DROPPED.fetch_add(1, Ordering::SeqCst);
+    }
+    kept.is_ok()
+}
+
+/// How many license texts were left out of the document for want of budget, and how many bytes
+/// of text it is holding.
+pub fn text_budget() -> (usize, usize) {
+    use std::sync::atomic::Ordering;
+    (TEXTS_DROPPED.load(Ordering::SeqCst), TEXT_BYTES.load(Ordering::SeqCst))
+}
+
+/// Forget what has been kept, for a test that wants the budget to itself.
+#[cfg(test)]
+pub fn reset_text_budget() {
+    use std::sync::atomic::Ordering;
+    TEXT_BYTES.store(0, Ordering::SeqCst);
+    TEXTS_DROPPED.store(0, Ordering::SeqCst);
+}
+
 /// Outcome of interpreting a package's declared license.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum License {
@@ -162,6 +204,26 @@ fn group(text: String, inner: Option<Operator>, outer: Operator) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_document_holds_only_so_much_license_text() {
+        reset_text_budget();
+        assert_eq!(text_budget(), (0, 0));
+
+        assert!(keep_text(1024), "the first text fits");
+        assert_eq!(text_budget(), (0, 1024));
+
+        // Everything up to the budget is kept, and what would cross it is not.
+        assert!(keep_text(MAX_TOTAL_TEXT_BYTES - 1024), "exactly the budget still fits");
+        assert_eq!(text_budget(), (0, MAX_TOTAL_TEXT_BYTES));
+        assert!(!keep_text(1), "one byte past the budget is one byte too many");
+        assert!(!keep_text(1));
+        let (dropped, held) = text_budget();
+        assert_eq!(dropped, 2, "the document counts what it left out");
+        assert_eq!(held, MAX_TOTAL_TEXT_BYTES, "and holds no more than it said it would");
+
+        reset_text_budget();
+    }
 
     #[test]
     fn valid_spdx_is_kept_verbatim() {
