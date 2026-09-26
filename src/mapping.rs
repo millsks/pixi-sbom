@@ -38,7 +38,13 @@ const MAX_MAPPING_BYTES: u64 = 64 * 1024 * 1024;
 pub enum MappingError {
     /// The mapping file could not be read.
     #[error("cannot read PyPI mapping file {path}")]
-    #[diagnostic(code(pixi_sbom::mapping::read))]
+    #[diagnostic(
+        code(pixi_sbom::mapping::read),
+        help(
+            "--pypi-mapping-file takes a readable JSON object of conda name to PyPI name; check the path, or \
+             drop the flag to download the conda-forge mapping instead"
+        )
+    )]
     Read {
         /// File that was requested.
         path: PathBuf,
@@ -276,6 +282,27 @@ mod tests {
     use crate::format::testing::sample_sbom;
     use crate::lock::{Selection, build_sbom};
     use crate::model::Root;
+
+    #[test]
+    fn every_error_carries_a_code_and_a_next_step() {
+        let bad_json = serde_json::from_str::<HashMap<String, PypiNames>>("[]").expect_err("not an object");
+        for err in [
+            MappingError::Read {
+                path: PathBuf::from("/workspace/mapping.json"),
+                source: std::io::Error::other("permission denied"),
+            },
+            MappingError::Parse {
+                origin: PREFIX_MAPPING_URL.to_string(),
+                source: bad_json,
+            },
+            MappingError::Fetch {
+                url: PREFIX_MAPPING_URL.to_string(),
+                source: Box::new(ureq::Error::ConnectionFailed),
+            },
+        ] {
+            crate::assert_actionable(&err);
+        }
+    }
 
     fn fixture_mapping() -> PypiMapping {
         PypiMapping::from_file(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/pypi-mapping.json")).unwrap()

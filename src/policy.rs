@@ -354,6 +354,14 @@ fn parse_licensee(text: &str) -> Result<Lic, LicenseeError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_error_carries_a_code_and_a_next_step() {
+        crate::assert_actionable(&LicenseeError {
+            text: "MIT-ish".to_string(),
+            reason: "unknown identifier".to_string(),
+        });
+    }
     use crate::format::testing::sample_sbom;
 
     fn policy(allow: &[&str], deny: &[&str], require: bool) -> Policy {

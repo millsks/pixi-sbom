@@ -20,7 +20,10 @@ pub const FILE_NAME: &str = "pixi-sbom.toml";
 pub enum ConfigError {
     /// `--config` names a file that cannot be read.
     #[error("cannot read the configuration file {path}: {source}")]
-    #[diagnostic(code(pixi_sbom::config::read))]
+    #[diagnostic(
+        code(pixi_sbom::config::read),
+        help("check the path --config was given and its permissions, or pass --no-config to run without a file")
+    )]
     Read {
         path: PathBuf,
         #[source]
@@ -281,6 +284,22 @@ pub fn apply(loaded: &Loaded, args: &mut Args, matches: &ArgMatches) -> Result<(
 mod tests {
     use super::*;
     use clap::{CommandFactory, FromArgMatches};
+
+    #[test]
+    fn every_error_carries_a_code_and_a_next_step() {
+        for err in [
+            ConfigError::Read {
+                path: PathBuf::from("/workspace/pixi-sbom.toml"),
+                source: std::io::Error::other("is a directory"),
+            },
+            ConfigError::Parse {
+                path: PathBuf::from("/workspace/pixi-sbom.toml"),
+                message: "unknown field `fmt`".to_string(),
+            },
+        ] {
+            crate::assert_actionable(&err);
+        }
+    }
 
     fn args(cli: &[&str]) -> (Args, ArgMatches) {
         let matches = Args::command()

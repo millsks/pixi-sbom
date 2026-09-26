@@ -53,7 +53,13 @@ pub enum KevError {
     },
     /// The document is not the catalog.
     #[error("cannot parse the CISA KEV catalog from {origin}: {source}")]
-    #[diagnostic(code(pixi_sbom::kev::parse))]
+    #[diagnostic(
+        code(pixi_sbom::kev::parse),
+        help(
+            "a cached catalog truncated by an interrupted download reads like this: delete the file the \
+             message names to fetch a fresh one, or `pixi clean cache` to clear the whole pixi cache"
+        )
+    )]
     Parse {
         origin: String,
         #[source]
@@ -221,6 +227,23 @@ mod tests {
     use super::*;
     use crate::format::testing::sample_sbom;
     use crate::model::{Affected, Vulnerability};
+
+    #[test]
+    fn every_error_carries_a_code_and_a_next_step() {
+        let bad_json = serde_json::from_str::<Document>("{").expect_err("truncated JSON");
+        for err in [
+            KevError::Fetch {
+                url: url(),
+                source: Box::new(ureq::Error::ConnectionFailed),
+            },
+            KevError::Parse {
+                origin: "/cache/kev/known_exploited_vulnerabilities.json".to_string(),
+                source: bad_json,
+            },
+        ] {
+            crate::assert_actionable(&err);
+        }
+    }
 
     fn fixture() -> String {
         std::fs::read_to_string(

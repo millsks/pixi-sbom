@@ -98,12 +98,24 @@ fn timestamp_from(source_date_epoch: Option<&OsStr>) -> DateTime<Utc> {
 pub enum WriteError {
     /// JSON encoding failed.
     #[error("cannot serialize SBOM")]
-    #[diagnostic(code(pixi_sbom::format::serialize))]
+    #[diagnostic(
+        code(pixi_sbom::format::serialize),
+        help(
+            "the document this build assembled cannot be encoded, which is a fault in pixi-sbom rather than \
+             in your workspace: please report it at https://github.com/millsks/pixi-sbom/issues"
+        )
+    )]
     Serialize(#[from] serde_json::Error),
 
     /// Writing to the destination failed.
     #[error("cannot write SBOM")]
-    #[diagnostic(code(pixi_sbom::format::io))]
+    #[diagnostic(
+        code(pixi_sbom::format::io),
+        help(
+            "the message chain names the path; check that --output points somewhere writable and that its \
+             directory exists"
+        )
+    )]
     Io(#[from] std::io::Error),
 }
 
@@ -341,6 +353,17 @@ pub(crate) mod testing {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_error_carries_a_code_and_a_next_step() {
+        let bad_json = serde_json::from_str::<serde_json::Value>("{").expect_err("truncated JSON");
+        for err in [
+            WriteError::Serialize(bad_json),
+            WriteError::Io(std::io::Error::other("permission denied")),
+        ] {
+            crate::assert_actionable(&err);
+        }
+    }
 
     #[test]
     fn top_level_ids_are_packages_nobody_depends_on() {

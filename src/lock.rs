@@ -14,12 +14,22 @@ use thiserror::Error;
 use crate::model::{Package, PackageKind, Root, Sbom, Supplier};
 use crate::purl::{self, CondaPurl};
 
+/// The highest `pixi.lock` `version:` this build understands, from the lockfile reader it is
+/// compiled against, so the help text cannot drift from what the reader accepts.
+pub const MAX_LOCKFILE_VERSION: u16 = rattler_lock::FileFormatVersion::LATEST as u16;
+
 /// Errors raised while reading the lockfile or selecting what to describe.
 #[derive(Debug, Error, Diagnostic)]
 pub enum LockError {
     /// The lockfile could not be parsed.
     #[error("cannot read lockfile {path}")]
-    #[diagnostic(code(pixi_sbom::lock::parse))]
+    #[diagnostic(
+        code(pixi_sbom::lock::parse),
+        help(
+            "this build reads pixi.lock up to version {MAX_LOCKFILE_VERSION}: run `pixi lock` to rewrite an \
+             older or damaged one, or upgrade pixi-sbom if the file's `version:` is higher"
+        )
+    )]
     Parse {
         /// Lockfile path.
         path: String,
@@ -545,6 +555,28 @@ pub(crate) fn link_dependencies(packages: &mut [Package], declared: &[DeclaredDe
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_error_carries_a_code_and_a_next_step() {
+        // Parse wraps the reader's own error, so it is taken from a real failed read.
+        let parse = load(Path::new("/definitely/not/here/pixi.lock")).unwrap_err();
+        for err in [
+            parse,
+            LockError::EnvironmentNotFound {
+                name: "prod".to_string(),
+                available: vec!["default".to_string()],
+            },
+            LockError::PlatformNotFound {
+                platform: "win-64".to_string(),
+                environment: "default".to_string(),
+                available: vec!["linux-64".to_string()],
+            },
+            LockError::UnknownCurrentPlatform,
+            LockError::Purl(purl::sample_error()),
+        ] {
+            crate::assert_actionable(&err);
+        }
+    }
 
     fn fixture(name: &str) -> std::path::PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR"))
