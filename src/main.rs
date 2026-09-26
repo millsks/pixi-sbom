@@ -2,7 +2,7 @@
 //! decide the exit code. Everything it calls lives in the library beside it.
 
 use pixi_sbom::{
-    auditable, cache, cli, concurrency, condaarchive, config, diff, discover, doctor, embedded, explain, filter,
+    auditable, batch, cache, cli, concurrency, condaarchive, config, diff, discover, doctor, embedded, explain, filter,
     format, fromsbom, http, imports, kev, lock, manifest, mapping, model, osv, outdated, phantom, pkgcache, policy,
     prefix, progress, pypi, report, scorecard, style, timings, vulnpolicy, wheel,
 };
@@ -270,6 +270,12 @@ fn main() -> Result<()> {
         None
     };
 
+    // A run that writes many documents looks the same package up once per document it appears
+    // in, and each document drains its own small pool of requests before the next starts
+    // filling one. So the lookups happen here instead, once, over every document's packages at
+    // once, and each document takes what this found.
+    let shared = shared_enrichment(&args, &targets, &package_filter, pypi_mapping.as_ref(), progress)?;
+
     for (
         workspace,
         Target {
@@ -280,43 +286,7 @@ fn main() -> Result<()> {
     ) in &targets
     {
         let (lockfile, input) = (&workspace.lockfile, &workspace.input);
-        let (mut sbom, contents) = match input {
-            Input::Lock {
-                lock,
-                contents,
-                manifest,
-            } => {
-                let selection = lock::Selection {
-                    environment,
-                    platform: platform.as_deref(),
-                };
-                let mut sbom = lock::sbom_from_lock(
-                    lock,
-                    selection,
-                    manifest.root.clone(),
-                    &discover::lockfile_name(lockfile),
-                )?;
-                // What the workspace asked for itself, as opposed to what came along.
-                manifest.apply(&mut sbom);
-                (sbom, contents.clone())
-            }
-            Input::Prefix { dir, root } => {
-                let sbom = prefix::build_sbom(dir, root.clone(), platform.as_deref())?;
-                // Stands in for the lockfile text as the document's identity: the installed
-                // packages, in order.
-                let contents = sbom
-                    .packages
-                    .iter()
-                    .map(|p| p.id.as_str())
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                tracing::info!(prefix = %dir.display(), packages = sbom.packages.len(), "read the installed environment");
-                (sbom, contents)
-            }
-            // Already read: the source document's own text is what identifies everything
-            // derived from it.
-            Input::Document(loaded) => (loaded.sbom.clone(), loaded.contents.clone()),
-        };
+        let (mut sbom, contents) = model_for(workspace, environment, platform.as_deref())?;
         if !package_filter.is_empty() {
             let filter::Outcome { excluded, orphans } = package_filter.apply(&mut sbom);
             tracing::info!(
@@ -335,86 +305,14 @@ fn main() -> Result<()> {
             let switched = mapping::prefer_pypi_purl(&mut sbom);
             tracing::info!(switched, "made PyPI purls primary");
         }
-        if fetch_licenses || args.embedded_sboms {
-            let pkgs = pkgcache::package_cache_dir();
-            let cache_dir = mapping::cache_dir();
-            let wheel::Outcome {
-                fetched,
-                failed,
-                skipped,
-            } = timings::time(timings::Phase::Wheels, || {
-                wheel::enrich(&mut sbom, &cache_dir, args.license_texts, progress)
-            });
-            tracing::info!(fetched, failed, skipped, "read PyPI license details from wheels");
-            sbom.incomplete
-                .note_failures("wheel-licenses", failed, fetched + failed, "wheel reads");
-            if args.embedded_sboms {
-                let embedded::Outcome {
-                    files,
-                    unreadable,
-                    added,
-                    merged,
-                } = embedded::enrich(&mut sbom, &cache_dir);
-                tracing::info!(files, unreadable, added, merged, "attached embedded SBOM components");
-                // An installed environment is the only place the binaries themselves are, and
-                // conda-forge builds its Rust packages with `cargo auditable`.
-                if let Input::Prefix { dir, .. } = input {
-                    let auditable::Outcome {
-                        binaries,
-                        added,
-                        merged,
-                    } = auditable::enrich(&mut sbom, dir, progress);
-                    tracing::info!(binaries, added, merged, "read cargo auditable crate lists");
-                }
+        match &shared {
+            // Already looked up for every document at once; what is left is only what this
+            // document's own model added, which nothing fetches.
+            Some(shared) => {
+                let filled = shared.apply(&mut sbom);
+                tracing::debug!(filled, packages = sbom.packages.len(), "took the shared lookups");
             }
-            let pkgcache::Outcome {
-                found,
-                licenses_filled,
-                files,
-                missing,
-            } = if fetch_licenses {
-                timings::time(timings::Phase::PackageCache, || {
-                    pkgcache::enrich(&mut sbom, &pkgs, args.license_texts, progress)
-                })
-            } else {
-                pkgcache::Outcome::default()
-            };
-            if fetch_licenses {
-                tracing::info!(pkgs = %pkgs.display(), found, licenses_filled, files, "read conda license details from the package cache");
-            }
-            if !missing.is_empty() {
-                let condaarchive::Outcome {
-                    fetched,
-                    failed,
-                    skipped,
-                } = timings::time(timings::Phase::Archives, || {
-                    condaarchive::enrich(&mut sbom, &missing, &cache_dir, args.license_texts, progress)
-                });
-                tracing::info!(
-                    fetched,
-                    failed,
-                    skipped,
-                    "read conda license details from channel archives"
-                );
-                sbom.incomplete
-                    .note_failures("conda-archives", failed, fetched + failed, "archive reads");
-            }
-            if fetch_licenses {
-                let lookup = pypi::Lookup {
-                    index_url: &pypi::index_url(),
-                    cache_dir: &cache_dir,
-                };
-                let pypi::Outcome {
-                    found,
-                    missing,
-                    failed,
-                    yanked,
-                } = timings::time(timings::Phase::Pypi, || lookup.run(&mut sbom, progress));
-                timings::describe(timings::Phase::Pypi, format!("{found} found, {failed} failed"));
-                tracing::info!(found, missing, failed, yanked, "looked up PyPI releases");
-                sbom.incomplete
-                    .note_failures("pypi-releases", failed, found + missing + failed, "index lookups");
-            }
+            None => enrich(&mut sbom, &args, input, progress),
         }
         if let Some(cli::VulnerabilitySource::Osv) = args.vulnerabilities {
             let cache_dir = mapping::cache_dir();
@@ -1393,6 +1291,205 @@ struct Target {
 /// decide each one's output location.
 /// The documents one lockfile produces. `dir`, set only by `--scan`, is the directory this
 /// workspace's documents go in, which replaces `--output` for them.
+/// Look every document's packages up at once, instead of once per document.
+///
+/// Returns `None` when there is only one document, or when nothing would be looked up: the
+/// single-document run pays nothing for this and takes the ordinary path.
+fn shared_enrichment(
+    args: &cli::Args,
+    targets: &[(&Workspace, &Target)],
+    package_filter: &filter::Filter,
+    pypi_mapping: Option<&mapping::PypiMapping>,
+    progress: progress::Progress,
+) -> Result<Option<batch::Shared>> {
+    let fetch_licenses = args.fetch_licenses || args.pypi_licenses;
+    if targets.len() < 2 || !(fetch_licenses || args.embedded_sboms) {
+        return Ok(None);
+    }
+    // `--embedded-sboms` and `--prefix` add components rather than filling fields in, and what
+    // they add depends on the document they are adding it to, so those runs keep to the
+    // per-document path.
+    if args.embedded_sboms
+        || targets
+            .iter()
+            .any(|(workspace, _)| matches!(workspace.input, Input::Prefix { .. }))
+    {
+        return Ok(None);
+    }
+
+    let mut documents = Vec::with_capacity(targets.len());
+    for (workspace, target) in targets {
+        let (mut sbom, _) = model_for(workspace, &target.environment, target.platform.as_deref())?;
+        // The same steps the per-document path runs before enrichment, so the union holds the
+        // packages that will actually be looked up.
+        if !package_filter.is_empty() {
+            package_filter.apply(&mut sbom);
+        }
+        if let Some(mapping) = pypi_mapping {
+            mapping::enrich(&mut sbom, mapping);
+        }
+        if args.primary_purl == cli::PrimaryPurl::Pypi {
+            mapping::prefer_pypi_purl(&mut sbom);
+        }
+        documents.push(sbom);
+    }
+
+    let before = batch::union(&documents);
+    if before.packages.is_empty() {
+        return Ok(None);
+    }
+    let savings = documents.iter().map(|d| d.packages.len()).sum::<usize>();
+    tracing::info!(
+        documents = documents.len(),
+        packages = before.packages.len(),
+        instead_of = savings,
+        "looking every document's packages up at once"
+    );
+    let mut after = before.clone();
+    // The input is only read for the `cargo auditable` step, which needs an installed prefix;
+    // this path has already refused those.
+    let input = &targets[0].0.input;
+    enrich(&mut after, args, input, progress);
+    let shared = batch::Shared::between(&before, &after);
+    tracing::debug!(learned = shared.len(), "the shared lookups finished");
+    Ok(Some(shared))
+}
+
+/// The document's model, before anything is looked up: the lockfile environment, the
+/// installed prefix or the source document, plus the text that identifies it.
+fn model_for(workspace: &Workspace, environment: &str, platform: Option<&str>) -> Result<(model::Sbom, String)> {
+    let (lockfile, input) = (&workspace.lockfile, &workspace.input);
+    let (sbom, contents) = match input {
+        Input::Lock {
+            lock,
+            contents,
+            manifest,
+        } => {
+            let selection = lock::Selection { environment, platform };
+            let mut sbom = lock::sbom_from_lock(
+                lock,
+                selection,
+                manifest.root.clone(),
+                &discover::lockfile_name(lockfile),
+            )?;
+            // What the workspace asked for itself, as opposed to what came along.
+            manifest.apply(&mut sbom);
+            (sbom, contents.clone())
+        }
+        Input::Prefix { dir, root } => {
+            let sbom = prefix::build_sbom(dir, root.clone(), platform)?;
+            // Stands in for the lockfile text as the document's identity: the installed
+            // packages, in order.
+            let contents = sbom
+                .packages
+                .iter()
+                .map(|p| p.id.as_str())
+                .collect::<Vec<_>>()
+                .join("\n");
+            tracing::info!(prefix = %dir.display(), packages = sbom.packages.len(), "read the installed environment");
+            (sbom, contents)
+        }
+        // Already read: the source document's own text is what identifies everything
+        // derived from it.
+        Input::Document(loaded) => (loaded.sbom.clone(), loaded.contents.clone()),
+    };
+    Ok((sbom, contents))
+}
+
+/// Fill in what the lockfile does not say: licenses from wheels, from the extracted package
+/// cache and from channel archives, the release facts PyPI knows, and — with `--embedded-sboms`
+/// — the components a wheel ships an SBOM for.
+///
+/// Split out of the run so a batch can do it once over every document's packages at once
+/// rather than once per document (see [`pixi_sbom::batch`]).
+fn enrich(sbom: &mut model::Sbom, args: &cli::Args, input: &Input, progress: progress::Progress) {
+    let fetch_licenses = args.fetch_licenses || args.pypi_licenses;
+    if !(fetch_licenses || args.embedded_sboms) {
+        return;
+    }
+    {
+        let pkgs = pkgcache::package_cache_dir();
+        let cache_dir = mapping::cache_dir();
+        let wheel::Outcome {
+            fetched,
+            failed,
+            skipped,
+        } = timings::time(timings::Phase::Wheels, || {
+            wheel::enrich(sbom, &cache_dir, args.license_texts, progress)
+        });
+        tracing::info!(fetched, failed, skipped, "read PyPI license details from wheels");
+        sbom.incomplete
+            .note_failures("wheel-licenses", failed, fetched + failed, "wheel reads");
+        if args.embedded_sboms {
+            let embedded::Outcome {
+                files,
+                unreadable,
+                added,
+                merged,
+            } = embedded::enrich(sbom, &cache_dir);
+            tracing::info!(files, unreadable, added, merged, "attached embedded SBOM components");
+            // An installed environment is the only place the binaries themselves are, and
+            // conda-forge builds its Rust packages with `cargo auditable`.
+            if let Input::Prefix { dir, .. } = input {
+                let auditable::Outcome {
+                    binaries,
+                    added,
+                    merged,
+                } = auditable::enrich(sbom, dir, progress);
+                tracing::info!(binaries, added, merged, "read cargo auditable crate lists");
+            }
+        }
+        let pkgcache::Outcome {
+            found,
+            licenses_filled,
+            files,
+            missing,
+        } = if fetch_licenses {
+            timings::time(timings::Phase::PackageCache, || {
+                pkgcache::enrich(sbom, &pkgs, args.license_texts, progress)
+            })
+        } else {
+            pkgcache::Outcome::default()
+        };
+        if fetch_licenses {
+            tracing::info!(pkgs = %pkgs.display(), found, licenses_filled, files, "read conda license details from the package cache");
+        }
+        if !missing.is_empty() {
+            let condaarchive::Outcome {
+                fetched,
+                failed,
+                skipped,
+            } = timings::time(timings::Phase::Archives, || {
+                condaarchive::enrich(sbom, &missing, &cache_dir, args.license_texts, progress)
+            });
+            tracing::info!(
+                fetched,
+                failed,
+                skipped,
+                "read conda license details from channel archives"
+            );
+            sbom.incomplete
+                .note_failures("conda-archives", failed, fetched + failed, "archive reads");
+        }
+        if fetch_licenses {
+            let lookup = pypi::Lookup {
+                index_url: &pypi::index_url(),
+                cache_dir: &cache_dir,
+            };
+            let pypi::Outcome {
+                found,
+                missing,
+                failed,
+                yanked,
+            } = timings::time(timings::Phase::Pypi, || lookup.run(sbom, progress));
+            timings::describe(timings::Phase::Pypi, format!("{found} found, {failed} failed"));
+            tracing::info!(found, missing, failed, yanked, "looked up PyPI releases");
+            sbom.incomplete
+                .note_failures("pypi-releases", failed, found + missing + failed, "index lookups");
+        }
+    }
+}
+
 fn resolve_targets(
     args: &cli::Args,
     lock: &rattler_lock::LockFile,

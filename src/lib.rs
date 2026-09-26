@@ -6,6 +6,7 @@
 //! public so they can be measured, and nothing here promises to stay put between releases.
 
 pub mod auditable;
+pub mod batch;
 pub mod cache;
 pub mod cli;
 pub mod concurrency;

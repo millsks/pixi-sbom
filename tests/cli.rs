@@ -5191,3 +5191,140 @@ fn the_number_of_jobs_at_once_is_configurable_and_never_changes_the_document() {
         "{log}"
     );
 }
+
+#[test]
+fn a_batch_looks_each_package_up_once_however_many_documents_share_it() {
+    let dir = workspace("multi-env");
+    let out = dir.path().join("out");
+    // Offline, with nothing cached, every request is refused and logged with its URL: the
+    // count of those lines is the count of lookups the run would have made.
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("empty-cache"))
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args([
+            "--all-environments",
+            "-p",
+            "linux-64",
+            "--fetch-licenses",
+            "--output",
+            out.to_str().unwrap(),
+            "-v",
+        ])
+        .assert()
+        .success();
+    let log = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+
+    // Three environments hold five package entries between them, and two distinct packages.
+    assert!(
+        log.contains("documents=3 packages=2 instead_of=5"),
+        "the shared pass should say what it saved: {log}"
+    );
+    let asked: Vec<&str> = log
+        .lines()
+        .filter(|line| line.contains("refusing the request"))
+        .collect();
+    assert_eq!(
+        asked.len(),
+        2,
+        "each distinct package is asked about once, not once per document: {asked:#?}"
+    );
+    assert_eq!(
+        asked.iter().filter(|line| line.contains("libzlib")).count(),
+        1,
+        "libzlib is in all three environments and is looked up once"
+    );
+
+    // And every document was still written.
+    let written: Vec<_> = std::fs::read_dir(&out)
+        .unwrap()
+        .flatten()
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(written.len(), 3, "{written:?}");
+
+    // A single-document run does not pay for the shared pass at all.
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("empty-cache"))
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args([
+            "-e",
+            "alpha",
+            "-p",
+            "linux-64",
+            "--fetch-licenses",
+            "--output",
+            "-",
+            "-v",
+        ])
+        .assert()
+        .success();
+    let log = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+    assert!(!log.contains("looking every document's packages up at once"), "{log}");
+}
+
+#[test]
+fn the_shared_lookups_do_not_change_what_any_document_says() {
+    let dir = workspace("multi-env");
+    let together = dir.path().join("together");
+    let apart = dir.path().join("apart");
+    let run = |args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("SOURCE_DATE_EPOCH", "1700000000")
+            .args(["-p", "linux-64", "--fetch-licenses"])
+            .args(args)
+            .assert()
+            .success();
+    };
+
+    // Every environment at once, which takes the shared path.
+    run(&["--all-environments", "--output", together.to_str().unwrap()]);
+    // The same environments one at a time, which does not.
+    std::fs::create_dir_all(&apart).unwrap();
+    for environment in ["default", "alpha", "zeta"] {
+        run(&[
+            "-e",
+            environment,
+            "--output",
+            apart.join(format!("{environment}.cdx.json")).to_str().unwrap(),
+        ]);
+    }
+
+    for environment in ["default", "alpha", "zeta"] {
+        let batched = read_json(&together.join(format!("sbom-{environment}.cdx.json")));
+        let alone = read_json(&apart.join(format!("{environment}.cdx.json")));
+        assert_eq!(
+            batched["components"], alone["components"],
+            "{environment} must not depend on what else was built beside it"
+        );
+        assert_eq!(batched["dependencies"], alone["dependencies"], "{environment}");
+        // The steps that could not finish are the same; only the counts differ, because the
+        // batch looked every document's packages up at once and says so.
+        let property = |doc: &Value, name: &str| {
+            doc["metadata"]["properties"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|p| p["name"] == name)
+                .map(|p| p["value"].as_str().unwrap().to_string())
+        };
+        assert_eq!(
+            property(&batched, "pixi:incomplete"),
+            property(&alone, "pixi:incomplete"),
+            "{environment}"
+        );
+        assert!(
+            property(&batched, "pixi:incomplete-detail")
+                .unwrap_or_default()
+                .contains("looked up once for every document in the run"),
+            "{environment}: a batch says whose counts those are"
+        );
+    }
+}
