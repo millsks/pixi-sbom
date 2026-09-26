@@ -143,6 +143,43 @@ What is not trimmable from here: `rattler_lock` depends on `rattler_solve` — a
 Each release records the binary size per platform in the workflow's job summary, so a dependency that doubles the
 download is visible in the run that shipped it.
 
+## Watching it on every platform
+
+`pixi run bench` and the numbers above are one machine. The **Performance** workflow
+(`.github/workflows/perf.yml`) measures the binary on all five platforms a release is built for —
+`linux-64`, `linux-aarch64`, `osx-64`, `osx-arm64`, `win-64` — each on its own architecture, because an
+aarch64 regression is invisible on x86-64 and the Windows allocator is not the macOS one.
+
+It builds two refs on the **same runner**, minutes apart, and compares them. That matters: a hosted runner is a
+shared machine whose throughput varies by tens of percent between runs, so an absolute "0.16 s" from one run and
+"0.21 s" from the next say nothing, while the difference between two binaries measured back to back says a great
+deal.
+
+| Metric | How steady | What the workflow does |
+|---|---|---|
+| Binary size | byte-exact | fails the job at +5% |
+| Peak memory | a few percent | fails the job at +15% |
+| Wall time | tens of percent on a shared runner | reported in the job summary, never fails |
+
+Peak memory is the child process's own high-water mark: `wait4` on Linux and macOS,
+`GetProcessMemoryInfo` on the handle of the finished child on Windows. Not a poller, which would miss the peak.
+
+It runs on demand (`workflow_dispatch`, with an optional base ref), weekly, and on pushes to `main` that touch
+the source, comparing against the latest release tag. It deliberately does **not** run on pull requests: each
+platform builds the binary twice with LTO. Run it by hand on the pull requests where performance is the point.
+
+The same measurement runs locally, against any two builds:
+
+```sh
+pixi run perf --binary target/release/pixi-sbom --out head.json
+# check out the other ref, rebuild, then
+pixi run perf --binary target/release/pixi-sbom --out base.json
+pixi run perf --compare base.json head.json
+```
+
+Measured that way, 0.9.5 against 0.10.0 on an Apple M4: binary −13.6%, wall time −29% to −45%, peak memory −35%
+to −46%.
+
 ## Reading a regression
 
 Criterion compares each run with the previous one in `target/criterion/` and prints the change, so the useful

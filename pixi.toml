@@ -22,6 +22,9 @@ build = "cargo build --release"
 changelog = "git-cliff --config cliff.toml -o CHANGELOG.md"
 # The full criterion run, which takes a few minutes; `bench-test` only checks that every
 # benchmark still runs, which is what CI needs and what the change harness can afford.
+# What the binary costs to run, measured the same way on every platform a release is built
+# for. `--compare` diffs two of its JSON outputs and is what the Performance workflow gates on.
+perf = "python scripts/perf.py"
 bench = "cargo bench --benches"
 bench-test = "cargo bench --benches -- --test"
 
