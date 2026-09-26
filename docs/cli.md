@@ -833,6 +833,26 @@ combined.
 
 ## When something comes back empty
 
+An empty table has two meanings and they are not the same: nothing was found, or nothing could be asked. The
+reports say which.
+
+`--report vulnerabilities` over an environment whose packages carry no purl the database answers to — a
+conda-only environment without `--pypi-mapping prefix`, which is the usual case — ends with:
+
+```
+Nothing could be queried: no package carries a purl the database answers to. Add --pypi-mapping prefix
+(or --pypi-mapping-file) so conda packages can be matched.
+```
+
+The JSON form carries the same fact as `summary.queryable`, so a pipeline can tell a clean environment from an
+unasked one. The outdated and scorecard reports already separate "answered" from "no index to ask" and
+"unknown" in the same way.
+
+A cache that was served **past its lifetime** because the fetch failed is also called out once per service, with
+how old the data is, so a document built on week-old advisories does not read like one built this morning.
+
+
+
 Every request the tool makes is logged at debug, with what it asked for and how it ended:
 
 ```console

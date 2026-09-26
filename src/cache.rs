@@ -105,6 +105,9 @@ pub struct Counts {
     pub misses: usize,
     /// The age of the oldest answer served.
     pub oldest: Duration,
+    /// Set when an answer was served past its lifetime because the fetch failed. A document
+    /// built on stale data should not look like one built on fresh data.
+    pub stale: Option<Duration>,
 }
 
 /// Set the policy for this run. Later calls are ignored, which keeps the tests honest.
@@ -141,6 +144,22 @@ pub fn hit(service: Service, age: Duration) {
         entry.hits += 1;
         entry.oldest = entry.oldest.max(age);
     }
+}
+
+/// Note that an answer was served past its lifetime because the fetch failed.
+pub fn stale(service: Service, age: Duration) {
+    if let Ok(mut counts) = counts().lock() {
+        let entry = counts.entry(service).or_default();
+        entry.stale = Some(entry.stale.map_or(age, |current| current.max(age)));
+    }
+}
+
+/// The services that served data past its lifetime, with how old it was.
+pub fn stale_services() -> Vec<(Service, Duration)> {
+    tally()
+        .into_iter()
+        .filter_map(|(service, counts)| counts.stale.map(|age| (service, age)))
+        .collect()
 }
 
 /// Note that an answer had to be fetched.
@@ -293,6 +312,22 @@ mod tests {
         assert_eq!(counts.hits, 2);
         assert_eq!(counts.misses, 1);
         assert_eq!(counts.oldest, Duration::from_secs(3600), "the oldest, not the last");
+    }
+
+    #[test]
+    fn stale_data_is_remembered_with_the_worst_age() {
+        stale(Service::Kev, Duration::from_secs(86_400));
+        stale(Service::Kev, Duration::from_secs(3 * 86_400));
+        let (service, age) = stale_services()
+            .into_iter()
+            .find(|(service, _)| *service == Service::Kev)
+            .unwrap();
+        assert_eq!(service, Service::Kev);
+        assert_eq!(age, Duration::from_secs(3 * 86_400), "the worst, not the last");
+        assert!(
+            !stale_services().iter().any(|(service, _)| *service == Service::Mapping),
+            "a service that answered is not stale"
+        );
     }
 
     #[test]

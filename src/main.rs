@@ -711,6 +711,15 @@ fn main() -> Result<()> {
     // Where the answers came from: a run that is fast because everything was cached should
     // say so, and one that refreshed should show the fetches.
     cache::log_tally();
+    // A document built on data that could not be refreshed is not the same as one built on
+    // fresh data, and the difference has to survive the scrollback.
+    for (service, age) in cache::stale_services() {
+        tracing::warn!(
+            cache = service.name(),
+            age_s = age.as_secs(),
+            "served data past its lifetime because the fetch failed; the result is that old"
+        );
+    }
     if !reports.is_empty() {
         let palette = style::Palette::new(args.color.enabled());
         let mut stdout = std::io::stdout().lock();

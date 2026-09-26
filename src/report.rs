@@ -320,6 +320,10 @@ pub struct VulnerabilitySummary {
     pub known_exploited: Vec<String>,
     /// Packages with no purl the vulnerability database can answer (conda-only identities).
     pub without_identity: Vec<String>,
+    /// Whether anything in the environment could be asked about at all. When nothing could,
+    /// an empty table means "nothing was asked", not "nothing was found", and the two have to
+    /// be told apart.
+    pub queryable: bool,
 }
 
 /// A complete report for one document.
@@ -1240,7 +1244,10 @@ fn summarize_vulnerabilities(rows: &[VulnerabilityRow], sbom: &Sbom) -> Vulnerab
                 .any(|purl| crate::osv::queryable_purl(purl).is_some())
         })
         .map(|p| p.name.clone())
-        .collect();
+        .collect::<Vec<String>>();
+    // Whether the database could be asked about anything at all: with no queryable purl an
+    // empty table means "nothing was asked", which is a different answer from "nothing found".
+    let queryable = sbom.packages.len() > without_identity.len();
     VulnerabilitySummary {
         findings: sbom.vulnerabilities.iter().filter(|v| v.analysis.is_none()).count(),
         by_severity,
@@ -1268,6 +1275,7 @@ fn summarize_vulnerabilities(rows: &[VulnerabilityRow], sbom: &Sbom) -> Vulnerab
                 })
             })
             .collect(),
+        queryable,
         without_identity,
     }
 }
@@ -1885,6 +1893,14 @@ fn render_vulnerability_summary(
             "No queryable identity ({}): {}",
             summary.without_identity.len(),
             summary.without_identity.join(", ")
+        )?;
+    }
+    // An empty table with nothing queryable behind it is not a clean bill of health.
+    if !summary.queryable {
+        writeln!(
+            out,
+            "Nothing could be queried: no package carries a purl the database answers to. \
+             Add --pypi-mapping prefix (or --pypi-mapping-file) so conda packages can be matched."
         )?;
     }
     Ok(())
