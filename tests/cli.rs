@@ -871,6 +871,66 @@ fn doctor_probes_every_upstream_and_fails_when_one_is_unreachable() {
 }
 
 #[test]
+fn every_gate_that_fired_is_named_with_the_one_that_chose_the_exit_code() {
+    let dir = workspace("with-pypi");
+
+    // One gate: what failed, and what that means for the exit code.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--deny-license", "GPL-3.0-only", "--output", "-"])
+        .assert()
+        .code(3)
+        .stderr(predicate::str::contains("Gate failed: license policy (2). Exiting 3."));
+
+    // Two gates: both named, and the precedence spelled out rather than left to be inferred
+    // from a number.
+    let dir = workspace_with_vulnerable_urllib3();
+    pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args([
+            "-e",
+            "web",
+            "-p",
+            "linux-64",
+            "--vulnerabilities",
+            "osv",
+            "--fail-on-severity",
+            "high",
+            "--deny-license",
+            "GPL-3.0-only",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .code(3)
+        .stderr(predicate::str::contains("2 gates failed:"))
+        .stderr(predicate::str::contains("license policy ("))
+        .stderr(predicate::str::contains("vulnerabilities ("))
+        .stderr(predicate::str::contains(
+            "Exiting 3 (license policy); the others would have been 4.",
+        ));
+
+    // No gate, nothing said.
+    let clean = workspace("with-pypi");
+    let quiet = String::from_utf8(
+        pixi_sbom()
+            .current_dir(clean.path())
+            .args(["-p", "linux-64", "--output", "-"])
+            .assert()
+            .success()
+            .get_output()
+            .stderr
+            .clone(),
+    )
+    .unwrap();
+    assert!(!quiet.contains("Gate failed"), "{quiet}");
+    assert!(!quiet.contains("gates failed"), "{quiet}");
+}
+
+#[test]
 fn every_request_is_visible_at_debug_and_a_failure_names_its_cause() {
     let dir = workspace("with-pypi");
     let run = |args: &[&str]| {
