@@ -955,7 +955,6 @@ const PHANTOM_EXIT_CODE: i32 = 8;
 /// Exit code for `--fail-on-scorecard` when a scored repository is below the threshold.
 const SCORECARD_EXIT_CODE: i32 = 9;
 
-/// Where the packages come from.
 /// Say what this run is reading and how it got there. Four decisions are made before any work
 /// starts — which lockfile, which manifest beside it, which configuration file, and for a scan
 /// which directory the configuration came from — and none of them used to be visible.
@@ -997,6 +996,8 @@ fn describe_input(args: &cli::Args, lockfile: &Path, cwd: &Path) {
             "no workspace manifest: the root component's dependencies are the graph-root heuristic"
         ),
     }
+}
+
 /// The upstreams this run may use, given the flags, with their addresses resolved the way the
 /// code that calls them resolves them.
 fn network_configuration(args: &cli::Args, fetch_licenses: bool) -> http::Configuration {
