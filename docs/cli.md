@@ -55,6 +55,8 @@ With no options this means:
 | `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification), is excluded from `--fail-on-severity` and listed separately in the report. |
 | `--vex <PATH>` | | With `--vulnerabilities`: also write a standalone CycloneDX VEX there, linked back to the SBOM. |
 | `--vex-open <in-triage\|exploitable>` | `in-triage` | The analysis state the VEX gives findings nobody assessed with `--ignore-vuln`. |
+| `--refresh [<CACHE>...]` | off | Ignore cached answers this run and ask again; with no value every cache, else the named ones (`mapping`, `osv`, `kev`, `wheels`, `pypi`, `outdated`, `scorecard`). What is fetched is still cached. |
+| `--no-cache` | off | Neither read nor write any cache. |
 | `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom\|scorecard>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
 | `--tree` | off | With `--report packages`: draw the dependency graph from the root downward instead of a flat list. |
 | `--depth <N>` | unlimited | With `--tree`: how deep to go (`0` shows what the root depends on and nothing below). |
@@ -741,6 +743,32 @@ address came from** — a default, or the variable that changed it — so a mirr
 `PIXI_SBOM_OSV_URL` is visible rather than inferred. The proxy is whichever of `ALL_PROXY`, `HTTPS_PROXY` and
 `HTTP_PROXY` ureq will use, named and with its password replaced; `NO_PROXY` is printed too when set. A run that
 touches no upstream prints none of this.
+
+## The caches, and getting out of them
+
+Seven caches back the network features, with lifetimes from an hour to a week:
+
+| Cache | Holds | Lifetime |
+|---|---|---|
+| `mapping` | the conda-forge name mapping | a day |
+| `osv` | query results and advisory records | an hour (records until the advisory changes) |
+| `kev` | the CISA catalog | a day |
+| `wheels` | `dist-info` read out of wheels | until the wheel changes, which it never does |
+| `pypi` | release metadata | as above |
+| `outdated` | project documents | a day |
+| `scorecard` | OpenSSF scores | a week |
+
+They are what makes a second run fast and an offline run possible, and they are also why "it works on my machine"
+is often "my cache is warm". Each run says what they served:
+
+```
+INFO pixi_sbom::cache: cache cache="osv" from_cache=24 fetched=6 oldest_s=2460
+```
+
+`--refresh` ignores what is on disk and asks again — `--refresh` for all of them, `--refresh osv --refresh pypi`
+for those two — while still writing back what it fetches. `--no-cache` neither reads nor writes, which is the one
+to reach for when reproducing a problem: it proves the answer came from the network this minute. The two cannot be
+combined.
 
 ## When something comes back empty
 

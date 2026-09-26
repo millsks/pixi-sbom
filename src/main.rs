@@ -1,6 +1,7 @@
 //! `pixi-sbom`: a pixi extension that generates CycloneDX or SPDX SBOMs from `pixi.lock`.
 
 mod auditable;
+mod cache;
 mod cli;
 mod condaarchive;
 mod config;
@@ -91,6 +92,12 @@ fn main() -> Result<()> {
     }
     describe_input(&args, &lockfile, &cwd);
     tracing::debug!(?args, "effective arguments");
+    // What the caches may do this run, before anything reads one.
+    cache::init(cache::Policy::new(
+        args.refresh.iter().filter_map(|target| target.service()).collect(),
+        args.refresh.iter().any(|target| target.service().is_none()),
+        args.no_cache,
+    ));
     validate(&args);
     // Bars are drawn only for an interactive run whose log level would not overwrite them.
     let progress = progress::Progress::resolve(
@@ -644,6 +651,9 @@ fn main() -> Result<()> {
             );
         }
     }
+    // Where the answers came from: a run that is fast because everything was cached should
+    // say so, and one that refreshed should show the fetches.
+    cache::log_tally();
     if !reports.is_empty() {
         let palette = style::Palette::new(args.color.enabled());
         let mut stdout = std::io::stdout().lock();
