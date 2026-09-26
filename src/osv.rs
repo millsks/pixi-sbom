@@ -38,9 +38,6 @@ const QUERY_MAX_AGE: Duration = Duration::from_secs(60 * 60);
 /// Largest response accepted, in bytes.
 const MAX_RESPONSE_BYTES: u64 = 32 * 1024 * 1024;
 
-/// Record fetches in flight at once.
-const CONCURRENCY: usize = 10;
-
 /// The API base from the environment or the default.
 pub fn api_url() -> String {
     std::env::var(API_URL_ENV)
@@ -309,9 +306,8 @@ impl Lookup<'_> {
         }
         let ids: Vec<&str> = hits.keys().copied().collect();
         let bar = progress.bar("advisories", ids.len());
-        let records = crate::parallel::map(
+        let records = crate::concurrency::map(
             &ids,
-            CONCURRENCY,
             Some(&bar),
             |id| (*id).to_string(),
             |id| self.record(id, modified[id], client, offline),

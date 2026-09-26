@@ -35,9 +35,6 @@ const CACHE_MAX_AGE: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 /// Largest response accepted, in bytes.
 const MAX_BYTES: u64 = 4 * 1024 * 1024;
 
-/// Lookups in flight at once.
-const CONCURRENCY: usize = 10;
-
 /// The Scorecard API base from the environment or the default.
 pub fn url() -> String {
     std::env::var(SCORECARD_URL_ENV)
@@ -172,9 +169,8 @@ impl Lookup<'_> {
         }
 
         let bar = progress.bar("repositories", jobs.len());
-        let answers = crate::parallel::map(
+        let answers = crate::concurrency::map(
             &jobs,
-            CONCURRENCY,
             Some(&bar),
             |job| job.display_name.clone(),
             |job| self.scorecard(job, fetch, now),

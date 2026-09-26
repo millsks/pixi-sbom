@@ -27,9 +27,6 @@ const MAX_INFO_BYTES: u64 = 256 * 1024 * 1024;
 /// Largest `.tar.bz2` archive downloaded whole for its `info/` directory.
 pub const MAX_LEGACY_ARCHIVE_BYTES: u64 = 2 * 1024 * 1024;
 
-/// Fetches in flight at once.
-const CONCURRENCY: usize = 10;
-
 /// Counts from one enrichment pass.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Outcome {
@@ -107,9 +104,8 @@ pub fn enrich(
     }
 
     let bar = progress.bar("archives", jobs.len());
-    let results = crate::parallel::map(
+    let results = crate::concurrency::map(
         &jobs,
-        CONCURRENCY,
         Some(&bar),
         |job| job.name.clone(),
         |job| info_for(&job.location, &job.key, cache_dir, texts),

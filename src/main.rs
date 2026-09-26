@@ -2,9 +2,9 @@
 //! decide the exit code. Everything it calls lives in the library beside it.
 
 use pixi_sbom::{
-    auditable, cache, cli, condaarchive, config, diff, discover, doctor, embedded, explain, filter, format, fromsbom,
-    http, imports, kev, lock, manifest, mapping, model, osv, outdated, phantom, pkgcache, policy, prefix, progress,
-    pypi, report, scorecard, style, timings, vulnpolicy, wheel,
+    auditable, cache, cli, concurrency, condaarchive, config, diff, discover, doctor, embedded, explain, filter,
+    format, fromsbom, http, imports, kev, lock, manifest, mapping, model, osv, outdated, phantom, pkgcache, policy,
+    prefix, progress, pypi, report, scorecard, style, timings, vulnpolicy, wheel,
 };
 
 use std::io::{IsTerminal, Write};
@@ -65,6 +65,18 @@ fn main() -> Result<()> {
     }
     describe_input(&args, &lockfile, &cwd);
     tracing::debug!(?args, "effective arguments");
+    // How many things may happen at once, before anything starts happening.
+    let (limits, unusable_concurrency) = concurrency::Limits::from_env();
+    concurrency::init(limits);
+    if let Some(value) = unusable_concurrency {
+        tracing::warn!(
+            variable = concurrency::CONCURRENCY_ENV,
+            value,
+            network = limits.network,
+            cpu = limits.cpu,
+            "not a positive number of jobs; using the machine's own limits"
+        );
+    }
     // What the caches may do this run, before anything reads one.
     cache::init(cache::Policy::new(
         args.refresh.iter().filter_map(|target| target.service()).collect(),
