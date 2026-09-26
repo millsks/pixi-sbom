@@ -298,6 +298,7 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Bom {
             ]
             .into_iter()
             .chain((!sbom.excluded.is_empty()).then(|| property("pixi:excluded", &sbom.excluded.join(", "))))
+            .chain(incomplete_properties(&sbom.incomplete))
             .collect(),
         },
         components: sbom.packages.iter().map(component).collect(),
@@ -305,6 +306,20 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Bom {
         vulnerabilities: sbom.vulnerabilities.iter().map(|v| vulnerability(v, sbom)).collect(),
         citations,
     }
+}
+
+/// What the run could not finish, as root metadata properties. Absent when everything
+/// answered, so a complete document is byte-for-byte what it always was.
+fn incomplete_properties(incomplete: &crate::model::Incomplete) -> Vec<Property> {
+    let mut properties = Vec::new();
+    if !incomplete.steps.is_empty() {
+        properties.push(property("pixi:incomplete", &incomplete.step_names().join(", ")));
+        properties.push(property("pixi:incomplete-detail", &incomplete.steps.join("; ")));
+    }
+    if !incomplete.stale.is_empty() {
+        properties.push(property("pixi:stale-cache", &incomplete.stale.join("; ")));
+    }
+    properties
 }
 
 /// The `vulnerabilities[]` entry for one finding. Aliases become `references` with the
@@ -701,6 +716,52 @@ mod tests {
     fn snapshot_1_7() {
         let doc = serde_json::to_value(document(&sample_sbom(), &crate::format::testing::fixed_context_1_7())).unwrap();
         insta::assert_json_snapshot!(doc);
+    }
+
+    #[test]
+    fn an_incomplete_run_says_so_in_the_root_metadata() {
+        // Everything answered: the document is what it always was.
+        let properties = json()["metadata"]["properties"].clone();
+        let names: Vec<&str> = properties
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| p["name"].as_str().unwrap())
+            .collect();
+        assert!(!names.contains(&"pixi:incomplete"), "{names:?}");
+        assert!(!names.contains(&"pixi:incomplete-detail"), "{names:?}");
+        assert!(!names.contains(&"pixi:stale-cache"), "{names:?}");
+
+        let mut sbom = sample_sbom();
+        sbom.incomplete.note_failures("pypi-releases", 12, 38, "index lookups");
+        sbom.incomplete
+            .note("osv: 0 of 24 packages queryable (no purl the database answers to)");
+        sbom.incomplete.stale = vec!["kev: 9 days old".into()];
+        let doc = serde_json::to_value(document(&sbom, &fixed_context())).unwrap();
+        let properties = doc["metadata"]["properties"].as_array().unwrap().clone();
+        let value = |name: &str| {
+            properties
+                .iter()
+                .find(|p| p["name"] == name)
+                .map(|p| p["value"].as_str().unwrap().to_string())
+        };
+        assert_eq!(value("pixi:incomplete").as_deref(), Some("osv, pypi-releases"));
+        assert_eq!(
+            value("pixi:incomplete-detail").as_deref(),
+            Some(
+                "osv: 0 of 24 packages queryable (no purl the database answers to); \
+                 pypi-releases: 12 of 38 index lookups failed"
+            )
+        );
+        assert_eq!(value("pixi:stale-cache").as_deref(), Some("kev: 9 days old"));
+
+        // Old data on its own is not a failed step.
+        let mut only_stale = sample_sbom();
+        only_stale.incomplete.stale = vec!["mapping: 3 days old".into()];
+        let doc = serde_json::to_value(document(&only_stale, &fixed_context())).unwrap();
+        let properties = doc["metadata"]["properties"].as_array().unwrap().clone();
+        assert!(properties.iter().all(|p| p["name"] != "pixi:incomplete"));
+        assert!(properties.iter().any(|p| p["name"] == "pixi:stale-cache"));
     }
 
     #[test]

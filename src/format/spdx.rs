@@ -239,13 +239,27 @@ fn root_package(sbom: &Sbom, extracted: &mut BTreeMap<String, ExtractedLicense>)
             sbom.environment,
             sbom.platform
         )),
-        comment: excluded_comment(sbom),
+        comment: root_comment(sbom),
     }
 }
 
-/// The root package's note about packages left out by `--include` / `--exclude`.
-pub(crate) fn excluded_comment(sbom: &Sbom) -> Option<String> {
-    (!sbom.excluded.is_empty()).then(|| format!("pixi:excluded={}", sbom.excluded.join(", ")))
+/// The root package's note about packages left out by `--include` / `--exclude`, and about
+/// what the run could not finish. SPDX has no properties on the document, so the lines
+/// CycloneDX puts in `metadata.properties` go here, one per line, absent when they are empty.
+pub(crate) fn root_comment(sbom: &Sbom) -> Option<String> {
+    let incomplete = &sbom.incomplete;
+    let mut lines = Vec::new();
+    if !sbom.excluded.is_empty() {
+        lines.push(format!("pixi:excluded={}", sbom.excluded.join(", ")));
+    }
+    if !incomplete.steps.is_empty() {
+        lines.push(format!("pixi:incomplete={}", incomplete.step_names().join(", ")));
+        lines.push(format!("pixi:incomplete-detail={}", incomplete.steps.join("; ")));
+    }
+    if !incomplete.stale.is_empty() {
+        lines.push(format!("pixi:stale-cache={}", incomplete.stale.join("; ")));
+    }
+    (!lines.is_empty()).then(|| lines.join("\n"))
 }
 
 fn spdx_package(
@@ -384,6 +398,50 @@ mod tests {
     #[test]
     fn snapshot() {
         insta::assert_json_snapshot!(json());
+    }
+
+    #[test]
+    fn the_root_comment_carries_the_exclusions_and_what_did_not_finish() {
+        // Everything answered and nothing was excluded: no comment at all.
+        assert_eq!(root_comment(&sample_sbom()), None);
+
+        let mut sbom = sample_sbom();
+        sbom.excluded = vec!["pytest".into(), "ruff".into()];
+        assert_eq!(root_comment(&sbom).as_deref(), Some("pixi:excluded=pytest, ruff"));
+
+        sbom.incomplete.note_failures("wheel-licenses", 12, 38, "wheel reads");
+        sbom.incomplete.stale = vec!["kev: 9 days old".into()];
+        assert_eq!(
+            root_comment(&sbom).as_deref(),
+            Some(
+                "pixi:excluded=pytest, ruff\n\
+                 pixi:incomplete=wheel-licenses\n\
+                 pixi:incomplete-detail=wheel-licenses: 12 of 38 wheel reads failed\n\
+                 pixi:stale-cache=kev: 9 days old"
+            )
+        );
+
+        // And it is the root package the reader finds it on.
+        let doc = serde_json::to_value(document(&sbom, &fixed_context())).unwrap();
+        let root = doc["packages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["SPDXID"] == ROOT_ID)
+            .expect("the root package");
+        assert!(
+            root["comment"].as_str().unwrap().contains("pixi:incomplete="),
+            "{}",
+            root["comment"]
+        );
+
+        // Old data on its own still says so, without claiming a step failed.
+        let mut only_stale = sample_sbom();
+        only_stale.incomplete.stale = vec!["mapping: 3 days old".into()];
+        assert_eq!(
+            root_comment(&only_stale).as_deref(),
+            Some("pixi:stale-cache=mapping: 3 days old")
+        );
     }
 
     #[test]

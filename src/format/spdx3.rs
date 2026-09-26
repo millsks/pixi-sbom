@@ -301,7 +301,7 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
         sbom.environment,
         sbom.platform
     ));
-    root.comment = super::spdx::excluded_comment(sbom);
+    root.comment = super::spdx::root_comment(sbom);
     if let Some(license) = sbom.root.license.as_deref().and_then(|raw| b.license(raw, None)) {
         relationships.push((
             root_id.clone(),
@@ -455,6 +455,25 @@ mod tests {
     #[test]
     fn snapshot() {
         insta::assert_json_snapshot!(json());
+    }
+
+    #[test]
+    fn what_did_not_finish_is_on_the_root_package() {
+        let root = |doc: &serde_json::Value| {
+            nodes(doc, "software_Package")
+                .into_iter()
+                .find(|n| n["spdxId"].as_str().is_some_and(|id| id.ends_with("#package-root")))
+                .expect("the root package")
+        };
+        assert!(root(&json()).get("comment").is_none(), "a complete run says nothing");
+
+        let mut sbom = sample_sbom();
+        sbom.incomplete.note_failures("osv", 2, 7, "advisory record fetches");
+        sbom.incomplete.stale = vec!["kev: 9 days old".into()];
+        let doc = serde_json::to_value(document(&sbom, &fixed_context())).unwrap();
+        let comment = root(&doc)["comment"].as_str().unwrap().to_string();
+        assert!(comment.contains("pixi:incomplete=osv"), "{comment}");
+        assert!(comment.contains("pixi:stale-cache=kev: 9 days old"), "{comment}");
     }
 
     #[test]

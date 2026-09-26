@@ -4815,3 +4815,84 @@ fn unwritable_output_is_reported() {
         .failure()
         .stderr(predicate::str::contains("cannot create"));
 }
+
+#[test]
+fn the_document_records_what_the_run_could_not_ask() {
+    let dir = workspace_with_vulnerable_urllib3();
+    let run = |cache: &str| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join(cache))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args([
+                "-e",
+                "web",
+                "-p",
+                "linux-64",
+                "--vulnerabilities",
+                "osv",
+                "--output",
+                "-",
+            ]);
+        command
+    };
+    let properties = |doc: &Value| -> Vec<(String, String)> {
+        doc["metadata"]["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| {
+                (
+                    p["name"].as_str().unwrap().to_string(),
+                    p["value"].as_str().unwrap().to_string(),
+                )
+            })
+            .collect()
+    };
+    let validator = cyclonedx_validator();
+
+    // Warm cache: every purl is answered from disk, so nothing is missing and the document
+    // says nothing about itself.
+    let assert = run("cache").assert().success();
+    let warm: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&validator, &warm);
+    assert!(
+        warm["vulnerabilities"].as_array().is_some_and(|v| !v.is_empty()),
+        "the cache answers for the vulnerable urllib3"
+    );
+    let warm_properties = properties(&warm);
+    assert!(
+        warm_properties
+            .iter()
+            .all(|(name, _)| !name.starts_with("pixi:incomplete")),
+        "{warm_properties:?}"
+    );
+
+    // Empty cache: the same lockfile and the same flags, but nothing could be asked. An empty
+    // `vulnerabilities[]` now says which question went unanswered instead of reading as
+    // "no known vulnerabilities".
+    let assert = run("empty-cache").assert().success();
+    let cold: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&validator, &cold);
+    assert!(
+        cold["vulnerabilities"].as_array().is_none_or(|v| v.is_empty()),
+        "offline with nothing cached finds nothing"
+    );
+    let cold_properties = properties(&cold);
+    let value = |name: &str| {
+        cold_properties
+            .iter()
+            .find(|(key, _)| key == name)
+            .map(|(_, value)| value.clone())
+    };
+    assert_eq!(value("pixi:incomplete").as_deref(), Some("osv"), "{cold_properties:?}");
+    let detail = value("pixi:incomplete-detail").unwrap_or_default();
+    assert!(detail.contains("purls unasked (offline, nothing cached)"), "{detail}");
+    assert_ne!(
+        properties(&warm),
+        cold_properties,
+        "the two documents differ in what they say about themselves"
+    );
+}

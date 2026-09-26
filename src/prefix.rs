@@ -172,6 +172,7 @@ pub fn build_sbom(prefix: &Path, root: Root, platform: Option<&str>) -> Result<S
         vulnerabilities: Vec::new(),
         excluded: Vec::new(),
         declared_missing: Vec::new(),
+        incomplete: crate::model::Incomplete::default(),
     })
 }
 

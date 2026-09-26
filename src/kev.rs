@@ -187,8 +187,10 @@ impl Catalog {
             }
             Err(source) => match cached {
                 Some(json) => {
+                    crate::cache::stale(crate::cache::Service::Kev, age.unwrap_or_default());
                     tracing::warn!(
                         cause = crate::http::error_chain(source.as_ref()),
+                        age_secs = age.unwrap_or_default().as_secs(),
                         "download failed; using the stale cached KEV catalog"
                     );
                     Self::from_json(&json, &cache_file.display().to_string())

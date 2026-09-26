@@ -35,6 +35,57 @@ pub struct Sbom {
     /// Names the manifest declares for this environment that no package in it matches — a
     /// dependency of another platform is the usual reason. Sorted, deduplicated.
     pub declared_missing: Vec<String>,
+    /// What this document does not know because a step could not finish: the enrichment that
+    /// failed, and the data that was served past its lifetime.
+    ///
+    /// A document built where the lookups failed otherwise looks exactly like one built where
+    /// everything answered — licenses are simply absent, `vulnerabilities` is simply empty —
+    /// and it outlives the terminal that carried the warnings.
+    pub incomplete: Incomplete,
+}
+
+/// What a run could not finish, recorded in the document it wrote.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Incomplete {
+    /// Steps that did not complete, as `pypi-licenses: 12 of 38 lookups failed`. Sorted.
+    pub steps: Vec<String>,
+    /// Caches served past their lifetime because the fetch failed, as `kev: 9 days old`.
+    pub stale: Vec<String>,
+}
+
+impl Incomplete {
+    /// Whether everything this run set out to do, it did.
+    pub fn is_empty(&self) -> bool {
+        self.steps.is_empty() && self.stale.is_empty()
+    }
+
+    /// Record a step that did not complete, described as `name: what went wrong`.
+    pub fn note(&mut self, step: impl Into<String>) {
+        let step = step.into();
+        if !self.steps.contains(&step) {
+            self.steps.push(step);
+            self.steps.sort();
+        }
+    }
+
+    /// Record `failed` of `total` lookups failing, if any did.
+    pub fn note_failures(&mut self, name: &str, failed: usize, total: usize, what: &str) {
+        if failed > 0 {
+            self.note(format!("{name}: {failed} of {total} {what} failed"));
+        }
+    }
+
+    /// The names of the steps that did not complete, for the summary property.
+    pub fn step_names(&self) -> Vec<&str> {
+        let mut names: Vec<&str> = self
+            .steps
+            .iter()
+            .map(|step| step.split(':').next().unwrap_or(step).trim())
+            .collect();
+        // Sorted already, since `steps` is; two notes about one step name as here.
+        names.dedup();
+        names
+    }
 }
 
 /// How bad a vulnerability is, on the CycloneDX / common scanner scale.
@@ -365,6 +416,38 @@ impl Package {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn incomplete_records_each_step_once_and_names_them() {
+        let mut incomplete = Incomplete::default();
+        assert!(incomplete.is_empty());
+        assert!(incomplete.step_names().is_empty());
+
+        // A step that answered for everything records nothing.
+        incomplete.note_failures("pypi-releases", 0, 38, "index lookups");
+        assert!(incomplete.is_empty(), "nothing failed, so nothing is recorded");
+
+        incomplete.note_failures("pypi-releases", 12, 38, "index lookups");
+        incomplete.note("osv: 0 of 24 packages queryable (no purl the database answers to)");
+        incomplete.note("osv: 3 advisory record(s) could not be fetched");
+        // The same note twice is one note; two notes about one step are one name.
+        incomplete.note("osv: 3 advisory record(s) could not be fetched");
+        assert_eq!(incomplete.steps.len(), 3);
+        assert_eq!(incomplete.step_names(), vec!["osv", "pypi-releases"]);
+        assert_eq!(
+            incomplete.steps[2], "pypi-releases: 12 of 38 index lookups failed",
+            "sorted, and the detail says how much of the step failed"
+        );
+        assert!(!incomplete.is_empty());
+
+        // A stale cache alone is enough to make a document incomplete.
+        let stale = Incomplete {
+            stale: vec!["kev: 9 days old".into()],
+            ..Incomplete::default()
+        };
+        assert!(!stale.is_empty());
+        assert!(stale.step_names().is_empty(), "nothing failed; data was only old");
+    }
 
     #[test]
     fn author_parses_name_and_email() {
