@@ -2504,12 +2504,16 @@ nothing to find" from "nothing was asked".</p>
 <td>9</td>
 <td><code>--fail-on-scorecard</code> found a scored repository below the threshold; the document was written and the packages listed on stderr.</td>
 </tr>
-<tr>
-<td>2</td>
-<td>Command-line usage error (unknown option, conflicting options such as <code>--output -</code> with <code>--all-environments</code> or <code>--all-platforms</code>, or a <code>--spec-version</code> of the other format, or a <code>--allow-license</code> / <code>--deny-license</code> value that is not an SPDX identifier).</td>
-</tr>
 </tbody>
 </table>
+<p>Several gates can fail in one run. Each prints its own list, and the run then says which of them fired and which
+one chose the exit code, because in CI the code is the headline and the log is long:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>2 gates failed: license policy (4), vulnerabilities (2).
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>Exiting 3 (license policy); the others would have been 4.
+</code></pre></div>
+<p>The precedence is the order of the table above: the license policy first, then vulnerabilities, yanked releases,
+phantom imports, the comparison, and scorecards last.
+| 2 | Command-line usage error (unknown option, conflicting options such as <code>--output -</code> with <code>--all-environments</code> or <code>--all-platforms</code>, or a <code>--spec-version</code> of the other format, or a <code>--allow-license</code> / <code>--deny-license</code> value that is not an SPDX identifier). |</p>
 <p>Runtime diagnostics carry a stable code you can grep for in CI logs:</p>
 <table>
 <thead>
