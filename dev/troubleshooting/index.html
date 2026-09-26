@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://millsks.github.io/pixi-sbom/latest/installation/">
+        <link rel="canonical" href="https://millsks.github.io/pixi-sbom/latest/troubleshooting/">
       
       
-        <link rel="prev" href="..">
+        <link rel="prev" href="../output-format/">
       
       
-        <link rel="next" href="../cli/">
+        <link rel="next" href="../architecture/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Installation - pixi-sbom</title>
+        <title>Troubleshooting - pixi-sbom</title>
       
     
     
@@ -91,7 +91,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#installation" class="md-skip">
+        <a href="#troubleshooting-results-on-one-network-none-on-another" class="md-skip">
           Skip to content
         </a>
       
@@ -131,7 +131,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Installation
+              Troubleshooting
             
           </span>
         </div>
@@ -303,37 +303,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Installation
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
         
   
   
@@ -349,48 +322,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#methods" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Methods
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#upgrading" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Upgrading
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -534,10 +465,37 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../troubleshooting/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -553,6 +511,120 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-ask-the-tool-what-it-sees" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Ask the tool what it sees
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-the-three-usual-causes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. The three usual causes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. The three usual causes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#proxies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proxies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-private-certificate-authority" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A private certificate authority
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-blocked-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A blocked host
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-read-the-requests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Read the requests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-work-from-the-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Work from the cache
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reporting-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reporting it
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -726,10 +798,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#methods" class="md-nav__link">
+  <a href="#1-ask-the-tool-what-it-sees" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Methods
+        1. Ask the tool what it sees
       
     </span>
   </a>
@@ -737,10 +809,82 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#upgrading" class="md-nav__link">
+  <a href="#2-the-three-usual-causes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Upgrading
+        2. The three usual causes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. The three usual causes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#proxies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proxies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-private-certificate-authority" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A private certificate authority
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-blocked-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A blocked host
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-read-the-requests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Read the requests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-work-from-the-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Work from the cache
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reporting-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reporting it
       
     </span>
   </a>
@@ -764,7 +908,7 @@
 
 
   
-    <a href="https://github.com/millsks/pixi-sbom/edit/main/docs/installation.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/millsks/pixi-sbom/edit/main/docs/troubleshooting.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -772,47 +916,155 @@
   
 
 
-<h1 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h1>
-<p><code>pixi-sbom</code> is a <a href="https://pixi.sh/latest/integration/extensions/introduction/">pixi extension</a>: a standalone
-executable named <code>pixi-sbom</code>. Pixi finds any <code>pixi-&lt;name&gt;</code> binary on <code>PATH</code> (or in its own global bin directory) and
-runs it when you type <code>pixi &lt;name&gt;</code>. There is no plugin registration; installing the binary is the whole setup.</p>
-<h2 id="methods">Methods<a class="headerlink" href="#methods" title="Permanent link">&para;</a></h2>
+<h1 id="troubleshooting-results-on-one-network-none-on-another">Troubleshooting: results on one network, none on another<a class="headerlink" href="#troubleshooting-results-on-one-network-none-on-another" title="Permanent link">&para;</a></h1>
+<p>The same command, the same <code>pixi.lock</code>, a different network — and the vulnerability table is empty, or every
+license is missing. Nothing in the output says why, because from the tool's point of view nothing went wrong: it
+asked, it did not get an answer, it carried on and wrote a document.</p>
+<p>This page is the order to check things in. Every step is a command you can paste.</p>
+<h2 id="1-ask-the-tool-what-it-sees">1. Ask the tool what it sees<a class="headerlink" href="#1-ask-the-tool-what-it-sees" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">$ </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--doctor<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">Configuration</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">  offline    false</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">  proxy      HTTPS_PROXY=http://user:***@proxy.corp:8080</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">  no-proxy   NO_PROXY=.corp,localhost</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">  TLS roots  the platform verifier (the operating system trust store)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="go">  timeout    120s</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="go">  cache      /home/u/.cache/rattler/pixi-sbom (exists)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="go">Upstreams</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="go">  PyPI index         https://pypi.org/pypi            ok 200, 184 ms</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="go">  OSV                https://api.osv.dev              failed: io: invalid peer certificate: UnknownIssuer</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="go">  package archives   each package's own download URL  ok 200, 96 ms</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="go">1 of 3 upstream(s) could not be reached: OSV.</span>
+</code></pre></div>
+<p><code>--doctor</code> needs no lockfile and no workspace. Give it the flags of the run you are diagnosing, so it probes the
+same upstreams that run would. It exits 1 when anything is unreachable, which makes it usable as a CI pre-flight.</p>
+<p>The three lines that answer most questions are <code>proxy</code>, <code>TLS roots</code> and the failure text beside each upstream.
+<code>pixi sbom --version-details</code> prints the same configuration plus what the binary was built with.</p>
+<h2 id="2-the-three-usual-causes">2. The three usual causes<a class="headerlink" href="#2-the-three-usual-causes" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Method</th>
-<th>Command</th>
+<th>Symptom in <code>--doctor</code></th>
+<th>Cause</th>
+<th>Fix</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>pixi global (recommended)</td>
-<td><code>pixi global install pixi-sbom</code></td>
+<td><code>failed: io: invalid peer certificate: UnknownIssuer</code></td>
+<td>A TLS-intercepting appliance re-signs traffic with a CA the tool does not trust</td>
+<td>Install the CA system-wide, or point <code>--ca-bundle</code> at it (below)</td>
 </tr>
 <tr>
-<td>Prebuilt binary</td>
-<td>Download <code>pixi-sbom-&lt;version&gt;-&lt;platform&gt;.tar.gz</code> (or <code>.zip</code> on Windows) from the <a href="https://github.com/millsks/pixi-sbom/releases">releases page</a>, verify the <code>.sha256</code> next to it, and put <code>pixi-sbom</code> on your <code>PATH</code></td>
+<td><code>failed: io: Connection refused</code> / a timeout, with <code>proxy none</code></td>
+<td>The network needs a proxy and none is configured</td>
+<td>Set <code>HTTPS_PROXY</code> (and <code>NO_PROXY</code> for internal hosts)</td>
 </tr>
 <tr>
-<td>cargo binstall</td>
-<td><code>cargo binstall pixi-sbom</code> downloads the release binary for your platform from GitHub (no compiler needed); <code>cargo install pixi-sbom</code> builds it from crates.io instead</td>
+<td><code>failed: ...</code> with a <code>socks5://</code> proxy set</td>
+<td>—</td>
+<td>Supported; if it still fails, check <code>pixi sbom --version-details</code> says <code>socks-proxy</code></td>
 </tr>
 <tr>
-<td>From source</td>
-<td><code>pixi run build</code> in a clone, then copy <code>target/release/pixi-sbom</code> to <code>~/.pixi/bin/</code></td>
+<td><code>ok 200</code> for everything, but the report is still empty</td>
+<td>Nothing was asked, rather than nothing found</td>
+<td>See <a href="../cli/#when-something-comes-back-empty">when something comes back empty</a></td>
 </tr>
 </tbody>
 </table>
-<p>Check it is picked up:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pixi<span class="w"> </span>--list<span class="w">          </span><span class="c1"># ...  sbom  (via pixi-sbom)</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--version
+<h3 id="proxies">Proxies<a class="headerlink" href="#proxies" title="Permanent link">&para;</a></h3>
+<p>Every request honours <code>ALL_PROXY</code>, <code>HTTPS_PROXY</code>, <code>HTTP_PROXY</code> and <code>NO_PROXY</code> (either case), including
+<code>socks5://</code> and <code>socks5h://</code> addresses. On Windows, a proxy configured only in the system settings, with no
+environment variable at all, is used as well.</p>
+<p>The configuration block prints the variable in effect with the password replaced, so it is safe to paste into an
+issue — internal host names are not, so read it first.</p>
+<h3 id="a-private-certificate-authority">A private certificate authority<a class="headerlink" href="#a-private-certificate-authority" title="Permanent link">&para;</a></h3>
+<p>Trust comes from the operating system's store by default, which is right wherever the appliance's CA is installed
+system-wide. Where it is not — a container, a CI image, a machine where only Python was ever configured — point
+the tool at the bundle:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--ca-bundle<span class="w"> </span>/etc/ssl/certs/corp-ca.pem<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PIXI_SBOM_CA_BUNDLE</span><span class="o">=</span>/etc/ssl/certs/corp-ca.pem<span class="w">     </span><span class="c1"># the same, for a CI job</span>
 </code></pre></div>
-<p><code>pixi-sbom --help</code> and <code>pixi sbom --help</code> are equivalent; the binary can be run directly without pixi.</p>
-<h2 id="upgrading">Upgrading<a class="headerlink" href="#upgrading" title="Permanent link">&para;</a></h2>
-<p><code>pixi global update pixi-sbom</code> follows the conda-forge feedstock, which tracks releases within a day or two; a
-downloaded binary is replaced by the next one from the releases page. <code>pixi sbom --version</code> prints the running
-version, and every release is listed in the <a href="../changelog/">changelog</a>.</p>
-<p>Next: <a href="../cli/">run it</a>, <a href="../github-action/">use it in CI</a>, or see <a href="../formats/">which format to pick</a>.</p>
+<p><code>SSL_CERT_FILE</code> is honoured when neither is given, which is the variable the rest of the Python and conda world
+already sets in such an image, so a correctly configured container usually needs nothing at all.</p>
+<p>The trust anchors are resolved once, before the first request, and the first of these that is set wins:</p>
+<ol>
+<li><code>--ca-bundle &lt;FILE&gt;</code></li>
+<li><code>PIXI_SBOM_CA_BUNDLE</code></li>
+<li><code>SSL_CERT_FILE</code></li>
+<li>the platform verifier — the operating system's own trust store, which is the default when none of the three
+   is set, and which is what every earlier release used</li>
+</ol>
+<p><code>--doctor</code> and <code>pixi sbom --version-details</code> both print which one is in play, as the <code>TLS roots</code> line. Nothing is
+compiled into the binary: there is no vendored root store to go stale.</p>
+<p>The file must be PEM; a bundle that is missing or holds no certificate is
+reported before the first request, naming the file and the flag that gave it, rather than arriving later as a
+handshake failure:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gp">$ </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--ca-bundle<span class="w"> </span>./corp.der<span class="w"> </span>--fetch-licenses
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">Error: pixi_sbom::http::ca_bundle</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="go">  × no certificate in the CA bundle at ./corp.der</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="go">  help: the file given by --ca-bundle must be PEM, with at least one -----BEGIN CERTIFICATE----- block;</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="go">        a DER file must be converted first (openssl x509 -inform der -in ca.der -out ca.pem)</span>
+</code></pre></div>
+<h3 id="a-blocked-host">A blocked host<a class="headerlink" href="#a-blocked-host" title="Permanent link">&para;</a></h3>
+<p>Where the host itself is unreachable and no proxy or CA will change that, point the tool at whatever the network
+does allow:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>What it replaces</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PIXI_SBOM_PYPI_URL</code></td>
+<td>The PyPI JSON API — a devpi or Artifactory mirror</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_OSV_URL</code></td>
+<td>The OSV API</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_ANACONDA_URL</code></td>
+<td>The anaconda.org API used by <code>--report outdated</code></td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_SCORECARD_URL</code></td>
+<td>The OpenSSF Scorecard API</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_KEV_URL</code></td>
+<td>The CISA KEV catalog</td>
+</tr>
+</tbody>
+</table>
+<p><code>--pypi-mapping-file &lt;FILE&gt;</code> takes the conda → PyPI name mapping from disk instead of downloading it, which is
+the one download an air-gapped run of <code>--vulnerabilities osv</code> over conda packages cannot do without.</p>
+<h2 id="3-read-the-requests">3. Read the requests<a class="headerlink" href="#3-read-the-requests" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">RUST_LOG</span><span class="o">=</span>pixi_sbom::http<span class="o">=</span>debug,pixi_sbom<span class="o">=</span>info<span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+</code></pre></div>
+<p>Every request is logged with its URL, status, size and elapsed time, and every failure with its <strong>whole error
+chain</strong> — <code>invalid peer certificate</code>, <code>Connection refused</code>, the proxy's own message — rather than only the
+outermost "request failed". <a href="../cli/#what-the-log-says-and-how-to-narrow-it">What the log says</a> has the module
+targets and three worked recipes.</p>
+<h2 id="4-work-from-the-cache">4. Work from the cache<a class="headerlink" href="#4-work-from-the-cache" title="Permanent link">&para;</a></h2>
+<p>An unreachable upstream does not have to stop a run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">PIXI_SBOM_OFFLINE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+</code></pre></div>
+<p>Nothing is requested; every cache is used where it has an answer and every skipped request is logged. Warm the
+caches on a machine that can reach the network, copy <code>PIXI_SBOM_CACHE_DIR</code> across, and the restricted machine
+produces the same document.</p>
+<p>What such a run could <strong>not</strong> finish is recorded in the document itself — <code>pixi:incomplete</code>,
+<code>pixi:incomplete-detail</code> and <code>pixi:stale-cache</code> (see
+<a href="../output-format/#incomplete-enrichment">incomplete enrichment</a>) — so an SBOM built on a restricted network does
+not read as "no known vulnerabilities" months later.</p>
+<h2 id="reporting-it">Reporting it<a class="headerlink" href="#reporting-it" title="Permanent link">&para;</a></h2>
+<p>If none of this explains it, open an issue with the output of <code>pixi sbom --version-details</code>, the command, and the
+same command with <code>-vv</code>. The bug report form asks for exactly those three.</p>
 
 
 
@@ -848,7 +1100,7 @@ version, and every release is listed in the <a href="../changelog/">changelog</a
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href=".." class="md-footer__link md-footer__link--prev" aria-label="Previous: Overview">
+          <a href="../output-format/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Output format reference">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -858,20 +1110,20 @@ version, and every release is listed in the <a href="../changelog/">changelog</a
                 Previous
               </span>
               <div class="md-ellipsis">
-                Overview
+                Output format reference
               </div>
             </div>
           </a>
         
         
           
-          <a href="../cli/" class="md-footer__link md-footer__link--next" aria-label="Next: Command-line reference">
+          <a href="../architecture/" class="md-footer__link md-footer__link--next" aria-label="Next: Architecture">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Command-line reference
+                Architecture
               </div>
             </div>
             <div class="md-footer__button md-icon">
