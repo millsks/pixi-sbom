@@ -470,6 +470,11 @@ pub struct Args {
     #[arg(long = "version-details", visible_alias = "build-info")]
     pub version_details: bool,
 
+    /// Print a table at the end of the run showing where the time went, phase by phase, with
+    /// how much of it was spent waiting on the network.
+    #[arg(long)]
+    pub timings: bool,
+
     /// Ask every upstream this build knows about whether it answers, print how the run is set
     /// up and what the caches hold, and exit non-zero if anything is unreachable. Needs no
     /// lockfile. Combine with the flags of the run you are diagnosing to probe only those.

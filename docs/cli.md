@@ -56,6 +56,7 @@ With no options this means:
 | `--vex <PATH>` | | With `--vulnerabilities`: also write a standalone CycloneDX VEX there, linked back to the SBOM. |
 | `--vex-open <in-triage\|exploitable>` | `in-triage` | The analysis state the VEX gives findings nobody assessed with `--ignore-vuln`. |
 | `--version-details` (`--build-info`) | | Print the version with the target, the features compiled in, the caches, pixi's version and the network settings: the block to paste into a bug report. |
+| `--timings` | off | Print where the run spent its time, phase by phase, separating waiting on the network from working. |
 | `--doctor` | off | Probe every upstream the other flags bring in, print the configuration and the caches, and exit 1 if anything is unreachable. Needs no lockfile. |
 | `--refresh [<CACHE>...]` | off | Ignore cached answers this run and ask again; with no value every cache, else the named ones (`mapping`, `osv`, `kev`, `wheels`, `pypi`, `outdated`, `scorecard`). What is fetched is still cached. |
 | `--no-cache` | off | Neither read nor write any cache. |
@@ -746,6 +747,26 @@ The `features` line is the one that is invisible from the outside and settles se
 safe to paste; internal host names are not, so read it before you do.
 
 The repository's bug report form asks for this block, the command, and the same command with `-vv`.
+
+## Where the time went
+
+`--timings` prints a table at the end of the run:
+
+```
+Phase                   Time  Detail
+input                 0.04 s  240 packages
+pypi mapping          1.21 s
+wheels (dist-info)   12.40 s  38 fetched, 4 cached
+conda archives       31.90 s
+pypi metadata         2.10 s  36 found, 0 failed
+vulnerabilities       2.10 s  24 queried, 9 findings
+write                 0.08 s
+total                49.90 s  of which 49.6 s waiting on the network
+```
+
+The last line is the one that decides what to do about a slow run: time spent waiting on an upstream is a network
+problem, and time spent anywhere else is the tool's. A phase appears only when it ran, so the table doubles as a
+record of what the flags actually did.
 
 ## --doctor: is it the network?
 
