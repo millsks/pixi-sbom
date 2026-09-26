@@ -5332,3 +5332,37 @@ fn the_shared_lookups_do_not_change_what_any_document_says() {
         );
     }
 }
+
+#[test]
+fn a_document_or_report_written_to_stdout_is_the_same_bytes_as_to_a_file() {
+    let dir = workspace("with-pypi");
+    let file = dir.path().join("sbom.cdx.json");
+    let run = |args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("SOURCE_DATE_EPOCH", "1700000000")
+            .args(["-e", "web", "-p", "linux-64"])
+            .args(args)
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone()
+    };
+
+    // The two go through different writers — a file is buffered, stdout is buffered by hand
+    // because Rust's own is line-buffered and the writers emit a line at a time.
+    let piped = run(&["--output", "-"]);
+    run(&["--output", file.to_str().unwrap()]);
+    let written = std::fs::read(&file).unwrap();
+    assert_eq!(piped, written, "the same document, whichever writer carries it");
+    assert!(!piped.is_empty());
+
+    // The JSON report is written the same way, straight out rather than assembled into a
+    // string first, and has to survive the same comparison.
+    let report = run(&["--report", "packages", "--report-format", "json"]);
+    let value: Value = serde_json::from_slice(&report).unwrap_or_else(|err| panic!("not JSON: {err}"));
+    assert!(value["packages"].as_array().is_some_and(|p| !p.is_empty()), "{value}");
+    assert!(report.ends_with(b"\n"), "one trailing newline, as before");
+}

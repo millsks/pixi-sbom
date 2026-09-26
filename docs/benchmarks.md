@@ -22,6 +22,7 @@ table, the writers' allocations — are invisible at 72.
 | `parse` | Lockfile text → parsed lockfile (rattler's YAML reader) |
 | `model` | Parsed lockfile → the format-agnostic model: purls, the dependency graph, license normalization |
 | `write` | Model → document bytes, once per format and spec version |
+| `cyclonedx-stdout` | The same document written to a pipe rather than a file, because that is a different writer |
 | `license/normalize` | One pass over eight expressions: a bare id, a compound, one needing a rewrite, one unparsable, and the empty case |
 | `report` | Building and rendering a report, per kind and per output format |
 | `enrich` | Reading conda licenses out of an extracted package cache — offline, from the recorded fixtures, so the number is the reading and parsing rather than the network |
@@ -105,6 +106,17 @@ Peak resident set size writing one document from a generated lockfile, measured 
 At 2000 packages the difference is inside the noise — the high-water mark there is the lockfile parser, not the
 writer. At 10000 it is a third of the peak. The output is byte-identical either way, which a unit test asserts by
 writing each format both ways and comparing.
+
+### Buffering, and a regression the benchmarks could not see
+
+The writers serialize straight out in many small pieces. A file gets a `BufWriter`; `std::io::stdout()` is
+line-buffered and flushes on every newline, so streaming into it unbuffered meant a syscall per line. Writing a
+10000-package document took **0.39 s to a pipe against 0.17 s to a file** until stdout was buffered by hand too.
+
+Every benchmark scenario wrote to a file, so a 2.3× regression on `--output -` — a documented mode, and the one
+people pipe into `jq` — survived a whole performance milestone unnoticed. There is now a `cyclonedx-stdout`
+scenario for exactly that reason. When a change touches how bytes leave the process, the benchmark has to
+exercise every way they leave it.
 
 ### The license-text budget
 

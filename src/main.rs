@@ -649,7 +649,9 @@ fn main() -> Result<()> {
     }
     if !reports.is_empty() {
         let palette = style::Palette::new(args.color.enabled());
-        let mut stdout = std::io::stdout().lock();
+        // Buffered for the same reason the document is: the JSON and SARIF reports are
+        // written straight out rather than assembled into a string first.
+        let mut stdout = std::io::BufWriter::new(std::io::stdout().lock());
         report::render(&reports, args.report_format, palette, &mut stdout)
             .and_then(|()| stdout.flush())
             .into_diagnostic()
@@ -1582,7 +1584,11 @@ fn write_output(
 ) -> Result<()> {
     let output = match output {
         discover::Output::Stdout => {
-            let mut stdout = std::io::stdout().lock();
+            // Buffered, as the file path already is. The writers serialize straight out in
+            // many small pieces, and Rust's stdout flushes on every newline: writing a
+            // ten-thousand-package document to a pipe took twice as long as writing it to a
+            // file, all of it in syscalls nobody needed.
+            let mut stdout = std::io::BufWriter::new(std::io::stdout().lock());
             format::write(format, sbom, ctx, &mut stdout)?;
             stdout.flush().into_diagnostic().wrap_err("cannot write to stdout")?;
             return Ok(());
