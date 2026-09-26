@@ -99,12 +99,21 @@ pub struct LoadedLock {
 
 /// Read and parse the lockfile at `path`.
 pub fn load(path: &Path) -> Result<LoadedLock, LockError> {
-    let parse_error = |source: rattler_lock::ParseCondaLockError| LockError::Parse {
+    let contents = std::fs::read_to_string(path).map_err(|err| LockError::Parse {
         path: path.display().to_string(),
+        source: Box::new(err.into()),
+    })?;
+    parse(contents, path.parent(), &path.display().to_string())
+}
+
+/// Parse lockfile text that came from somewhere other than a file — a generated one, a
+/// document under test — resolving any relative path in it against `base_dir`. `origin` names
+/// the text in the diagnostic, since there may be no path to name.
+pub fn parse(contents: String, base_dir: Option<&Path>, origin: &str) -> Result<LoadedLock, LockError> {
+    let lock = LockFile::from_str_with_base_directory(&contents, base_dir).map_err(|source| LockError::Parse {
+        path: origin.to_string(),
         source: Box::new(source),
-    };
-    let contents = std::fs::read_to_string(path).map_err(|err| parse_error(err.into()))?;
-    let lock = LockFile::from_str_with_base_directory(&contents, path.parent()).map_err(parse_error)?;
+    })?;
     Ok(LoadedLock { lock, contents })
 }
 
@@ -556,6 +565,22 @@ pub(crate) fn link_dependencies(packages: &mut [Package], declared: &[DeclaredDe
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn text_can_be_parsed_without_a_file_and_names_itself_when_it_will_not() {
+        let text = "version: 7\nplatforms:\n- name: linux-64\nenvironments:\n  default:\n    channels:\n    - url: https://conda.anaconda.org/conda-forge/\n    packages:\n      linux-64: []\npackages: []\n";
+        let loaded = parse(text.to_string(), None, "<generated>").expect("a minimal lockfile parses");
+        assert_eq!(
+            loaded.contents, text,
+            "the text is kept as given: it identifies the input"
+        );
+        assert_eq!(environment_names(&loaded.lock), vec!["default".to_string()]);
+
+        // With no file to name, the diagnostic says where the text came from instead.
+        let err = parse("not a lockfile".to_string(), None, "<generated>").unwrap_err();
+        assert!(err.to_string().contains("<generated>"), "{err}");
+        crate::assert_actionable(&err);
+    }
 
     #[test]
     fn every_error_carries_a_code_and_a_next_step() {

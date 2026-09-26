@@ -1,46 +1,11 @@
-//! `pixi-sbom`: a pixi extension that generates CycloneDX or SPDX SBOMs from `pixi.lock`.
+//! The `pixi sbom` command: parse the arguments, run the steps the flags asked for, and
+//! decide the exit code. Everything it calls lives in the library beside it.
 
-mod auditable;
-mod cache;
-mod cli;
-mod condaarchive;
-mod config;
-mod cvss;
-mod diff;
-mod discover;
-mod doctor;
-mod embedded;
-mod explain;
-mod filter;
-mod format;
-mod fromsbom;
-mod http;
-mod imports;
-mod kev;
-mod license;
-mod lock;
-mod manifest;
-mod mapping;
-mod model;
-mod osv;
-mod outdated;
-mod parallel;
-mod phantom;
-mod pkgcache;
-mod policy;
-mod prefix;
-mod progress;
-mod purl;
-mod pypi;
-mod pyversion;
-mod report;
-mod scorecard;
-mod stdlib;
-mod style;
-mod timings;
-mod vulnpolicy;
-mod wheel;
-mod zipread;
+use pixi_sbom::{
+    auditable, cache, cli, condaarchive, config, diff, discover, doctor, embedded, explain, filter, format, fromsbom,
+    http, imports, kev, lock, manifest, mapping, model, osv, outdated, phantom, pkgcache, policy, prefix, progress,
+    pypi, report, scorecard, style, timings, vulnpolicy, wheel,
+};
 
 use std::io::{IsTerminal, Write};
 use std::path::Path;
@@ -48,19 +13,6 @@ use std::path::Path;
 use clap::{CommandFactory, FromArgMatches};
 use miette::{Context, IntoDiagnostic, Result};
 use tracing_subscriber::EnvFilter;
-
-/// Assert that a diagnostic tells the user both what it is and what to do next.
-///
-/// Every error type in this crate has a test that builds one value of each of its variants and
-/// hands it here, so a new variant without a `help(...)` fails its module's tests rather than
-/// reaching a user who is then told only what went wrong.
-#[cfg(test)]
-pub fn assert_actionable(err: &dyn miette::Diagnostic) {
-    let code = err.code().map(|code| code.to_string()).unwrap_or_default();
-    assert!(!code.trim().is_empty(), "no diagnostic code on: {err}");
-    let help = err.help().map(|help| help.to_string()).unwrap_or_default();
-    assert!(!help.trim().is_empty(), "no help on {code}: {err}");
-}
 
 fn main() -> Result<()> {
     let started = std::time::Instant::now();

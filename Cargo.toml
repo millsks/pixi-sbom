@@ -55,6 +55,12 @@ pkg-url = "{ repo }/releases/download/v{ version }/pixi-sbom-v{ version }-win-64
 bin-dir = "pixi-sbom-v{ version }-win-64/{ bin }{ binary-ext }"
 pkg-fmt = "zip"
 
+# The library is the binary's insides, exposed so the benchmarks and tests can reach them; it
+# is not a designed API and makes no stability promise.
+[lib]
+name = "pixi_sbom"
+path = "src/lib.rs"
+
 [[bin]]
 name = "pixi-sbom"
 path = "src/main.rs"
@@ -103,8 +109,18 @@ ureq = { version = "3.4.2", default-features = false, features = ["win-system-pr
 
 [dev-dependencies]
 assert_cmd = "2.2.2"
+criterion = { version = "0.7", default-features = false, features = ["cargo_bench_support"] }
 insta = { version = "1.48.0", features = ["json", "redactions"] }
 jsonschema = { version = "0.56.0", default-features = false }
 object = { version = "0.40.0", default-features = false, features = ["write", "std"] }
 predicates = "3.1.4"
 tempfile = "3.27.0"
+
+# Criterion drives its own harness, so the built-in one is turned off for both targets.
+[[bench]]
+name = "documents"
+harness = false
+
+[[bench]]
+name = "enrichment"
+harness = false

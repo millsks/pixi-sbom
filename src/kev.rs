@@ -130,6 +130,12 @@ impl Catalog {
         })
     }
 
+    /// Whether the catalog carries no entry at all, which a served-but-empty download would
+    /// look like.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Number of catalog entries.
     pub fn len(&self) -> usize {
         self.entries.len()
@@ -316,6 +322,13 @@ mod tests {
         assert_eq!(sbom.vulnerabilities[0].kev.as_ref().unwrap().cve_id, "CVE-2021-33503");
         assert_eq!(sbom.vulnerabilities[1].kev, None);
         assert_eq!(sbom.vulnerabilities[1].severity, Severity::High);
+    }
+
+    #[test]
+    fn an_empty_catalog_is_empty_and_a_loaded_one_is_not() {
+        let catalog = Catalog::from_json(r#"{"catalogVersion":"2026.09.26","vulnerabilities":[]}"#, "test").unwrap();
+        assert!(catalog.is_empty(), "a download that served no entry is empty");
+        assert_eq!(catalog.len(), 0);
     }
 
     #[test]

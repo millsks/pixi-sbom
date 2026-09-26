@@ -14,6 +14,10 @@ use crate::http;
 pub trait RangeSource {
     /// Total size in bytes.
     fn len(&self) -> u64;
+    /// Whether there is nothing to read, which no archive this reader accepts ever is.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
     /// The bytes in `[start, start + len)`.
     fn read_range(&self, start: u64, len: u64) -> io::Result<Vec<u8>>;
 }
@@ -287,6 +291,20 @@ mod tests {
                 .join(name),
         )
         .unwrap()
+    }
+
+    #[test]
+    fn a_source_with_bytes_in_it_is_not_empty() {
+        let source = fixture("six-1.17.0-py2.py3-none-any.whl");
+        assert!(!source.is_empty(), "a wheel this reader accepts always has bytes");
+        assert_eq!(
+            source.len(),
+            std::fs::metadata(
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/archives/six-1.17.0-py2.py3-none-any.whl"),
+            )
+            .unwrap()
+            .len()
+        );
     }
 
     #[test]

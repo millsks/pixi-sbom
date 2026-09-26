@@ -74,6 +74,16 @@ edges, error variants). `format/*` tests run each writer over `format::testing::
 covering every package kind plus edge cases (missing version, non-SPDX license, local path source, extra purls), and
 check specific fields.
 
+### Benchmarks (`benches/`, criterion)
+
+`pixi run bench` times the lockfile reader, the model builder, each writer, license normalization, the report
+renderers and the offline enrichment path, against this repository's own lockfile and a generated 2000-package
+one. The numbers and what they say are in [benchmarks.md](benchmarks.md); CI runs `pixi run bench-test`, which
+executes each benchmark once without timing it, since a shared runner's timings are noise.
+
+The benchmarks reach into the crate through the library target (`src/lib.rs`), which exists for them and for the
+tests. It is the binary's insides made reachable, not a designed API, and nothing in it promises to stay put.
+
 ### Snapshot tests (`insta`)
 
 Each writer has one `insta::assert_json_snapshot!` over the sample model, stored in `src/format/snapshots/`. They
@@ -159,6 +169,7 @@ release containing them exists; keep `action.yml` inputs and the CLI in step at 
 | Lint | ubuntu | `pixi run pre-commit-run`, `cargo fmt --check`, `lint`, `check` |
 | Test | `ubuntu-latest`, `macos-latest`, `windows-latest` | `pixi run test` |
 | Coverage gate | ubuntu | `pixi run cov` |
+| Benchmarks compile and run | ubuntu | `pixi run bench-test`: every benchmark runs once, untimed |
 | Build | same three | `pixi run build` and `--version` smoke test |
 | Docs | ubuntu | `pixi run docs-build`: the site must build with `--strict` |
 
