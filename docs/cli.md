@@ -68,7 +68,8 @@ With no options this means:
 | `--scan-depth <N>` | unlimited | With `--scan`: how far below the directory to walk (`0` is the directory itself). |
 | `--against <PATH>` | | With `--report diff`: what to compare with — a document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON), a `pixi.lock`, or the directory of an installed environment. |
 | `--fail-on-diff [<SECTION>...]` | off | With `--report diff`: exit **6** when the named sections (`added`, `removed`, `version`, `license`, `build`, `pip`) are not empty. The bare flag means any change. |
-| `--report-format <table\|markdown\|csv\|json\|sarif>` | `table` | How to render the report; `sarif` (2.1.0, for GitHub code scanning) applies to `--report vulnerabilities` only. |
+| `--explain <PACKAGE>` | | Repeatable. Print every fact the tool has about the packages matching this name or shell-style pattern (as in `--exclude`) and where each fact came from, including the sources that came back empty (see below). Prints instead of writing, so it cannot be combined with `--output` or `--report`. |
+| `--report-format <table\|markdown\|csv\|json\|sarif>` | `table` | How to render the report or `--explain`; `sarif` (2.1.0, for GitHub code scanning) applies to `--report vulnerabilities` only. |
 | `--color <auto\|always\|never>` | `auto` | Colour the `table` report. `auto` colours only when the output is a terminal, honouring `NO_COLOR`, `CLICOLOR_FORCE` and `TERM=dumb`. |
 | `--pypi-licenses` | | Deprecated alias for `--fetch-licenses` (hidden from `--help`; removed in a future release). |
 | `-v`, `-vv` | info | Raise the log level to debug / trace. Logs go to stderr; the SBOM never goes to stdout. |
@@ -428,6 +429,60 @@ imports something it never declared, and ignores the other two findings.
 
 Every finding is measured against what the manifest declares, so a workspace with no manifest — `--prefix`, or a
 lockfile on its own — produces no findings at all, and the report says so.
+
+## Where every fact came from
+
+"Why does this package have no license?", "why is its purl a conda one?", "why is this version here?" are
+questions about provenance, and a document answers none of them: it records what is known, not how it was looked
+for. `--explain <PACKAGE>` answers them. It takes a name or a shell-style pattern (the same matching as
+`--exclude`: `*` and `?`, case-insensitive, `-` and `_` alike), is repeatable, and prints one row per fact — what
+the tool has, and the source that supplied it:
+
+```console
+$ pixi sbom --fetch-licenses --explain six
+Package     Fact             Value                                Source
+------------------------------------------------------------------------------------------------------------
+six 1.17.0  identity         pkg:pypi/six@1.17.0                  lockfile pixi.lock
+six 1.17.0  declared         default                              the workspace manifest
+six 1.17.0  obtained from    pypi.org (https://pypi.org/simple)   lockfile pixi.lock
+six 1.17.0  license          MIT                                  the PyPI index metadata (also the lockfile
+                                                                  entry: the entry declares none; the wheel's
+                                                                  dist-info: nothing cached for this package,
+                                                                  and PIXI_SBOM_OFFLINE forbade a request)
+six 1.17.0  requires python  >=2.7, !=3.0.*                       lockfile pixi.lock
+six 1.17.0  vulnerabilities  -                                    OSV: not queried, --vulnerabilities was not
+                                                                  given
+six 1.17.0  needed by        -                                    lockfile pixi.lock: nothing else in this
+                                                                  environment depends on it
+```
+
+The second half of each row is the point. Where a fact is empty the `Source` column names every source that
+could have supplied it and says what each one did — not present, not read because the flag that reads it was not
+given, nothing cached and offline forbade a request, or not applicable (the package cache holds conda packages,
+so it is never asked about a wheel). Where a fact *is* known, the source that answered comes first and the others
+follow in parentheses, so "the wheel said MIT and the lockfile said nothing" is one line rather than a guess.
+Nothing here is inferred: the answers are read off the model and the `pixi:*` properties the enrichment steps
+already record, and a source whose outcome cannot be known is not claimed.
+
+Every fact is covered — identity, kind, version, what declared it, channel or index, location, checksums,
+license and license files, other purls, `Requires-Python`, embedded SBOMs, yanked status, scorecard, findings,
+both directions of the dependency graph, and every remaining `pixi:*` property — so a run with more flags has
+more to say: `--fetch-licenses` turns the license row from "not read" into the wheel or the index,
+`--vulnerabilities osv` turns the findings row into advisory ids, and `--pypi-mapping prefix` fills the other
+purls.
+
+```sh
+pixi sbom --explain six --explain 'libz*'
+pixi sbom --fetch-licenses --vulnerabilities osv --explain requests
+pixi sbom --explain six --report-format json | jq '.explain[] | select(.value == null)'
+```
+
+`--explain` prints and writes nothing, exactly as `--report` does, so it cannot be combined with `--output`,
+`--spec-version`, `--vex` or `--report` itself. It obeys `--report-format`: `markdown` and `csv` keep one row per
+fact (the CSV adds the package version, kind and the consulted sources as their own columns), and `json` gives an
+`explain` array of `{package, version, kind, fact, value, source, considered}` objects plus a summary of what was
+asked and how much of it came back empty. A pattern that matches nothing is not an error — the report says so
+rather than printing an empty table.
 
 ## Looking instead of writing
 

@@ -1554,6 +1554,88 @@ fn the_packages_tree_and_the_grouped_licenses_view() {
 }
 
 #[test]
+fn explain_says_where_every_fact_came_from_and_what_came_back_empty() {
+    let dir = workspace("with-pypi");
+    let run = |args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("COLUMNS", "160")
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(["-e", "web", "-p", "linux-64", "--color", "never"])
+            .args(args);
+        command
+    };
+    let text = |args: &[&str]| -> String {
+        String::from_utf8(run(args).assert().success().get_output().stdout.clone()).unwrap()
+    };
+
+    // The lockfile is what knows six is here at all, and it says so on every fact it supplied.
+    let six = text(&["--explain", "six"]);
+    assert!(six.lines().next().unwrap().starts_with("Package"), "{six}");
+    assert!(
+        six.contains("identity") && six.contains("pkg:pypi/six@1.17.0") && six.contains("lockfile pixi.lock"),
+        "{six}"
+    );
+    assert!(
+        six.contains("declared") && six.contains("the workspace manifest"),
+        "the manifest declares six itself: {six}"
+    );
+    // Nothing was fetched, so the sources that could have answered say why they did not.
+    assert!(six.contains("--fetch-licenses was not given"), "{six}");
+    assert!(six.contains("--vulnerabilities was not given"), "{six}");
+    assert!(six.contains("Summary: ") && six.contains("Asked about: six"), "{six}");
+    assert!(!dir.path().join("sbom.cdx.json").exists(), "nothing is written");
+
+    // A glob picks the packages the same way --exclude does.
+    let globbed = text(&["--explain", "libz*"]);
+    assert!(globbed.contains("libzlib"), "{globbed}");
+    assert!(!globbed.contains("\nsix "), "only what the pattern matched: {globbed}");
+
+    // The JSON form carries the same facts, one object per fact.
+    let report: Value = serde_json::from_slice(
+        &run(&["--explain", "six", "--report-format", "json"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout,
+    )
+    .unwrap();
+    assert_eq!(report["report"], "explain");
+    let rows = report["explain"].as_array().unwrap();
+    let fact = |name: &str| rows.iter().find(|row| row["fact"] == name).unwrap();
+    assert_eq!(fact("identity")["value"], "pkg:pypi/six@1.17.0");
+    assert_eq!(fact("identity")["source"], "lockfile pixi.lock");
+    assert_eq!(fact("declared")["source"], "the workspace manifest");
+    assert!(fact("license").get("value").is_none(), "the lockfile declares none");
+    assert!(
+        fact("license")["considered"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|line| line.as_str().unwrap().contains("--fetch-licenses was not given")),
+        "{rows:?}"
+    );
+    assert_eq!(report["summary"]["matched"], 1);
+    assert_eq!(report["summary"]["patterns"][0], "six");
+
+    // A pattern nothing matches is said out loud rather than printed as an empty table.
+    let nothing = text(&["--explain", "not-a-package"]);
+    assert_eq!(
+        nothing.trim(),
+        "No package in this environment matches --explain not-a-package"
+    );
+
+    // It prints instead of writing, so it rules out --output exactly as --report does.
+    run(&["--explain", "six", "--output", "-"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("cannot be used with '--output"));
+}
+
+#[test]
 fn vex_is_written_beside_the_document_and_links_into_it() {
     let dir = workspace_with_vulnerable_urllib3();
     let sbom = dir.path().join("sbom.cdx.json");

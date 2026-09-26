@@ -86,6 +86,9 @@ pixi sbom --pypi-mapping prefix --vulnerabilities osv --kev --fail-on-kev
 # Just look: an inventory (with what the manifest declared) or a license table, nothing written
 pixi sbom --report packages
 
+# Where every fact about a package came from, and which sources came back empty
+pixi sbom --fetch-licenses --explain six --explain 'libz*'
+
 # The dependency graph on the terminal, and the licenses grouped rather than listed
 pixi sbom --report packages --tree --depth 2
 pixi sbom --report licenses --group-by license
@@ -152,6 +155,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--from-sbom <FILE>` | | Read an existing document (CycloneDX, SPDX 2.x or SPDX 3.0 JSON) instead of a lockfile and run the reports, policy and vulnerability gate on it |
 | `--scan <DIR>` | | Describe every pixi workspace under the directory: one document per `pixi.lock`, written under `--output` at the same relative path |
 | `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom\|scorecard>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`, plus `sarif` for vulnerabilities); `diff --against <previous>` lists what changed, `outdated` how far behind each package is, `python` what caps the interpreter, `phantom` which imports and declarations do not line up |
+| `--explain <PACKAGE>` | | Print every fact the tool has about the packages matching this name or pattern and where each came from, including the sources that were consulted and came back empty; prints instead of writing, like `--report` |
 | `--color <auto\|always\|never>` | `auto` | Colour the terminal table (honours `NO_COLOR` / `CLICOLOR_FORCE`); fetches show a progress bar on an interactive terminal |
 | `-v` / `-q` | info | More / less logging on stderr |
 

@@ -218,7 +218,10 @@ impl FailOnSeverity {
     version,
     about,
     long_about = None,
-    after_help = "Documentation: https://millsks.github.io/pixi-sbom/"
+    after_help = "Documentation: https://millsks.github.io/pixi-sbom/",
+    // --report-format renders whichever of the two prints to the terminal, so it requires the
+    // group rather than either flag on its own.
+    group = clap::ArgGroup::new("reporting").multiple(true).args(["report", "explain"]),
 )]
 pub struct Args {
     /// Path to the pixi.lock file. Defaults to searching from the current directory upward.
@@ -438,8 +441,14 @@ pub struct Args {
     #[arg(long, value_enum, value_name = "REPORT", conflicts_with_all = ["output", "spec_version"])]
     pub report: Option<crate::report::ReportKind>,
 
+    /// Print every fact the tool has about the packages matching this name or shell-style
+    /// pattern (repeatable, as in --exclude) and where each fact came from, including the
+    /// sources that were consulted and came back empty. Nothing is written to disk.
+    #[arg(long, value_name = "PACKAGE", conflicts_with_all = ["output", "spec_version", "report"])]
+    pub explain: Vec<String>,
+
     /// How to render the report.
-    #[arg(long, value_enum, default_value_t = crate::report::ReportFormat::Table, requires = "report")]
+    #[arg(long, value_enum, default_value_t = crate::report::ReportFormat::Table, requires = "reporting")]
     pub report_format: crate::report::ReportFormat,
 
     /// When to colour the terminal report: `auto` follows the terminal, `NO_COLOR` and
