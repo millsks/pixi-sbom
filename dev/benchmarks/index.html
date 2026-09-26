@@ -754,6 +754,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-binary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The binary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#reading-a-regression" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -919,6 +930,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-binary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The binary
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1216,6 +1238,56 @@ large environment that is still unbounded, so a document holds at most <strong>6
 that the files are still listed by name, the run warns, and the document records it as
 <code>license-texts: N file(s) listed by name only</code> in <code>pixi:incomplete</code> — the same bargain the per-file cap already
 strikes, and visible in the document rather than silent.</p>
+<h2 id="the-binary">The binary<a class="headerlink" href="#the-binary" title="Permanent link">&para;</a></h2>
+<p>Release profile: <code>lto = true</code>, <code>codegen-units = 1</code>, <code>strip = true</code>, <code>panic = "abort"</code>, and mimalloc as the global
+allocator. Measured on an Apple M4:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>size</th>
+<th>10000-package run</th>
+<th>peak RSS</th>
+<th><code>--version</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0.9.5</td>
+<td>9.01 MB</td>
+<td>0.22 s</td>
+<td>151.5 MB</td>
+<td>2.6 ms</td>
+</tr>
+<tr>
+<td><code>panic = "abort"</code></td>
+<td>7.45 MB</td>
+<td>0.22 s</td>
+<td>151.5 MB</td>
+<td>2.6 ms</td>
+</tr>
+<tr>
+<td><strong>+ mimalloc (shipped)</strong></td>
+<td><strong>7.61 MB</strong></td>
+<td><strong>0.16 s</strong></td>
+<td><strong>124.8 MB</strong></td>
+<td>2.6 ms</td>
+</tr>
+</tbody>
+</table>
+<p><code>panic = "abort"</code> drops the unwinding tables, which is 17% of the binary and costs nothing at run time: a panic
+in a command-line tool ends the process either way, only now without unwinding first.</p>
+<p>mimalloc pays 0.16 MB for a quarter off the run and a fifth off the peak, because a document is made of many
+small allocations and the system allocator on macOS is not fast at those. It is installed in the <strong>binary</strong>, not
+the library, so nothing that links <code>pixi_sbom</code> has an allocator forced on it — which also means the criterion
+benchmarks above, which link the library, measure the system allocator. The shipped binary is faster than they
+say.</p>
+<p><code>opt-level = "s"</code> was measured and <strong>not</strong> taken: 6.11 MB, 18% smaller again, but about 10% slower on the path
+that dominates a run. Startup is 2.6 ms and none of these moved it.</p>
+<p>What is not trimmable from here: <code>rattler_lock</code> depends on <code>rattler_solve</code> — a dependency solver a lockfile
+<em>reader</em> never runs — to re-export two enums. It is already built with <code>default-features = false</code>.</p>
+<p>Each release records the binary size per platform in the workflow's job summary, so a dependency that doubles the
+download is visible in the run that shipped it.</p>
 <h2 id="reading-a-regression">Reading a regression<a class="headerlink" href="#reading-a-regression" title="Permanent link">&para;</a></h2>
 <p>Criterion compares each run with the previous one in <code>target/criterion/</code> and prints the change, so the useful
 sequence is: run the suite on <code>main</code>, make the change, run it again, and read the percentages. A change above

@@ -972,6 +972,11 @@ once no matter how many output formats exist.</p>
 <td>model.rs</td>
 </tr>
 <tr>
+<td><code>main.rs</code></td>
+<td>The command: parse the arguments, run the steps the flags asked for, decide the exit code. Also where the global allocator is set (mimalloc, in the binary only, so nothing linking the library has one forced on it).</td>
+<td>everything</td>
+</tr>
+<tr>
 <td><code>concurrency.rs</code></td>
 <td>How many things happen at once, decided once for the whole run: <code>PIXI_SBOM_CONCURRENCY</code>, else one thread per core and no more than ten requests in flight. Network jobs run on their own rayon pool, so a slow upstream cannot take every thread; results come back in job order however the threads interleave.</td>
 <td>rayon, progress.rs</td>
