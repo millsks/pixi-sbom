@@ -1368,10 +1368,24 @@ pub fn render_with_width(
     out: &mut dyn Write,
 ) -> io::Result<()> {
     match format {
-        ReportFormat::Json if reports.len() == 1 => writeln!(out, "{}", serde_json::to_string_pretty(&reports[0])?),
-        ReportFormat::Json => writeln!(out, "{}", serde_json::to_string_pretty(reports)?),
+        // Straight to the writer. `to_string_pretty` would hold the whole report as a string
+        // and then copy it out, which for ten thousand packages is tens of megabytes held
+        // twice for no reason; the bytes are the same either way.
+        ReportFormat::Json if reports.len() == 1 => {
+            serde_json::to_writer_pretty(&mut *out, &reports[0])?;
+            writeln!(out)
+        }
+        ReportFormat::Json => {
+            serde_json::to_writer_pretty(&mut *out, reports)?;
+            writeln!(out)
+        }
         ReportFormat::Csv => render_csv(reports, out),
-        ReportFormat::Sarif => writeln!(out, "{}", serde_json::to_string_pretty(&sarif(reports))?),
+        ReportFormat::Sarif => {
+            // The SARIF log is assembled as a tree by `json!`, which is how its shape is
+            // easiest to read; at least it need not become a string as well.
+            serde_json::to_writer_pretty(&mut *out, &sarif(reports))?;
+            writeln!(out)
+        }
         ReportFormat::Table | ReportFormat::Markdown => {
             // Colour is for the terminal only; markdown is data someone pastes elsewhere.
             let palette = if format == ReportFormat::Markdown {

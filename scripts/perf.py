@@ -178,20 +178,18 @@ def measure(binary: Path, workdir: Path) -> dict[str, object]:
         lock.mkdir(parents=True, exist_ok=True)
         generate_lockfile(packages, lock / "pixi.lock")
         for label, args in (
-            ("cyclonedx", ["--format", "cyclonedx"]),
-            ("spdx", ["--format", "spdx"]),
+            ("cyclonedx", ["--format", "cyclonedx", "--output", os.devnull]),
+            ("spdx", ["--format", "spdx", "--output", os.devnull]),
+            # To stdout as well as to a file. Writing to a pipe goes through a different
+            # writer, and a change that made it twice as slow went unnoticed because every
+            # scenario here wrote to a file.
+            ("cyclonedx-stdout", ["--format", "cyclonedx", "--output", "-"]),
             ("report-packages", ["--report", "packages", "--report-format", "json"]),
         ):
-            scenarios.append((f"{label}-{packages}", [
-                str(binary),
-                "--lockfile",
-                str(lock / "pixi.lock"),
-                "-p",
-                "linux-64",
-                "-q",
-                *args,
-                *(["--output", os.devnull] if label != "report-packages" else []),
-            ]))
+            scenarios.append((
+                f"{label}-{packages}",
+                [str(binary), "--lockfile", str(lock / "pixi.lock"), "-p", "linux-64", "-q", *args],
+            ))
     scenarios.append(("startup", [str(binary), "--version"]))
 
     results: dict[str, dict[str, float]] = {}
