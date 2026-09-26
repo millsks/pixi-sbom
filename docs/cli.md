@@ -647,6 +647,27 @@ named after what it describes:
 Each document records which environment and platform it describes (`pixi:environment` / `pixi:platform` in the
 CycloneDX metadata properties; the root package `sourceInfo` in SPDX), so a batch of files stays self-describing.
 
+## Which input and which settings a run chose
+
+Four decisions are made before any work starts, and `-v` names all four:
+
+```console
+$ pixi sbom --format cyclonedx -v
+DEBUG pixi_sbom::config: configuration file path=/w/pixi-sbom.toml kind="pixi-sbom.toml" applied="exclude, fetch-licenses" overridden_on_the_command_line="format"
+DEBUG pixi_sbom: input input="/w/pixi.lock" how="found by searching upward from the working directory" from=/w
+DEBUG pixi_sbom: workspace manifest path=/w/pixi.toml
+```
+
+- **the input**, and how it was reached: `--lockfile`, the upward search, `--prefix`, `--from-sbom` or `--scan`;
+- **the manifest** beside it, or that there is none — which is what turns the root component's dependencies back
+  into the graph-root heuristic;
+- **the configuration file**, its kind, the settings it supplied that were applied, and the ones the command line
+  overrode. "The flag has no effect" and "it described the wrong environment" both start here;
+- with `--scan`, that the configuration was read from the scanned directory and each workspace's own file was
+  deliberately skipped.
+
+`--no-config` says so rather than saying nothing, and so does a directory with no configuration file in it.
+
 ## When something comes back empty
 
 Every request the tool makes is logged at debug, with what it asked for and how it ended:

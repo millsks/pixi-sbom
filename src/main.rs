@@ -76,13 +76,19 @@ fn main() -> Result<()> {
         (None, Some(dir), None) => dir.join(discover::LOCKFILE_NAME),
         (None, None, None) => discover::resolve_lockfile(args.lockfile.as_deref(), &cwd)?,
     };
-    if !args.no_config {
-        let dir = lockfile.parent().unwrap_or(Path::new("."));
-        if let Some(loaded) = config::load(dir, args.config.as_deref())? {
-            config::apply(&loaded, &mut args, &matches)?;
-            tracing::info!(path = %loaded.path.display(), "applied the configuration file");
-        }
+    let config_dir = lockfile.parent().unwrap_or(Path::new(".")).to_path_buf();
+    if args.no_config {
+        tracing::debug!("configuration file: none, --no-config was given");
+    } else if let Some(loaded) = config::load(&config_dir, args.config.as_deref())? {
+        config::apply(&loaded, &mut args, &matches)?;
+        tracing::info!(path = %loaded.path.display(), "applied the configuration file");
+    } else {
+        tracing::debug!(
+            dir = %config_dir.display(),
+            "configuration file: none found ([tool.pixi-sbom] in pyproject.toml, or pixi-sbom.toml)"
+        );
     }
+    describe_input(&args, &lockfile, &cwd);
     tracing::debug!(?args, "effective arguments");
     validate(&args);
     // Bars are drawn only for an interactive run whose log level would not overwrite them.
@@ -912,6 +918,49 @@ const PHANTOM_EXIT_CODE: i32 = 8;
 const SCORECARD_EXIT_CODE: i32 = 9;
 
 /// Where the packages come from.
+/// Say what this run is reading and how it got there. Four decisions are made before any work
+/// starts — which lockfile, which manifest beside it, which configuration file, and for a scan
+/// which directory the configuration came from — and none of them used to be visible.
+fn describe_input(args: &cli::Args, lockfile: &Path, cwd: &Path) {
+    let (input, how) = match (&args.prefix, &args.scan, &args.from_sbom) {
+        (Some(dir), _, _) => (dir.display().to_string(), "--prefix: an installed environment"),
+        (_, _, Some(file)) => (file.display().to_string(), "--from-sbom: an existing document"),
+        (_, Some(dir), _) => (
+            dir.display().to_string(),
+            "--scan: every pixi.lock under this directory",
+        ),
+        (None, None, None) => (
+            lockfile.display().to_string(),
+            match args.lockfile {
+                Some(_) => "--lockfile",
+                None => "found by searching upward from the working directory",
+            },
+        ),
+    };
+    tracing::debug!(input, how, from = %cwd.display(), "input");
+    // A scan reads one configuration for the whole tree; each workspace's own file is skipped
+    // on purpose, which is surprising if it is not said.
+    if args.scan.is_some() {
+        tracing::debug!("with --scan the configuration comes from the scanned directory, not from each workspace");
+    }
+    if args.prefix.is_some() || args.from_sbom.is_some() {
+        return;
+    }
+    let dir = lockfile.parent().unwrap_or(Path::new("."));
+    match ["pixi.toml", "pyproject.toml"]
+        .into_iter()
+        .map(|name| dir.join(name))
+        .find(|path| path.is_file())
+    {
+        Some(manifest) => tracing::debug!(path = %manifest.display(), "workspace manifest"),
+        // Without a manifest there is no declared set, so the root's edges are the graph roots.
+        None => tracing::debug!(
+            dir = %dir.display(),
+            "no workspace manifest: the root component's dependencies are the graph-root heuristic"
+        ),
+    }
+}
+
 /// One workspace to describe: its lockfile (or installed environment) and the documents that
 /// come out of it.
 #[derive(Debug)]
