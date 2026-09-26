@@ -738,6 +738,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#buffering-and-a-regression-the-benchmarks-could-not-see" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Buffering, and a regression the benchmarks could not see
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#the-license-text-budget" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -929,6 +940,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#buffering-and-a-regression-the-benchmarks-could-not-see" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Buffering, and a regression the benchmarks could not see
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#the-license-text-budget" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1051,6 +1073,10 @@ table, the writers' allocations — are invisible at 72.</p>
 <tr>
 <td><code>write</code></td>
 <td>Model → document bytes, once per format and spec version</td>
+</tr>
+<tr>
+<td><code>cyclonedx-stdout</code></td>
+<td>The same document written to a pipe rather than a file, because that is a different writer</td>
 </tr>
 <tr>
 <td><code>license/normalize</code></td>
@@ -1254,6 +1280,14 @@ of boxed strings and maps, once as the bytes.</p>
 <p>At 2000 packages the difference is inside the noise — the high-water mark there is the lockfile parser, not the
 writer. At 10000 it is a third of the peak. The output is byte-identical either way, which a unit test asserts by
 writing each format both ways and comparing.</p>
+<h3 id="buffering-and-a-regression-the-benchmarks-could-not-see">Buffering, and a regression the benchmarks could not see<a class="headerlink" href="#buffering-and-a-regression-the-benchmarks-could-not-see" title="Permanent link">&para;</a></h3>
+<p>The writers serialize straight out in many small pieces. A file gets a <code>BufWriter</code>; <code>std::io::stdout()</code> is
+line-buffered and flushes on every newline, so streaming into it unbuffered meant a syscall per line. Writing a
+10000-package document took <strong>0.39 s to a pipe against 0.17 s to a file</strong> until stdout was buffered by hand too.</p>
+<p>Every benchmark scenario wrote to a file, so a 2.3× regression on <code>--output -</code> — a documented mode, and the one
+people pipe into <code>jq</code> — survived a whole performance milestone unnoticed. There is now a <code>cyclonedx-stdout</code>
+scenario for exactly that reason. When a change touches how bytes leave the process, the benchmark has to
+exercise every way they leave it.</p>
 <h3 id="the-license-text-budget">The license-text budget<a class="headerlink" href="#the-license-text-budget" title="Permanent link">&para;</a></h3>
 <p><code>--license-texts</code> embeds the text of every licence file, and each file is capped at 1 MiB on its own. Across a
 large environment that is still unbounded, so a document holds at most <strong>64 MiB</strong> of licence text in total. Past
