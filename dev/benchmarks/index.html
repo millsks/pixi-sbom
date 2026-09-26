@@ -1420,7 +1420,7 @@ deal.</p>
 <tr>
 <td>Peak memory</td>
 <td>a few percent within one allocator</td>
-<td>fails at +60% <strong>and</strong> more than 8 MiB</td>
+<td>fails at +15% <strong>and</strong> more than 8 MiB</td>
 </tr>
 <tr>
 <td>Wall time</td>
@@ -1433,10 +1433,10 @@ deal.</p>
 2.5 MiB startup footprint — 15.2%, and 0.38 MiB, which is nobody's problem. An amount on its own misses a small
 scenario doubling. <code>pixi run perf-test</code> covers what the comparison does with a given pair of numbers, and CI runs
 it, because this gate decides whether a build fails.</p>
-<p>The memory limit is 60% rather than something tighter because a change of allocator moves peak memory by tens of
-percent, and the 0.9.5 → 0.10.0 comparison spans exactly that (up to +45.4%, deliberately — see above). Within
-one allocator the real numbers are single digits, so once 0.10.0 is the baseline every comparison starts from,
-this should come back towards 15%; it costs nothing then and catches much more.</p>
+<p>The memory limit was 60% for one release, so that comparisons spanning the 0.9.5 → 0.10.0 allocator change — up
+to +45.4%, deliberately — did not fail on a documented decision. Every comparison now starts from v0.10.0, which
+already has mimalloc, so both sides use the same allocator and the real numbers are single digits again. The
+limit is back to 15%, where it catches far more.</p>
 <p>Peak memory is the child process's own high-water mark: <code>wait4</code> on Linux and macOS,
 <code>GetProcessMemoryInfo</code> on the handle of the finished child on Windows. Not a poller, which would miss the peak.
 The child is started with <code>posix_spawn</code> rather than a fork, because a forked child inherits the parent's page
