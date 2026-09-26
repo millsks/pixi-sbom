@@ -283,9 +283,13 @@ impl Lookup<'_> {
             Err(err) => {
                 if http::is_connectivity_error(&err) {
                     network_down.store(true, Ordering::Relaxed);
-                    tracing::warn!(%url, %err, "PyPI index unreachable; skipping remaining license lookups");
+                    tracing::warn!(
+                        %url,
+                        cause = crate::http::error_chain(err.as_ref()),
+                        "PyPI index unreachable; skipping remaining license lookups"
+                    );
                 } else {
-                    tracing::warn!(%url, %err, "cannot fetch PyPI metadata");
+                    tracing::warn!(%url, cause = crate::http::error_chain(err.as_ref()), "cannot fetch PyPI metadata");
                 }
                 None
             }

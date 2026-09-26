@@ -162,7 +162,10 @@ impl PypiMapping {
             }
             Err(source) => match cached {
                 Some(json) => {
-                    tracing::warn!(%source, "download failed; using the stale cached PyPI mapping");
+                    tracing::warn!(
+                        cause = crate::http::error_chain(source.as_ref()),
+                        "download failed; using the stale cached PyPI mapping"
+                    );
                     Self::from_json(&json, &cache_file.display().to_string(), "prefix")
                 }
                 None => Err(MappingError::Fetch {

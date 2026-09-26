@@ -122,7 +122,12 @@ pub fn enrich(
                 outcome.fetched += 1;
             }
             Err(err) => {
-                tracing::warn!(package = %sbom.packages[job.index].name, location = %job.location, %err, "cannot read license details from the archive");
+                tracing::warn!(
+                    package = %sbom.packages[job.index].name,
+                    location = %job.location,
+                    cause = crate::http::error_chain(&err),
+                    "cannot read license details from the archive"
+                );
                 outcome.failed += 1;
             }
         }

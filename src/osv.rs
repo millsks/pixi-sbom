@@ -451,7 +451,11 @@ impl Lookup<'_> {
         let text = match client.get(&url) {
             Ok(text) => text,
             Err(err) => {
-                tracing::warn!(id, %err, "cannot fetch the OSV record");
+                tracing::warn!(
+                    id,
+                    cause = crate::http::error_chain(err.as_ref()),
+                    "cannot fetch the OSV record"
+                );
                 return None;
             }
         };

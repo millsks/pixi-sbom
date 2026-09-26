@@ -413,7 +413,12 @@ impl Lookup<'_> {
                 Some(json)
             }
             Err(err) => {
-                tracing::warn!(package = %job.display_name, url = %job.url, %err, "cannot read the project's releases");
+                tracing::warn!(
+                    package = %job.display_name,
+                    url = %job.url,
+                    cause = crate::http::error_chain(err.as_ref()),
+                    "cannot read the project's releases"
+                );
                 cached
             }
         }

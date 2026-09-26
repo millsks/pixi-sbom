@@ -233,7 +233,12 @@ impl Lookup<'_> {
                 Err(err) => {
                     // A repository the service has never scored answers 404; that is an
                     // answer, not a failure of the run.
-                    tracing::debug!(package = %job.display_name, project = %job.project, %err, "no scorecard");
+                    tracing::debug!(
+                        package = %job.display_name,
+                        project = %job.project,
+                        cause = crate::http::error_chain(err.as_ref()),
+                        "no scorecard"
+                    );
                     cached?
                 }
             },
