@@ -196,3 +196,35 @@ a PEM bundle with `ureq::tls::parse_pem` into `RootCerts::Specific`; a `ci` run 
 reports the *last* command's exit code — capture the gate's own status. And the broken-main story in
 [[force-push-permission]]: a leftover background watcher merged a PR whose green checks had run against an older
 base.
+
+## 0.10.0 (2026-09-26): performance
+
+Five issues, all merged, milestone closed. Worked serially, as the user asked during 0.9.5.
+
+Sequence and why: **#114 benchmarks first** (PR #185), because every other issue's acceptance was a comparison
+and there was no baseline. It needed a **library target** — benches cannot reach into a binary — so `src/lib.rs`
+holds the modules and `main.rs` is the binary that uses them; `assert_actionable` moved with them. Then #111
+rayon (#186), #112 batch (#187), #113 streaming writer (#188), #115 binary audit (#189).
+
+Measurements that shaped the work, all Apple M4:
+- Parsing dominates a run: 4.76 ms for this repo's `pixi.lock` against 255 us to build the model and under half
+  a millisecond to write. That cost is rattler's YAML reader, not this crate.
+- **#112's premise was half wrong**: the download cache already deduped the network across documents (325
+  requests for 289 distinct packages, not 853), so an in-memory memo had nothing to save and parallel documents
+  had a ceiling of ~35 ms out of 6000. The user chose the alternative: **hoist enrichment out of the loop** —
+  enrich the union of every document's packages once, in one pool. 6.0 s -> 5.08 s alone, -> 3.08 s with
+  `PIXI_SBOM_CONCURRENCY=24`. Take the measurement before believing an issue's premise.
+- `batch::Shared` computes what enrichment learned by **diffing packages before and after**, so per-environment
+  facts (`pixi:direct`, dependency edges) are never copied between documents and a future enrichment step is
+  carried without editing batch.rs.
+- Streaming the writers: peak RSS 227.6 -> 151.5 MB at 10000 packages; no change at 2000, where the parser is
+  the high-water mark.
+- `panic = "abort"` is 17% of the binary for nothing. mimalloc is 0.16 MB for -27% run time and -18% RSS, and it
+  lives in **main.rs**, so the benches (which link the lib) do not measure it. `opt-level = "s"` was rejected:
+  18% smaller, ~10% slower.
+
+Gotchas: an all-digit YAML digest overflows into a float and never reaches the parser as text (quote synthetic
+sha256/md5); making modules public turns on clippy's `len_without_is_empty`; `cargo-bloat` is not in conda-forge.
+
+Also fixed here: the `--timings` e2e test was flaky because the "waiting on the network" line was omitted when
+the total was zero. The line is now always printed.
