@@ -1862,6 +1862,9 @@ the upload, so what a run could not finish is recorded in the document as well.<
 OSV records three things separately, because an empty <code>vulnerabilities[]</code> has three causes and only one of them is
 good news: no package carried a purl the database answers to, the purls could not be asked about (offline with a
 cold cache), or an advisory record could not be fetched and is recorded by id alone.</p>
+<p>In a run that writes several documents the lookups happen once for all of them, so the counts in
+<code>pixi:incomplete-detail</code> are the run's rather than that one document's, and the line says so:
+<code>conda-archives: 2 of 2 archive reads failed (looked up once for every document in the run)</code>.</p>
 <p>All three are absent when everything answered, so a complete document is unchanged and existing documents compare
 as they always did. In SPDX the same lines go in the root package's <code>comment</code>, one per line, beside
 <code>pixi:excluded</code>. Two documents that differ only because one run could not reach the network now say so.</p>

@@ -967,6 +967,11 @@ once no matter how many output formats exist.</p>
 <td>zipread.rs, concurrency.rs</td>
 </tr>
 <tr>
+<td><code>batch.rs</code></td>
+<td>A run writing many documents looks every document's packages up <strong>once</strong>, over their union, in a single pool, instead of once per document. What the pass learned is worked out by diffing the packages before and after, so a per-environment fact (<code>pixi:direct</code>, the dependency edges) is never copied across and an enrichment step added later is carried without anyone editing this module. Skipped for a single document, for <code>--embedded-sboms</code> and for <code>--prefix</code>, which add components rather than filling fields.</td>
+<td>model.rs</td>
+</tr>
+<tr>
 <td><code>concurrency.rs</code></td>
 <td>How many things happen at once, decided once for the whole run: <code>PIXI_SBOM_CONCURRENCY</code>, else one thread per core and no more than ten requests in flight. Network jobs run on their own rayon pool, so a slow upstream cannot take every thread; results come back in job order however the threads interleave.</td>
 <td>rayon, progress.rs</td>
