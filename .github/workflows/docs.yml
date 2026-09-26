@@ -8,6 +8,13 @@ name: Docs site
 # deploy under their version only), `dev` follows main, and the site root redirects to `latest`.
 # The branch is then published as the Pages artifact, so the Pages source stays "GitHub Actions"
 # and every deployment is recorded in the github-pages environment.
+#
+# mike commits to the local gh-pages branch, the artifact is taken from that commit through a
+# git worktree, and only then is the branch pushed. Pushing first and cloning the branch back
+# raced: a read a few hundred milliseconds after the write is not guaranteed to observe it, so
+# Pages could republish the previous commit while every step still reported success (#163).
+# The two guards below — versions.json in the artifact, versions.json on the live site — are
+# there so that any future variant of that failure stops the run instead of passing quietly.
 
 on:
   release:
@@ -29,7 +36,7 @@ on:
         default: ""
 
 permissions:
-  contents: write # mike pushes to gh-pages
+  contents: write # the gh-pages branch is pushed once the artifact is built
   pages: write
   id-token: write
 
@@ -41,6 +48,14 @@ jobs:
   build:
     name: Build the site
     runs-on: ubuntu-latest
+    # A release commits `chore(release): vX.Y.Z` to main, touching CHANGELOG.md, and the release
+    # event follows minutes later. Without this the same release deploys twice, `dev` first and
+    # then the tag; path filters cannot express "any push but that one".
+    if: >-
+      ${{ github.event_name != 'push'
+        || !startsWith(github.event.head_commit.message, 'chore(release):') }}
+    outputs:
+      version: ${{ steps.mike.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -53,7 +68,8 @@ jobs:
           cache: true
       - name: Build strictly
         run: pixi run -e docs docs-build
-      - name: Deploy this version to gh-pages with mike
+      - name: Commit this version to the local gh-pages branch
+        id: mike
         env:
           TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.ref }}
           PRERELEASE: ${{ github.event_name == 'release' && github.event.release.prerelease || 'false' }}
@@ -61,26 +77,53 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # mike rewrites a local branch, so point one at the published history first; without it
+          # mike would start an unrelated gh-pages and drop every version already deployed.
+          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
+            git branch --force gh-pages origin/gh-pages
+          fi
           if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
             if [ "$PRERELEASE" = "true" ]; then
-              pixi run -e docs mike deploy --push "$TAG"
+              pixi run -e docs mike deploy "$TAG"
+              echo "alias=" >> "$GITHUB_OUTPUT"
             else
-              pixi run -e docs mike deploy --push --update-aliases "$TAG" latest
-              pixi run -e docs mike set-default --push latest
+              pixi run -e docs mike deploy --update-aliases "$TAG" latest
+              pixi run -e docs mike set-default latest
+              echo "alias=latest" >> "$GITHUB_OUTPUT"
             fi
+            echo "version=$TAG" >> "$GITHUB_OUTPUT"
           else
-            pixi run -e docs mike deploy --push dev
+            pixi run -e docs mike deploy dev
+            echo "version=dev" >> "$GITHUB_OUTPUT"
+            echo "alias=" >> "$GITHUB_OUTPUT"
           fi
           pixi run -e docs mike list
-      - name: Check out the published branch
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          path: gh-pages
+      - name: Materialise the commit mike just made
+        run: git worktree add gh-pages gh-pages
+      - name: Check the artifact carries this version
+        env:
+          VERSION: ${{ steps.mike.outputs.version }}
+          ALIAS: ${{ steps.mike.outputs.alias }}
+        run: |
+          set -euo pipefail
+          if ! jq -e --arg v "$VERSION" 'any(.[]; .version == $v)' gh-pages/versions.json > /dev/null; then
+            echo "::error::gh-pages/versions.json lists no $VERSION, so the artifact would publish stale docs."
+            cat gh-pages/versions.json
+            exit 1
+          fi
+          if [ -n "$ALIAS" ] && ! jq -e --arg v "$VERSION" --arg a "$ALIAS" \
+              'any(.[]; .version == $v and (.aliases | index($a)))' gh-pages/versions.json > /dev/null; then
+            echo "::error::gh-pages/versions.json does not alias $ALIAS to $VERSION."
+            cat gh-pages/versions.json
+            exit 1
+          fi
+          echo "The artifact lists $VERSION${ALIAS:+ aliased as $ALIAS}."
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: gh-pages
+      - name: Push gh-pages now the artifact is built
+        run: git push origin gh-pages
 
   deploy:
     name: Deploy to GitHub Pages
@@ -92,3 +135,26 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+      - name: Wait for the live site to serve this version
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          base="${PAGE_URL:-https://millsks.github.io/pixi-sbom/}"
+          url="${base%/}/versions.json"
+          attempts=10
+          for attempt in $(seq 1 "$attempts"); do
+            # The query string keeps a CDN copy of the previous deployment out of the answer.
+            if curl -fsSL -H 'Cache-Control: no-cache' "$url?t=${GITHUB_RUN_ID}-${attempt}" \
+                | jq -e --arg v "$VERSION" 'any(.[]; .version == $v)' > /dev/null; then
+              echo "$url lists $VERSION."
+              exit 0
+            fi
+            if [ "$attempt" -lt "$attempts" ]; then
+              echo "Attempt $attempt of $attempts: $VERSION is not live yet, retrying in 15s."
+              sleep 15
+            fi
+          done
+          echo "::error::$url still does not list $VERSION. Pages reported success on a stale site (see #163)."
+          exit 1
