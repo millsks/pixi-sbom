@@ -964,12 +964,12 @@ once no matter how many output formats exist.</p>
 <tr>
 <td><code>wheel.rs</code></td>
 <td>The same for PyPI wheels: <code>METADATA</code> (PEP 639 <code>License-Expression</code>, <code>License</code>, <code>License-File</code>, <code>Summary</code>, <code>Project-URL</code>) and the license files, through <code>zipread</code>, cached under <code>wheel-info/&lt;sha256&gt;/</code>.</td>
-<td>zipread.rs, parallel.rs</td>
+<td>zipread.rs, concurrency.rs</td>
 </tr>
 <tr>
-<td><code>parallel.rs</code></td>
-<td>A bounded scoped-thread pool for the fetchers; no async runtime.</td>
-<td>—</td>
+<td><code>concurrency.rs</code></td>
+<td>How many things happen at once, decided once for the whole run: <code>PIXI_SBOM_CONCURRENCY</code>, else one thread per core and no more than ten requests in flight. Network jobs run on their own rayon pool, so a slow upstream cannot take every thread; results come back in job order however the threads interleave.</td>
+<td>rayon, progress.rs</td>
 </tr>
 <tr>
 <td><code>condaarchive.rs</code></td>
@@ -993,8 +993,8 @@ once no matter how many output formats exist.</p>
 </tr>
 <tr>
 <td><code>pypi.rs</code></td>
-<td>Release facts for PyPI packages from the index JSON API: the license (only where one is still missing) and PEP 592 <code>yanked</code> / <code>yanked_reason</code> (for every package) (part of <code>--fetch-licenses</code>): field precedence, classifier-to-SPDX table, per-release cache, ten lookups at a time on the shared pool, and the "stop when the network is down" rule (a shared flag, so the jobs already in flight finish and the rest fall through to their cache).</td>
-<td>serde_json, http.rs, parallel.rs</td>
+<td>Release facts for PyPI packages from the index JSON API: the license (only where one is still missing) and PEP 592 <code>yanked</code> / <code>yanked_reason</code> (for every package) (part of <code>--fetch-licenses</code>): field precedence, classifier-to-SPDX table, per-release cache, lookups on the shared pool, and the "stop when the network is down" rule (a shared flag, so the jobs already in flight finish and the rest fall through to their cache).</td>
+<td>serde_json, http.rs, concurrency.rs</td>
 </tr>
 <tr>
 <td><code>http.rs</code></td>
@@ -1034,7 +1034,7 @@ once no matter how many output formats exist.</p>
 <tr>
 <td><code>osv.rs</code></td>
 <td><code>--vulnerabilities osv</code>: collects every queryable purl (conda purls excluded), asks OSV's <code>querybatch</code> in thousands, fetches each record in parallel, caches queries (one hour) and records (until <code>modified</code> moves), merges GHSA / PYSEC twins by alias, picks the fixed version above the installed one, and fills <code>Sbom::vulnerabilities</code>. A failed query is fatal; a failed record is not.</td>
-<td>serde_json, http.rs, cvss.rs, parallel.rs</td>
+<td>serde_json, http.rs, cvss.rs, concurrency.rs</td>
 </tr>
 <tr>
 <td><code>kev.rs</code></td>
@@ -1069,7 +1069,7 @@ once no matter how many output formats exist.</p>
 <tr>
 <td><code>scorecard.rs</code></td>
 <td><code>--scorecard</code>: turns each package's repository URL into an OpenSSF Scorecard project path, fetches the score (cached a week) and records it and the failing checks as properties.</td>
-<td>http.rs, parallel.rs, serde</td>
+<td>http.rs, concurrency.rs, serde</td>
 </tr>
 <tr>
 <td><code>vulnpolicy.rs</code></td>
@@ -1098,8 +1098,8 @@ once no matter how many output formats exist.</p>
 </tr>
 <tr>
 <td><code>outdated.rs</code></td>
-<td><code>--report outdated</code>: PyPI project documents and anaconda.org package documents (cached a day, ten at a time), prerelease and yanked filtering, version comparison through rattler's <code>Version</code>, and the patch/minor/major step. Packages from channels the API does not cover are reported as unknown.</td>
-<td>serde_json, http.rs, parallel.rs</td>
+<td><code>--report outdated</code>: PyPI project documents and anaconda.org package documents (cached a day, several at a time), prerelease and yanked filtering, version comparison through rattler's <code>Version</code>, and the patch/minor/major step. Packages from channels the API does not cover are reported as unknown.</td>
+<td>serde_json, http.rs, concurrency.rs</td>
 </tr>
 <tr>
 <td><code>diff.rs</code></td>

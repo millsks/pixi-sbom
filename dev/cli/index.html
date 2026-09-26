@@ -2897,6 +2897,10 @@ prints for it.</p>
 <td>Base of the OSV API queried by <code>--vulnerabilities osv</code> (default <code>https://api.osv.dev</code>).</td>
 </tr>
 <tr>
+<td><code>PIXI_SBOM_CONCURRENCY</code></td>
+<td>How many jobs run at once: requests in flight and threads for local work. Default: one thread per core, and no more than ten requests in flight however many cores there are. A value that is not a positive number is named in the log and ignored.</td>
+</tr>
+<tr>
 <td><code>PIXI_SBOM_NO_PROGRESS</code></td>
 <td>Set to <code>1</code> to turn the progress bars off even on a terminal.</td>
 </tr>
