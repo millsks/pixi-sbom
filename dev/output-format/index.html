@@ -689,6 +689,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#incomplete-enrichment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Incomplete enrichment
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1114,6 +1125,17 @@
     <span class="md-ellipsis">
       
         Excluded packages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#incomplete-enrichment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Incomplete enrichment
       
     </span>
   </a>
@@ -1755,6 +1777,39 @@ every other <code>pixi:*</code> fact).</p>
 says so: a <code>pixi:excluded</code> metadata property (CycloneDX) or a <code>pixi:excluded=...</code> comment on the root package
 (SPDX 2.3 and 3.0.1) naming every package left out, whether it matched a pattern or was only needed by one that
 did.</p>
+<h3 id="incomplete-enrichment">Incomplete enrichment<a class="headerlink" href="#incomplete-enrichment" title="Permanent link">&para;</a></h3>
+<p>A document built where the lookups failed otherwise looks exactly like one built where everything answered:
+licenses are simply absent, <code>vulnerabilities[]</code> is simply empty. The warnings go to stderr, which does not survive
+the upload, so what a run could not finish is recorded in the document as well.</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Example value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pixi:incomplete</code></td>
+<td><code>osv, pypi-releases</code> — the enrichment steps that did not complete</td>
+</tr>
+<tr>
+<td><code>pixi:incomplete-detail</code></td>
+<td><code>osv: 14 of 14 purls unasked (offline, nothing cached); pypi-releases: 12 of 38 index lookups failed</code>, separated by <code>;</code></td>
+</tr>
+<tr>
+<td><code>pixi:stale-cache</code></td>
+<td><code>kev: 9 days old</code> — data served past its lifetime because the fetch failed</td>
+</tr>
+</tbody>
+</table>
+<p>The steps are named after what they do: <code>wheel-licenses</code>, <code>conda-archives</code>, <code>pypi-releases</code>, <code>osv</code>, <code>scorecard</code>.
+OSV records three things separately, because an empty <code>vulnerabilities[]</code> has three causes and only one of them is
+good news: no package carried a purl the database answers to, the purls could not be asked about (offline with a
+cold cache), or an advisory record could not be fetched and is recorded by id alone.</p>
+<p>All three are absent when everything answered, so a complete document is unchanged and existing documents compare
+as they always did. In SPDX the same lines go in the root package's <code>comment</code>, one per line, beside
+<code>pixi:excluded</code>. Two documents that differ only because one run could not reach the network now say so.</p>
 <h2 id="dependency-graph">Dependency graph<a class="headerlink" href="#dependency-graph" title="Permanent link">&para;</a></h2>
 <p>Each conda package's <code>depends</code> (matchspecs) and each PyPI package's <code>requires_dist</code> (PEP 508) are resolved by
 normalized package name against the packages present in the same environment and platform. The solver has already
