@@ -726,6 +726,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Memory">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-license-text-budget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The license-text budget
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#reading-a-regression" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -863,6 +891,34 @@
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Memory">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-license-text-budget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The license-text budget
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1116,6 +1172,50 @@ the first one downloaded. What changed is that the run no longer drains a small 
 before starting the next one: every document's packages are looked up together, so the pool stays full. That is
 worth 15% on its own, and it is what lets the concurrency setting pay off — the two together halve the run.</p>
 <p>With a warm cache the whole batch takes about 0.05 s either way, so none of this is visible on a second run.</p>
+<h2 id="memory">Memory<a class="headerlink" href="#memory" title="Permanent link">&para;</a></h2>
+<p>Documents are serialized straight from the writers' own structs to the output. Building a
+<code>serde_json::Value</code> first — which is what happened before 0.10.0 — held the whole document twice: once as a tree
+of boxed strings and maps, once as the bytes.</p>
+<p>Peak resident set size writing one document from a generated lockfile, measured with <code>/usr/bin/time -l</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Lockfile</th>
+<th>Format</th>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2000 packages</td>
+<td>CycloneDX 1.6</td>
+<td>59.3 MB</td>
+<td>60.1 MB</td>
+</tr>
+<tr>
+<td>10000 packages</td>
+<td>CycloneDX 1.6</td>
+<td>227.6 MB</td>
+<td><strong>151.5 MB</strong></td>
+</tr>
+<tr>
+<td>10000 packages</td>
+<td>SPDX 2.3</td>
+<td>203.1 MB</td>
+<td><strong>148.0 MB</strong></td>
+</tr>
+</tbody>
+</table>
+<p>At 2000 packages the difference is inside the noise — the high-water mark there is the lockfile parser, not the
+writer. At 10000 it is a third of the peak. The output is byte-identical either way, which a unit test asserts by
+writing each format both ways and comparing.</p>
+<h3 id="the-license-text-budget">The license-text budget<a class="headerlink" href="#the-license-text-budget" title="Permanent link">&para;</a></h3>
+<p><code>--license-texts</code> embeds the text of every licence file, and each file is capped at 1 MiB on its own. Across a
+large environment that is still unbounded, so a document holds at most <strong>64 MiB</strong> of licence text in total. Past
+that the files are still listed by name, the run warns, and the document records it as
+<code>license-texts: N file(s) listed by name only</code> in <code>pixi:incomplete</code> — the same bargain the per-file cap already
+strikes, and visible in the document rather than silent.</p>
 <h2 id="reading-a-regression">Reading a regression<a class="headerlink" href="#reading-a-regression" title="Permanent link">&para;</a></h2>
 <p>Criterion compares each run with the previous one in <code>target/criterion/</code> and prints the change, so the useful
 sequence is: run the suite on <code>main</code>, make the change, run it again, and read the percentages. A change above

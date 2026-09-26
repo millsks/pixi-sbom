@@ -1687,7 +1687,7 @@
 <tr>
 <td><code>--license-texts</code></td>
 <td>off</td>
-<td>With <code>--fetch-licenses</code>, also embed the full text of every license file.</td>
+<td>With <code>--fetch-licenses</code>, also embed the full text of every license file. Each file is capped at 1 MiB and the document holds at most 64 MiB of text in total; past that the files are listed by name and the document says so (see <a href="../output-format/#incomplete-enrichment">incomplete enrichment</a>).</td>
 </tr>
 <tr>
 <td><code>--embedded-sboms</code></td>
