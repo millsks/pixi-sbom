@@ -86,17 +86,20 @@ class CompareTest(unittest.TestCase):
 
 
 class DefaultsTest(unittest.TestCase):
-    def test_the_defaults_pass_the_allocator_change_and_fail_a_doubling(self) -> None:
-        # 0.9.5 -> 0.10.0 took peak memory up 45.4% at worst, on purpose. The defaults have to
-        # let that through, or every comparison spanning the change fails on a known trade.
-        base = measurement(8 * MIB, {"write": (0.1, 90 * MIB)})
-        worst = measurement(8 * MIB, {"write": (0.1, int(90 * 1.454) * MIB)})
-        _, failures = perf.compare(base, worst, perf.SIZE_LIMIT_PERCENT, perf.MEMORY_LIMIT_PERCENT)
-        self.assertEqual(failures, [], "the recorded trade is not a failure")
+    def test_the_defaults_allow_ordinary_drift_and_fail_a_real_regression(self) -> None:
+        # Within one allocator — which every comparison is now, since v0.10.0 is the baseline
+        # every one starts from — the real numbers are single digits.
+        base = measurement(8 * MIB, {"write": (0.1, 120 * MIB)})
+        drifted = measurement(8 * MIB, {"write": (0.1, 128 * MIB)})
+        _, failures = perf.compare(base, drifted, perf.SIZE_LIMIT_PERCENT, perf.MEMORY_LIMIT_PERCENT)
+        self.assertEqual(failures, [], "6.7% is the sort of thing one allocator does on its own")
 
-        doubled = measurement(8 * MIB, {"write": (0.1, 180 * MIB)})
-        _, failures = perf.compare(base, doubled, perf.SIZE_LIMIT_PERCENT, perf.MEMORY_LIMIT_PERCENT)
-        self.assertEqual(len(failures), 1, "a doubling still is")
+        # What the 60% limit of the 0.10.0 window would have let through, and should not any
+        # more: the allocator change cost up to 45.4%, and nothing should cost that quietly.
+        regressed = measurement(8 * MIB, {"write": (0.1, int(120 * 1.454) * MIB)})
+        _, failures = perf.compare(base, regressed, perf.SIZE_LIMIT_PERCENT, perf.MEMORY_LIMIT_PERCENT)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("45", failures[0], "and the share is named")
 
 
 class LockfileTest(unittest.TestCase):
