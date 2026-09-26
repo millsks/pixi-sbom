@@ -16,7 +16,7 @@
         <link rel="prev" href="../architecture/">
       
       
-        <link rel="next" href="../changelog/">
+        <link rel="next" href="../benchmarks/">
       
       
         
@@ -682,6 +682,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#benchmarks-benches-criterion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmarks (benches/, criterion)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#snapshot-tests-insta" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -794,6 +805,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -893,6 +932,17 @@
     <span class="md-ellipsis">
       
         Unit tests (#[cfg(test)] in each module)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#benchmarks-benches-criterion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmarks (benches/, criterion)
       
     </span>
   </a>
@@ -1146,6 +1196,13 @@ assistant rather than only printing it. <code>.claude/memory/</code> holds the r
 edges, error variants). <code>format/*</code> tests run each writer over <code>format::testing::sample_sbom()</code>, a hand-built model
 covering every package kind plus edge cases (missing version, non-SPDX license, local path source, extra purls), and
 check specific fields.</p>
+<h3 id="benchmarks-benches-criterion">Benchmarks (<code>benches/</code>, criterion)<a class="headerlink" href="#benchmarks-benches-criterion" title="Permanent link">&para;</a></h3>
+<p><code>pixi run bench</code> times the lockfile reader, the model builder, each writer, license normalization, the report
+renderers and the offline enrichment path, against this repository's own lockfile and a generated 2000-package
+one. The numbers and what they say are in <a href="../benchmarks/">benchmarks.md</a>; CI runs <code>pixi run bench-test</code>, which
+executes each benchmark once without timing it, since a shared runner's timings are noise.</p>
+<p>The benchmarks reach into the crate through the library target (<code>src/lib.rs</code>), which exists for them and for the
+tests. It is the binary's insides made reachable, not a designed API, and nothing in it promises to stay put.</p>
 <h3 id="snapshot-tests-insta">Snapshot tests (<code>insta</code>)<a class="headerlink" href="#snapshot-tests-insta" title="Permanent link">&para;</a></h3>
 <p>Each writer has one <code>insta::assert_json_snapshot!</code> over the sample model, stored in <code>src/format/snapshots/</code>. They
 catch unintended output changes. A <code>WriteContext</code> with a fixed timestamp, UUID and tool version keeps them stable.
@@ -1254,6 +1311,11 @@ release containing them exists; keep <code>action.yml</code> inputs and the CLI 
 <td>Coverage gate</td>
 <td>ubuntu</td>
 <td><code>pixi run cov</code></td>
+</tr>
+<tr>
+<td>Benchmarks compile and run</td>
+<td>ubuntu</td>
+<td><code>pixi run bench-test</code>: every benchmark runs once, untimed</td>
 </tr>
 <tr>
 <td>Build</td>
@@ -1399,13 +1461,13 @@ not commit that. Commit types map to sections via <code>cliff.toml</code>: <code
         
         
           
-          <a href="../changelog/" class="md-footer__link md-footer__link--next" aria-label="Next: Changelog">
+          <a href="../benchmarks/" class="md-footer__link md-footer__link--next" aria-label="Next: Benchmarks">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Changelog
+                Benchmarks
               </div>
             </div>
             <div class="md-footer__button md-icon">
