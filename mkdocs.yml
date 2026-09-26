@@ -25,6 +25,7 @@ nav:
   - CI recipes: ci-recipes.md
   - Which format to pick: formats.md
   - Output format reference: output-format.md
+  - Troubleshooting: troubleshooting.md
   - Contributing:
       - Architecture: architecture.md
       - Development: development.md
