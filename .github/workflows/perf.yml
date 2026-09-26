@@ -1,0 +1,146 @@
+name: Performance
+
+# Measures what the binary costs to run, on every platform a release binary is built for, and
+# compares it with an earlier ref built on the same runner minutes apart.
+#
+# Why head-against-base rather than absolute numbers: a hosted runner is a shared machine whose
+# throughput varies by tens of percent between runs, so "0.16 s" from one run and "0.21 s" from
+# the next say nothing. Building both refs on the one runner cancels almost all of that.
+#
+# What is gated, and what is only reported:
+#   * binary size   — byte-exact everywhere, so a 5% growth fails the job
+#   * peak memory   — steady to a few percent, so a 15% growth fails the job
+#   * wall time     — reported in the job summary, never fails: even back to back it moves
+#                     enough on a shared runner to cry wolf
+#
+# It does not run on pull requests: each platform builds the binary twice with LTO. Run it by
+# hand on the pull requests where performance is the point.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Ref to compare against (default: the latest release tag)"
+        required: false
+        type: string
+  schedule:
+    # Mondays, early: drift since the last release, without anyone remembering to look.
+    - cron: "17 5 * * 1"
+  push:
+    branches: ["main"]
+    paths:
+      - "src/**"
+      - "benches/**"
+      - "scripts/perf.py"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/perf.yml"
+
+concurrency:
+  group: perf-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      # The five targets a release builds a binary for, each on its own architecture: an
+      # aarch64 regression is invisible on x86-64, and the Windows allocator is not the macOS
+      # one.
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: linux-64, ext: "" }
+          - { os: ubuntu-24.04-arm, target: linux-aarch64, ext: "" }
+          - { os: macos-15-intel, target: osx-64, ext: "" }
+          - { os: macos-latest, target: osx-arm64, ext: "" }
+          - { os: windows-latest, target: win-64, ext: ".exe" }
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The base ref has to be checked out later, and a tag needs the history to reach it.
+          fetch-depth: 0
+
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          environments: default
+          cache: true
+
+      - name: Choose the base
+        id: base
+        shell: bash
+        run: |
+          base="${{ inputs.base }}"
+          if [ -z "$base" ]; then
+            base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || echo "")
+          fi
+          if [ -z "$base" ]; then
+            echo "::notice::no release tag to compare against; measuring this ref only"
+          fi
+          echo "ref=${base}" >> "$GITHUB_OUTPUT"
+
+      # The script is copied out because the base ref predates it, or carries a different
+      # version of it: both refs must be measured by the same code or the comparison is
+      # between two measurement methods rather than two binaries.
+      - name: Keep the measurement script aside
+        shell: bash
+        run: cp scripts/perf.py "${RUNNER_TEMP}/perf.py"
+
+      - name: Build this ref
+        run: pixi run build
+
+      - name: Measure this ref
+        shell: bash
+        run: |
+          pixi run python "${RUNNER_TEMP}/perf.py" \
+            --binary "target/release/pixi-sbom${{ matrix.ext }}" \
+            --out "${RUNNER_TEMP}/head.json"
+
+      - name: Build the base
+        if: steps.base.outputs.ref != ''
+        shell: bash
+        run: |
+          git checkout --detach --force "${{ steps.base.outputs.ref }}"
+          pixi run build
+
+      - name: Measure the base
+        if: steps.base.outputs.ref != ''
+        shell: bash
+        run: |
+          pixi run python "${RUNNER_TEMP}/perf.py" \
+            --binary "target/release/pixi-sbom${{ matrix.ext }}" \
+            --out "${RUNNER_TEMP}/base.json"
+
+      - name: Compare
+        if: steps.base.outputs.ref != ''
+        shell: bash
+        run: |
+          echo "Comparing ${{ github.sha }} against ${{ steps.base.outputs.ref }}." >> "$GITHUB_STEP_SUMMARY"
+          pixi run python "${RUNNER_TEMP}/perf.py" \
+            --compare "${RUNNER_TEMP}/base.json" "${RUNNER_TEMP}/head.json" \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Report this ref on its own
+        if: steps.base.outputs.ref == ''
+        shell: bash
+        run: |
+          {
+            echo "### Performance — ${{ matrix.target }}"
+            echo
+            echo "No release tag to compare against; the measurements are attached as an artifact."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Kept so a run can be compared with one from months ago, which is the only way to see
+      # drift that no single pull request caused.
+      - name: Keep the numbers
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-${{ matrix.target }}
+          path: ${{ runner.temp }}/*.json
+          if-no-files-found: warn

@@ -170,6 +170,7 @@ release containing them exists; keep `action.yml` inputs and the CLI in step at 
 | Test | `ubuntu-latest`, `macos-latest`, `windows-latest` | `pixi run test` |
 | Coverage gate | ubuntu | `pixi run cov` |
 | Benchmarks compile and run | ubuntu | `pixi run bench-test`: every benchmark runs once, untimed |
+| Performance (separate workflow) | all five release platforms | `pixi run perf`: builds two refs on one runner and compares them; fails on binary size or peak memory, reports wall time. On demand, weekly and on pushes to `main` — not on pull requests. See [benchmarks.md](benchmarks.md) |
 | Build | same three | `pixi run build` and `--version` smoke test |
 | Docs | ubuntu | `pixi run docs-build`: the site must build with `--strict` |
 

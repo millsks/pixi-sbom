@@ -1,0 +1,42 @@
+{
+  "binary_bytes": 7978432,
+  "platform": "Darwin-arm64",
+  "runs": 5,
+  "scenarios": {
+    "cyclonedx-10000": {
+      "peak_rss_bytes": 130924544,
+      "seconds": 0.1700743748806417,
+      "seconds_median": 0.17154120793566108
+    },
+    "cyclonedx-2000": {
+      "peak_rss_bytes": 35323904,
+      "seconds": 0.03415333293378353,
+      "seconds_median": 0.034426874946802855
+    },
+    "report-packages-10000": {
+      "peak_rss_bytes": 126042112,
+      "seconds": 0.1407650001347065,
+      "seconds_median": 0.14246500004082918
+    },
+    "report-packages-2000": {
+      "peak_rss_bytes": 35225600,
+      "seconds": 0.028527084039524198,
+      "seconds_median": 0.028934166068211198
+    },
+    "spdx-10000": {
+      "peak_rss_bytes": 130826240,
+      "seconds": 0.16913208295591176,
+      "seconds_median": 0.1710943339858204
+    },
+    "spdx-2000": {
+      "peak_rss_bytes": 35536896,
+      "seconds": 0.034253374906256795,
+      "seconds_median": 0.03433141694404185
+    },
+    "startup": {
+      "peak_rss_bytes": 7815168,
+      "seconds": 0.00290124979801476,
+      "seconds_median": 0.0030416250228881836
+    }
+  }
+}
