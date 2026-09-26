@@ -66,7 +66,16 @@ fn main() -> Result<()> {
     let started = std::time::Instant::now();
     let matches = cli::Args::command().get_matches();
     let mut args = cli::Args::from_arg_matches(&matches).into_diagnostic()?;
-    init_tracing(&args);
+    let (log_format, unknown_log_format) =
+        cli::LogFormat::resolve(args.log_format, std::env::var(cli::LOG_FORMAT_ENV).ok().as_deref());
+    init_tracing(&args, log_format);
+    if let Some(value) = unknown_log_format {
+        tracing::warn!(
+            variable = cli::LOG_FORMAT_ENV,
+            value,
+            "not a log format (text, json); logging as text"
+        );
+    }
     init_error_reporting()?;
     // `--version -v`: the block a bug report needs, before anything else happens.
     if args.version_details {
@@ -115,6 +124,7 @@ fn main() -> Result<()> {
     let progress = progress::Progress::resolve(
         args.verbosity.tracing_level_filter() >= tracing::level_filters::LevelFilter::DEBUG,
         args.verbosity.tracing_level_filter() < tracing::level_filters::LevelFilter::INFO,
+        log_format == cli::LogFormat::Json,
     );
     // A scan reads its inputs per workspace, so there is no single one to read here.
     // Say what this run will talk to before it talks to anything: on another network, the
@@ -1523,16 +1533,21 @@ fn init_error_reporting() -> Result<()> {
     .into_diagnostic()
 }
 
-fn init_tracing(args: &cli::Args) {
+fn init_tracing(args: &cli::Args, format: cli::LogFormat) {
     let filter = EnvFilter::builder()
         .with_default_directive(args.verbosity.tracing_level_filter().into())
         .from_env_lossy();
-    tracing_subscriber::fmt()
+    let builder = tracing_subscriber::fmt()
         .with_env_filter(filter)
-        .with_writer(ProgressAwareStderr)
-        .with_ansi(std::io::stderr().is_terminal())
-        .without_time()
-        .init();
+        .with_writer(ProgressAwareStderr);
+    match format {
+        // A person reading along in a terminal knows what time it is; the timestamp would be
+        // the widest column in the log and say the least.
+        cli::LogFormat::Text => builder.with_ansi(std::io::stderr().is_terminal()).without_time().init(),
+        // A collector wants the timestamp back, every field as a field rather than prose, and
+        // no escape codes: nothing reading this is a terminal.
+        cli::LogFormat::Json => builder.with_ansi(false).json().init(),
+    }
 }
 
 /// Writes log lines to stderr with any progress bar hidden for the duration, so the two never

@@ -5011,3 +5011,69 @@ fn the_document_records_what_the_run_could_not_ask() {
         "the two documents differ in what they say about themselves"
     );
 }
+
+#[test]
+fn the_log_can_be_json_for_a_collector_instead_of_prose_for_a_person() {
+    let dir = workspace("with-pypi");
+    let run = |args: &[&str], envs: &[(&str, &str)]| -> String {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(["-p", "linux-64", "--output", "-"])
+            .args(args);
+        for (name, value) in envs {
+            command.env(name, value);
+        }
+        String::from_utf8(command.assert().success().get_output().stderr.clone()).unwrap()
+    };
+
+    let log = run(&["--log-format", "json", "-v"], &[]);
+    let lines: Vec<&str> = log.lines().filter(|line| !line.trim().is_empty()).collect();
+    assert!(!lines.is_empty(), "the run logs something at -v");
+    for line in &lines {
+        let event: Value = serde_json::from_str(line).unwrap_or_else(|err| panic!("not JSON: {line}\n{err}"));
+        assert!(event["level"].is_string(), "{line}");
+        assert!(
+            event["target"].as_str().is_some_and(|t| t.starts_with("pixi_sbom")),
+            "{line}"
+        );
+        assert!(event["fields"]["message"].is_string(), "{line}");
+        // The timestamp the text renderer drops deliberately comes back: a collector needs it.
+        assert!(event["timestamp"].is_string(), "{line}");
+        // Nothing reading this is a terminal, so nothing is coloured.
+        assert!(!line.contains('\u{1b}'), "escape codes in a JSON log: {line}");
+    }
+
+    // The fields stay fields rather than being folded into the message.
+    let selected = lines
+        .iter()
+        .map(|line| serde_json::from_str::<Value>(line).unwrap())
+        .find(|event| event["fields"]["message"] == "selected lock environment")
+        .expect("the run says which environment it read");
+    assert_eq!(selected["fields"]["platform"], "linux-64");
+    assert!(selected["fields"]["packages"].is_number());
+
+    // PIXI_SBOM_LOG_FORMAT does the same, and a value that is not a format says so in the log
+    // rather than refusing to run.
+    let log = run(&[], &[("PIXI_SBOM_LOG_FORMAT", "json")]);
+    assert!(
+        log.lines().all(|line| serde_json::from_str::<Value>(line).is_ok()),
+        "{log}"
+    );
+    let log = run(&[], &[("PIXI_SBOM_LOG_FORMAT", "jsonl")]);
+    assert!(log.contains("not a log format"), "{log}");
+    assert!(
+        serde_json::from_str::<Value>(log.lines().next().unwrap()).is_err(),
+        "an unusable value falls back to text: {log}"
+    );
+
+    // The default is unchanged: prose, and no timestamp column.
+    let log = run(&[], &[]);
+    assert!(
+        serde_json::from_str::<Value>(log.lines().next().unwrap_or("")).is_err(),
+        "{log}"
+    );
+}

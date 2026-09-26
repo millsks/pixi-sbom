@@ -38,20 +38,30 @@ pub struct Progress {
 const TICK: Duration = Duration::from_millis(100);
 
 impl Progress {
-    /// Decide from the environment: a terminal on stderr, not quiet, and no debug logging to
-    /// tear the bars apart.
-    pub fn resolve(verbose: bool, quiet: bool) -> Self {
-        Self::resolve_with(std::io::stderr().is_terminal(), verbose, quiet, |name| {
-            std::env::var_os(name).map(|v| v.to_string_lossy().into_owned())
-        })
+    /// Decide from the environment: a terminal on stderr, not quiet, no debug logging to tear
+    /// the bars apart, and not a structured log, which nothing human is reading.
+    pub fn resolve(verbose: bool, quiet: bool, structured_log: bool) -> Self {
+        Self::resolve_with(
+            std::io::stderr().is_terminal(),
+            verbose,
+            quiet,
+            structured_log,
+            |name| std::env::var_os(name).map(|v| v.to_string_lossy().into_owned()),
+        )
     }
 
-    fn resolve_with(is_terminal: bool, verbose: bool, quiet: bool, env: impl Fn(&str) -> Option<String>) -> Self {
+    fn resolve_with(
+        is_terminal: bool,
+        verbose: bool,
+        quiet: bool,
+        structured_log: bool,
+        env: impl Fn(&str) -> Option<String>,
+    ) -> Self {
         let forbidden = env("TERM").is_some_and(|v| v == "dumb")
             || env("CI").is_some_and(|v| !v.is_empty() && v != "0" && v != "false")
             || env("PIXI_SBOM_NO_PROGRESS").is_some_and(|v| !v.is_empty() && v != "0");
         Self {
-            enabled: is_terminal && !verbose && !quiet && !forbidden,
+            enabled: is_terminal && !verbose && !quiet && !structured_log && !forbidden,
         }
     }
 
@@ -107,20 +117,27 @@ mod tests {
     #[test]
     fn progress_is_for_interactive_runs_only() {
         let none = env_of(&[]);
-        assert!(Progress::resolve_with(true, false, false, &none).enabled);
-        assert!(!Progress::resolve_with(false, false, false, &none).enabled, "a pipe");
+        assert!(Progress::resolve_with(true, false, false, false, &none).enabled);
         assert!(
-            !Progress::resolve_with(true, true, false, &none).enabled,
+            !Progress::resolve_with(false, false, false, false, &none).enabled,
+            "a pipe"
+        );
+        assert!(
+            !Progress::resolve_with(true, true, false, false, &none).enabled,
             "-v tears bars"
         );
         assert!(
-            !Progress::resolve_with(true, false, true, &none).enabled,
+            !Progress::resolve_with(true, false, true, false, &none).enabled,
             "-q asked for quiet"
         );
-        assert!(!Progress::resolve_with(true, false, false, env_of(&[("TERM", "dumb")])).enabled);
-        assert!(!Progress::resolve_with(true, false, false, env_of(&[("CI", "true")])).enabled);
-        assert!(Progress::resolve_with(true, false, false, env_of(&[("CI", "")])).enabled);
-        assert!(!Progress::resolve_with(true, false, false, env_of(&[("PIXI_SBOM_NO_PROGRESS", "1")])).enabled);
+        assert!(!Progress::resolve_with(true, false, false, false, env_of(&[("TERM", "dumb")])).enabled);
+        assert!(!Progress::resolve_with(true, false, false, false, env_of(&[("CI", "true")])).enabled);
+        assert!(Progress::resolve_with(true, false, false, false, env_of(&[("CI", "")])).enabled);
+        assert!(!Progress::resolve_with(true, false, false, false, env_of(&[("PIXI_SBOM_NO_PROGRESS", "1")])).enabled);
+        assert!(
+            !Progress::resolve_with(true, false, false, true, &none).enabled,
+            "--log-format json: nothing reading the output is watching a bar"
+        );
     }
 
     #[test]
