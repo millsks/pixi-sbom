@@ -228,6 +228,14 @@ def _mib(value: float) -> str:
     return f"{value / 1048576:.2f} MiB"
 
 
+# A growth has to be both a large enough share and a large enough amount to count. A
+# percentage on its own fails a build over mimalloc's arena appearing in a 2.5 MiB startup
+# footprint, which is 0.38 MiB and nobody's problem; an amount on its own ignores a small
+# scenario doubling. Both, and the gate only fires on something worth looking at.
+MEMORY_FLOOR_BYTES = 8 * 1024 * 1024
+SIZE_FLOOR_BYTES = 256 * 1024
+
+
 def compare(base: dict, head: dict, size_limit: float, memory_limit: float) -> tuple[list[str], list[str]]:
     """A markdown report of head against base, and the regressions worth failing over."""
     lines = [
@@ -244,8 +252,11 @@ def compare(base: dict, head: dict, size_limit: float, memory_limit: float) -> t
     base_size, head_size = base["binary_bytes"], head["binary_bytes"]
     size_change = _percent(base_size, head_size)
     lines.append(f"| binary | {_mib(base_size)} | {_mib(head_size)} | {size_change:+.2f}% |")
-    if size_change > size_limit:
-        failures.append(f"the binary grew {size_change:+.2f}%, over the {size_limit:.0f}% allowed")
+    if size_change > size_limit and head_size - base_size > SIZE_FLOOR_BYTES:
+        failures.append(
+            f"the binary grew {size_change:+.2f}% ({_mib(head_size - base_size)}), "
+            f"over the {size_limit:.0f}% allowed"
+        )
 
     for name, head_result in head["scenarios"].items():
         base_result = base["scenarios"].get(name)
@@ -262,15 +273,19 @@ def compare(base: dict, head: dict, size_limit: float, memory_limit: float) -> t
             f"| {name} peak | {_mib(base_result['peak_rss_bytes'])} | "
             f"{_mib(head_result['peak_rss_bytes'])} | {memory_change:+.1f}% |"
         )
-        if memory_change > memory_limit:
+        grew_by = head_result["peak_rss_bytes"] - base_result["peak_rss_bytes"]
+        if memory_change > memory_limit and grew_by > MEMORY_FLOOR_BYTES:
             failures.append(
-                f"{name} peak memory grew {memory_change:+.1f}%, over the {memory_limit:.0f}% allowed"
+                f"{name} peak memory grew {memory_change:+.1f}% ({_mib(grew_by)}), "
+                f"over the {memory_limit:.0f}% allowed"
             )
 
     lines += [
         "",
-        f"Gated: binary size (±{size_limit:.0f}%) and peak memory (±{memory_limit:.0f}%), both steady enough to",
-        "mean something. Wall time is reported and never fails the job.",
+        f"Gated: binary size (+{size_limit:.0f}% and more than {_mib(SIZE_FLOOR_BYTES)}) and peak memory",
+        f"(+{memory_limit:.0f}% and more than {_mib(MEMORY_FLOOR_BYTES)}), both steady enough to mean something.",
+        "A share alone would fail over a fraction of a megabyte on a small baseline; an amount alone would miss a",
+        "small scenario doubling. Wall time is reported and never fails the job.",
     ]
     return lines, failures
 

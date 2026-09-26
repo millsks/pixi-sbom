@@ -157,9 +157,14 @@ deal.
 
 | Metric | How steady | What the workflow does |
 |---|---|---|
-| Binary size | byte-exact | fails the job at +5% |
-| Peak memory | a few percent | fails the job at +15% |
+| Binary size | byte-exact | fails at +5% **and** more than 256 KiB |
+| Peak memory | a few percent | fails at +15% **and** more than 8 MiB |
 | Wall time | tens of percent on a shared runner | reported in the job summary, never fails |
+
+A gate needs both a share and an amount. A share on its own fails a build over mimalloc reserving an arena in a
+2.5 MiB startup footprint — 15.2%, and 0.38 MiB, which is nobody's problem. An amount on its own misses a small
+scenario doubling. `pixi run perf-test` covers what the comparison does with a given pair of numbers, and CI runs
+it, because this gate decides whether a build fails.
 
 Peak memory is the child process's own high-water mark: `wait4` on Linux and macOS,
 `GetProcessMemoryInfo` on the handle of the finished child on Windows. Not a poller, which would miss the peak.
