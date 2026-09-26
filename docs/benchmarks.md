@@ -163,6 +163,10 @@ deal.
 
 Peak memory is the child process's own high-water mark: `wait4` on Linux and macOS,
 `GetProcessMemoryInfo` on the handle of the finished child on Windows. Not a poller, which would miss the peak.
+The child is started with `posix_spawn` rather than a fork, because a forked child inherits the parent's page
+tables and Linux counts those pages against it — which reported the measuring script's own footprint as the
+binary's peak for every scenario smaller than it. The script records its own resident size beside the results so
+that mistake is visible if it ever comes back.
 
 It runs on demand (`workflow_dispatch`, with an optional base ref), weekly, and on pushes to `main` that touch
 the source, comparing against the latest release tag. It deliberately does **not** run on pull requests: each

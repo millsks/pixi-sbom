@@ -121,24 +121,32 @@ def _peak_rss_windows(process: subprocess.Popen[bytes]) -> int:
     return int(counters.PeakWorkingSetSize)
 
 
-def run_once(command: list[str], cwd: Path) -> tuple[float, int]:
+def run_once(command: list[str]) -> tuple[float, int]:
     """Run `command` to completion; return its wall time in seconds and peak RSS in bytes."""
     started = time.perf_counter()
-    process = subprocess.Popen(  # noqa: S603 - the command is built here, not taken from input
-        command,
-        cwd=cwd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
     if os.name == "nt":
+        process = subprocess.Popen(  # noqa: S603 - built here, not taken from input
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         code = process.wait()
         elapsed = time.perf_counter() - started
         peak = _peak_rss_windows(process)
     else:
+        # posix_spawn rather than subprocess, which forks: a forked child inherits the
+        # parent's page tables, and Linux counts those pages in the child's peak RSS. That
+        # reported this script's own footprint (~36 MiB of Python) as the binary's peak,
+        # identically, for every scenario smaller than it.
+        quiet = [
+            (os.POSIX_SPAWN_OPEN, 1, os.devnull, os.O_WRONLY, 0o666),
+            (os.POSIX_SPAWN_OPEN, 2, os.devnull, os.O_WRONLY, 0o666),
+        ]
+        pid = os.posix_spawn(command[0], command, os.environ, file_actions=quiet)
         # wait4 gives this child's own usage; getrusage(RUSAGE_CHILDREN) would give the
         # high-water mark across every child so far, which grows monotonically over a run and
         # would report the largest scenario's peak for all of them.
-        _, status, usage = os.wait4(process.pid, 0)
+        _, status, usage = os.wait4(pid, 0)
         elapsed = time.perf_counter() - started
         code = os.waitstatus_to_exitcode(status)
         # ru_maxrss is kilobytes on Linux and bytes on macOS.
@@ -146,6 +154,20 @@ def run_once(command: list[str], cwd: Path) -> tuple[float, int]:
     if code != 0:
         raise SystemExit(f"{' '.join(command)} exited {code}")
     return elapsed, peak
+
+
+def _own_rss_bytes() -> int:
+    """This script's own resident size, kept beside the results as a contamination check.
+
+    Zero on Windows, which starts processes without forking and so cannot lend its own pages
+    to the thing it is measuring.
+    """
+    if os.name == "nt":
+        return 0
+    import resource
+
+    usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return usage if sys.platform == "darwin" else usage * 1024
 
 
 def measure(binary: Path, workdir: Path) -> dict[str, object]:
@@ -177,7 +199,7 @@ def measure(binary: Path, workdir: Path) -> dict[str, object]:
         times: list[float] = []
         peaks: list[int] = []
         for _ in range(RUNS):
-            elapsed, peak = run_once(command, workdir)
+            elapsed, peak = run_once(command)
             times.append(elapsed)
             peaks.append(peak)
         results[name] = {
@@ -190,6 +212,8 @@ def measure(binary: Path, workdir: Path) -> dict[str, object]:
 
     return {
         "binary_bytes": binary.stat().st_size,
+        # If a scenario's peak ever equals this, the measurement is reporting the measurer.
+        "measurer_rss_bytes": _own_rss_bytes(),
         "platform": f"{platform.system()}-{platform.machine()}",
         "runs": RUNS,
         "scenarios": results,
