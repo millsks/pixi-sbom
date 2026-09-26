@@ -82,7 +82,114 @@ With no options this means:
 | `--log-format <text\|json>` | `text` | How the log on stderr is rendered. `json` writes one JSON object per event, with the timestamp back and every field its own key. Also `PIXI_SBOM_LOG_FORMAT`. |
 | `-h, --help`, `-V, --version` | | Usual meanings. |
 
-`RUST_LOG` is also honored and overrides `-v`/`-q` (for example `RUST_LOG=pixi_sbom::lock=debug`).
+## What the log says, and how to narrow it
+
+The log goes to stderr, always; the document and the reports go to stdout, so `pixi sbom > sbom.json` is safe at
+any verbosity.
+
+| Level | Flag | What it says |
+|---|---|---|
+| ERROR | `-qq` | Only what stopped the run. The miette diagnostic is printed regardless of the level. |
+| WARN | `-q` | What was skipped and why: a license that could not be read, a request not made because the run is offline, a cache served past its lifetime. |
+| INFO | default | One line per step, with its counts: the environment selected, how many licenses were filled, how many packages were queried and how many findings came back, what was written where, and what each cache served. |
+| DEBUG | `-v` | Every request with its URL, status, size and elapsed time; every cache hit with its age; the packages each step skipped and why; the effective arguments and the configuration file that produced them. |
+| TRACE | `-vv` | Everything above plus the tool's internal bookkeeping. |
+
+`-v` and `-vv` turn the **progress bars off**: the bars and the per-request lines are both drawn on stderr and
+would tear each other apart. That surprises people who expect both — at DEBUG the log *is* the progress report.
+`--log-format json` turns them off for the same reason.
+
+### Narrowing to one part of the tool with `RUST_LOG`
+
+`RUST_LOG` overrides `-v` / `-q` entirely and takes per-module directives, which is the difference between
+reading a few lines and reading a few thousand:
+
+```sh
+RUST_LOG=pixi_sbom::http=debug,pixi_sbom=info pixi sbom --vulnerabilities osv
+```
+
+That says: debug for the requests, info for everything else. The trailing `pixi_sbom=info` matters — a bare
+`RUST_LOG=pixi_sbom::http=debug` silences every other module, including the summary lines.
+
+| Target | What it logs |
+|---|---|
+| `pixi_sbom` | The per-step summary lines: the counts each phase ended with |
+| `pixi_sbom::http` | Every request: method, URL, status, bytes, milliseconds, the whole error chain on failure, and the network configuration at startup |
+| `pixi_sbom::cache` | What each cache served: hits, fetches, and the age of the oldest answer |
+| `pixi_sbom::osv` | Vulnerability queries and advisory records, including the ones recorded by id alone |
+| `pixi_sbom::mapping` | The conda-forge → PyPI name mapping: download, cache age, stale fallback |
+| `pixi_sbom::kev` | The CISA KEV catalog download and its cache |
+| `pixi_sbom::pypi` | PyPI release metadata lookups (`--fetch-licenses`) |
+| `pixi_sbom::wheel` | Wheel `dist-info` reads for licenses and embedded SBOMs |
+| `pixi_sbom::pkgcache` | Licenses read from pixi's extracted package cache |
+| `pixi_sbom::condaarchive` | Licenses read from channel archives when the package cache has none |
+| `pixi_sbom::scorecard` | OpenSSF Scorecard lookups |
+| `pixi_sbom::outdated` | `--report outdated` index queries |
+| `pixi_sbom::auditable` | Rust crate lists read out of `cargo auditable` binaries |
+| `pixi_sbom::phantom`, `::imports` | The import scan behind `--report phantom` |
+| `pixi_sbom::lock`, `::prefix`, `::manifest`, `::discover`, `::config` | Which input and which settings the run chose |
+
+### Three recipes
+
+**Nothing came back from the vulnerability lookup.**
+
+```sh
+RUST_LOG=pixi_sbom::osv=debug,pixi_sbom::http=debug,pixi_sbom=info pixi sbom --vulnerabilities osv
+```
+
+```console
+ INFO pixi_sbom::http: network configuration offline=false proxy="none" tls_roots="the platform verifier (the operating system trust store)" timeout_s=120 services=1
+DEBUG pixi_sbom::http: upstream service="OSV" url=https://api.osv.dev source="default"
+ INFO pixi_sbom: looked up vulnerabilities on OSV queried=0 without_identity=2 findings=0 failed=0 unanswered=0
+```
+
+Read the counts on the last line. `queried=0` with `without_identity` equal to the package count means nothing was
+ever asked: no package carries a purl OSV answers to, which is every conda-only environment without
+`--pypi-mapping prefix`. `unanswered` greater than zero means the questions could not be asked — offline with a
+cold cache. `failed` counts advisories that were found but could not be fetched, and those are in the document by
+id alone. Only `queried > 0, unanswered = 0, findings = 0` is good news, and the document records the difference
+(see [output-format.md](output-format.md#incomplete-enrichment)).
+
+**A license is missing on one package.**
+
+```sh
+RUST_LOG=pixi_sbom::wheel=debug,pixi_sbom::pkgcache=debug,pixi_sbom::condaarchive=debug,pixi_sbom::pypi=debug,pixi_sbom=info \
+  pixi sbom --fetch-licenses
+```
+
+```console
+ WARN pixi_sbom::wheel: cannot read license details from the wheel package=six location=https://files.pythonhosted.org/packages/.../six-1.17.0-py2.py3-none-any.whl err=io: offline: PIXI_SBOM_OFFLINE is set, no network requests are made
+ INFO pixi_sbom: read PyPI license details from wheels fetched=0 failed=1 skipped=0
+ INFO pixi_sbom: read conda license details from the package cache pkgs=/home/u/.cache/rattler/cache/pkgs found=0 licenses_filled=0 files=0
+ WARN pixi_sbom::condaarchive: cannot read license details from the archive package=bzip2 location=https://conda.anaconda.org/conda-forge/linux-64/bzip2-1.0.8-hda65f42_10.conda cause="io: offline: PIXI_SBOM_OFFLINE is set, no network requests are made"
+```
+
+Each source says which package it could not read and why. `found=0` from the package cache with a `pkgs=` path
+that is not where pixi actually keeps its packages is the common one — `PIXI_CACHE_DIR` points elsewhere, or the
+environment was never installed, and everything then falls through to the channel archives. For one package,
+`--explain <name>` answers the same question without reading a log at all.
+
+**The run is slow.**
+
+```sh
+RUST_LOG=pixi_sbom::http=debug,pixi_sbom=info pixi sbom --fetch-licenses --vulnerabilities osv --timings
+```
+
+```console
+Phase                Time  Detail
+input              0.01 s
+pypi mapping       1.21 s
+wheels             12.40 s  38 fetched, 4 cached
+vulnerabilities    2.10 s  24 queried, 9 findings
+write              0.00 s
+total              15.72 s  of which 15.6 s waiting on the network
+ INFO pixi_sbom::cache: cache cache="osv" from_cache=1 fetched=0 oldest_s=0
+```
+
+The last line of the table decides what to do: time spent waiting on an upstream is a network problem, and the
+`http` debug lines then say which host and how long each request took. Time spent anywhere else is the tool's.
+The cache tally underneath says how much of the run was answered from disk — a first run and a warm run are not
+comparable, and `--refresh` makes the comparison fair.
 
 ## Describing an installed environment
 
@@ -917,6 +1024,9 @@ the environment variable in effect (`HTTPS_PROXY=http://proxy.corp:8080`) with a
 With `PIXI_SBOM_OFFLINE=1`, each request that was *not* made is logged instead, which is how to tell "there was
 nothing to find" from "nothing was asked".
 
+To narrow the log to the part of the tool you are chasing — the requests, one enrichment step, the caches — see
+[what the log says](#what-the-log-says-and-how-to-narrow-it) and its three worked recipes.
+
 ## Environment variables
 
 | Variable | Effect |
@@ -934,7 +1044,7 @@ nothing to find" from "nothing was asked".
 | `HTTPS_PROXY` / `HTTP_PROXY` | Honored for every download. |
 | `SOURCE_DATE_EPOCH` | Pins the document timestamp (seconds since the Unix epoch). With it set, repeated runs over the same lockfile are byte-identical, which lets CI diff SBOMs between commits. See [output-format.md](output-format.md#reproducibility). |
 | `PIXI_SBOM_LOG_FORMAT` | `text` (the default) or `json`, the same as `--log-format`, for a CI job that cannot change the command line. A value that is neither is named in the log and the run continues as text. |
-| `RUST_LOG` | Log filter, overrides `-v`/`-q`. |
+| `RUST_LOG` | Log filter, overrides `-v`/`-q`, and takes per-module directives — see [what the log says](#what-the-log-says-and-how-to-narrow-it). |
 
 ## Examples
 
