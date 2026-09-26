@@ -584,6 +584,73 @@ fn pypi_licenses_come_from_cached_index_metadata() {
 }
 
 #[test]
+fn every_request_is_visible_at_debug_and_a_failure_names_its_cause() {
+    let dir = workspace("with-pypi");
+    let run = |args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .args(["-e", "web", "-p", "linux-64", "--output", "-"])
+            .args(args);
+        command
+    };
+
+    // Offline: the requests that were refused are named, so a run that came back with nothing
+    // can be traced to what it did not ask.
+    let refused = String::from_utf8(
+        run(&["-v", "--fetch-licenses"])
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .assert()
+            .success()
+            .get_output()
+            .stderr
+            .clone(),
+    )
+    .unwrap();
+    assert!(refused.contains("refusing the request: offline"), "{refused}");
+    assert!(refused.contains("url=https://pypi.org/pypi/"), "{refused}");
+    // And the warning that follows carries the cause, not just "io".
+    assert!(
+        refused.contains("cause=") && refused.contains("PIXI_SBOM_OFFLINE is set"),
+        "{refused}"
+    );
+
+    // A real request to a closed port: the debug line shows the attempt, the warning shows the
+    // whole chain, and the run still succeeds.
+    let unreachable = String::from_utf8(
+        run(&["-v", "--fetch-licenses"])
+            .env("PIXI_SBOM_PYPI_URL", "http://127.0.0.1:1")
+            .assert()
+            .success()
+            .get_output()
+            .stderr
+            .clone(),
+    )
+    .unwrap();
+    assert!(unreachable.contains("requesting"), "{unreachable}");
+    assert!(unreachable.contains("request failed"), "{unreachable}");
+    assert!(
+        unreachable.contains("127.0.0.1:1") && unreachable.contains("cause="),
+        "{unreachable}"
+    );
+
+    // Nothing of this at the default level.
+    let quiet = String::from_utf8(
+        run(&["--fetch-licenses"])
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .assert()
+            .success()
+            .get_output()
+            .stderr
+            .clone(),
+    )
+    .unwrap();
+    assert!(!quiet.contains("requesting"), "{quiet}");
+}
+
+#[test]
 fn fetch_licenses_never_fails_the_run_when_offline() {
     let dir = workspace("with-pypi");
 

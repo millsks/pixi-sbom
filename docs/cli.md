@@ -647,6 +647,25 @@ named after what it describes:
 Each document records which environment and platform it describes (`pixi:environment` / `pixi:platform` in the
 CycloneDX metadata properties; the root package `sourceInfo` in SPDX), so a batch of files stays self-describing.
 
+## When something comes back empty
+
+Every request the tool makes is logged at debug, with what it asked for and how it ended:
+
+```console
+$ pixi sbom --fetch-licenses --vulnerabilities osv -v
+DEBUG pixi_sbom::http: requesting method="GET" url="https://pypi.org/pypi/six/1.17.0/json" detail="" proxy="none"
+DEBUG pixi_sbom::http: answered method="GET" url="https://pypi.org/pypi/six/1.17.0/json" status=200 bytes=14204 ms=180
+DEBUG pixi_sbom::http: request failed method="GET" url="https://api.osv.dev/v1/querybatch" ms=32 cause="io: invalid peer certificate: UnknownIssuer"
+```
+
+The `cause` field is the whole error chain, not only its outermost message: a TLS failure says
+`invalid peer certificate`, a proxy failure says so, a refused connection says `Connection refused`. The warnings
+that survive at the default level carry the same field, so one pasted line identifies the problem. `proxy` names
+the environment variable in effect (`HTTPS_PROXY=http://proxy.corp:8080`) with any password replaced, or `none`.
+
+With `PIXI_SBOM_OFFLINE=1`, each request that was *not* made is logged instead, which is how to tell "there was
+nothing to find" from "nothing was asked".
+
 ## Environment variables
 
 | Variable | Effect |
