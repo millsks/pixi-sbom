@@ -584,6 +584,81 @@ fn pypi_licenses_come_from_cached_index_metadata() {
 }
 
 #[test]
+fn the_run_says_which_input_and_which_settings_it_chose() {
+    let dir = workspace("with-pypi");
+    // A configuration file that sets three things, one of which the command line overrides.
+    std::fs::write(
+        dir.path().join("pixi-sbom.toml"),
+        "format = \"spdx\"\nfetch-licenses = false\nexclude = [\"tzdata\"]\n",
+    )
+    .unwrap();
+
+    let stderr = |args: &[&str]| -> String {
+        String::from_utf8(
+            pixi_sbom()
+                .current_dir(dir.path())
+                .args(["-p", "linux-64", "-v"])
+                .args(args)
+                .assert()
+                .success()
+                .get_output()
+                .stderr
+                .clone(),
+        )
+        .unwrap()
+    };
+
+    let log = stderr(&["--format", "cyclonedx", "--output", "-"]);
+    assert!(log.contains("pixi.lock\" how="), "{log}");
+    assert!(log.contains("found by searching upward"), "{log}");
+    assert!(log.contains("workspace manifest"), "{log}");
+    assert!(log.contains("applied=\"exclude, fetch-licenses\""), "{log}");
+    assert!(log.contains("overridden_on_the_command_line=\"format\""), "{log}");
+
+    // --no-config says so rather than saying nothing.
+    let none = stderr(&["--no-config", "--output", "-"]);
+    assert!(none.contains("--no-config was given"), "{none}");
+
+    // A workspace with no manifest explains what that costs the root component.
+    let bare = tempfile::tempdir().unwrap();
+    std::fs::copy(
+        tests_dir().join("fixtures/with-pypi/pixi.lock"),
+        bare.path().join("pixi.lock"),
+    )
+    .unwrap();
+    let bare_log = String::from_utf8(
+        pixi_sbom()
+            .current_dir(bare.path())
+            .args(["-p", "linux-64", "-v", "--output", "-"])
+            .assert()
+            .success()
+            .get_output()
+            .stderr
+            .clone(),
+    )
+    .unwrap();
+    assert!(bare_log.contains("no workspace manifest"), "{bare_log}");
+    assert!(bare_log.contains("graph-root heuristic"), "{bare_log}");
+
+    // A scan reads one configuration for the tree, which is worth saying out loud.
+    let scan = String::from_utf8(
+        pixi_sbom()
+            .current_dir(dir.path())
+            .args(["-p", "linux-64", "-v", "--scan"])
+            .arg(dir.path())
+            .args(["--output", dir.path().join("out").to_str().unwrap()])
+            .assert()
+            .success()
+            .get_output()
+            .stderr
+            .clone(),
+    )
+    .unwrap();
+    assert!(scan.contains("every pixi.lock under this directory"), "{scan}");
+    assert!(scan.contains("not from each workspace"), "{scan}");
+}
+
+#[test]
 fn every_request_is_visible_at_debug_and_a_failure_names_its_cause() {
     let dir = workspace("with-pypi");
     let run = |args: &[&str]| {

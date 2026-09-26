@@ -184,28 +184,57 @@ fn parse_enum<T: ValueEnum>(path: &Path, key: &str, value: &str) -> Result<T, Co
 pub fn apply(loaded: &Loaded, args: &mut Args, matches: &ArgMatches) -> Result<(), ConfigError> {
     let config = &loaded.config;
     let path = loaded.path.as_path();
+    // Which settings the file supplied and which the command line overrode; logged together
+    // at the end, because "the flag has no effect" usually starts here.
+    let mut applied: Vec<String> = Vec::new();
+    let mut overridden: Vec<String> = Vec::new();
     macro_rules! set {
         ($field:ident, $id:literal, $value:expr) => {
-            if !on_cli(matches, $id)
-                && let Some(value) = $value
-            {
-                args.$field = value;
+            if let Some(value) = $value {
+                if on_cli(matches, $id) {
+                    overridden.push($id.replace('_', "-"));
+                } else {
+                    args.$field = value;
+                    applied.push($id.replace('_', "-"));
+                }
             }
         };
     }
-    if let Some(format) = &config.format
-        && !on_cli(matches, "format")
-    {
-        args.format = parse_enum::<Format>(path, "format", format)?;
+    /// Note a setting the file supplied, for the ones the macro does not cover.
+    macro_rules! note {
+        ($id:literal) => {
+            if on_cli(matches, $id) {
+                overridden.push($id.replace('_', "-"));
+            } else {
+                applied.push($id.replace('_', "-"));
+            }
+        };
     }
-    if let Some(version) = &config.spec_version
-        && !on_cli(matches, "spec_version")
-    {
-        args.spec_version = Some(parse_enum::<SpecVersion>(path, "spec-version", version)?);
+    if let Some(format) = &config.format {
+        note!("format");
+        if !on_cli(matches, "format") {
+            args.format = parse_enum::<Format>(path, "format", format)?;
+        }
+    }
+    if let Some(version) = &config.spec_version {
+        note!("spec_version");
+        if !on_cli(matches, "spec_version") {
+            args.spec_version = Some(parse_enum::<SpecVersion>(path, "spec-version", version)?);
+        }
     }
     // `pypi-mapping` and `pypi-mapping-file` exclude each other: a command-line choice of
     // either means the file's pair is left alone entirely.
-    if !on_cli(matches, "pypi_mapping") && !on_cli(matches, "pypi_mapping_file") {
+    if on_cli(matches, "pypi_mapping") || on_cli(matches, "pypi_mapping_file") {
+        // The command line chose one of the pair, so the file's pair is left alone entirely.
+        for (supplied, id) in [
+            (config.pypi_mapping_file.is_some(), "pypi-mapping-file"),
+            (config.pypi_mapping.is_some(), "pypi-mapping"),
+        ] {
+            if supplied {
+                overridden.push(id.to_string());
+            }
+        }
+    } else {
         if let Some(file) = &config.pypi_mapping_file {
             // A relative path is relative to the configuration file, not the working directory.
             let base = loaded.path.parent().unwrap_or(Path::new("."));
@@ -215,27 +244,31 @@ pub fn apply(loaded: &Loaded, args: &mut Args, matches: &ArgMatches) -> Result<(
                 base.join(file)
             });
             args.pypi_mapping = PypiMappingSource::Lock;
+            note!("pypi_mapping_file");
         } else if let Some(source) = &config.pypi_mapping {
             args.pypi_mapping = parse_enum::<PypiMappingSource>(path, "pypi-mapping", source)?;
+            note!("pypi_mapping");
         }
     }
-    if let Some(purl) = &config.primary_purl
-        && !on_cli(matches, "primary_purl")
-    {
-        args.primary_purl = parse_enum::<PrimaryPurl>(path, "primary-purl", purl)?;
+    if let Some(purl) = &config.primary_purl {
+        note!("primary_purl");
+        if !on_cli(matches, "primary_purl") {
+            args.primary_purl = parse_enum::<PrimaryPurl>(path, "primary-purl", purl)?;
+        }
     }
     set!(fetch_licenses, "fetch_licenses", config.fetch_licenses);
     set!(license_texts, "license_texts", config.license_texts);
     set!(embedded_sboms, "embedded_sboms", config.embedded_sboms);
     set!(exclude, "exclude", config.exclude.clone());
     set!(include, "include", config.include.clone());
-    if let Some(kinds) = &config.exclude_kind
-        && !on_cli(matches, "exclude_kind")
-    {
-        args.exclude_kind = kinds
-            .iter()
-            .map(|k| parse_enum::<Kind>(path, "exclude-kind", k))
-            .collect::<Result<_, _>>()?;
+    if let Some(kinds) = &config.exclude_kind {
+        note!("exclude_kind");
+        if !on_cli(matches, "exclude_kind") {
+            args.exclude_kind = kinds
+                .iter()
+                .map(|k| parse_enum::<Kind>(path, "exclude-kind", k))
+                .collect::<Result<_, _>>()?;
+        }
     }
     set!(keep_orphans, "keep_orphans", config.keep_orphans);
     set!(allow_license, "allow_license", config.allow_license.clone());
@@ -244,36 +277,49 @@ pub fn apply(loaded: &Loaded, args: &mut Args, matches: &ArgMatches) -> Result<(
     set!(ignore_license, "ignore_license", config.ignore_license.clone());
     set!(scorecard, "scorecard", config.scorecard);
     set!(scorecard_min, "scorecard_min", config.scorecard_min);
-    if let Some(min) = config.fail_on_scorecard
-        && !on_cli(matches, "fail_on_scorecard")
-    {
-        args.fail_on_scorecard = Some(min);
+    if let Some(min) = config.fail_on_scorecard {
+        note!("fail_on_scorecard");
+        if !on_cli(matches, "fail_on_scorecard") {
+            args.fail_on_scorecard = Some(min);
+        }
     }
     set!(fail_on_yanked, "fail_on_yanked", config.fail_on_yanked);
-    if let Some(source) = &config.vulnerabilities
-        && !on_cli(matches, "vulnerabilities")
-    {
-        args.vulnerabilities = Some(parse_enum::<VulnerabilitySource>(path, "vulnerabilities", source)?);
+    if let Some(source) = &config.vulnerabilities {
+        note!("vulnerabilities");
+        if !on_cli(matches, "vulnerabilities") {
+            args.vulnerabilities = Some(parse_enum::<VulnerabilitySource>(path, "vulnerabilities", source)?);
+        }
     }
     set!(kev, "kev", config.kev);
     set!(fail_on_kev, "fail_on_kev", config.fail_on_kev);
-    if let Some(severity) = &config.fail_on_severity
-        && !on_cli(matches, "fail_on_severity")
-    {
-        args.fail_on_severity = Some(parse_enum::<FailOnSeverity>(path, "fail-on-severity", severity)?);
+    if let Some(severity) = &config.fail_on_severity {
+        note!("fail_on_severity");
+        if !on_cli(matches, "fail_on_severity") {
+            args.fail_on_severity = Some(parse_enum::<FailOnSeverity>(path, "fail-on-severity", severity)?);
+        }
     }
     set!(ignore_vuln, "ignore_vuln", config.ignore_vuln.clone());
-    if let Some(sections) = &config.fail_on_diff
-        && !on_cli(matches, "fail_on_diff")
-    {
-        args.fail_on_diff = sections
-            .iter()
-            .map(|s| parse_enum::<DiffSection>(path, "fail-on-diff", s))
-            .collect::<Result<_, _>>()?;
+    if let Some(sections) = &config.fail_on_diff {
+        note!("fail_on_diff");
+        if !on_cli(matches, "fail_on_diff") {
+            args.fail_on_diff = sections
+                .iter()
+                .map(|s| parse_enum::<DiffSection>(path, "fail-on-diff", s))
+                .collect::<Result<_, _>>()?;
+        }
     }
     set!(source, "source", config.source.clone());
     set!(assume_used, "assume_used", config.assume_used.clone());
     set!(fail_on_phantom, "fail_on_phantom", config.fail_on_phantom);
+    applied.sort();
+    overridden.sort();
+    tracing::debug!(
+        path = %loaded.path.display(),
+        kind = if loaded.from_pyproject { "[tool.pixi-sbom] in pyproject.toml" } else { "pixi-sbom.toml" },
+        applied = applied.join(", "),
+        overridden_on_the_command_line = overridden.join(", "),
+        "configuration file"
+    );
     Ok(())
 }
 
@@ -291,6 +337,24 @@ mod tests {
 
     fn loaded(text: &str) -> Loaded {
         parse_file(Path::new("pixi-sbom.toml"), text).unwrap()
+    }
+
+    #[test]
+    fn the_file_says_which_settings_it_supplied_and_which_were_overridden() {
+        // `apply` logs the two lists; this checks the bookkeeping behind them by applying a
+        // file against a command line that sets one of the same settings.
+        let cfg = loaded(
+            r#"
+            format = "spdx"
+            fetch-licenses = true
+            exclude = ["pre-commit*"]
+            "#,
+        );
+        let (mut a, m) = args(&["--format", "cyclonedx"]);
+        apply(&cfg, &mut a, &m).unwrap();
+        assert_eq!(a.format, Format::Cyclonedx, "the command line wins");
+        assert!(a.fetch_licenses, "and the rest of the file still applies");
+        assert_eq!(a.exclude, ["pre-commit*"]);
     }
 
     #[test]
