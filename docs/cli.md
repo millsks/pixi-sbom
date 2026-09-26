@@ -904,6 +904,17 @@ pixi sbom --all-environments --all-platforms --output sboms/
 | 7 | `--fail-on-yanked` found a yanked release; the documents were written and the releases listed on stderr. |
 | 8 | `--fail-on-phantom` found an import the manifest never declared; the report was printed and the packages listed on stderr. |
 | 9 | `--fail-on-scorecard` found a scored repository below the threshold; the document was written and the packages listed on stderr. |
+
+Several gates can fail in one run. Each prints its own list, and the run then says which of them fired and which
+one chose the exit code, because in CI the code is the headline and the log is long:
+
+```
+2 gates failed: license policy (4), vulnerabilities (2).
+Exiting 3 (license policy); the others would have been 4.
+```
+
+The precedence is the order of the table above: the license policy first, then vulnerabilities, yanked releases,
+phantom imports, the comparison, and scorecards last.
 | 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments` or `--all-platforms`, or a `--spec-version` of the other format, or a `--allow-license` / `--deny-license` value that is not an SPDX identifier). |
 
 Runtime diagnostics carry a stable code you can grep for in CI logs:

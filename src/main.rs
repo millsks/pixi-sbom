@@ -758,24 +758,68 @@ fn main() -> Result<()> {
             };
         }
         let _ = stderr.flush();
-        std::process::exit(policy::VIOLATION_EXIT_CODE);
     }
-    if !gate_hits.is_empty() {
-        std::process::exit(vulnpolicy::GATE_EXIT_CODE);
-    }
-    if !yanked.is_empty() {
-        std::process::exit(YANKED_EXIT_CODE);
-    }
-    if args.fail_on_phantom && !phantoms.is_empty() {
-        std::process::exit(PHANTOM_EXIT_CODE);
-    }
-    if !diff_hits.is_empty() {
-        std::process::exit(diff::DIFF_EXIT_CODE);
-    }
-    if !low_scores.is_empty() {
-        std::process::exit(SCORECARD_EXIT_CODE);
+    // Several gates can fail in one run, and each has printed its own list by now. Only one
+    // exit code can be returned, so say which gates failed and which of them chose it: in CI
+    // the code is the headline, and a run that failed three gates looked like it failed one.
+    let failed = [
+        Gate::new("license policy", violations.len(), policy::VIOLATION_EXIT_CODE),
+        Gate::new("vulnerabilities", gate_hits.len(), vulnpolicy::GATE_EXIT_CODE),
+        Gate::new("yanked releases", yanked.len(), YANKED_EXIT_CODE),
+        Gate::new(
+            "phantom imports",
+            if args.fail_on_phantom { phantoms.len() } else { 0 },
+            PHANTOM_EXIT_CODE,
+        ),
+        Gate::new("the comparison", diff_hits.len(), diff::DIFF_EXIT_CODE),
+        Gate::new("scorecards", low_scores.len(), SCORECARD_EXIT_CODE),
+    ];
+    let failed: Vec<&Gate> = failed.iter().filter(|gate| gate.count > 0).collect();
+    if let Some(first) = failed.first() {
+        report_gates(&failed);
+        std::process::exit(first.code);
     }
     Ok(())
+}
+
+/// One gate that can end a run, with what it found.
+#[derive(Debug, Clone, Copy)]
+struct Gate {
+    name: &'static str,
+    count: usize,
+    code: i32,
+}
+
+impl Gate {
+    fn new(name: &'static str, count: usize, code: i32) -> Self {
+        Self { name, count, code }
+    }
+}
+
+/// Name every gate that fired and the one whose code is being returned. The gates are given in
+/// precedence order, so the first is the one that decides.
+fn report_gates(failed: &[&Gate]) {
+    let mut stderr = std::io::stderr().lock();
+    let deciding = failed[0];
+    let counted: Vec<String> = failed
+        .iter()
+        .map(|gate| format!("{} ({})", gate.name, gate.count))
+        .collect();
+    let _ = if failed.len() == 1 {
+        writeln!(stderr, "Gate failed: {}. Exiting {}.", counted[0], deciding.code)
+    } else {
+        let others: Vec<String> = failed[1..].iter().map(|gate| gate.code.to_string()).collect();
+        writeln!(
+            stderr,
+            "{} gates failed: {}.\nExiting {} ({}); the others would have been {}.",
+            failed.len(),
+            counted.join(", "),
+            deciding.code,
+            deciding.name,
+            others.join(" and ")
+        )
+    };
+    let _ = stderr.flush();
 }
 
 /// The relationships between settings that clap cannot check, because a configuration file
