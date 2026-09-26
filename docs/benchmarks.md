@@ -114,6 +114,35 @@ that the files are still listed by name, the run warns, and the document records
 `license-texts: N file(s) listed by name only` in `pixi:incomplete` — the same bargain the per-file cap already
 strikes, and visible in the document rather than silent.
 
+## The binary
+
+Release profile: `lto = true`, `codegen-units = 1`, `strip = true`, `panic = "abort"`, and mimalloc as the global
+allocator. Measured on an Apple M4:
+
+| | size | 10000-package run | peak RSS | `--version` |
+|---|---|---|---|---|
+| 0.9.5 | 9.01 MB | 0.22 s | 151.5 MB | 2.6 ms |
+| `panic = "abort"` | 7.45 MB | 0.22 s | 151.5 MB | 2.6 ms |
+| **+ mimalloc (shipped)** | **7.61 MB** | **0.16 s** | **124.8 MB** | 2.6 ms |
+
+`panic = "abort"` drops the unwinding tables, which is 17% of the binary and costs nothing at run time: a panic
+in a command-line tool ends the process either way, only now without unwinding first.
+
+mimalloc pays 0.16 MB for a quarter off the run and a fifth off the peak, because a document is made of many
+small allocations and the system allocator on macOS is not fast at those. It is installed in the **binary**, not
+the library, so nothing that links `pixi_sbom` has an allocator forced on it — which also means the criterion
+benchmarks above, which link the library, measure the system allocator. The shipped binary is faster than they
+say.
+
+`opt-level = "s"` was measured and **not** taken: 6.11 MB, 18% smaller again, but about 10% slower on the path
+that dominates a run. Startup is 2.6 ms and none of these moved it.
+
+What is not trimmable from here: `rattler_lock` depends on `rattler_solve` — a dependency solver a lockfile
+*reader* never runs — to re-export two enums. It is already built with `default-features = false`.
+
+Each release records the binary size per platform in the workflow's job summary, so a dependency that doubles the
+download is visible in the run that shipped it.
+
 ## Reading a regression
 
 Criterion compares each run with the previous one in `target/criterion/` and prints the change, so the useful

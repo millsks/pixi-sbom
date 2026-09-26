@@ -7,6 +7,11 @@ use pixi_sbom::{
     policy, prefix, progress, pypi, report, scorecard, style, timings, vulnpolicy, wheel,
 };
 
+/// The system allocator on macOS and Windows is slow under the many small allocations a
+/// document is made of; mimalloc is measured in docs/benchmarks.md.
+#[global_allocator]
+static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use std::io::{IsTerminal, Write};
 use std::path::Path;
 

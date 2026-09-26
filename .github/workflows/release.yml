@@ -242,6 +242,20 @@ jobs:
         run: pixi run build
       - name: Smoke test
         run: pixi run cargo run --release -- --version
+      # Tracked release to release: a dependency that doubles the download should be visible
+      # in the run that shipped it, not discovered by someone downloading it.
+      - name: Record the binary size
+        shell: bash
+        run: |
+          binary="target/release/pixi-sbom${{ matrix.ext }}"
+          bytes=$(wc -c < "$binary" | tr -d ' ')
+          {
+            echo "### Binary size"
+            echo
+            echo "| target | bytes | |"
+            echo "|---|---:|---:|"
+            echo "$bytes" | awk -v t="${{ matrix.target }}" '{printf "| %s | %s | %.2f MiB |\n", t, $1, $1/1048576}'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Package
         shell: bash
         env:
