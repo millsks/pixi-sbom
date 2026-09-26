@@ -144,6 +144,40 @@ pub enum GroupBy {
     License,
 }
 
+/// The environment variable that selects the log format, for a CI job that cannot change the
+/// command line.
+pub const LOG_FORMAT_ENV: &str = "PIXI_SBOM_LOG_FORMAT";
+
+/// How the log on stderr is rendered.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+pub enum LogFormat {
+    /// One line per event, written for a person.
+    #[default]
+    Text,
+    /// One JSON object per event, with the timestamp and every field kept separate.
+    Json,
+}
+
+impl LogFormat {
+    /// The flag, else `PIXI_SBOM_LOG_FORMAT`, else text. A value that is neither is returned
+    /// alongside, to be complained about once the subscriber exists: the log is the
+    /// diagnostic channel, and refusing to run because its format was misspelled would take
+    /// the diagnosis away at the moment it is needed.
+    pub fn resolve(flag: Option<LogFormat>, env: Option<&str>) -> (Self, Option<String>) {
+        if let Some(format) = flag {
+            return (format, None);
+        }
+        match env.map(str::trim).filter(|value| !value.is_empty()) {
+            None => (LogFormat::Text, None),
+            Some(value) => match value.to_ascii_lowercase().as_str() {
+                "text" => (LogFormat::Text, None),
+                "json" => (LogFormat::Json, None),
+                _ => (LogFormat::Text, Some(value.to_string())),
+            },
+        }
+    }
+}
+
 /// What a VEX says about a finding nobody has assessed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
 pub enum VexOpenState {
@@ -556,6 +590,38 @@ pub struct Args {
     #[arg(long, value_name = "PATH", conflicts_with_all = ["all_environments", "all_platforms"])]
     pub against: Option<PathBuf>,
 
+    /// How to render the log on stderr: `text` for a person, `json` for a log collector (one
+    /// JSON object per event, with the timestamp back and every field its own key). Also
+    /// PIXI_SBOM_LOG_FORMAT. Distinct from --report-format, which is the report on stdout;
+    /// the two are meant to be used together.
+    #[arg(long, value_enum, value_name = "FORMAT")]
+    pub log_format: Option<LogFormat>,
+
     #[command(flatten)]
     pub verbosity: Verbosity<InfoLevel>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_log_format_is_the_flag_then_the_environment_then_text() {
+        assert_eq!(LogFormat::resolve(None, None), (LogFormat::Text, None));
+        assert_eq!(LogFormat::resolve(Some(LogFormat::Json), None).0, LogFormat::Json);
+        // The flag wins over the environment, as every other setting does.
+        assert_eq!(
+            LogFormat::resolve(Some(LogFormat::Text), Some("json")).0,
+            LogFormat::Text
+        );
+        assert_eq!(LogFormat::resolve(None, Some("json")).0, LogFormat::Json);
+        assert_eq!(LogFormat::resolve(None, Some(" JSON ")).0, LogFormat::Json);
+        assert_eq!(LogFormat::resolve(None, Some("")).0, LogFormat::Text);
+
+        // A misspelling is named and the run logs as text: losing the log would take the
+        // diagnosis away at the moment it is needed.
+        let (format, unknown) = LogFormat::resolve(None, Some("jsonl"));
+        assert_eq!(format, LogFormat::Text);
+        assert_eq!(unknown.as_deref(), Some("jsonl"));
+    }
 }

@@ -79,6 +79,7 @@ With no options this means:
 | `--pypi-licenses` | | Deprecated alias for `--fetch-licenses` (hidden from `--help`; removed in a future release). |
 | `-v`, `-vv` | info | Raise the log level to debug / trace. Logs go to stderr; the SBOM never goes to stdout. |
 | `-q`, `-qq`, `-qqq` | info | Lower it to warnings only / errors only / silent. Error diagnostics are printed regardless. |
+| `--log-format <text\|json>` | `text` | How the log on stderr is rendered. `json` writes one JSON object per event, with the timestamp back and every field its own key. Also `PIXI_SBOM_LOG_FORMAT`. |
 | `-h, --help`, `-V, --version` | | Usual meanings. |
 
 `RUST_LOG` is also honored and overrides `-v`/`-q` (for example `RUST_LOG=pixi_sbom::lock=debug`).
@@ -768,6 +769,31 @@ The last line is the one that decides what to do about a slow run: time spent wa
 problem, and time spent anywhere else is the tool's. A phase appears only when it ran, so the table doubles as a
 record of what the flags actually did.
 
+## A log a machine can read
+
+`--log-format json` (or `PIXI_SBOM_LOG_FORMAT=json`) writes the log as one JSON object per line
+instead of prose:
+
+```console
+$ pixi sbom --vulnerabilities osv --log-format json -v
+{"timestamp":"2026-09-25T13:41:02.104323Z","level":"INFO","fields":{"message":"selected lock environment","environment":"default","platform":"linux-64","packages":25},"target":"pixi_sbom::lock"}
+{"timestamp":"2026-09-25T13:41:02.271884Z","level":"WARN","fields":{"message":"request failed","service":"OSV","url":"https://api.osv.dev/v1/querybatch","cause":"io: invalid peer certificate: UnknownIssuer"},"target":"pixi_sbom::http"}
+```
+
+Everything the human log carries is there, as a field rather than as prose: the service, the URL, the status, the
+elapsed time, the package, the cache age, the whole error chain. That is what makes "alert when the mapping
+download fails" or "chart how long the OSV lookups take" a `jq` filter rather than a regex over sentences.
+
+The timestamp, which the text renderer drops deliberately (a person watching a terminal knows what time it is),
+comes back for `json`. Colour is off and the progress bars are off, since nothing reading this is a terminal.
+
+This is the *log* on stderr and is unrelated to `--report-format json`, which is the *report* on stdout. The
+natural shape in CI uses both: `--report-format json --output report.json --log-format json`, the report to a file
+and the log to the collector.
+
+The format has to be chosen before anything can be logged, which is before the configuration file is read, so
+`--log-format` and `PIXI_SBOM_LOG_FORMAT` are the only ways to set it.
+
 ## --doctor: is it the network?
 
 `pixi sbom --doctor` answers "which service could not be reached, and why" without a lockfile, a workspace or
@@ -907,6 +933,7 @@ nothing to find" from "nothing was asked".
 | `PIXI_SBOM_CACHE_DIR` | Where downloaded data (the PyPI mapping, PyPI metadata, extracted conda `info` directories, wheel `dist-info` files) is cached. Default: `pixi-sbom` inside the pixi cache directory (`PIXI_CACHE_DIR` / `RATTLER_CACHE_DIR`, else `~/.cache/rattler/cache`, `~/Library/Caches/rattler/cache`, `%LOCALAPPDATA%\rattler\cache`), so `pixi clean cache` removes it too. |
 | `HTTPS_PROXY` / `HTTP_PROXY` | Honored for every download. |
 | `SOURCE_DATE_EPOCH` | Pins the document timestamp (seconds since the Unix epoch). With it set, repeated runs over the same lockfile are byte-identical, which lets CI diff SBOMs between commits. See [output-format.md](output-format.md#reproducibility). |
+| `PIXI_SBOM_LOG_FORMAT` | `text` (the default) or `json`, the same as `--log-format`, for a CI job that cannot change the command line. A value that is neither is named in the log and the run continues as text. |
 | `RUST_LOG` | Log filter, overrides `-v`/`-q`. |
 
 ## Examples
