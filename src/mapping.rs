@@ -174,6 +174,7 @@ impl PypiMapping {
             }
             Err(source) => match cached {
                 Some(json) => {
+                    crate::cache::stale(crate::cache::Service::Mapping, age.unwrap_or_default());
                     tracing::warn!(
                         cause = crate::http::error_chain(source.as_ref()),
                         "download failed; using the stale cached PyPI mapping"

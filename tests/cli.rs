@@ -959,6 +959,80 @@ fn every_gate_that_fired_is_named_with_the_one_that_chose_the_exit_code() {
 }
 
 #[test]
+fn an_empty_vulnerability_report_says_whether_anything_could_be_asked() {
+    let dir = workspace("conda-only");
+    let run = |args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "160")
+            .args([
+                "-p",
+                "linux-64",
+                "--vulnerabilities",
+                "osv",
+                "--report",
+                "vulnerabilities",
+            ])
+            .args(args);
+        command
+    };
+
+    // A conda-only environment with no PyPI purls: the table is empty because nothing could be
+    // asked, which is not the same answer as "nothing was found".
+    let text = String::from_utf8(
+        run(&["--color", "never"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(text.contains("Nothing could be queried"), "{text}");
+    assert!(text.contains("--pypi-mapping prefix"), "{text}");
+
+    // And the machine-readable form carries the same fact as a field.
+    let report: Value =
+        serde_json::from_slice(&run(&["--report-format", "json"]).assert().success().get_output().stdout).unwrap();
+    assert_eq!(report["summary"]["queryable"], false);
+    assert_eq!(report["vulnerabilities"].as_array().unwrap().len(), 0);
+
+    // An environment that does carry PyPI purls says nothing of the kind.
+    let pypi = workspace_with_vulnerable_urllib3();
+    let text = String::from_utf8(
+        pixi_sbom()
+            .current_dir(pypi.path())
+            .env("PIXI_CACHE_DIR", pypi.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", pypi.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "160")
+            .args([
+                "-e",
+                "web",
+                "-p",
+                "linux-64",
+                "--vulnerabilities",
+                "osv",
+                "--report",
+                "vulnerabilities",
+                "--color",
+                "never",
+            ])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(!text.contains("Nothing could be queried"), "{text}");
+}
+
+#[test]
 fn every_request_is_visible_at_debug_and_a_failure_names_its_cause() {
     let dir = workspace("with-pypi");
     let run = |args: &[&str]| {
