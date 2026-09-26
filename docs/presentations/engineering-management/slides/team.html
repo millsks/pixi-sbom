@@ -1,0 +1,17 @@
+<section id="team" data-transition="fade" style="background:#F7F8F6; color:#10212B; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:40px">
+<h2 style="font-size:72px; font-weight:600; line-height:1.1">What a team gets out of it</h2>
+<table style="font-family:'IBM Plex Sans', Verdana, sans-serif; font-size:30px; color:#10212B; padding:18px 22px">
+<tr style="background:#10212B">
+<th style="width:46%; text-align:left; color:#F7F8F6; font-size:28px">How it goes today</th>
+<th style="width:34%; text-align:left; color:#F7F8F6; font-size:28px">With this in CI</th>
+<th style="width:20%; text-align:left; color:#F7F8F6; font-size:28px">Signal</th>
+</tr>
+<tr><td>Someone asks if we're exposed to a CVE</td><td>Search the document for that release</td><td>Minutes, not a day</td></tr>
+<tr style="background:#EFF2EE"><td>A copyleft license rides in on a transitive dependency</td><td>The build stops before it ships</td><td>Exit 3</td></tr>
+<tr><td>A dependency has a known-exploited vulnerability</td><td>The build stops and names the CISA entry</td><td>Exit 4</td></tr>
+<tr style="background:#EFF2EE"><td>Code imports a package nobody declared</td><td>Reported against the manifest</td><td>Exit 8</td></tr>
+<tr><td>"What changed since the last release?"</td><td>A diff of the two documents</td><td>Exit 6, if we gate it</td></tr>
+</table>
+<p style="font-size:30px; line-height:1.4; color:#4A5568; width:1620px">Every gate is off by default. Leave them off and it writes the document and exits clean.</p>
+<aside>The exit codes are the part engineering management cares about: these are ordinary CI failures, and they're distinguishable, so a pipeline can treat a license violation differently from a compile error. Say clearly that the gates ship off. For the trial, leave all of them off, collect documents for two weeks, then look at what they would have caught. Nobody's build breaks while we're deciding.</aside>
+</section>

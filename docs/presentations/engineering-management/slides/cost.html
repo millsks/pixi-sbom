@@ -1,0 +1,20 @@
+<section id="cost" data-transition="fade" style="background:#F7F8F6; color:#10212B; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:48px">
+<h2 style="font-size:72px; font-weight:600; line-height:1.1">What it costs us</h2>
+<div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:28px">
+<div style="background:#FFFFFF; border:1px solid #DFE3DE; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:10px">
+<p style="font-size:96px; font-weight:600; line-height:1; color:#1F7A6C">1 file</p>
+<p style="font-size:30px; line-height:1.35; color:#4A5568">A step in a workflow. Nothing to host or keep running.</p>
+</div>
+<div style="background:#FFFFFF; border:1px solid #DFE3DE; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:10px">
+<p style="font-size:96px; font-weight:600; line-height:1; color:#1F7A6C">&lt; 1 s</p>
+<p style="font-size:30px; line-height:1.35; color:#4A5568">Added to a build, on a 72-package environment, offline.</p>
+</div>
+<div style="background:#FFFFFF; border:1px solid #DFE3DE; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:10px">
+<p style="font-size:96px; font-weight:600; line-height:1; color:#1F7A6C">$0</p>
+<p style="font-size:30px; line-height:1.35; color:#4A5568">Apache-2.0. No seats, no tiers, nothing to renew.</p>
+</div>
+</div>
+<p style="font-size:32px; line-height:1.4; color:#10212B; width:1620px">The real cost is somebody reading the output now and then, and that's work we're already being asked to do.</p>
+<p style="position:absolute; left:128px; bottom:64px; font-size:24px; color:#6A7179">Timings from the project's published benchmarks, measured on all five platforms at every release.</p>
+<aside>Don't oversell the speed. Under a second is the offline case on a real 72-package environment. The first run that fetches license details over the network takes a bit over a second, and a cold run across many environments takes a few seconds. Either way it disappears next to a build. The line that lands with management is the last one: the tool is cheap, what it costs is attention, and we already owe that attention to whoever's asking us the compliance question.</aside>
+</section>

@@ -1,0 +1,19 @@
+<section id="ask" data-transition="fade" style="background:#F7F8F6; color:#10212B; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:56px">
+<h2 style="font-size:72px; font-weight:600; line-height:1.1">What I'm asking for</h2>
+<p style="font-size:44px; line-height:1.4; color:#10212B; width:1600px">Let me add one job to one repo's CI. Two weeks later I'll show you what came out of it, and we decide from there.</p>
+<div style="display:flex; gap:32px">
+<div style="flex:1; background:#FFFFFF; border:1px solid #DFE3DE; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:12px">
+<h3 style="font-size:32px; font-weight:600; color:#1F7A6C">Effort</h3>
+<p style="font-size:32px; line-height:1.35; color:#4A5568">One workflow file. Nothing to host and nothing to operate.</p>
+</div>
+<div style="flex:1; background:#FFFFFF; border:1px solid #DFE3DE; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:12px">
+<h3 style="font-size:32px; font-weight:600; color:#1F7A6C">Cost</h3>
+<p style="font-size:32px; line-height:1.35; color:#4A5568">No license fee, no service, no account. It's Apache-2.0.</p>
+</div>
+<div style="flex:1; background:#FFFFFF; border:1px solid #DFE3DE; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:12px">
+<h3 style="font-size:32px; font-weight:600; color:#1F7A6C">Risk</h3>
+<p style="font-size:32px; line-height:1.35; color:#4A5568">It reads the lockfile and writes a file. It can't break a build unless we ask it to.</p>
+</div>
+</div>
+<aside>Leading with the ask means everything after this is evidence instead of suspense. Engineering management usually cares most about the risk card: this is a read-only step that produces a file. It doesn't touch the build, it isn't in the request path, and it can't fail a release unless we turn on a gate, which comes later. Two weeks is enough for a couple of releases to go through, so there's something real to look at.</aside>
+</section>

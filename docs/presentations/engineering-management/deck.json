@@ -1,0 +1,51 @@
+{
+  "v": 4,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-09-26T19:40:00Z"
+  },
+  "title": "The pixi-sbom Case",
+  "order": [
+    "cover",
+    "ask",
+    "what-sbom",
+    "why-now",
+    "gap",
+    "what-it-is",
+    "offers",
+    "not",
+    "team",
+    "cost",
+    "standing",
+    "close"
+  ],
+  "sections": {
+    "s1": {
+      "description": "The ask, and what an SBOM is for a mixed room",
+      "start": "cover"
+    },
+    "s2": {
+      "description": "Why now, and why the off-the-shelf tools do not fit a pixi environment",
+      "start": "why-now"
+    },
+    "s3": {
+      "description": "What the tool is, what it offers and what it deliberately is not",
+      "start": "what-it-is"
+    },
+    "s4": {
+      "description": "What a team gets, what it costs, and the first step",
+      "start": "team"
+    }
+  },
+  "faces": {
+    "ibm-plex-sans": {
+      "family": "IBM Plex Sans",
+      "href": "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+    },
+    "jetbrains-mono": {
+      "family": "JetBrains Mono",
+      "href": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap"
+    }
+  },
+  "designSystems": []
+}
