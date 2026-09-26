@@ -282,6 +282,10 @@ OSV records three things separately, because an empty `vulnerabilities[]` has th
 good news: no package carried a purl the database answers to, the purls could not be asked about (offline with a
 cold cache), or an advisory record could not be fetched and is recorded by id alone.
 
+In a run that writes several documents the lookups happen once for all of them, so the counts in
+`pixi:incomplete-detail` are the run's rather than that one document's, and the line says so:
+`conda-archives: 2 of 2 archive reads failed (looked up once for every document in the run)`.
+
 All three are absent when everything answered, so a complete document is unchanged and existing documents compare
 as they always did. In SPDX the same lines go in the root package's `comment`, one per line, beside
 `pixi:excluded`. Two documents that differ only because one run could not reach the network now say so.

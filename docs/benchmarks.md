@@ -69,6 +69,25 @@ The table renderer costs an order of magnitude more than the JSON one at every s
 measuring and wrapping every cell to fit a terminal, which the JSON form never does. The `python` report only
 looks at packages that constrain the interpreter, so it barely grows.
 
+## A run that writes many documents
+
+`--all-environments --all-platforms` on this repository writes 15 documents holding 853 package entries between
+them, over 289 distinct packages. Cold cache, `--fetch-licenses`, measured end to end:
+
+| | wall | requests |
+|---|---|---|
+| Before 0.10.0, ten at a time | 6.0 s | 325 |
+| Before 0.10.0, `PIXI_SBOM_CONCURRENCY=24` | 4.17 s | 325 |
+| Shared lookups, ten at a time | 5.08 s | 325 |
+| **Shared lookups, `PIXI_SBOM_CONCURRENCY=24`** | **3.08 s** | 325 |
+
+The request count does not move, because the download cache already stopped the second document re-fetching what
+the first one downloaded. What changed is that the run no longer drains a small pool of requests per document
+before starting the next one: every document's packages are looked up together, so the pool stays full. That is
+worth 15% on its own, and it is what lets the concurrency setting pay off — the two together halve the run.
+
+With a warm cache the whole batch takes about 0.05 s either way, so none of this is visible on a second run.
+
 ## Reading a regression
 
 Criterion compares each run with the previous one in `target/criterion/` and prints the change, so the useful
