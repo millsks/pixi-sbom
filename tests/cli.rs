@@ -801,6 +801,76 @@ fn the_caches_can_be_bypassed_and_say_what_they_served() {
 }
 
 #[test]
+fn doctor_probes_every_upstream_and_fails_when_one_is_unreachable() {
+    let dir = workspace("with-pypi");
+    let run = |args: &[&str], envs: &[(&str, &str)]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("COLUMNS", "160")
+            .args(["--doctor", "--color", "never"])
+            .args(args);
+        for (name, value) in envs {
+            command.env(name, value);
+        }
+        command
+    };
+
+    // Offline: everything is reported as skipped and the command still succeeds, so it is safe
+    // on a locked-down runner.
+    let text = String::from_utf8(
+        run(
+            &["--fetch-licenses", "--vulnerabilities", "osv"],
+            &[("PIXI_SBOM_OFFLINE", "1")],
+        )
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone(),
+    )
+    .unwrap();
+    assert!(text.contains("Configuration"), "{text}");
+    assert!(text.contains("offline    true"), "{text}");
+    assert!(text.contains("TLS roots"), "{text}");
+    assert!(text.contains("Upstreams"), "{text}");
+    assert!(text.contains("PyPI index"), "{text}");
+    assert!(text.contains("skipped, offline"), "{text}");
+
+    // A base address that nothing is listening on: that row fails, it is named in the summary,
+    // and the exit code says so.
+    let text = String::from_utf8(
+        run(
+            &["--vulnerabilities", "osv"],
+            &[("PIXI_SBOM_OSV_URL", "http://127.0.0.1:1")],
+        )
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone(),
+    )
+    .unwrap();
+    assert!(text.contains("failed:"), "{text}");
+    assert!(text.contains("http://127.0.0.1:1 (PIXI_SBOM_OSV_URL)"), "{text}");
+    assert!(text.contains("could not be reached: OSV."), "{text}");
+
+    // With no network flag there is nothing to probe, and it says what to add.
+    let text = String::from_utf8(run(&[], &[]).assert().success().get_output().stdout.clone()).unwrap();
+    assert!(text.contains("No upstream is in play"), "{text}");
+
+    // It needs no lockfile at all.
+    let empty = tempfile::tempdir().unwrap();
+    pixi_sbom()
+        .current_dir(empty.path())
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args(["--doctor", "--fetch-licenses", "--color", "never"])
+        .assert()
+        .success();
+}
+
+#[test]
 fn every_request_is_visible_at_debug_and_a_failure_names_its_cause() {
     let dir = workspace("with-pypi");
     let run = |args: &[&str]| {

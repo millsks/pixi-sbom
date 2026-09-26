@@ -464,6 +464,12 @@ pub struct Args {
     #[arg(long, value_enum, value_name = "STATE", default_value_t = VexOpenState::InTriage, requires = "vex")]
     pub vex_open: VexOpenState,
 
+    /// Ask every upstream this build knows about whether it answers, print how the run is set
+    /// up and what the caches hold, and exit non-zero if anything is unreachable. Needs no
+    /// lockfile. Combine with the flags of the run you are diagnosing to probe only those.
+    #[arg(long, conflicts_with_all = ["output", "report", "explain"])]
+    pub doctor: bool,
+
     /// Ignore cached answers for this run and ask again. Without a value every cache is
     /// refreshed; with one (repeatable) only that one is. What is fetched is still cached.
     #[arg(long, value_enum, value_name = "CACHE", num_args = 0.., default_missing_value = "all")]

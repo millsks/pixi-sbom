@@ -8,6 +8,7 @@ mod config;
 mod cvss;
 mod diff;
 mod discover;
+mod doctor;
 mod embedded;
 mod explain;
 mod filter;
@@ -69,7 +70,9 @@ fn main() -> Result<()> {
     let cwd = std::env::current_dir().into_diagnostic()?;
     // With --prefix there is no lockfile; a stand-in path in the working directory keeps the
     // output and configuration lookups (which are relative to the lockfile) working.
+    // --doctor describes the network rather than a workspace, so it needs no lockfile at all.
     let lockfile = match (&args.prefix, &args.scan, &args.from_sbom) {
+        _ if args.doctor => cwd.join(discover::LOCKFILE_NAME),
         // With --prefix or --from-sbom there is no lockfile, and with --scan there are many; a
         // stand-in path keeps the configuration lookup (which is relative to the lockfile)
         // working, and for a scan it puts that lookup in the scanned directory rather than in
@@ -105,6 +108,17 @@ fn main() -> Result<()> {
         args.verbosity.tracing_level_filter() < tracing::level_filters::LevelFilter::INFO,
     );
     // A scan reads its inputs per workspace, so there is no single one to read here.
+    // Say what this run will talk to before it talks to anything: on another network, the
+    // difference is almost always here. --doctor stops after saying it, and needs no input.
+    let network = network_configuration(&args, args.fetch_licenses || args.pypi_licenses);
+    if args.doctor {
+        let palette = style::Palette::new(args.color.enabled());
+        let mut stdout = std::io::stdout().lock();
+        let healthy = run_doctor(&network, &palette, &mut stdout)?;
+        stdout.flush().into_diagnostic()?;
+        std::process::exit(if healthy { 0 } else { DOCTOR_EXIT_CODE });
+    }
+
     let input = match (&args.prefix, &args.scan) {
         _ if args.from_sbom.is_some() => {
             let path = args.from_sbom.as_deref().expect("just checked");
@@ -146,9 +160,6 @@ fn main() -> Result<()> {
     if args.pypi_licenses {
         tracing::warn!("--pypi-licenses is deprecated and now behaves as --fetch-licenses; use that instead");
     }
-    // Say what this run will talk to before it talks to anything: on another network, the
-    // difference is almost always here.
-    let network = network_configuration(&args, fetch_licenses);
     if !network.services.is_empty() {
         network.log();
     }
@@ -1006,6 +1017,118 @@ fn describe_input(args: &cli::Args, lockfile: &Path, cwd: &Path) {
             "no workspace manifest: the root component's dependencies are the graph-root heuristic"
         ),
     }
+}
+
+/// Exit code for `--doctor` when an upstream could not be reached.
+const DOCTOR_EXIT_CODE: i32 = 1;
+
+/// Print how this run is set up, whether each upstream answers, and what the caches hold.
+/// Returns whether everything that was asked answered.
+fn run_doctor(network: &http::Configuration, palette: &style::Palette, out: &mut dyn Write) -> Result<bool> {
+    let write = |out: &mut dyn Write, line: String| -> Result<()> {
+        writeln!(out, "{line}")
+            .into_diagnostic()
+            .wrap_err("cannot write the report")
+    };
+    write(out, palette.header("Configuration"))?;
+    write(
+        out,
+        format!(
+            "  offline    {}\n  proxy      {}\n  no-proxy   {}\n  TLS roots  {}\n  timeout    {}s",
+            network.offline,
+            network.proxy.as_deref().unwrap_or("none"),
+            network.no_proxy.as_deref().unwrap_or("none"),
+            network.tls_roots,
+            network.timeout.as_secs()
+        ),
+    )?;
+    write(
+        out,
+        format!(
+            "  cache      {} ({})",
+            network.cache_dir.display(),
+            if network.cache_exists {
+                "exists"
+            } else {
+                "not created yet"
+            }
+        ),
+    )?;
+
+    if network.services.is_empty() {
+        write(out, String::new())?;
+        write(
+            out,
+            palette.dim(
+                "No upstream is in play. Add the flags of the run you are diagnosing                  (--fetch-licenses, --vulnerabilities osv, --scorecard, ...) to probe them.",
+            ),
+        )?;
+        return Ok(true);
+    }
+
+    let probes = doctor::probes(network, &doctor::request);
+    write(out, String::new())?;
+    write(out, palette.header("Upstreams"))?;
+    for probe in &probes {
+        let outcome = probe.outcome.text();
+        write(
+            out,
+            format!(
+                "  {:<26} {}\n  {:<26} {}",
+                probe.service,
+                if probe.outcome.is_ok() {
+                    outcome
+                } else {
+                    palette.severity(&outcome)
+                },
+                "",
+                palette.dim(&format!("{} ({})", probe.url, probe.source))
+            ),
+        )?;
+    }
+
+    let caches = doctor::caches(&network.cache_dir, std::time::SystemTime::now());
+    if !caches.is_empty() {
+        write(out, String::new())?;
+        write(out, palette.header("Caches"))?;
+        for cache in &caches {
+            write(
+                out,
+                format!(
+                    "  {:<26} {} entries{}",
+                    cache.name,
+                    cache.entries,
+                    match cache.newest {
+                        Some(age) => format!(", newest {} old", doctor::ago(age)),
+                        None => String::new(),
+                    }
+                ),
+            )?;
+        }
+    }
+
+    let failed: Vec<&doctor::Probe> = probes.iter().filter(|probe| !probe.outcome.is_ok()).collect();
+    write(out, String::new())?;
+    if failed.is_empty() {
+        write(
+            out,
+            format!(
+                "{} upstream(s) asked, all answered.",
+                probes.iter().filter(|p| p.outcome != doctor::Outcome::Skipped).count()
+            ),
+        )?;
+    } else {
+        write(
+            out,
+            format!(
+                "{} of {} upstream(s) could not be reached: {}.",
+                failed.len(),
+                probes.len(),
+                failed.iter().map(|p| p.service.as_str()).collect::<Vec<_>>().join(", ")
+            ),
+        )?;
+    }
+    Ok(failed.is_empty())
 }
 
 /// The upstreams this run may use, given the flags, with their addresses resolved the way the

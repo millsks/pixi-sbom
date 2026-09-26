@@ -55,6 +55,7 @@ With no options this means:
 | `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification), is excluded from `--fail-on-severity` and listed separately in the report. |
 | `--vex <PATH>` | | With `--vulnerabilities`: also write a standalone CycloneDX VEX there, linked back to the SBOM. |
 | `--vex-open <in-triage\|exploitable>` | `in-triage` | The analysis state the VEX gives findings nobody assessed with `--ignore-vuln`. |
+| `--doctor` | off | Probe every upstream the other flags bring in, print the configuration and the caches, and exit 1 if anything is unreachable. Needs no lockfile. |
 | `--refresh [<CACHE>...]` | off | Ignore cached answers this run and ask again; with no value every cache, else the named ones (`mapping`, `osv`, `kev`, `wheels`, `pypi`, `outdated`, `scorecard`). What is fetched is still cached. |
 | `--no-cache` | off | Neither read nor write any cache. |
 | `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom\|scorecard>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
@@ -724,6 +725,44 @@ DEBUG pixi_sbom: workspace manifest path=/w/pixi.toml
   deliberately skipped.
 
 `--no-config` says so rather than saying nothing, and so does a directory with no configuration file in it.
+## --doctor: is it the network?
+
+`pixi sbom --doctor` answers "which service could not be reached, and why" without a lockfile, a workspace or
+`curl`. Give it the flags of the run you are diagnosing and it probes exactly those upstreams:
+
+```console
+$ pixi sbom --doctor --fetch-licenses --vulnerabilities osv
+Configuration
+  offline    false
+  proxy      HTTPS_PROXY=http://user:***@proxy.corp:8080
+  no-proxy   NO_PROXY=.corp
+  TLS roots  the platform verifier (the operating system trust store)
+  timeout    120s
+  cache      /home/u/.cache/rattler/pixi-sbom (exists)
+
+Upstreams
+  PyPI index                 ok 200, 245 ms
+                             https://pypi.org/pypi (default)
+  OSV                        failed: io: invalid peer certificate: UnknownIssuer
+                             https://api.osv.dev (default)
+
+Caches
+  osv                        170 entries, newest 23h old
+  pypi                       24 entries, newest 44m old
+
+1 of 2 upstream(s) could not be reached: OSV.
+```
+
+Each row carries the address actually used, where it came from, and the outcome with the **whole** error chain.
+A status of 400 or more is reported as `reachable` rather than as success or failure, because the probe asks a
+base address and that is often not a document — the host answered, which is what was in question. The cache
+section is there so "it works because it is cached" is visible: an upstream that fails while its cache is warm
+explains a run that succeeded yesterday and fails today.
+
+The exit code is 0 when everything asked answered and 1 when anything did not, so it works as a CI smoke test on
+a locked-down runner. With `PIXI_SBOM_OFFLINE=1` every probe is reported as skipped and the command still exits 0.
+It cannot be combined with `--output`, `--report` or `--explain`.
+
 ## What a run will talk to
 
 Before the first request, a run that uses the network says how it is set up and which upstreams the flags brought
