@@ -100,6 +100,34 @@ fn version_prints_crate_version() {
 }
 
 #[test]
+fn version_details_prints_what_a_bug_report_needs() {
+    let assert = pixi_sbom()
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .env("HTTPS_PROXY", "http://someone:hunter2@proxy.corp:8080")
+        .arg("--version-details")
+        .assert()
+        .success();
+    let text = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    assert!(text.contains(env!("CARGO_PKG_VERSION")), "{text}");
+    // The facts that decide answers: what is compiled in, where the caches are, how the
+    // network is set up.
+    assert!(text.contains("socks-proxy: no"), "{text}");
+    assert!(text.contains("platform-verifier"), "{text}");
+    assert!(text.contains("caches:"), "{text}");
+    assert!(text.contains("offline:  true"), "{text}");
+    assert!(
+        text.contains("proxy: HTTPS_PROXY=http://someone:***@proxy.corp:8080"),
+        "{text}"
+    );
+    assert!(!text.contains("hunter2"), "a pasted banner must not carry a password");
+    // It answers without a workspace and without touching the network.
+    assert_eq!(text.lines().count(), 6, "{text}");
+
+    // The alias is the name people guess.
+    pixi_sbom().arg("--build-info").assert().success();
+}
+
+#[test]
 fn missing_explicit_lockfile_fails_with_diagnostic() {
     let dir = tempfile::tempdir().unwrap();
 

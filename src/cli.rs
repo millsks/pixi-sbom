@@ -464,6 +464,12 @@ pub struct Args {
     #[arg(long, value_enum, value_name = "STATE", default_value_t = VexOpenState::InTriage, requires = "vex")]
     pub vex_open: VexOpenState,
 
+    /// Print the version with the build and machine details a bug report needs: the target,
+    /// the optional features compiled in, the cache directory, pixi's version, and the proxy
+    /// and TLS settings in effect.
+    #[arg(long = "version-details", visible_alias = "build-info")]
+    pub version_details: bool,
+
     /// Ask every upstream this build knows about whether it answers, print how the run is set
     /// up and what the caches hold, and exit non-zero if anything is unreachable. Needs no
     /// lockfile. Combine with the flags of the run you are diagnosing to probe only those.

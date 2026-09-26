@@ -55,6 +55,7 @@ With no options this means:
 | `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification), is excluded from `--fail-on-severity` and listed separately in the report. |
 | `--vex <PATH>` | | With `--vulnerabilities`: also write a standalone CycloneDX VEX there, linked back to the SBOM. |
 | `--vex-open <in-triage\|exploitable>` | `in-triage` | The analysis state the VEX gives findings nobody assessed with `--ignore-vuln`. |
+| `--version-details` (`--build-info`) | | Print the version with the target, the features compiled in, the caches, pixi's version and the network settings: the block to paste into a bug report. |
 | `--doctor` | off | Probe every upstream the other flags bring in, print the configuration and the caches, and exit 1 if anything is unreachable. Needs no lockfile. |
 | `--refresh [<CACHE>...]` | off | Ignore cached answers this run and ask again; with no value every cache, else the named ones (`mapping`, `osv`, `kev`, `wheels`, `pypi`, `outdated`, `scorecard`). What is fetched is still cached. |
 | `--no-cache` | off | Neither read nor write any cache. |
@@ -725,6 +726,27 @@ DEBUG pixi_sbom: workspace manifest path=/w/pixi.toml
   deliberately skipped.
 
 `--no-config` says so rather than saying nothing, and so does a directory with no configuration file in it.
+## Reporting a problem
+
+`pixi sbom --version-details` (or `--build-info`) prints the block a bug report needs, and nothing else:
+
+```console
+$ pixi sbom --version-details
+pixi-sbom 0.9.0 (aarch64 macos)
+features: rustls, gzip, platform-verifier, socks-proxy: no, win-system-proxy: no
+caches:   /home/u/.cache/rattler/pixi-sbom (exists)
+pixi:     pixi 0.81.0
+offline:  false   proxy: HTTPS_PROXY=http://user:***@proxy.corp:8080   no-proxy: none
+TLS:      the platform verifier (the operating system trust store)
+```
+
+The `features` line is the one that is invisible from the outside and settles several questions: a build without
+`socks-proxy` cannot use a `socks5://` proxy however correctly it is configured, and one without
+`win-system-proxy` ignores a proxy set only in the Windows settings. Proxy passwords are replaced, so the block is
+safe to paste; internal host names are not, so read it before you do.
+
+The repository's bug report form asks for this block, the command, and the same command with `-vv`.
+
 ## --doctor: is it the network?
 
 `pixi sbom --doctor` answers "which service could not be reached, and why" without a lockfile, a workspace or
