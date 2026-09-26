@@ -679,7 +679,7 @@ fn main() -> Result<()> {
         // What the run could not finish belongs in the document too: the warnings on stderr
         // do not survive the upload, and a reader months later cannot tell an empty result
         // from an unasked question.
-        sbom.incomplete.stale = cache::stale_services();
+        sbom.incomplete.stale = cache::stale_lines();
         if !sbom.incomplete.is_empty() {
             tracing::warn!(
                 steps = sbom.incomplete.step_names().join(", "),
