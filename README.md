@@ -98,6 +98,9 @@ pixi sbom --fetch-licenses --report licenses --report-format markdown
 # conda-forge mapping and use them as the primary identity
 pixi sbom --pypi-mapping prefix --primary-purl pypi --output - | grype
 
+# Why did it come back empty? Probe the upstreams and print the configuration
+pixi sbom --doctor --fetch-licenses --vulnerabilities osv
+
 # Somebody else's SBOM: the same reports, policy and vulnerability gate
 pixi sbom --from-sbom sbom.cdx.json --vulnerabilities osv --report vulnerabilities
 
@@ -153,6 +156,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--fail-on-severity` / `--ignore-vuln` | | Vulnerability gate: exit 4 on open findings at or above a severity; accepted findings keep a VEX-style `analysis` block |
 | `--embedded-sboms` | off | Attach the components declared by SBOMs embedded in wheels (PEP 770, e.g. Rust crates) under the wheel; with `--prefix`, also the `cargo auditable` crate list inside the environment's binaries |
 | `--from-sbom <FILE>` | | Read an existing document (CycloneDX, SPDX 2.x or SPDX 3.0 JSON) instead of a lockfile and run the reports, policy and vulnerability gate on it |
+| `--doctor` | off | Probe every upstream, print the configuration and caches, exit 1 if anything is unreachable |
 | `--scan <DIR>` | | Describe every pixi workspace under the directory: one document per `pixi.lock`, written under `--output` at the same relative path |
 | `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom\|scorecard>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`, plus `sarif` for vulnerabilities); `diff --against <previous>` lists what changed, `outdated` how far behind each package is, `python` what caps the interpreter, `phantom` which imports and declarations do not line up |
 | `--explain <PACKAGE>` | | Print every fact the tool has about the packages matching this name or pattern and where each came from, including the sources that were consulted and came back empty; prints instead of writing, like `--report` |
