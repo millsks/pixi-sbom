@@ -19,7 +19,13 @@ pub const SOURCE_DOCUMENT_PROPERTY: &str = "pixi:source-document";
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum FromSbomError {
     #[error("cannot read {path}: {source}")]
-    #[diagnostic(code(pixi_sbom::from_sbom::read))]
+    #[diagnostic(
+        code(pixi_sbom::from_sbom::read),
+        help(
+            "--from-sbom takes a readable CycloneDX, SPDX 2.x or SPDX 3.0 JSON file; check the path and its \
+             permissions"
+        )
+    )]
     Read {
         path: std::path::PathBuf,
         #[source]
@@ -372,6 +378,21 @@ mod tests {
     use super::*;
     use crate::cli::{Format, SpecVersion};
     use crate::format::testing::{fixed_context, sample_sbom};
+
+    #[test]
+    fn every_error_carries_a_code_and_a_next_step() {
+        for err in [
+            FromSbomError::Read {
+                path: std::path::PathBuf::from("/workspace/sbom.json"),
+                source: std::io::Error::other("permission denied"),
+            },
+            FromSbomError::Parse {
+                path: std::path::PathBuf::from("/workspace/sbom.json"),
+            },
+        ] {
+            crate::assert_actionable(&err);
+        }
+    }
 
     fn write(format: Format, version: SpecVersion) -> (tempfile::TempDir, std::path::PathBuf) {
         let ctx = crate::format::WriteContext {

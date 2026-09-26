@@ -26,7 +26,10 @@ pub enum DiscoverError {
 
     /// The lockfile path given on the command line does not exist.
     #[error("lockfile {path} does not exist")]
-    #[diagnostic(code(pixi_sbom::discover::missing))]
+    #[diagnostic(
+        code(pixi_sbom::discover::missing),
+        help("check the path --lockfile was given, or run `pixi lock` in that workspace to write it")
+    )]
     Missing {
         /// The path that was checked.
         path: PathBuf,
@@ -203,6 +206,27 @@ fn lockfile_dir(lockfile: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_error_carries_a_code_and_a_next_step() {
+        for err in [
+            DiscoverError::NotFound {
+                start: PathBuf::from("/workspace"),
+            },
+            DiscoverError::Missing {
+                path: PathBuf::from("/workspace/pixi.lock"),
+            },
+            DiscoverError::NotADirectory {
+                path: PathBuf::from("/workspace/pixi.lock"),
+            },
+            DiscoverError::NoneFound {
+                dir: PathBuf::from("/workspace"),
+                skipped: SCAN_SKIPPED_DIRS.join(", "),
+            },
+        ] {
+            crate::assert_actionable(&err);
+        }
+    }
 
     #[test]
     fn explicit_lockfile_is_returned_when_it_exists() {

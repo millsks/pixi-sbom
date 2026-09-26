@@ -24,14 +24,26 @@ pub enum PrefixError {
     )]
     NotAnEnvironment { path: PathBuf },
     #[error("cannot read {path}: {source}")]
-    #[diagnostic(code(pixi_sbom::prefix::read))]
+    #[diagnostic(
+        code(pixi_sbom::prefix::read),
+        help(
+            "--prefix reads conda-meta and site-packages under a conda environment directory; check that the \
+             path is one of those and that it is readable"
+        )
+    )]
     Read {
         path: PathBuf,
         #[source]
         source: std::io::Error,
     },
     #[error("cannot parse the conda-meta record {path}: {source}")]
-    #[diagnostic(code(pixi_sbom::prefix::record))]
+    #[diagnostic(
+        code(pixi_sbom::prefix::record),
+        help(
+            "the message names the conda-meta record that failed; reinstall that package into the environment, \
+             or leave it out with --exclude"
+        )
+    )]
     Record {
         path: PathBuf,
         #[source]
@@ -395,6 +407,27 @@ mod tests {
 
     fn fixture() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/prefix")
+    }
+
+    #[test]
+    fn every_error_carries_a_code_and_a_next_step() {
+        let bad_record = serde_json::from_str::<Record>("{}").expect_err("a record needs a name");
+        for err in [
+            PrefixError::NotAnEnvironment {
+                path: PathBuf::from("/opt/somewhere"),
+            },
+            PrefixError::Read {
+                path: PathBuf::from("/opt/env/conda-meta"),
+                source: std::io::Error::other("permission denied"),
+            },
+            PrefixError::Record {
+                path: PathBuf::from("/opt/env/conda-meta/zlib-1.3.2-h0.json"),
+                source: bad_record,
+            },
+            PrefixError::Purl(purl::sample_error()),
+        ] {
+            crate::assert_actionable(&err);
+        }
     }
 
     #[test]

@@ -45,6 +45,19 @@ use clap::{CommandFactory, FromArgMatches};
 use miette::{Context, IntoDiagnostic, Result};
 use tracing_subscriber::EnvFilter;
 
+/// Assert that a diagnostic tells the user both what it is and what to do next.
+///
+/// Every error type in this crate has a test that builds one value of each of its variants and
+/// hands it here, so a new variant without a `help(...)` fails its module's tests rather than
+/// reaching a user who is then told only what went wrong.
+#[cfg(test)]
+pub fn assert_actionable(err: &dyn miette::Diagnostic) {
+    let code = err.code().map(|code| code.to_string()).unwrap_or_default();
+    assert!(!code.trim().is_empty(), "no diagnostic code on: {err}");
+    let help = err.help().map(|help| help.to_string()).unwrap_or_default();
+    assert!(!help.trim().is_empty(), "no help on {code}: {err}");
+}
+
 fn main() -> Result<()> {
     let matches = cli::Args::command().get_matches();
     let mut args = cli::Args::from_arg_matches(&matches).into_diagnostic()?;

@@ -17,7 +17,13 @@ use crate::model::Sbom;
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum DiffError {
     #[error("cannot read the previous document {path}: {source}")]
-    #[diagnostic(code(pixi_sbom::diff::read))]
+    #[diagnostic(
+        code(pixi_sbom::diff::read),
+        help(
+            "--against takes a readable CycloneDX, SPDX 2.x or SPDX 3.0 JSON document, a pixi.lock, or the \
+             directory of an installed environment; check the path and its permissions"
+        )
+    )]
     Read {
         path: PathBuf,
         #[source]
@@ -442,6 +448,21 @@ mod tests {
     use super::*;
     use crate::cli::{Format, SpecVersion};
     use crate::format::testing::{fixed_context, sample_sbom};
+
+    #[test]
+    fn every_error_carries_a_code_and_a_next_step() {
+        for err in [
+            DiffError::Read {
+                path: PathBuf::from("/workspace/previous.json"),
+                source: std::io::Error::other("permission denied"),
+            },
+            DiffError::Parse {
+                path: PathBuf::from("/workspace/previous.json"),
+            },
+        ] {
+            crate::assert_actionable(&err);
+        }
+    }
 
     fn written(format: Format, version: SpecVersion) -> String {
         let ctx = crate::format::WriteContext {

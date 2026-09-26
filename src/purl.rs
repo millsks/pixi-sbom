@@ -10,7 +10,10 @@ use thiserror::Error;
 /// Failure to build a purl; only happens on names the purl spec rejects.
 #[derive(Debug, Error, Diagnostic)]
 #[error("cannot build a package URL for {name}: {source}")]
-#[diagnostic(code(pixi_sbom::purl::invalid))]
+#[diagnostic(
+    code(pixi_sbom::purl::invalid),
+    help("leave {name} out with --exclude {name}, and report the name so the purl spec's rules can be applied to it")
+)]
 pub struct PurlError {
     name: String,
     #[source]
@@ -109,9 +112,30 @@ pub fn archive_type_from_file_name(file_name: &str) -> Option<&'static str> {
     }
 }
 
+/// A [`PurlError`] for the modules whose error types wrap one, so their tests can cover the
+/// `#[diagnostic(transparent)]` variants that forward to it.
+#[cfg(test)]
+pub fn sample_error() -> PurlError {
+    // An empty name is the one input the purl spec rejects outright.
+    conda(CondaPurl {
+        name: "",
+        version: None,
+        build: None,
+        channel: None,
+        subdir: None,
+        archive_type: None,
+    })
+    .expect_err("an empty package name is not a purl")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_error_carries_a_code_and_a_next_step() {
+        crate::assert_actionable(&sample_error());
+    }
 
     #[test]
     fn conda_purl_includes_all_qualifiers() {

@@ -78,7 +78,13 @@ pub enum OsvError {
     },
     /// The API answered with something that is not a query result.
     #[error("unexpected OSV response from {url}: {source}")]
-    #[diagnostic(code(pixi_sbom::osv::parse))]
+    #[diagnostic(
+        code(pixi_sbom::osv::parse),
+        help(
+            "a proxy or captive portal answering for the API reads like this: check what {url} returns, or \
+             set PIXI_SBOM_OFFLINE=1 to use cached results only"
+        )
+    )]
     Parse {
         url: String,
         #[source]
@@ -760,6 +766,23 @@ mod tests {
 
     fn fixtures() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/osv")
+    }
+
+    #[test]
+    fn every_error_carries_a_code_and_a_next_step() {
+        let bad_json = serde_json::from_str::<BatchResponse>("not json").expect_err("not a query result");
+        for err in [
+            OsvError::Query {
+                url: "https://api.osv.dev/v1/querybatch".to_string(),
+                source: Box::new(ureq::Error::ConnectionFailed),
+            },
+            OsvError::Parse {
+                url: "https://api.osv.dev/v1/querybatch".to_string(),
+                source: bad_json,
+            },
+        ] {
+            crate::assert_actionable(&err);
+        }
     }
 
     /// Serves the recorded fixtures: batch queries from `queries/`, records from `vulns/`.
