@@ -66,6 +66,13 @@ fn main() -> Result<()> {
     let mut args = cli::Args::from_arg_matches(&matches).into_diagnostic()?;
     init_tracing(&args);
     init_error_reporting()?;
+    // `--version -v`: the block a bug report needs, before anything else happens.
+    if args.version_details {
+        let mut stdout = std::io::stdout().lock();
+        write!(stdout, "{}", environment_banner()).into_diagnostic()?;
+        stdout.flush().into_diagnostic()?;
+        return Ok(());
+    }
 
     let cwd = std::env::current_dir().into_diagnostic()?;
     // With --prefix there is no lockfile; a stand-in path in the working directory keeps the
@@ -1062,6 +1069,54 @@ fn describe_input(args: &cli::Args, lockfile: &Path, cwd: &Path) {
         ),
     }
 }
+
+/// Everything a bug report needs about this build and this machine, made to be pasted.
+///
+/// Which features the binary carries is the fact that decides several answers — whether it can
+/// use a SOCKS proxy, whether it verifies TLS against the system store — and it is invisible
+/// from the outside.
+fn environment_banner() -> String {
+    let proxy = http::proxy_for_logging().unwrap_or_else(|| "none".to_string());
+    let no_proxy = ["NO_PROXY", "no_proxy"]
+        .iter()
+        .find_map(|name| std::env::var(name).ok().filter(|value| !value.trim().is_empty()))
+        .unwrap_or_else(|| "none".to_string());
+    let cache = mapping::cache_dir();
+    let pixi = std::process::Command::new("pixi")
+        .arg("--version")
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+        .unwrap_or_else(|| "not on PATH".to_string());
+    [
+        format!(
+            "pixi-sbom {} ({} {})",
+            env!("CARGO_PKG_VERSION"),
+            std::env::consts::ARCH,
+            std::env::consts::OS
+        ),
+        format!("features: {FEATURES}"),
+        format!(
+            "caches:   {} ({})",
+            cache.display(),
+            if cache.is_dir() { "exists" } else { "not created yet" }
+        ),
+        format!("pixi:     {pixi}"),
+        format!("offline:  {}   proxy: {proxy}   no-proxy: {no_proxy}", http::offline()),
+        format!("TLS:      {}", http::TLS_ROOTS),
+        String::new(),
+    ]
+    .join("\n")
+}
+
+/// The optional behaviour compiled in. A missing one explains a failure that otherwise looks
+/// like a network problem: without `socks-proxy` an `ALL_PROXY=socks5://...` cannot work.
+const FEATURES: &str = concat!(
+    "rustls, gzip, platform-verifier",
+    ", socks-proxy: no",
+    ", win-system-proxy: no",
+);
 
 /// Exit code for `--doctor` when an upstream could not be reached.
 const DOCTOR_EXIT_CODE: i32 = 1;

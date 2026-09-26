@@ -1,0 +1,55 @@
+name: Bug report
+description: Something pixi-sbom did that it should not have, or did not do that it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Two commands answer most of what we would otherwise have to ask you for. Run them in the
+        workspace where the problem happens and paste the output below.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: The output of `pixi sbom --version-details` (or `--build-info`).
+      render: text
+      placeholder: |
+        pixi-sbom 0.9.0 (aarch64 macos)
+        features: rustls, gzip, platform-verifier, socks-proxy: no, win-system-proxy: no
+        caches:   /home/u/.cache/rattler/pixi-sbom (exists)
+        pixi:     pixi 0.81.0
+        offline:  false   proxy: none   no-proxy: none
+        TLS:      the platform verifier (the operating system trust store)
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: The command
+      description: What you ran, exactly.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened instead
+    validations:
+      required: true
+  - type: textarea
+    id: verbose
+    attributes:
+      label: Verbose output
+      description: >-
+        The same command with `-vv`. It names every request, its outcome and the whole error
+        chain behind a failure. Redact internal host names and anything else private — the log
+        already replaces proxy passwords.
+      render: text
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Upstreams (for anything that looks like a network problem)
+      description: >-
+        The output of `pixi sbom --doctor` with the same flags as the failing run, for example
+        `pixi sbom --doctor --fetch-licenses --vulnerabilities osv`.
+      render: text
