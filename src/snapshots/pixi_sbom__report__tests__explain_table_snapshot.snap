@@ -1,0 +1,92 @@
+---
+source: src/report.rs
+expression: "render_string_from(&[explained(&[\"six\", \"mylib\"], &sample_sbom())],\nReportFormat::Table)"
+---
+Package     Fact             Value                                          Source
+------------------------------------------------------------------------------------------------------------------------
+mylib -     identity         pkg:conda/mylib@0.1.0                          lockfile pixi.lock
+mylib -     kind             conda-source                                   lockfile pixi.lock
+mylib -     version          -                                              lockfile pixi.lock: the entry carries no
+                                                                            version
+mylib -     declared         -                                              the workspace manifest: none was read, so
+                                                                            nothing says what was asked for
+mylib -     obtained from    -                                              lockfile pixi.lock: the entry names no
+                                                                            channel or index, as for a source or local
+                                                                            package
+mylib -     location         ./packages/mylib                               lockfile pixi.lock
+mylib -     checksum         -                                              lockfile pixi.lock: the entry carries no
+                                                                            hash
+mylib -     license          Proprietary                                    lockfile pixi.lock (also the extracted
+                                                                            package in the pixi package cache: not read,
+                                                                            --fetch-licenses was not given; the package
+                                                                            archive downloaded from the channel: not
+                                                                            read, --fetch-licenses was not given; the
+                                                                            PyPI index metadata: this is not a PyPI
+                                                                            package)
+mylib -     license files    EULA (1 with their text)                       lockfile pixi.lock (also the extracted
+                                                                            package in the pixi package cache: not read,
+                                                                            --fetch-licenses was not given; the package
+                                                                            archive downloaded from the channel: not
+                                                                            read, --fetch-licenses was not given; the
+                                                                            PyPI index metadata: this is not a PyPI
+                                                                            package)
+mylib -     other purls      -                                              lockfile pixi.lock: the entry names no other
+                                                                            purl; the conda-forge PyPI mapping: not
+                                                                            read, --pypi-mapping prefix was not given
+mylib -     requires python  -                                              lockfile pixi.lock: the entry carries no
+                                                                            Requires-Python
+mylib -     embedded sbom    -                                              the wheel's dist-info: not read,
+                                                                            --embedded-sboms was not given
+mylib -     yanked           -                                              the PyPI index: not asked, this is not a
+                                                                            PyPI package
+mylib -     scorecard        -                                              the OpenSSF Scorecard service: not asked,
+                                                                            --scorecard was not given
+mylib -     vulnerabilities  -                                              OSV: not queried, --vulnerabilities was not
+                                                                            given
+mylib -     depends on       zlib                                           lockfile pixi.lock
+mylib -     needed by        -                                              lockfile pixi.lock: nothing else in this
+                                                                            environment depends on it
+six 1.17.0  identity         pkg:pypi/six@1.17.0                            lockfile pixi.lock
+six 1.17.0  kind             pypi                                           lockfile pixi.lock
+six 1.17.0  version          1.17.0                                         lockfile pixi.lock
+six 1.17.0  declared         -                                              the workspace manifest: none was read, so
+                                                                            nothing says what was asked for
+six 1.17.0  obtained from    pypi.org (https://pypi.org/simple)             lockfile pixi.lock
+six 1.17.0  location         https://files.pythonhosted.org/packages/six-1  lockfile pixi.lock
+                             .17.0-py2.py3-none-any.whl
+six 1.17.0  checksum         sha256:dddddddddddddddddddddddddddddddddddddd  lockfile pixi.lock
+                             dddddddddddddddddddddddddd
+six 1.17.0  license          -                                              the lockfile entry: the entry declares none;
+                                                                            the extracted package in the pixi package
+                                                                            cache: the package cache holds conda
+                                                                            packages only; the wheel's dist-info: not
+                                                                            read, --fetch-licenses was not given; the
+                                                                            PyPI index metadata: not read,
+                                                                            --fetch-licenses was not given
+six 1.17.0  license files    -                                              the lockfile entry: the entry declares none;
+                                                                            the extracted package in the pixi package
+                                                                            cache: the package cache holds conda
+                                                                            packages only; the wheel's dist-info: not
+                                                                            read, --fetch-licenses was not given; the
+                                                                            PyPI index metadata: not read,
+                                                                            --fetch-licenses was not given
+six 1.17.0  other purls      -                                              lockfile pixi.lock: the entry states the
+                                                                            package's purls and lists no other; the
+                                                                            conda-forge PyPI mapping: not asked, this is
+                                                                            already a PyPI package
+six 1.17.0  requires python  >=2.7                                          lockfile pixi.lock
+six 1.17.0  embedded sbom    -                                              the wheel's dist-info: not read,
+                                                                            --embedded-sboms was not given
+six 1.17.0  yanked           -                                              the PyPI index: not asked, --fetch-licenses
+                                                                            was not given
+six 1.17.0  scorecard        -                                              the OpenSSF Scorecard service: not asked,
+                                                                            --scorecard was not given
+six 1.17.0  vulnerabilities  -                                              OSV: not queried, --vulnerabilities was not
+                                                                            given
+six 1.17.0  depends on       -                                              lockfile pixi.lock: the entry lists no
+                                                                            dependency
+six 1.17.0  needed by        -                                              lockfile pixi.lock: nothing else in this
+                                                                            environment depends on it
+
+Summary: 34 facts about 2 packages, 21 with nothing behind them
+Asked about: six, mylib

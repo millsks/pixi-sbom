@@ -37,6 +37,10 @@ pub enum ReportKind {
     Phantom,
     /// Scorecard: how each package's repository is maintained.
     Scorecard,
+    /// Explain: every fact about the packages `--explain` names and where each one came from.
+    /// Not a `--report` value: it is reached through `--explain <PACKAGE>` alone.
+    #[value(skip)]
+    Explain,
 }
 
 /// How to render a report.
@@ -174,6 +178,38 @@ pub struct ScorecardSummary {
     pub min: f64,
     /// Packages below it, worst first.
     pub below: Vec<String>,
+}
+
+/// One fact about one package, as `--explain` prints it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ExplainRow {
+    pub package: String,
+    pub version: String,
+    pub kind: &'static str,
+    /// What the fact is about (`identity`, `license`, `declared`, ...).
+    pub fact: String,
+    /// What the tool has; absent when no source supplied anything.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+    /// Where the value came from.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    /// The other sources that could have supplied it, and what each one did.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub considered: Vec<String>,
+}
+
+/// What `--explain` was asked and how much it found.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct ExplainSummary {
+    /// The patterns the run asked about, as they were written.
+    pub patterns: Vec<String>,
+    /// Packages they matched.
+    pub matched: usize,
+    /// Facts printed for them.
+    pub facts: usize,
+    /// Facts no source could supply.
+    pub unknown: usize,
 }
 
 /// Summary of what one document's packages are, beyond the rows themselves.
@@ -338,6 +374,11 @@ pub struct Report {
     pub phantom: Option<Vec<PhantomRow>>,
     #[serde(rename = "summary", skip_serializing_if = "Option::is_none")]
     pub phantom_summary: Option<PhantomSummary>,
+    /// Rows of the explain report, one per fact.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub explain: Option<Vec<ExplainRow>>,
+    #[serde(rename = "summary", skip_serializing_if = "Option::is_none")]
+    pub explain_summary: Option<ExplainSummary>,
 }
 
 /// One package's Python requirement, as the report prints it.
@@ -523,6 +564,35 @@ impl Report {
         report
     }
 
+    /// The explain report for `sbom`: every fact about the packages `patterns` match, and where
+    /// each one came from. A pattern nothing matches is not an error; the report says so.
+    pub fn explain(sbom: &Sbom, patterns: &[crate::filter::Glob], ctx: crate::explain::Context) -> Self {
+        let mut report = Self::new(ReportKind::Explain, sbom);
+        let mut rows = Vec::new();
+        let matched = crate::explain::matching(sbom, patterns);
+        for package in &matched {
+            for fact in crate::explain::facts(package, sbom, ctx) {
+                rows.push(ExplainRow {
+                    package: package.name.clone(),
+                    version: package.version.clone().unwrap_or_else(|| "-".into()),
+                    kind: package.kind.name(),
+                    fact: fact.label,
+                    value: fact.value,
+                    source: fact.source,
+                    considered: fact.considered,
+                });
+            }
+        }
+        report.explain_summary = Some(ExplainSummary {
+            patterns: patterns.iter().map(|glob| glob.to_string()).collect(),
+            matched: matched.len(),
+            facts: rows.len(),
+            unknown: rows.iter().filter(|row| row.value.is_none()).count(),
+        });
+        report.explain = Some(rows);
+        report
+    }
+
     /// Build the report for `sbom` (for [`ReportKind::Diff`] use [`Report::diff`]).
     pub fn new(kind: ReportKind, sbom: &Sbom) -> Self {
         let mut report = Self {
@@ -535,6 +605,7 @@ impl Report {
                 ReportKind::Python => "python",
                 ReportKind::Phantom => "phantom",
                 ReportKind::Scorecard => "scorecard",
+                ReportKind::Explain => "explain",
             },
             workspace: sbom.root.name.clone(),
             environment: sbom.environment.clone(),
@@ -556,6 +627,8 @@ impl Report {
             phantom_summary: None,
             scorecard: None,
             scorecard_summary: None,
+            explain: None,
+            explain_summary: None,
             tree: false,
             grouped: false,
         };
@@ -613,7 +686,11 @@ impl Report {
                         .collect(),
                 );
             }
-            ReportKind::Diff | ReportKind::Outdated | ReportKind::Phantom | ReportKind::Scorecard => {}
+            ReportKind::Diff
+            | ReportKind::Outdated
+            | ReportKind::Phantom
+            | ReportKind::Scorecard
+            | ReportKind::Explain => {}
         }
         report
     }
@@ -692,6 +769,7 @@ impl Report {
             "python" => ReportKind::Python,
             "phantom" => ReportKind::Phantom,
             "scorecard" => ReportKind::Scorecard,
+            "explain" => ReportKind::Explain,
             _ => ReportKind::Packages,
         }
     }
@@ -715,6 +793,7 @@ impl Report {
             ReportKind::Python => vec!["Package", "Version", "Requires-Python", "Satisfied", "Ceiling"],
             ReportKind::Phantom => vec!["Finding", "Package", "Kind", "Version", "Modules", "Imported by"],
             ReportKind::Scorecard => vec!["Package", "Version", "Score", "Scored", "Weakest checks"],
+            ReportKind::Explain => vec!["Package", "Fact", "Value", "Source"],
         }
     }
 
@@ -742,6 +821,7 @@ impl Report {
             ReportKind::Python => self.python.iter().flatten().map(python_cells).collect(),
             ReportKind::Phantom => self.phantom.iter().flatten().map(phantom_cells).collect(),
             ReportKind::Scorecard => self.scorecard.iter().flatten().map(scorecard_cells).collect(),
+            ReportKind::Explain => self.explain.iter().flatten().map(explain_cells).collect(),
             ReportKind::Vulnerabilities => self.vulnerabilities.iter().flatten().map(vulnerability_cells).collect(),
             _ => self.packages.iter().flatten().map(|r| self.cells(r)).collect(),
         }
@@ -766,6 +846,8 @@ impl Report {
             ReportKind::Phantom => vec![Change, Plain, Plain, Plain, Plain, Muted],
             // Package, Version, Score, Scored, Weakest checks
             ReportKind::Scorecard => vec![Plain, Plain, Severity, Plain, Muted],
+            // Package, Fact, Value, Source
+            ReportKind::Explain => vec![Plain, Plain, Plain, Muted],
             // Name, Version, Kind, Family, Source, Files
             ReportKind::Licenses if self.grouped => vec![Plain, Plain, Plain, Plain, Plain, Plain],
             // Name, Version, Kind, License, Family, Source, Files
@@ -916,6 +998,23 @@ fn scorecard_cells(row: &ScorecardRow) -> Vec<String> {
         } else {
             row.failing.join(", ")
         },
+    ]
+}
+
+/// One fact as cells. The sources that came back empty share the value's cell when there is a
+/// value, and stand in for it when there is not, so a row is always one fact.
+fn explain_cells(row: &ExplainRow) -> Vec<String> {
+    let source = match (&row.source, row.considered.is_empty()) {
+        (Some(source), true) => source.clone(),
+        (Some(source), false) => format!("{source} (also {})", row.considered.join("; ")),
+        (None, true) => "-".to_string(),
+        (None, false) => row.considered.join("; "),
+    };
+    vec![
+        format!("{} {}", row.package, row.version),
+        row.fact.clone(),
+        row.value.clone().unwrap_or_else(|| "-".to_string()),
+        source,
     ]
 }
 
@@ -1317,6 +1416,19 @@ pub fn render_with_width(
                         writeln!(out)?;
                         start = end;
                     }
+                } else if report.kind() == ReportKind::Explain && rows.is_empty() {
+                    // An empty table would answer a question nobody asked; naming the patterns
+                    // says which of them found nothing.
+                    let patterns = report
+                        .explain_summary
+                        .as_ref()
+                        .map(|summary| summary.patterns.join(", "))
+                        .unwrap_or_default();
+                    writeln!(
+                        out,
+                        "{}",
+                        palette.dim(&format!("No package in this environment matches --explain {patterns}"))
+                    )?;
                 } else {
                     match format {
                         ReportFormat::Markdown => render_markdown(&columns, &rows, out)?,
@@ -1424,6 +1536,25 @@ pub fn render_with_width(
                             )
                         )?;
                     }
+                }
+                if let Some(summary) = report.explain_summary.as_ref().filter(|s| s.matched > 0) {
+                    writeln!(out)?;
+                    let heading = palette.header(&format!(
+                        "Summary: {} facts about {} {}, {} with nothing behind them",
+                        summary.facts,
+                        summary.matched,
+                        if summary.matched == 1 { "package" } else { "packages" },
+                        summary.unknown
+                    ));
+                    match format {
+                        ReportFormat::Markdown => writeln!(out, "### {heading}\n")?,
+                        _ => writeln!(out, "{heading}")?,
+                    }
+                    writeln!(
+                        out,
+                        "{}",
+                        palette.dim(&format!("Asked about: {}", summary.patterns.join(", ")))
+                    )?;
                 }
                 if let Some(summary) = &report.python_summary {
                     writeln!(out)?;
@@ -1840,6 +1971,33 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
         }
         return Ok(());
     }
+    if kind == ReportKind::Explain {
+        writeln!(
+            out,
+            "environment,platform,package,version,kind,fact,value,source,considered"
+        )?;
+        for report in reports {
+            for row in report.explain.iter().flatten() {
+                let cells = [
+                    report.environment.clone(),
+                    report.platform.clone(),
+                    row.package.clone(),
+                    row.version.clone(),
+                    row.kind.to_string(),
+                    row.fact.clone(),
+                    row.value.clone().unwrap_or_default(),
+                    row.source.clone().unwrap_or_default(),
+                    row.considered.join("; "),
+                ];
+                writeln!(
+                    out,
+                    "{}",
+                    cells.iter().map(|c| csv_field(c)).collect::<Vec<_>>().join(",")
+                )?;
+            }
+        }
+        return Ok(());
+    }
     if kind == ReportKind::Outdated {
         writeln!(
             out,
@@ -1892,7 +2050,8 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
         | ReportKind::Outdated
         | ReportKind::Python
         | ReportKind::Phantom
-        | ReportKind::Scorecard => {
+        | ReportKind::Scorecard
+        | ReportKind::Explain => {
             vec![
                 "name",
                 "version",
@@ -1929,7 +2088,8 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
                 | ReportKind::Outdated
                 | ReportKind::Python
                 | ReportKind::Phantom
-                | ReportKind::Scorecard => vec![
+                | ReportKind::Scorecard
+                | ReportKind::Explain => vec![
                     row.name.clone(),
                     row.version.clone(),
                     row.kind.to_string(),
@@ -3172,6 +3332,101 @@ mod tests {
         assert_eq!(value["python"][0]["ceiling"], "3.12");
         assert_eq!(value["summary"]["ceiling"], "3.12");
         assert_eq!(value["summary"]["unconstrained"], 1);
+    }
+
+    /// The explain report for one glob over the sample document.
+    fn explained(patterns: &[&str], sbom: &Sbom) -> Report {
+        let globs: Vec<crate::filter::Glob> = patterns
+            .iter()
+            .map(|p| crate::filter::Glob::parse(p).unwrap())
+            .collect();
+        Report::explain(sbom, &globs, crate::explain::Context::default())
+    }
+
+    #[test]
+    fn explain_carries_one_row_per_fact_and_counts_the_gaps() {
+        let report = explained(&["*zlib"], &sample_sbom());
+        let rows = report.explain.as_ref().unwrap();
+        assert_eq!(
+            rows.iter().map(|r| r.package.as_str()).collect::<BTreeSet<_>>(),
+            BTreeSet::from(["libzlib", "zlib"])
+        );
+        let license = rows
+            .iter()
+            .find(|r| r.package == "zlib" && r.fact == "license")
+            .unwrap();
+        assert_eq!(license.value.as_deref(), Some("MIT/Apache-2.0"));
+        assert_eq!(license.source.as_deref(), Some("lockfile pixi.lock"));
+        assert!(!license.considered.is_empty(), "the other sources are named");
+        let summary = report.explain_summary.as_ref().unwrap();
+        assert_eq!(summary.patterns, ["*zlib"]);
+        assert_eq!(summary.matched, 2);
+        assert_eq!(summary.facts, rows.len());
+        assert_eq!(summary.unknown, rows.iter().filter(|r| r.value.is_none()).count());
+        assert!(summary.unknown > 0 && summary.unknown < summary.facts);
+    }
+
+    #[test]
+    fn explain_without_a_match_says_so_instead_of_printing_an_empty_table() {
+        let report = explained(&["nothing-here", "also-not-*"], &sample_sbom());
+        assert!(report.explain.as_ref().unwrap().is_empty());
+        assert_eq!(report.explain_summary.as_ref().unwrap().matched, 0);
+        let table = render_string_from(std::slice::from_ref(&report), ReportFormat::Table);
+        assert_eq!(
+            table.trim(),
+            "No package in this environment matches --explain nothing-here, also-not-*"
+        );
+        assert!(!table.contains("Summary:"), "nothing to summarize: {table}");
+        // The data formats still answer, with no rows.
+        let json: serde_json::Value =
+            serde_json::from_str(&render_string_from(std::slice::from_ref(&report), ReportFormat::Json)).unwrap();
+        assert_eq!(json["explain"].as_array().unwrap().len(), 0);
+        assert_eq!(json["summary"]["matched"], 0);
+        let csv = render_string_from(&[report], ReportFormat::Csv);
+        assert_eq!(csv.lines().count(), 1, "the header alone: {csv}");
+    }
+
+    #[test]
+    fn explain_table_snapshot() {
+        insta::assert_snapshot!(render_string_from(
+            &[explained(&["six", "mylib"], &sample_sbom())],
+            ReportFormat::Table
+        ));
+    }
+
+    #[test]
+    fn explain_csv_markdown_and_json_carry_the_same_facts() {
+        let report = explained(&["six"], &sample_sbom());
+        let csv = render_string_from(std::slice::from_ref(&report), ReportFormat::Csv);
+        let header = csv.lines().next().unwrap();
+        assert_eq!(
+            header,
+            "environment,platform,package,version,kind,fact,value,source,considered"
+        );
+        let identity = csv.lines().find(|line| line.contains(",identity,")).unwrap();
+        assert!(identity.contains("default,linux-64,six,1.17.0,pypi,identity,pkg:pypi/six@1.17.0,lockfile pixi.lock"));
+        // Every fact is one row, in the same order as the table.
+        assert_eq!(csv.lines().count(), report.explain.as_ref().unwrap().len() + 1);
+
+        let markdown = render_string_from(std::slice::from_ref(&report), ReportFormat::Markdown);
+        assert!(markdown.contains("| Package | Fact | Value | Source |"));
+        assert!(markdown.contains("| six 1.17.0 | identity | pkg:pypi/six@1.17.0 | lockfile pixi.lock |"));
+
+        let json: serde_json::Value = serde_json::from_str(&render_string_from(&[report], ReportFormat::Json)).unwrap();
+        assert_eq!(json["report"], "explain");
+        let rows = json["explain"].as_array().unwrap();
+        assert_eq!(rows[0]["fact"], "identity");
+        assert_eq!(rows[0]["source"], "lockfile pixi.lock");
+        let license = rows.iter().find(|row| row["fact"] == "license").unwrap();
+        assert!(license.get("value").is_none(), "six declares none");
+        assert!(
+            license["considered"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|line| line.as_str().unwrap().contains("--fetch-licenses was not given"))
+        );
+        assert_eq!(json["summary"]["patterns"][0], "six");
     }
 
     #[test]

@@ -8,6 +8,7 @@ mod cvss;
 mod diff;
 mod discover;
 mod embedded;
+mod explain;
 mod filter;
 mod format;
 mod fromsbom;
@@ -213,6 +214,17 @@ fn main() -> Result<()> {
     let mut diff_hits: Vec<(String, String, String)> = Vec::new();
     let mut low_scores: Vec<(String, String, String)> = Vec::new();
     let assume_used = parse_globs(&args.assume_used, "--assume-used");
+    let explain_patterns = parse_globs(&args.explain, "--explain");
+    let explain_context = explain::Context {
+        // Set per workspace below: only a lockfile has a manifest beside it.
+        manifest: false,
+        fetch_licenses,
+        embedded_sboms: args.embedded_sboms,
+        scorecard: args.scorecard,
+        vulnerabilities: args.vulnerabilities.is_some(),
+        pypi_mapping: pypi_mapping.is_some(),
+        offline: http::offline(),
+    };
     let package_filter = filter::Filter {
         include: parse_globs(&args.include, "--include"),
         exclude: parse_globs(&args.exclude, "--exclude"),
@@ -492,6 +504,25 @@ fn main() -> Result<()> {
         }
         if args.report == Some(report::ReportKind::Scorecard) {
             reports.push(report::Report::scorecard(&sbom, args.scorecard_min));
+            continue;
+        }
+        if !explain_patterns.is_empty() {
+            let context = explain::Context {
+                manifest: matches!(input, Input::Lock { manifest, .. } if !manifest.declared.is_empty()),
+                ..explain_context
+            };
+            let report = report::Report::explain(&sbom, &explain_patterns, context);
+            let summary = report
+                .explain_summary
+                .as_ref()
+                .expect("the explain report summarizes itself");
+            tracing::info!(
+                matched = summary.matched,
+                facts = summary.facts,
+                unknown = summary.unknown,
+                "explained the matching packages"
+            );
+            reports.push(report);
             continue;
         }
         if args.report == Some(report::ReportKind::Phantom) {
@@ -791,6 +822,7 @@ fn validate(args: &cli::Args) {
             (args.all_platforms, "--all-platforms"),
             (args.scan.is_some(), "--scan"),
             (args.report.is_some(), "--report"),
+            (!args.explain.is_empty(), "--explain"),
         ] {
             if set {
                 usage(
