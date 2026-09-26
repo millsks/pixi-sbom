@@ -354,6 +354,8 @@ fn main() -> Result<()> {
                 skipped,
             } = wheel::enrich(&mut sbom, &cache_dir, args.license_texts, progress);
             tracing::info!(fetched, failed, skipped, "read PyPI license details from wheels");
+            sbom.incomplete
+                .note_failures("wheel-licenses", failed, fetched + failed, "wheel reads");
             if args.embedded_sboms {
                 let embedded::Outcome {
                     files,
@@ -398,6 +400,8 @@ fn main() -> Result<()> {
                     skipped,
                     "read conda license details from channel archives"
                 );
+                sbom.incomplete
+                    .note_failures("conda-archives", failed, fetched + failed, "archive reads");
             }
             if fetch_licenses {
                 let lookup = pypi::Lookup {
@@ -411,6 +415,8 @@ fn main() -> Result<()> {
                     yanked,
                 } = lookup.run(&mut sbom, progress);
                 tracing::info!(found, missing, failed, yanked, "looked up PyPI releases");
+                sbom.incomplete
+                    .note_failures("pypi-releases", failed, found + missing + failed, "index lookups");
             }
         }
         if let Some(cli::VulnerabilitySource::Osv) = args.vulnerabilities {
@@ -424,14 +430,34 @@ fn main() -> Result<()> {
                 without_identity,
                 findings,
                 failed,
+                unanswered,
             } = lookup.run(&mut sbom, progress)?;
             tracing::info!(
                 queried,
                 without_identity,
                 findings,
                 failed,
+                unanswered,
                 "looked up vulnerabilities on OSV"
             );
+            // An empty `vulnerabilities[]` has three causes, and only one of them is good
+            // news: nothing carried an identity the database answers to, nothing could be
+            // asked, or nothing is known. The document says which.
+            if queried == 0 && without_identity > 0 {
+                sbom.incomplete.note(format!(
+                    "osv: 0 of {without_identity} packages queryable (no purl the database answers to)"
+                ));
+            }
+            if unanswered > 0 {
+                sbom.incomplete.note(format!(
+                    "osv: {unanswered} of {queried} purls unasked (offline, nothing cached)"
+                ));
+            }
+            if failed > 0 {
+                sbom.incomplete.note(format!(
+                    "osv: {failed} advisory record(s) could not be fetched, and are recorded by id only"
+                ));
+            }
             if args.format == cli::Format::Spdx && args.report.is_none() && findings > 0 {
                 tracing::warn!(
                     findings,
@@ -531,6 +557,8 @@ fn main() -> Result<()> {
                 failed,
             } = lookup.run(&mut sbom, args.scorecard_min, progress);
             tracing::info!(scored, unknown, failed, "read OpenSSF scorecards");
+            sbom.incomplete
+                .note_failures("scorecard", failed, scored + unknown + failed, "lookups");
             if let Some(min) = args.fail_on_scorecard {
                 low_scores.extend(
                     scorecard::below(&sbom, min)
@@ -647,6 +675,17 @@ fn main() -> Result<()> {
                 }
             });
             continue;
+        }
+        // What the run could not finish belongs in the document too: the warnings on stderr
+        // do not survive the upload, and a reader months later cannot tell an empty result
+        // from an unasked question.
+        sbom.incomplete.stale = cache::stale_services();
+        if !sbom.incomplete.is_empty() {
+            tracing::warn!(
+                steps = sbom.incomplete.step_names().join(", "),
+                stale = sbom.incomplete.stale.join(", "),
+                "the document records that enrichment was incomplete"
+            );
         }
         let ctx = format::WriteContext::for_document(&contents, &sbom, args.format, spec_version);
         write_output(output, args.format, &sbom, &ctx)?;

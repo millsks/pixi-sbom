@@ -92,6 +92,10 @@ static POLICY: OnceLock<Policy> = OnceLock::new();
 /// What each cache did, so the run can say where its answers came from.
 static COUNTS: OnceLock<Mutex<BTreeMap<Service, Counts>>> = OnceLock::new();
 
+/// Caches that served an answer past its lifetime because the fetch failed, with the age of
+/// the oldest such answer.
+static STALE: OnceLock<Mutex<BTreeMap<Service, Duration>>> = OnceLock::new();
+
 /// One service's tally.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Counts {
@@ -114,6 +118,10 @@ fn policy() -> &'static Policy {
 
 fn counts() -> &'static Mutex<BTreeMap<Service, Counts>> {
     COUNTS.get_or_init(|| Mutex::new(BTreeMap::new()))
+}
+
+fn stale_counts() -> &'static Mutex<BTreeMap<Service, Duration>> {
+    STALE.get_or_init(|| Mutex::new(BTreeMap::new()))
 }
 
 /// Whether a cached answer may be used for `service`.
@@ -139,6 +147,46 @@ pub fn hit(service: Service, age: Duration) {
 pub fn miss(service: Service) {
     if let Ok(mut counts) = counts().lock() {
         counts.entry(service).or_default().misses += 1;
+    }
+}
+
+/// Note that a copy older than its lifetime stood in because the fetch failed. What the
+/// document then says came from `age` ago, which is the part a reader months later needs.
+pub fn stale(service: Service, age: Duration) {
+    if let Ok(mut stale) = stale_counts().lock() {
+        let entry = stale.entry(service).or_default();
+        *entry = (*entry).max(age);
+    }
+}
+
+/// One line per cache that served data past its lifetime, as `kev: 9 days old`, sorted.
+pub fn stale_services() -> Vec<String> {
+    stale_counts()
+        .lock()
+        .map(|stale| {
+            stale
+                .iter()
+                .map(|(service, age)| format!("{}: {} old", service.name(), how_old(*age)))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// An age as a reader says it: `9 days`, `3 hours`, `12 minutes`.
+fn how_old(age: Duration) -> String {
+    let seconds = age.as_secs();
+    if seconds < 60 {
+        return "less than a minute".to_string();
+    }
+    let (count, unit) = match seconds {
+        0..=5399 => (seconds / 60, "minute"),
+        5400..=172_799 => (seconds / 3600, "hour"),
+        _ => (seconds / 86_400, "day"),
+    };
+    if count == 1 {
+        format!("1 {unit}")
+    } else {
+        format!("{count} {unit}s")
     }
 }
 
@@ -172,6 +220,35 @@ pub fn age(path: &std::path::Path, now: std::time::SystemTime) -> Option<Duratio
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_stale_cache_is_reported_with_the_age_of_the_oldest_copy_served() {
+        assert!(
+            stale_services().iter().all(|line| !line.starts_with("scorecard")),
+            "nothing has gone stale yet"
+        );
+        stale(Service::Scorecard, Duration::from_secs(3 * 86_400));
+        // The oldest copy served is what the document should say.
+        stale(Service::Scorecard, Duration::from_secs(9 * 86_400));
+        stale(Service::Scorecard, Duration::from_secs(86_400));
+        let lines = stale_services();
+        assert!(
+            lines.contains(&"scorecard: 9 days old".to_string()),
+            "expected the oldest age, got {lines:?}"
+        );
+    }
+
+    #[test]
+    fn an_age_is_said_the_way_a_reader_says_it() {
+        assert_eq!(how_old(Duration::from_secs(30)), "less than a minute");
+        assert_eq!(how_old(Duration::from_secs(60)), "1 minute");
+        assert_eq!(how_old(Duration::from_secs(25 * 60)), "25 minutes");
+        assert_eq!(how_old(Duration::from_secs(2 * 3600)), "2 hours");
+        // Up to two days reads in hours, as the doctor's ages do.
+        assert_eq!(how_old(Duration::from_secs(86_400)), "24 hours");
+        assert_eq!(how_old(Duration::from_secs(2 * 86_400)), "2 days");
+        assert_eq!(how_old(Duration::from_secs(9 * 86_400)), "9 days");
+    }
 
     #[test]
     fn refreshing_one_service_leaves_the_others_alone() {

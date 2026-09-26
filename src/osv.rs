@@ -60,6 +60,9 @@ pub struct Outcome {
     pub findings: usize,
     /// Advisory records that could not be fetched; they are recorded by id only.
     pub failed: usize,
+    /// Purls nothing was asked about, because the run is offline and no cached answer stood
+    /// in. They are recorded as having no known vulnerability, which is not the same thing.
+    pub unanswered: usize,
 }
 
 /// Why the lookup could not run at all.
@@ -287,7 +290,13 @@ impl Lookup<'_> {
         outcome.queried = purls.len();
         let offline = http::offline();
 
-        let refs = self.query(purls.keys().map(String::as_str).collect(), client, now, offline)?;
+        let refs = self.query(
+            purls.keys().map(String::as_str).collect(),
+            client,
+            now,
+            offline,
+            &mut outcome.unanswered,
+        )?;
 
         // Which purls (and so packages) each advisory id was reported for.
         let mut hits: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
@@ -349,6 +358,7 @@ impl Lookup<'_> {
         client: &dyn Client,
         now: SystemTime,
         offline: bool,
+        unanswered: &mut usize,
     ) -> Result<BTreeMap<&'p str, Vec<VulnRef>>, OsvError> {
         let mut out = BTreeMap::new();
         let mut pending = Vec::new();
@@ -370,6 +380,7 @@ impl Lookup<'_> {
                     out.insert(purl, cached.vulns);
                 }
                 _ if offline => {
+                    *unanswered += 1;
                     tracing::warn!(
                         purl,
                         "offline and no cached OSV result; treated as no known vulnerabilities"
@@ -850,6 +861,29 @@ mod tests {
         }
     }
 
+    #[test]
+    fn offline_with_nothing_cached_counts_the_purls_nobody_answered_for() {
+        let dir = tempfile::tempdir().unwrap();
+        let lookup = Lookup {
+            api_url: "https://osv.example",
+            cache_dir: dir.path(),
+        };
+        let mut unanswered = 0;
+        // Offline and the cache is empty: the purls are recorded as having no known
+        // vulnerability, which is not the same as having been asked about.
+        let refs = lookup
+            .query(
+                vec!["pkg:pypi/urllib3@1.26.4", "pkg:pypi/six@1.17.0"],
+                &Offline,
+                SystemTime::now(),
+                true,
+                &mut unanswered,
+            )
+            .unwrap();
+        assert_eq!(unanswered, 2);
+        assert!(refs.values().all(Vec::is_empty));
+    }
+
     /// A client that must not be used.
     struct Offline;
 
@@ -933,7 +967,8 @@ mod tests {
                 queried: 3,
                 without_identity: 1,
                 findings: 9,
-                failed: 0
+                failed: 0,
+                unanswered: 0,
             }
         );
         assert_eq!(client.posts.lock().unwrap().len(), 1, "one batch for three purls");
@@ -1019,7 +1054,8 @@ mod tests {
                 queried: 2,
                 without_identity: 2,
                 findings: 0,
-                failed: 0
+                failed: 0,
+                unanswered: 0,
             }
         );
         assert!(sbom.vulnerabilities.is_empty());

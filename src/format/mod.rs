@@ -346,6 +346,7 @@ pub(crate) mod testing {
             vulnerabilities: Vec::new(),
             excluded: Vec::new(),
             declared_missing: Vec::new(),
+            incomplete: crate::model::Incomplete::default(),
         }
     }
 }

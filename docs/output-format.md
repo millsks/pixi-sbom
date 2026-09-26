@@ -265,6 +265,27 @@ says so: a `pixi:excluded` metadata property (CycloneDX) or a `pixi:excluded=...
 (SPDX 2.3 and 3.0.1) naming every package left out, whether it matched a pattern or was only needed by one that
 did.
 
+### Incomplete enrichment
+
+A document built where the lookups failed otherwise looks exactly like one built where everything answered:
+licenses are simply absent, `vulnerabilities[]` is simply empty. The warnings go to stderr, which does not survive
+the upload, so what a run could not finish is recorded in the document as well.
+
+| Property | Example value |
+|---|---|
+| `pixi:incomplete` | `osv, pypi-releases` — the enrichment steps that did not complete |
+| `pixi:incomplete-detail` | `osv: 14 of 14 purls unasked (offline, nothing cached); pypi-releases: 12 of 38 index lookups failed`, separated by `; ` |
+| `pixi:stale-cache` | `kev: 9 days old` — data served past its lifetime because the fetch failed |
+
+The steps are named after what they do: `wheel-licenses`, `conda-archives`, `pypi-releases`, `osv`, `scorecard`.
+OSV records three things separately, because an empty `vulnerabilities[]` has three causes and only one of them is
+good news: no package carried a purl the database answers to, the purls could not be asked about (offline with a
+cold cache), or an advisory record could not be fetched and is recorded by id alone.
+
+All three are absent when everything answered, so a complete document is unchanged and existing documents compare
+as they always did. In SPDX the same lines go in the root package's `comment`, one per line, beside
+`pixi:excluded`. Two documents that differ only because one run could not reach the network now say so.
+
 ## Dependency graph
 
 Each conda package's `depends` (matchspecs) and each PyPI package's `requires_dist` (PEP 508) are resolved by

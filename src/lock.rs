@@ -199,6 +199,7 @@ pub fn sbom_from_lock(
         vulnerabilities: Vec::new(),
         excluded: Vec::new(),
         declared_missing: Vec::new(),
+        incomplete: crate::model::Incomplete::default(),
     })
 }
 

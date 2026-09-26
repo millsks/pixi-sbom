@@ -83,6 +83,7 @@ pub fn read(path: &Path, root: Root, platform: Option<&str>) -> Result<Loaded, F
         vulnerabilities: Vec::new(),
         excluded: Vec::new(),
         declared_missing: Vec::new(),
+        incomplete: crate::model::Incomplete::default(),
     };
     sbom.packages.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
     Ok(Loaded { sbom, contents, format })
