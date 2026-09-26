@@ -85,6 +85,20 @@ class CompareTest(unittest.TestCase):
         self.assertTrue(any("new" in line for line in lines), lines)
 
 
+class DefaultsTest(unittest.TestCase):
+    def test_the_defaults_pass_the_allocator_change_and_fail_a_doubling(self) -> None:
+        # 0.9.5 -> 0.10.0 took peak memory up 45.4% at worst, on purpose. The defaults have to
+        # let that through, or every comparison spanning the change fails on a known trade.
+        base = measurement(8 * MIB, {"write": (0.1, 90 * MIB)})
+        worst = measurement(8 * MIB, {"write": (0.1, int(90 * 1.454) * MIB)})
+        _, failures = perf.compare(base, worst, perf.SIZE_LIMIT_PERCENT, perf.MEMORY_LIMIT_PERCENT)
+        self.assertEqual(failures, [], "the recorded trade is not a failure")
+
+        doubled = measurement(8 * MIB, {"write": (0.1, 180 * MIB)})
+        _, failures = perf.compare(base, doubled, perf.SIZE_LIMIT_PERCENT, perf.MEMORY_LIMIT_PERCENT)
+        self.assertEqual(len(failures), 1, "a doubling still is")
+
+
 class LockfileTest(unittest.TestCase):
     def test_the_generated_lockfile_is_the_size_it_says(self) -> None:
         import tempfile

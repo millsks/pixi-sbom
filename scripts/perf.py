@@ -235,6 +235,20 @@ def _mib(value: float) -> str:
 MEMORY_FLOOR_BYTES = 8 * 1024 * 1024
 SIZE_FLOOR_BYTES = 256 * 1024
 
+# The binary is byte-exact, so a small share of it means something.
+SIZE_LIMIT_PERCENT = 5.0
+
+# Peak memory is steady within one allocator and moves by tens of percent across a change of
+# allocator. 0.9.5 to 0.10.0 is one such change: mimalloc took peak memory up by as much as
+# 45.4% on Linux, Windows and aarch64, deliberately, to buy 25-35% off the run, and
+# docs/benchmarks.md records the trade. A limit tight enough to catch that fails every
+# comparison spanning the change, so this one is set above it with room for a noisy runner,
+# and catches what nobody would choose: something approaching a doubling.
+#
+# Worth bringing back towards 15% once 0.10.0 is the baseline every comparison starts from.
+# Within one allocator the real numbers are single digits, so it costs nothing then.
+MEMORY_LIMIT_PERCENT = 60.0
+
 
 def compare(base: dict, head: dict, size_limit: float, memory_limit: float) -> tuple[list[str], list[str]]:
     """A markdown report of head against base, and the regressions worth failing over."""
@@ -296,8 +310,8 @@ def main() -> int:
     parser.add_argument("--out", type=Path, help="where to write the measurements as JSON")
     parser.add_argument("--compare", nargs=2, type=Path, metavar=("BASE", "HEAD"), help="two measurement files")
     parser.add_argument("--summary", type=Path, help="append the markdown report here as well as to stdout")
-    parser.add_argument("--size-limit", type=float, default=5.0, help="percent the binary may grow")
-    parser.add_argument("--memory-limit", type=float, default=15.0, help="percent peak memory may grow")
+    parser.add_argument("--size-limit", type=float, default=SIZE_LIMIT_PERCENT, help="percent the binary may grow")
+    parser.add_argument("--memory-limit", type=float, default=MEMORY_LIMIT_PERCENT, help="percent peak memory may grow")
     args = parser.parse_args()
 
     if args.compare:
