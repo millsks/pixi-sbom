@@ -29,6 +29,7 @@ nav:
   - Contributing:
       - Architecture: architecture.md
       - Development: development.md
+      - Benchmarks: benchmarks.md
   - Changelog: changelog.md
 
 hooks:

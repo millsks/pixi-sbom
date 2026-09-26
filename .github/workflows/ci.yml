@@ -56,6 +56,21 @@ jobs:
       - name: cargo llvm-cov (>= 90% lines)
         run: pixi run cov
 
+  # The benchmarks are run for one iteration each, not timed: a shared runner's numbers say
+  # more about the runner than about the code, but a benchmark that no longer compiles or
+  # panics on its inputs is a real break and this catches it.
+  bench:
+    name: Benchmarks compile and run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          environments: default
+          cache: true
+      - name: cargo bench --test
+        run: pixi run bench-test
+
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

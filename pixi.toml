@@ -20,6 +20,10 @@ test = "cargo test"
 test-integration = "cargo test --test '*'"
 build = "cargo build --release"
 changelog = "git-cliff --config cliff.toml -o CHANGELOG.md"
+# The full criterion run, which takes a few minutes; `bench-test` only checks that every
+# benchmark still runs, which is what CI needs and what the change harness can afford.
+bench = "cargo bench --benches"
+bench-test = "cargo bench --benches -- --test"
 
 [feature.lint.dependencies]
 pre-commit = "*"
