@@ -658,6 +658,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#a-log-a-machine-can-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A log a machine can read
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#-doctor-is-it-the-network" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1284,6 +1295,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#a-log-a-machine-can-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A log a machine can read
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#-doctor-is-it-the-network" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1711,6 +1733,11 @@
 <td><code>-q</code>, <code>-qq</code>, <code>-qqq</code></td>
 <td>info</td>
 <td>Lower it to warnings only / errors only / silent. Error diagnostics are printed regardless.</td>
+</tr>
+<tr>
+<td><code>--log-format &lt;text\|json&gt;</code></td>
+<td><code>text</code></td>
+<td>How the log on stderr is rendered. <code>json</code> writes one JSON object per event, with the timestamp back and every field its own key. Also <code>PIXI_SBOM_LOG_FORMAT</code>.</td>
 </tr>
 <tr>
 <td><code>-h, --help</code>, <code>-V, --version</code></td>
@@ -2325,29 +2352,46 @@ safe to paste; internal host names are not, so read it before you do.</p>
 <p>The last line is the one that decides what to do about a slow run: time spent waiting on an upstream is a network
 problem, and time spent anywhere else is the tool's. A phase appears only when it ran, so the table doubles as a
 record of what the flags actually did.</p>
+<h2 id="a-log-a-machine-can-read">A log a machine can read<a class="headerlink" href="#a-log-a-machine-can-read" title="Permanent link">&para;</a></h2>
+<p><code>--log-format json</code> (or <code>PIXI_SBOM_LOG_FORMAT=json</code>) writes the log as one JSON object per line
+instead of prose:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="gp">$ </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--log-format<span class="w"> </span>json<span class="w"> </span>-v
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="go">{"timestamp":"2026-09-25T13:41:02.104323Z","level":"INFO","fields":{"message":"selected lock environment","environment":"default","platform":"linux-64","packages":25},"target":"pixi_sbom::lock"}</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="go">{"timestamp":"2026-09-25T13:41:02.271884Z","level":"WARN","fields":{"message":"request failed","service":"OSV","url":"https://api.osv.dev/v1/querybatch","cause":"io: invalid peer certificate: UnknownIssuer"},"target":"pixi_sbom::http"}</span>
+</code></pre></div>
+<p>Everything the human log carries is there, as a field rather than as prose: the service, the URL, the status, the
+elapsed time, the package, the cache age, the whole error chain. That is what makes "alert when the mapping
+download fails" or "chart how long the OSV lookups take" a <code>jq</code> filter rather than a regex over sentences.</p>
+<p>The timestamp, which the text renderer drops deliberately (a person watching a terminal knows what time it is),
+comes back for <code>json</code>. Colour is off and the progress bars are off, since nothing reading this is a terminal.</p>
+<p>This is the <em>log</em> on stderr and is unrelated to <code>--report-format json</code>, which is the <em>report</em> on stdout. The
+natural shape in CI uses both: <code>--report-format json --output report.json --log-format json</code>, the report to a file
+and the log to the collector.</p>
+<p>The format has to be chosen before anything can be logged, which is before the configuration file is read, so
+<code>--log-format</code> and <code>PIXI_SBOM_LOG_FORMAT</code> are the only ways to set it.</p>
 <h2 id="-doctor-is-it-the-network">--doctor: is it the network?<a class="headerlink" href="#-doctor-is-it-the-network" title="Permanent link">&para;</a></h2>
 <p><code>pixi sbom --doctor</code> answers "which service could not be reached, and why" without a lockfile, a workspace or
 <code>curl</code>. Give it the flags of the run you are diagnosing and it probes exactly those upstreams:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="gp">$ </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--doctor<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="go">Configuration</span>
-<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="go">  offline    false</span>
-<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="go">  proxy      HTTPS_PROXY=http://user:***@proxy.corp:8080</span>
-<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="go">  no-proxy   NO_PROXY=.corp</span>
-<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="go">  TLS roots  the platform verifier (the operating system trust store)</span>
-<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a><span class="go">  timeout    120s</span>
-<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a><span class="go">  cache      /home/u/.cache/rattler/pixi-sbom (exists)</span>
-<a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a>
-<a id="__codelineno-26-10" name="__codelineno-26-10" href="#__codelineno-26-10"></a><span class="go">Upstreams</span>
-<a id="__codelineno-26-11" name="__codelineno-26-11" href="#__codelineno-26-11"></a><span class="go">  PyPI index                 ok 200, 245 ms</span>
-<a id="__codelineno-26-12" name="__codelineno-26-12" href="#__codelineno-26-12"></a><span class="go">                             https://pypi.org/pypi (default)</span>
-<a id="__codelineno-26-13" name="__codelineno-26-13" href="#__codelineno-26-13"></a><span class="go">  OSV                        failed: io: invalid peer certificate: UnknownIssuer</span>
-<a id="__codelineno-26-14" name="__codelineno-26-14" href="#__codelineno-26-14"></a><span class="go">                             https://api.osv.dev (default)</span>
-<a id="__codelineno-26-15" name="__codelineno-26-15" href="#__codelineno-26-15"></a>
-<a id="__codelineno-26-16" name="__codelineno-26-16" href="#__codelineno-26-16"></a><span class="go">Caches</span>
-<a id="__codelineno-26-17" name="__codelineno-26-17" href="#__codelineno-26-17"></a><span class="go">  osv                        170 entries, newest 23h old</span>
-<a id="__codelineno-26-18" name="__codelineno-26-18" href="#__codelineno-26-18"></a><span class="go">  pypi                       24 entries, newest 44m old</span>
-<a id="__codelineno-26-19" name="__codelineno-26-19" href="#__codelineno-26-19"></a>
-<a id="__codelineno-26-20" name="__codelineno-26-20" href="#__codelineno-26-20"></a><span class="go">1 of 2 upstream(s) could not be reached: OSV.</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="gp">$ </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--doctor<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="go">Configuration</span>
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="go">  offline    false</span>
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="go">  proxy      HTTPS_PROXY=http://user:***@proxy.corp:8080</span>
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a><span class="go">  no-proxy   NO_PROXY=.corp</span>
+<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="go">  TLS roots  the platform verifier (the operating system trust store)</span>
+<a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a><span class="go">  timeout    120s</span>
+<a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a><span class="go">  cache      /home/u/.cache/rattler/pixi-sbom (exists)</span>
+<a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a>
+<a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a><span class="go">Upstreams</span>
+<a id="__codelineno-27-11" name="__codelineno-27-11" href="#__codelineno-27-11"></a><span class="go">  PyPI index                 ok 200, 245 ms</span>
+<a id="__codelineno-27-12" name="__codelineno-27-12" href="#__codelineno-27-12"></a><span class="go">                             https://pypi.org/pypi (default)</span>
+<a id="__codelineno-27-13" name="__codelineno-27-13" href="#__codelineno-27-13"></a><span class="go">  OSV                        failed: io: invalid peer certificate: UnknownIssuer</span>
+<a id="__codelineno-27-14" name="__codelineno-27-14" href="#__codelineno-27-14"></a><span class="go">                             https://api.osv.dev (default)</span>
+<a id="__codelineno-27-15" name="__codelineno-27-15" href="#__codelineno-27-15"></a>
+<a id="__codelineno-27-16" name="__codelineno-27-16" href="#__codelineno-27-16"></a><span class="go">Caches</span>
+<a id="__codelineno-27-17" name="__codelineno-27-17" href="#__codelineno-27-17"></a><span class="go">  osv                        170 entries, newest 23h old</span>
+<a id="__codelineno-27-18" name="__codelineno-27-18" href="#__codelineno-27-18"></a><span class="go">  pypi                       24 entries, newest 44m old</span>
+<a id="__codelineno-27-19" name="__codelineno-27-19" href="#__codelineno-27-19"></a>
+<a id="__codelineno-27-20" name="__codelineno-27-20" href="#__codelineno-27-20"></a><span class="go">1 of 2 upstream(s) could not be reached: OSV.</span>
 </code></pre></div>
 <p>Each row carries the address actually used, where it came from, and the outcome with the <strong>whole</strong> error chain.
 A status of 400 or more is reported as <code>reachable</code> rather than as success or failure, because the probe asks a
@@ -2360,12 +2404,12 @@ It cannot be combined with <code>--output</code>, <code>--report</code> or <code
 <h2 id="what-a-run-will-talk-to">What a run will talk to<a class="headerlink" href="#what-a-run-will-talk-to" title="Permanent link">&para;</a></h2>
 <p>Before the first request, a run that uses the network says how it is set up and which upstreams the flags brought
 in — the one place two machines usually differ:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="gp">$ </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>-v
-<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="go">INFO  pixi_sbom::http: network configuration offline=false proxy="HTTPS_PROXY=http://user:***@proxy.corp:8080" tls_roots="the platform verifier (the operating system trust store)" timeout_s=120 services=4</span>
-<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="go">DEBUG pixi_sbom::http: upstream service="PyPI index" url=https://pypi.org/pypi source="default"</span>
-<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="go">DEBUG pixi_sbom::http: upstream service="conda-forge PyPI mapping" url=https://conda-mapping.prefix.dev/... source="default"</span>
-<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a><span class="go">DEBUG pixi_sbom::http: upstream service="OSV" url=https://osv.internal source="PIXI_SBOM_OSV_URL"</span>
-<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="go">DEBUG pixi_sbom::http: cache directory path=~/Library/Caches/rattler/cache/pixi-sbom exists=true</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="gp">$ </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>-v
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="go">INFO  pixi_sbom::http: network configuration offline=false proxy="HTTPS_PROXY=http://user:***@proxy.corp:8080" tls_roots="the platform verifier (the operating system trust store)" timeout_s=120 services=4</span>
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a><span class="go">DEBUG pixi_sbom::http: upstream service="PyPI index" url=https://pypi.org/pypi source="default"</span>
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="go">DEBUG pixi_sbom::http: upstream service="conda-forge PyPI mapping" url=https://conda-mapping.prefix.dev/... source="default"</span>
+<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="go">DEBUG pixi_sbom::http: upstream service="OSV" url=https://osv.internal source="PIXI_SBOM_OSV_URL"</span>
+<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a><span class="go">DEBUG pixi_sbom::http: cache directory path=~/Library/Caches/rattler/cache/pixi-sbom exists=true</span>
 </code></pre></div>
 <p>The summary line is at the default level; the per-service detail needs <code>-v</code>. Each upstream says <strong>where its
 address came from</strong> — a default, or the variable that changed it — so a mirror or a typo in
@@ -2422,7 +2466,7 @@ touches no upstream prints none of this.</p>
 </table>
 <p>They are what makes a second run fast and an offline run possible, and they are also why "it works on my machine"
 is often "my cache is warm". Each run says what they served:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>INFO pixi_sbom::cache: cache cache="osv" from_cache=24 fetched=6 oldest_s=2460
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>INFO pixi_sbom::cache: cache cache="osv" from_cache=24 fetched=6 oldest_s=2460
 </code></pre></div>
 <p><code>--refresh</code> ignores what is on disk and asks again — <code>--refresh</code> for all of them, <code>--refresh osv --refresh pypi</code>
 for those two — while still writing back what it fetches. <code>--no-cache</code> neither reads nor writes, which is the one
@@ -2433,8 +2477,8 @@ combined.</p>
 reports say which.</p>
 <p><code>--report vulnerabilities</code> over an environment whose packages carry no purl the database answers to — a
 conda-only environment without <code>--pypi-mapping prefix</code>, which is the usual case — ends with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>Nothing could be queried: no package carries a purl the database answers to. Add --pypi-mapping prefix
-<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>(or --pypi-mapping-file) so conda packages can be matched.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>Nothing could be queried: no package carries a purl the database answers to. Add --pypi-mapping prefix
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>(or --pypi-mapping-file) so conda packages can be matched.
 </code></pre></div>
 <p>The JSON form carries the same fact as <code>summary.queryable</code>, so a pipeline can tell a clean environment from an
 unasked one. The outdated and scorecard reports already separate "answered" from "no index to ask" and
@@ -2442,10 +2486,10 @@ unasked one. The outdated and scorecard reports already separate "answered" from
 <p>A cache that was served <strong>past its lifetime</strong> because the fetch failed is also called out once per service, with
 how old the data is, so a document built on week-old advisories does not read like one built this morning.</p>
 <p>Every request the tool makes is logged at debug, with what it asked for and how it ended:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="gp">$ </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>-v
-<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="go">DEBUG pixi_sbom::http: requesting method="GET" url="https://pypi.org/pypi/six/1.17.0/json" detail="" proxy="none"</span>
-<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a><span class="go">DEBUG pixi_sbom::http: answered method="GET" url="https://pypi.org/pypi/six/1.17.0/json" status=200 bytes=14204 ms=180</span>
-<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a><span class="go">DEBUG pixi_sbom::http: request failed method="GET" url="https://api.osv.dev/v1/querybatch" ms=32 cause="io: invalid peer certificate: UnknownIssuer"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="gp">$ </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>-v
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="go">DEBUG pixi_sbom::http: requesting method="GET" url="https://pypi.org/pypi/six/1.17.0/json" detail="" proxy="none"</span>
+<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a><span class="go">DEBUG pixi_sbom::http: answered method="GET" url="https://pypi.org/pypi/six/1.17.0/json" status=200 bytes=14204 ms=180</span>
+<a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a><span class="go">DEBUG pixi_sbom::http: request failed method="GET" url="https://api.osv.dev/v1/querybatch" ms=32 cause="io: invalid peer certificate: UnknownIssuer"</span>
 </code></pre></div>
 <p>The <code>cause</code> field is the whole error chain, not only its outermost message: a TLS failure says
 <code>invalid peer certificate</code>, a proxy failure says so, a refused connection says <code>Connection refused</code>. The warnings
@@ -2511,53 +2555,57 @@ nothing to find" from "nothing was asked".</p>
 <td>Pins the document timestamp (seconds since the Unix epoch). With it set, repeated runs over the same lockfile are byte-identical, which lets CI diff SBOMs between commits. See <a href="../output-format/#reproducibility">output-format.md</a>.</td>
 </tr>
 <tr>
+<td><code>PIXI_SBOM_LOG_FORMAT</code></td>
+<td><code>text</code> (the default) or <code>json</code>, the same as <code>--log-format</code>, for a CI job that cannot change the command line. A value that is neither is named in the log and the run continues as text.</td>
+</tr>
+<tr>
 <td><code>RUST_LOG</code></td>
 <td>Log filter, overrides <code>-v</code>/<code>-q</code>.</td>
 </tr>
 </tbody>
 </table>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="c1"># SPDX instead of CycloneDX</span>
-<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--format<span class="w"> </span>spdx
-<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>
-<a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a><span class="c1"># CycloneDX 1.7 instead of 1.6</span>
-<a id="__codelineno-31-5" name="__codelineno-31-5" href="#__codelineno-31-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--spec-version<span class="w"> </span><span class="m">1</span>.7
-<a id="__codelineno-31-6" name="__codelineno-31-6" href="#__codelineno-31-6"></a>
-<a id="__codelineno-31-7" name="__codelineno-31-7" href="#__codelineno-31-7"></a><span class="c1"># SPDX 3.0.1 (JSON-LD) instead of SPDX 2.3</span>
-<a id="__codelineno-31-8" name="__codelineno-31-8" href="#__codelineno-31-8"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--format<span class="w"> </span>spdx<span class="w"> </span>--spec-version<span class="w"> </span><span class="m">3</span>.0
-<a id="__codelineno-31-9" name="__codelineno-31-9" href="#__codelineno-31-9"></a>
-<a id="__codelineno-31-10" name="__codelineno-31-10" href="#__codelineno-31-10"></a><span class="c1"># Straight into a consumer, nothing written to disk</span>
-<a id="__codelineno-31-11" name="__codelineno-31-11" href="#__codelineno-31-11"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
-<a id="__codelineno-31-12" name="__codelineno-31-12" href="#__codelineno-31-12"></a>
-<a id="__codelineno-31-13" name="__codelineno-31-13" href="#__codelineno-31-13"></a><span class="c1"># Scannable: give conda-forge Python packages their PyPI identity and make it primary</span>
-<a id="__codelineno-31-14" name="__codelineno-31-14" href="#__codelineno-31-14"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--primary-purl<span class="w"> </span>pypi<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
-<a id="__codelineno-31-15" name="__codelineno-31-15" href="#__codelineno-31-15"></a>
-<a id="__codelineno-31-16" name="__codelineno-31-16" href="#__codelineno-31-16"></a><span class="c1"># The same, air-gapped, from a saved copy of the mapping</span>
-<a id="__codelineno-31-17" name="__codelineno-31-17" href="#__codelineno-31-17"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping-file<span class="w"> </span>/srv/mirrors/compressed_mapping.json<span class="w"> </span>--primary-purl<span class="w"> </span>pypi
-<a id="__codelineno-31-18" name="__codelineno-31-18" href="#__codelineno-31-18"></a>
-<a id="__codelineno-31-19" name="__codelineno-31-19" href="#__codelineno-31-19"></a><span class="c1"># Licenses for everything: expressions and license file names</span>
-<a id="__codelineno-31-20" name="__codelineno-31-20" href="#__codelineno-31-20"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses
-<a id="__codelineno-31-21" name="__codelineno-31-21" href="#__codelineno-31-21"></a>
-<a id="__codelineno-31-22" name="__codelineno-31-22" href="#__codelineno-31-22"></a><span class="c1"># What was compiled into the wheels (PEP 770 embedded SBOMs), e.g. Rust crates</span>
-<a id="__codelineno-31-23" name="__codelineno-31-23" href="#__codelineno-31-23"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--embedded-sboms
-<a id="__codelineno-31-24" name="__codelineno-31-24" href="#__codelineno-31-24"></a>
-<a id="__codelineno-31-25" name="__codelineno-31-25" href="#__codelineno-31-25"></a><span class="c1"># The same plus the full license texts</span>
-<a id="__codelineno-31-26" name="__codelineno-31-26" href="#__codelineno-31-26"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--license-texts
-<a id="__codelineno-31-27" name="__codelineno-31-27" href="#__codelineno-31-27"></a>
-<a id="__codelineno-31-28" name="__codelineno-31-28" href="#__codelineno-31-28"></a><span class="c1"># A specific lockfile and output file, from anywhere</span>
-<a id="__codelineno-31-29" name="__codelineno-31-29" href="#__codelineno-31-29"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>~/proj/pixi.lock<span class="w"> </span>--output<span class="w"> </span>~/reports/proj.cdx.json
-<a id="__codelineno-31-30" name="__codelineno-31-30" href="#__codelineno-31-30"></a>
-<a id="__codelineno-31-31" name="__codelineno-31-31" href="#__codelineno-31-31"></a><span class="c1"># The environment you actually ship, for the platform you ship it on</span>
-<a id="__codelineno-31-32" name="__codelineno-31-32" href="#__codelineno-31-32"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-e<span class="w"> </span>prod<span class="w"> </span>-p<span class="w"> </span>linux-64
-<a id="__codelineno-31-33" name="__codelineno-31-33" href="#__codelineno-31-33"></a>
-<a id="__codelineno-31-34" name="__codelineno-31-34" href="#__codelineno-31-34"></a><span class="c1"># Every environment, each on linux-64, into a directory</span>
-<a id="__codelineno-31-35" name="__codelineno-31-35" href="#__codelineno-31-35"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--all-environments<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--output<span class="w"> </span>sboms/
-<a id="__codelineno-31-36" name="__codelineno-31-36" href="#__codelineno-31-36"></a>
-<a id="__codelineno-31-37" name="__codelineno-31-37" href="#__codelineno-31-37"></a><span class="c1"># Every platform the prod environment is locked for</span>
-<a id="__codelineno-31-38" name="__codelineno-31-38" href="#__codelineno-31-38"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-e<span class="w"> </span>prod<span class="w"> </span>--all-platforms<span class="w"> </span>--output<span class="w"> </span>sboms/
-<a id="__codelineno-31-39" name="__codelineno-31-39" href="#__codelineno-31-39"></a>
-<a id="__codelineno-31-40" name="__codelineno-31-40" href="#__codelineno-31-40"></a><span class="c1"># Everything: one document per environment and platform</span>
-<a id="__codelineno-31-41" name="__codelineno-31-41" href="#__codelineno-31-41"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--all-environments<span class="w"> </span>--all-platforms<span class="w"> </span>--output<span class="w"> </span>sboms/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="c1"># SPDX instead of CycloneDX</span>
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--format<span class="w"> </span>spdx
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a>
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a><span class="c1"># CycloneDX 1.7 instead of 1.6</span>
+<a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--spec-version<span class="w"> </span><span class="m">1</span>.7
+<a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a>
+<a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a><span class="c1"># SPDX 3.0.1 (JSON-LD) instead of SPDX 2.3</span>
+<a id="__codelineno-32-8" name="__codelineno-32-8" href="#__codelineno-32-8"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--format<span class="w"> </span>spdx<span class="w"> </span>--spec-version<span class="w"> </span><span class="m">3</span>.0
+<a id="__codelineno-32-9" name="__codelineno-32-9" href="#__codelineno-32-9"></a>
+<a id="__codelineno-32-10" name="__codelineno-32-10" href="#__codelineno-32-10"></a><span class="c1"># Straight into a consumer, nothing written to disk</span>
+<a id="__codelineno-32-11" name="__codelineno-32-11" href="#__codelineno-32-11"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
+<a id="__codelineno-32-12" name="__codelineno-32-12" href="#__codelineno-32-12"></a>
+<a id="__codelineno-32-13" name="__codelineno-32-13" href="#__codelineno-32-13"></a><span class="c1"># Scannable: give conda-forge Python packages their PyPI identity and make it primary</span>
+<a id="__codelineno-32-14" name="__codelineno-32-14" href="#__codelineno-32-14"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--primary-purl<span class="w"> </span>pypi<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
+<a id="__codelineno-32-15" name="__codelineno-32-15" href="#__codelineno-32-15"></a>
+<a id="__codelineno-32-16" name="__codelineno-32-16" href="#__codelineno-32-16"></a><span class="c1"># The same, air-gapped, from a saved copy of the mapping</span>
+<a id="__codelineno-32-17" name="__codelineno-32-17" href="#__codelineno-32-17"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping-file<span class="w"> </span>/srv/mirrors/compressed_mapping.json<span class="w"> </span>--primary-purl<span class="w"> </span>pypi
+<a id="__codelineno-32-18" name="__codelineno-32-18" href="#__codelineno-32-18"></a>
+<a id="__codelineno-32-19" name="__codelineno-32-19" href="#__codelineno-32-19"></a><span class="c1"># Licenses for everything: expressions and license file names</span>
+<a id="__codelineno-32-20" name="__codelineno-32-20" href="#__codelineno-32-20"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses
+<a id="__codelineno-32-21" name="__codelineno-32-21" href="#__codelineno-32-21"></a>
+<a id="__codelineno-32-22" name="__codelineno-32-22" href="#__codelineno-32-22"></a><span class="c1"># What was compiled into the wheels (PEP 770 embedded SBOMs), e.g. Rust crates</span>
+<a id="__codelineno-32-23" name="__codelineno-32-23" href="#__codelineno-32-23"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--embedded-sboms
+<a id="__codelineno-32-24" name="__codelineno-32-24" href="#__codelineno-32-24"></a>
+<a id="__codelineno-32-25" name="__codelineno-32-25" href="#__codelineno-32-25"></a><span class="c1"># The same plus the full license texts</span>
+<a id="__codelineno-32-26" name="__codelineno-32-26" href="#__codelineno-32-26"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--license-texts
+<a id="__codelineno-32-27" name="__codelineno-32-27" href="#__codelineno-32-27"></a>
+<a id="__codelineno-32-28" name="__codelineno-32-28" href="#__codelineno-32-28"></a><span class="c1"># A specific lockfile and output file, from anywhere</span>
+<a id="__codelineno-32-29" name="__codelineno-32-29" href="#__codelineno-32-29"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>~/proj/pixi.lock<span class="w"> </span>--output<span class="w"> </span>~/reports/proj.cdx.json
+<a id="__codelineno-32-30" name="__codelineno-32-30" href="#__codelineno-32-30"></a>
+<a id="__codelineno-32-31" name="__codelineno-32-31" href="#__codelineno-32-31"></a><span class="c1"># The environment you actually ship, for the platform you ship it on</span>
+<a id="__codelineno-32-32" name="__codelineno-32-32" href="#__codelineno-32-32"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-e<span class="w"> </span>prod<span class="w"> </span>-p<span class="w"> </span>linux-64
+<a id="__codelineno-32-33" name="__codelineno-32-33" href="#__codelineno-32-33"></a>
+<a id="__codelineno-32-34" name="__codelineno-32-34" href="#__codelineno-32-34"></a><span class="c1"># Every environment, each on linux-64, into a directory</span>
+<a id="__codelineno-32-35" name="__codelineno-32-35" href="#__codelineno-32-35"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--all-environments<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--output<span class="w"> </span>sboms/
+<a id="__codelineno-32-36" name="__codelineno-32-36" href="#__codelineno-32-36"></a>
+<a id="__codelineno-32-37" name="__codelineno-32-37" href="#__codelineno-32-37"></a><span class="c1"># Every platform the prod environment is locked for</span>
+<a id="__codelineno-32-38" name="__codelineno-32-38" href="#__codelineno-32-38"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-e<span class="w"> </span>prod<span class="w"> </span>--all-platforms<span class="w"> </span>--output<span class="w"> </span>sboms/
+<a id="__codelineno-32-39" name="__codelineno-32-39" href="#__codelineno-32-39"></a>
+<a id="__codelineno-32-40" name="__codelineno-32-40" href="#__codelineno-32-40"></a><span class="c1"># Everything: one document per environment and platform</span>
+<a id="__codelineno-32-41" name="__codelineno-32-41" href="#__codelineno-32-41"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--all-environments<span class="w"> </span>--all-platforms<span class="w"> </span>--output<span class="w"> </span>sboms/
 </code></pre></div>
 <h2 id="exit-codes-and-errors">Exit codes and errors<a class="headerlink" href="#exit-codes-and-errors" title="Permanent link">&para;</a></h2>
 <table>
@@ -2604,8 +2652,8 @@ nothing to find" from "nothing was asked".</p>
 </table>
 <p>Several gates can fail in one run. Each prints its own list, and the run then says which of them fired and which
 one chose the exit code, because in CI the code is the headline and the log is long:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>2 gates failed: license policy (4), vulnerabilities (2).
-<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>Exiting 3 (license policy); the others would have been 4.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>2 gates failed: license policy (4), vulnerabilities (2).
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>Exiting 3 (license policy); the others would have been 4.
 </code></pre></div>
 <p>The precedence is the order of the table above: the license policy first, then vulnerabilities, yanked releases,
 phantom imports, the comparison, and scorecards last.
