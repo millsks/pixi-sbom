@@ -99,12 +99,19 @@ pub fn probes(configuration: &http::Configuration, probe: &dyn Fn(&str) -> Resul
 pub fn request(url: &str) -> Result<u16, String> {
     // A few kilobytes is enough to know the answer came from the service rather than from a
     // captive portal, and small enough to be polite.
-    match http::get_text(url, 8 * 1024) {
+    classify(http::get_text(url, 8 * 1024))
+}
+
+/// What a probe's response says about the host: a status, or the transport failure.
+fn classify(response: Result<String, Box<ureq::Error>>) -> Result<u16, String> {
+    match response {
         Ok(_) => Ok(200),
-        // A status is an answer: the host is reachable and speaking HTTP, which is what the
-        // probe is for. Only a transport failure is a failure here.
         Err(err) => match err.as_ref() {
+            // A status is an answer: the host is reachable and speaking HTTP, which is what the
+            // probe is for. Only a transport failure is a failure here.
             ureq::Error::StatusCode(code) => Ok(*code),
+            // A body past the read cap came after a successful status; the feed is just large.
+            ureq::Error::BodyExceedsLimit(_) => Ok(200),
             other => Err(http::error_chain(other)),
         },
     }
@@ -205,6 +212,22 @@ mod tests {
         assert_eq!(
             failed[0].outcome.text(),
             "failed: io: invalid peer certificate: UnknownIssuer"
+        );
+    }
+
+    #[test]
+    fn a_body_past_the_read_cap_is_an_answer() {
+        assert_eq!(classify(Ok(String::new())), Ok(200));
+        assert_eq!(classify(Err(Box::new(ureq::Error::StatusCode(404)))), Ok(404));
+        assert_eq!(
+            classify(Err(Box::new(ureq::Error::BodyExceedsLimit(8192)))),
+            Ok(200),
+            "a large feed such as CISA KEV answered; it is not unreachable"
+        );
+        assert!(
+            classify(Err(Box::new(ureq::Error::HostNotFound)))
+                .unwrap_err()
+                .contains("host not found")
         );
     }
 
