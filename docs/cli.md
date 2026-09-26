@@ -79,6 +79,7 @@ With no options this means:
 | `--pypi-licenses` | | Deprecated alias for `--fetch-licenses` (hidden from `--help`; removed in a future release). |
 | `-v`, `-vv` | info | Raise the log level to debug / trace. Logs go to stderr; the SBOM never goes to stdout. |
 | `-q`, `-qq`, `-qqq` | info | Lower it to warnings only / errors only / silent. Error diagnostics are printed regardless. |
+| `--ca-bundle <FILE>` | the OS trust store | Verify TLS against the certificates in this PEM file instead of the operating system's store: a TLS-intercepting appliance's CA, or a private one. The order is `--ca-bundle`, `PIXI_SBOM_CA_BUNDLE`, `SSL_CERT_FILE`, then the platform verifier — see [which certificates TLS is verified against](#which-certificates-tls-is-verified-against). |
 | `--log-format <text\|json>` | `text` | How the log on stderr is rendered. `json` writes one JSON object per event, with the timestamp back and every field its own key. Also `PIXI_SBOM_LOG_FORMAT`. |
 | `-h, --help`, `-V, --version` | | Usual meanings. |
 
@@ -876,6 +877,37 @@ The last line is the one that decides what to do about a slow run: time spent wa
 problem, and time spent anywhere else is the tool's. A phase appears only when it ran, so the table doubles as a
 record of what the flags actually did.
 
+## Which certificates TLS is verified against
+
+Every HTTPS request — the PyPI index, OSV, the KEV catalog, the Scorecard API, each wheel and conda archive — is
+verified against the **operating system's trust store** by default, through the platform verifier. No root store
+is compiled into the binary, so nothing goes stale between releases, and a CA installed system-wide (as a
+TLS-intercepting appliance's usually is) works with no configuration at all.
+
+Where the CA is not installed system-wide — a container, a CI image, a machine where only Python was ever
+configured — name a PEM bundle instead. The anchors are resolved once, before the first request, and the first
+of these that is set wins:
+
+| Order | Source | |
+|---|---|---|
+| 1 | `--ca-bundle <FILE>` | The flag, as always, beats the environment |
+| 2 | `PIXI_SBOM_CA_BUNDLE` | For a CI job that cannot change the command line |
+| 3 | `SSL_CERT_FILE` | What the rest of the Python and conda world already sets in such an image |
+| 4 | the platform verifier | The default: the operating system's own trust store |
+
+```sh
+pixi sbom --ca-bundle /etc/ssl/certs/corp-ca.pem --vulnerabilities osv
+```
+
+`--doctor` and `--version-details` print which source is in play, as the `TLS roots` line. A bundle that is
+missing or holds no certificate is reported before the first request, naming the file and the flag or variable
+that gave it, rather than arriving later as a handshake failure. The file must be PEM; convert a DER file first
+(`openssl x509 -inform der -in ca.der -out ca.pem`).
+
+Proxies come from `ALL_PROXY`, `HTTPS_PROXY`, `HTTP_PROXY` and `NO_PROXY` in either case, including `socks5://`
+and `socks5h://`; on Windows a proxy set only in the system settings is used as well. See
+[troubleshooting](troubleshooting.md) for what `--doctor` prints when one of these is the problem.
+
 ## A log a machine can read
 
 `--log-format json` (or `PIXI_SBOM_LOG_FORMAT=json`) writes the log as one JSON object per line
@@ -1024,6 +1056,10 @@ the environment variable in effect (`HTTPS_PROXY=http://proxy.corp:8080`) with a
 With `PIXI_SBOM_OFFLINE=1`, each request that was *not* made is logged instead, which is how to tell "there was
 nothing to find" from "nothing was asked".
 
+When the same command answers on one network and comes back empty on another, the page to read is
+[troubleshooting](troubleshooting.md): the proxy, the private CA and the blocked host, each with what `--doctor`
+prints for it.
+
 To narrow the log to the part of the tool you are chasing — the requests, one enrichment step, the caches — see
 [what the log says](#what-the-log-says-and-how-to-narrow-it) and its three worked recipes.
 
@@ -1041,7 +1077,9 @@ To narrow the log to the part of the tool you are chasing — the requests, one 
 | `PIXI_SBOM_KEV_URL` | Where `--kev` downloads CISA's Known Exploited Vulnerabilities catalog (default `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json`). |
 | `PIXI_SBOM_PYPI_URL` | Base of the PyPI JSON API queried by `--fetch-licenses` (default `https://pypi.org/pypi`); point it at a mirror such as devpi or Artifactory. |
 | `PIXI_SBOM_CACHE_DIR` | Where downloaded data (the PyPI mapping, PyPI metadata, extracted conda `info` directories, wheel `dist-info` files) is cached. Default: `pixi-sbom` inside the pixi cache directory (`PIXI_CACHE_DIR` / `RATTLER_CACHE_DIR`, else `~/.cache/rattler/cache`, `~/Library/Caches/rattler/cache`, `%LOCALAPPDATA%\rattler\cache`), so `pixi clean cache` removes it too. |
-| `HTTPS_PROXY` / `HTTP_PROXY` | Honored for every download. |
+| `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY` / `NO_PROXY` | Honored for every download, either case, including `socks5://` and `socks5h://` addresses. On Windows a proxy configured only in the system settings is used as well. |
+| `PIXI_SBOM_CA_BUNDLE` | A PEM bundle to verify TLS against instead of the operating system's trust store, the same as `--ca-bundle`. |
+| `SSL_CERT_FILE` | The same, used when neither `--ca-bundle` nor `PIXI_SBOM_CA_BUNDLE` is given — the variable the rest of the Python and conda world already sets in an image with a private CA. |
 | `SOURCE_DATE_EPOCH` | Pins the document timestamp (seconds since the Unix epoch). With it set, repeated runs over the same lockfile are byte-identical, which lets CI diff SBOMs between commits. See [output-format.md](output-format.md#reproducibility). |
 | `PIXI_SBOM_LOG_FORMAT` | `text` (the default) or `json`, the same as `--log-format`, for a CI job that cannot change the command line. A value that is neither is named in the log and the run continues as text. |
 | `RUST_LOG` | Log filter, overrides `-v`/`-q`, and takes per-module directives — see [what the log says](#what-the-log-says-and-how-to-narrow-it). |

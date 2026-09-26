@@ -184,6 +184,7 @@ mod tests {
                 http::Service::fixed("package archives", "each package's own download URL"),
             ],
             std::path::PathBuf::from("/nowhere"),
+            &http::TlsRoots::Platform,
         );
         configuration.offline = offline;
         configuration

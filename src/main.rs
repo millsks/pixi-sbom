@@ -129,11 +129,25 @@ fn main() -> Result<()> {
     // A scan reads its inputs per workspace, so there is no single one to read here.
     // Say what this run will talk to before it talks to anything: on another network, the
     // difference is almost always here. --doctor stops after saying it, and needs no input.
-    let network = network_configuration(&args, args.fetch_licenses || args.pypi_licenses);
+    // The trust anchors, before anything is fetched: a typo in --ca-bundle should name the
+    // file, not come back as a handshake failure ten seconds into the run.
+    let tls_roots = http::TlsRoots::from_env(args.ca_bundle.as_deref());
+    let mut unusable_bundle = http::init_tls(&tls_roots).err();
+    // --doctor exists to say what is wrong with the setup, so it reports an unusable bundle in
+    // the configuration block and exits non-zero rather than refusing to print anything.
+    if !args.doctor
+        && let Some(err) = unusable_bundle.take()
+    {
+        return Err(miette::Report::new(err));
+    }
+    let mut network = network_configuration(&args, args.fetch_licenses || args.pypi_licenses, &tls_roots);
+    if let Some(err) = &unusable_bundle {
+        network.tls_roots = format!("{} — unusable: {err}", tls_roots.describe());
+    }
     if args.doctor {
         let palette = style::Palette::new(args.color.enabled());
         let mut stdout = std::io::stdout().lock();
-        let healthy = run_doctor(&network, &palette, &mut stdout)?;
+        let healthy = run_doctor(&network, &palette, &mut stdout)? && unusable_bundle.is_none();
         stdout.flush().into_diagnostic()?;
         std::process::exit(if healthy { 0 } else { DOCTOR_EXIT_CODE });
     }
@@ -1184,7 +1198,7 @@ fn environment_banner() -> String {
         ),
         format!("pixi:     {pixi}"),
         format!("offline:  {}   proxy: {proxy}   no-proxy: {no_proxy}", http::offline()),
-        format!("TLS:      {}", http::TLS_ROOTS),
+        format!("TLS:      {}", http::TlsRoots::from_env(None).describe()),
         String::new(),
     ]
     .join("\n")
@@ -1192,11 +1206,12 @@ fn environment_banner() -> String {
 
 /// The optional behaviour compiled in. A missing one explains a failure that otherwise looks
 /// like a network problem: without `socks-proxy` an `ALL_PROXY=socks5://...` cannot work.
-const FEATURES: &str = concat!(
-    "rustls, gzip, platform-verifier",
-    ", socks-proxy: no",
-    ", win-system-proxy: no",
-);
+// Built only for Windows targets, where a proxy can be configured with no environment variable
+// at all, so the line says "n/a" rather than "no" everywhere else.
+#[cfg(windows)]
+const FEATURES: &str = "rustls, gzip, platform-verifier, socks-proxy, win-system-proxy";
+#[cfg(not(windows))]
+const FEATURES: &str = "rustls, gzip, platform-verifier, socks-proxy, win-system-proxy: n/a";
 
 /// Exit code for `--doctor` when an upstream could not be reached.
 const DOCTOR_EXIT_CODE: i32 = 1;
@@ -1312,7 +1327,7 @@ fn run_doctor(network: &http::Configuration, palette: &style::Palette, out: &mut
 
 /// The upstreams this run may use, given the flags, with their addresses resolved the way the
 /// code that calls them resolves them.
-fn network_configuration(args: &cli::Args, fetch_licenses: bool) -> http::Configuration {
+fn network_configuration(args: &cli::Args, fetch_licenses: bool, tls_roots: &http::TlsRoots) -> http::Configuration {
     let mut services = Vec::new();
     // Wheel metadata and release facts both come from the index.
     if fetch_licenses || args.report == Some(report::ReportKind::Outdated) {
@@ -1352,7 +1367,7 @@ fn network_configuration(args: &cli::Args, fetch_licenses: bool) -> http::Config
             "each package's own download URL",
         ));
     }
-    http::Configuration::resolve(services, mapping::cache_dir())
+    http::Configuration::resolve(services, mapping::cache_dir(), tls_roots)
 }
 
 /// One workspace to describe: its lockfile (or installed environment) and the documents that

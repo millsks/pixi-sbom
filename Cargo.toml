@@ -87,9 +87,19 @@ thiserror = "2.0.20"
 toml = "1.1.6"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
-ureq = { version = "3.4.2", default-features = false, features = ["rustls", "gzip", "platform-verifier"] }
+ureq = { version = "3.4.2", default-features = false, features = [
+  "rustls",
+  "gzip",
+  "platform-verifier",
+  "socks-proxy",
+] }
 uuid = { version = "1.26.1", features = ["v5"] }
 zstd = "0.14.0"
+
+# A proxy set only in the Windows settings, with no environment variable, is invisible without
+# this; it costs nothing on the other platforms because it is not built there.
+[target.'cfg(windows)'.dependencies]
+ureq = { version = "3.4.2", default-features = false, features = ["win-system-proxy"] }
 
 [dev-dependencies]
 assert_cmd = "2.2.2"

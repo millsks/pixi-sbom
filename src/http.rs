@@ -1,5 +1,7 @@
 //! The one HTTP client, used only by opt-in enrichment features.
 
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 /// Environment variable that forbids every network request: caches only.
@@ -27,11 +29,131 @@ fn offline_error() -> Box<ureq::Error> {
 /// How long a single request may take, all in.
 const TIMEOUT: Duration = Duration::from_secs(120);
 
-/// Build the agent: system certificate store, proxies from the environment, one timeout.
+/// A CA bundle in PEM form, in place of the operating system's trust store.
+pub const CA_BUNDLE_ENV: &str = "PIXI_SBOM_CA_BUNDLE";
+
+/// What the rest of the Python and conda world calls the same file.
+pub const SSL_CERT_FILE_ENV: &str = "SSL_CERT_FILE";
+
+/// Where the TLS trust anchors come from, and what said so.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum TlsRoots {
+    /// The operating system's trust store, through the platform verifier.
+    #[default]
+    Platform,
+    /// A PEM bundle, with the flag or variable that named it.
+    Bundle { path: PathBuf, source: &'static str },
+}
+
+impl TlsRoots {
+    /// `--ca-bundle`, else `PIXI_SBOM_CA_BUNDLE`, else `SSL_CERT_FILE` — which is what the rest
+    /// of the Python and conda world already sets in an image with a private CA — else the
+    /// platform's own store, which is right wherever the CA is installed system-wide.
+    pub fn resolve(flag: Option<&Path>, env: impl Fn(&str) -> Option<String>) -> Self {
+        if let Some(path) = flag {
+            return TlsRoots::Bundle {
+                path: path.to_path_buf(),
+                source: "--ca-bundle",
+            };
+        }
+        for name in [CA_BUNDLE_ENV, SSL_CERT_FILE_ENV] {
+            if let Some(value) = env(name).filter(|value| !value.trim().is_empty()) {
+                return TlsRoots::Bundle {
+                    path: PathBuf::from(value.trim()),
+                    source: name,
+                };
+            }
+        }
+        TlsRoots::Platform
+    }
+
+    /// The same, read from the process environment.
+    pub fn from_env(flag: Option<&Path>) -> Self {
+        Self::resolve(flag, |name| std::env::var(name).ok())
+    }
+
+    /// In words, for the configuration block, `--doctor` and `--version-details`.
+    pub fn describe(&self) -> String {
+        match self {
+            TlsRoots::Platform => TLS_ROOTS.to_string(),
+            TlsRoots::Bundle { path, source } => {
+                format!("the CA bundle at {} ({source})", path.display())
+            }
+        }
+    }
+}
+
+/// Why a CA bundle could not be used. Raised before the first request, so a typo in the path
+/// does not come back as a TLS handshake failure ten seconds later.
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+pub enum CaBundleError {
+    /// The file is not there, or cannot be read.
+    #[error("cannot read the CA bundle at {path}: {source}")]
+    #[diagnostic(
+        code(pixi_sbom::http::ca_bundle),
+        help("check the path given by {origin}; it must be a PEM file the process can read")
+    )]
+    Unreadable {
+        path: String,
+        origin: &'static str,
+        #[source]
+        source: std::io::Error,
+    },
+    /// The file was read but holds no certificate.
+    #[error("no certificate in the CA bundle at {path}")]
+    #[diagnostic(
+        code(pixi_sbom::http::ca_bundle),
+        help(
+            "the file given by {origin} must be PEM, with at least one -----BEGIN CERTIFICATE----- block; a DER file must be converted first (openssl x509 -inform der -in ca.der -out ca.pem)"
+        )
+    )]
+    Empty { path: String, origin: &'static str },
+}
+
+/// The trust anchors for this run, parsed once.
+static ROOTS: OnceLock<ureq::tls::RootCerts> = OnceLock::new();
+
+/// Read the bundle, if there is one, and keep its certificates for every later request. Called
+/// once, before anything is fetched, so the diagnostic names the file rather than the
+/// handshake. Later calls are ignored, which keeps the tests honest.
+pub fn init_tls(roots: &TlsRoots) -> Result<(), CaBundleError> {
+    let TlsRoots::Bundle { path, source } = roots else {
+        return Ok(());
+    };
+    let pem = std::fs::read(path).map_err(|err| CaBundleError::Unreadable {
+        path: path.display().to_string(),
+        origin: source,
+        source: err,
+    })?;
+    let certificates: Vec<ureq::tls::Certificate<'static>> = ureq::tls::parse_pem(&pem)
+        .filter_map(|item| match item {
+            Ok(ureq::tls::PemItem::Certificate(certificate)) => Some(certificate),
+            // A bundle often carries a key beside the certificates, and an unreadable section
+            // is not worth refusing over as long as something usable is left.
+            _ => None,
+        })
+        .collect();
+    if certificates.is_empty() {
+        return Err(CaBundleError::Empty {
+            path: path.display().to_string(),
+            origin: source,
+        });
+    }
+    tracing::debug!(
+        path = %path.display(),
+        source = *source,
+        certificates = certificates.len(),
+        "using a CA bundle instead of the platform trust store"
+    );
+    let _ = ROOTS.set(ureq::tls::RootCerts::Specific(std::sync::Arc::new(certificates)));
+    Ok(())
+}
+
+/// Build the agent: the trust anchors this run resolved, proxies from the environment (and,
+/// on Windows, from the system settings), one timeout.
 fn agent() -> ureq::Agent {
-    let tls = ureq::tls::TlsConfig::builder()
-        .root_certs(ureq::tls::RootCerts::PlatformVerifier)
-        .build();
+    let roots = ROOTS.get().cloned().unwrap_or(ureq::tls::RootCerts::PlatformVerifier);
+    let tls = ureq::tls::TlsConfig::builder().root_certs(roots).build();
     ureq::Agent::config_builder()
         .tls_config(tls)
         .timeout_global(Some(TIMEOUT))
@@ -117,8 +239,8 @@ pub struct Configuration {
     /// The proxy variable in effect, as `VAR=value` with the password replaced.
     pub proxy: Option<String>,
     pub no_proxy: Option<String>,
-    /// Where the TLS trust anchors come from.
-    pub tls_roots: &'static str,
+    /// Where the TLS trust anchors come from, in words.
+    pub tls_roots: String,
     pub timeout: Duration,
     pub services: Vec<Service>,
     /// Where answers are cached, and whether the directory is there yet.
@@ -131,7 +253,7 @@ pub const TLS_ROOTS: &str = "the platform verifier (the operating system trust s
 
 impl Configuration {
     /// Read the environment for the services this run is going to use.
-    pub fn resolve(services: Vec<Service>, cache_dir: std::path::PathBuf) -> Self {
+    pub fn resolve(services: Vec<Service>, cache_dir: std::path::PathBuf, tls_roots: &TlsRoots) -> Self {
         Self {
             offline: offline(),
             proxy: proxy_for_logging(),
@@ -139,7 +261,7 @@ impl Configuration {
                 let value = std::env::var(name).ok()?;
                 (!value.trim().is_empty()).then(|| format!("{name}={}", value.trim()))
             }),
-            tls_roots: TLS_ROOTS,
+            tls_roots: tls_roots.describe(),
             timeout: TIMEOUT,
             cache_exists: cache_dir.is_dir(),
             cache_dir,
@@ -152,7 +274,7 @@ impl Configuration {
         tracing::info!(
             offline = self.offline,
             proxy = self.proxy.as_deref().unwrap_or("none"),
-            tls_roots = self.tls_roots,
+            tls_roots = self.tls_roots.as_str(),
             timeout_s = self.timeout.as_secs(),
             services = self.services.len(),
             "network configuration"
@@ -416,6 +538,112 @@ pub fn get_range(url: &str, start: u64, end: u64) -> Result<Vec<u8>, Box<ureq::E
 mod tests {
     use super::*;
 
+    /// A self-signed certificate, generated once for the tests; any valid PEM would do, the
+    /// point is that the parser finds a certificate in it.
+    const PEM: &str = "-----BEGIN CERTIFICATE-----\nMIIBITCByKADAgECAgEBMAoGCCqGSM49BAMCMA8xDTALBgNVBAMMBHRlc3QwHhcN\nMjUwMTAxMDAwMDAwWhcNMzUwMTAxMDAwMDAwWjAPMQ0wCwYDVQQDDAR0ZXN0MFkw\nEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEbBUiVPRBzQGDJkK6yUKOBxpTfTwCyMCK\nDK3MqzCdEr8ldRQKvJrdYVsSt/EQSjj4Kmrf6dxqUvTlcCKNTVDdT6MdMBswDAYD\nVR0TBAUwAwEB/zALBgNVHQ8EBAMCAQYwCgYIKoZIzj0EAwIDSAAwRQIhAOMrCPjR\nRG/UoyCkN0e+YX4WOr9mFFEUoqQe1YgjSNbGAiA9nRZbTSsvF3+VZ8PnzWbTrLmb\nR0Ck3LEBELKDGvBsAg==\n-----END CERTIFICATE-----\n";
+
+    #[test]
+    fn the_trust_anchors_are_the_flag_then_the_two_variables_then_the_platform() {
+        let none = |_: &str| None;
+        assert_eq!(TlsRoots::resolve(None, none), TlsRoots::Platform);
+        assert_eq!(
+            TlsRoots::resolve(None, none).describe(),
+            "the platform verifier (the operating system trust store)"
+        );
+
+        let flag = TlsRoots::resolve(Some(Path::new("/etc/ssl/corp.pem")), |name| {
+            (name == CA_BUNDLE_ENV).then(|| "/ignored.pem".to_string())
+        });
+        assert_eq!(
+            flag,
+            TlsRoots::Bundle {
+                path: PathBuf::from("/etc/ssl/corp.pem"),
+                source: "--ca-bundle",
+            },
+            "the flag wins over the environment, as every other setting does"
+        );
+        assert_eq!(flag.describe(), "the CA bundle at /etc/ssl/corp.pem (--ca-bundle)");
+
+        // PIXI_SBOM_CA_BUNDLE first, then SSL_CERT_FILE, which is what the rest of the Python
+        // and conda world already sets in an image with a private CA.
+        let both = |name: &str| match name {
+            CA_BUNDLE_ENV => Some(" /ours.pem ".to_string()),
+            SSL_CERT_FILE_ENV => Some("/theirs.pem".to_string()),
+            _ => None,
+        };
+        assert_eq!(
+            TlsRoots::resolve(None, both),
+            TlsRoots::Bundle {
+                path: PathBuf::from("/ours.pem"),
+                source: CA_BUNDLE_ENV,
+            },
+            "and the value is trimmed"
+        );
+        let theirs = TlsRoots::resolve(None, |name| {
+            (name == SSL_CERT_FILE_ENV).then(|| "/theirs.pem".to_string())
+        });
+        assert_eq!(theirs.describe(), "the CA bundle at /theirs.pem (SSL_CERT_FILE)");
+
+        // An empty variable is not a bundle.
+        assert_eq!(
+            TlsRoots::resolve(None, |name| (name == CA_BUNDLE_ENV).then(String::new)),
+            TlsRoots::Platform
+        );
+    }
+
+    #[test]
+    fn a_bundle_that_cannot_be_used_says_so_before_any_request() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let missing = TlsRoots::Bundle {
+            path: dir.path().join("nope.pem"),
+            source: "--ca-bundle",
+        };
+        let err = init_tls(&missing).expect_err("the file is not there");
+        assert!(matches!(err, CaBundleError::Unreadable { .. }), "{err}");
+        assert!(err.to_string().contains("nope.pem"), "{err}");
+
+        // A file that is not PEM, and a PEM file carrying no certificate, are both unusable —
+        // and both look like a TLS failure at the first request if nobody checks here.
+        let garbage = dir.path().join("cacert.der");
+        std::fs::write(&garbage, [0x30u8, 0x82, 0x01, 0x0a]).unwrap();
+        let err = init_tls(&TlsRoots::Bundle {
+            path: garbage,
+            source: SSL_CERT_FILE_ENV,
+        })
+        .expect_err("not PEM");
+        assert!(matches!(err, CaBundleError::Empty { .. }), "{err}");
+        assert!(err.to_string().contains("no certificate"), "{err}");
+
+        for err in [
+            CaBundleError::Unreadable {
+                path: "/etc/ssl/corp.pem".into(),
+                origin: "--ca-bundle",
+                source: std::io::Error::new(std::io::ErrorKind::NotFound, "no such file"),
+            },
+            CaBundleError::Empty {
+                path: "/etc/ssl/corp.pem".into(),
+                origin: CA_BUNDLE_ENV,
+            },
+        ] {
+            crate::assert_actionable(&err);
+        }
+
+        // A readable bundle with a certificate in it is accepted, and is what every later
+        // request verifies against.
+        let good = dir.path().join("corp.pem");
+        std::fs::write(&good, PEM).unwrap();
+        init_tls(&TlsRoots::Bundle {
+            path: good,
+            source: "--ca-bundle",
+        })
+        .expect("a PEM file with a certificate in it");
+        assert!(matches!(ROOTS.get(), Some(ureq::tls::RootCerts::Specific(_))));
+
+        // Nothing to do when the platform store is in play.
+        init_tls(&TlsRoots::Platform).expect("the default needs no file");
+    }
+
     /// An error with a cause behind it, the shape a TLS failure arrives in.
     #[derive(Debug)]
     struct Layered(&'static str, Option<Box<Layered>>);
@@ -483,7 +711,11 @@ mod tests {
     fn the_configuration_reports_what_the_run_will_do() {
         let dir = tempfile::tempdir().unwrap();
         let missing = dir.path().join("not-yet");
-        let config = Configuration::resolve(vec![Service::fixed("OSV", "https://api.osv.dev")], missing.clone());
+        let config = Configuration::resolve(
+            vec![Service::fixed("OSV", "https://api.osv.dev")],
+            missing.clone(),
+            &TlsRoots::Platform,
+        );
         assert_eq!(config.tls_roots, TLS_ROOTS);
         assert_eq!(config.timeout, TIMEOUT);
         assert_eq!(config.services.len(), 1);

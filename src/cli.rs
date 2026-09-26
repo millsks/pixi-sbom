@@ -590,6 +590,12 @@ pub struct Args {
     #[arg(long, value_name = "PATH", conflicts_with_all = ["all_environments", "all_platforms"])]
     pub against: Option<PathBuf>,
 
+    /// Verify TLS against the certificates in this PEM file instead of the operating system's
+    /// trust store — a TLS-intercepting appliance's CA, or a private one. Also
+    /// PIXI_SBOM_CA_BUNDLE, and SSL_CERT_FILE when neither is given.
+    #[arg(long, value_name = "FILE")]
+    pub ca_bundle: Option<PathBuf>,
+
     /// How to render the log on stderr: `text` for a person, `json` for a log collector (one
     /// JSON object per event, with the timestamp back and every field its own key). Also
     /// PIXI_SBOM_LOG_FORMAT. Distinct from --report-format, which is the report on stdout;

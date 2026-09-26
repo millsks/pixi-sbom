@@ -111,7 +111,11 @@ fn version_details_prints_what_a_bug_report_needs() {
     assert!(text.contains(env!("CARGO_PKG_VERSION")), "{text}");
     // The facts that decide answers: what is compiled in, where the caches are, how the
     // network is set up.
-    assert!(text.contains("socks-proxy: no"), "{text}");
+    assert!(text.contains("socks-proxy"), "{text}");
+    assert!(
+        !text.contains("socks-proxy: no"),
+        "this build can use a socks5:// proxy: {text}"
+    );
     assert!(text.contains("platform-verifier"), "{text}");
     assert!(text.contains("caches:"), "{text}");
     assert!(text.contains("offline:  true"), "{text}");
@@ -5076,4 +5080,69 @@ fn the_log_can_be_json_for_a_collector_instead_of_prose_for_a_person() {
         serde_json::from_str::<Value>(log.lines().next().unwrap_or("")).is_err(),
         "{log}"
     );
+}
+
+#[test]
+fn a_private_ca_bundle_is_checked_before_the_first_request() {
+    let dir = workspace("with-pypi");
+
+    // A path that is not there names the file and the flag that gave it, rather than coming
+    // back as a handshake failure once the run is well under way.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args([
+            "-p",
+            "linux-64",
+            "--ca-bundle",
+            "no-such-ca.pem",
+            "--fetch-licenses",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot read the CA bundle"))
+        .stderr(predicate::str::contains("no-such-ca.pem"))
+        .stderr(predicate::str::contains("pixi_sbom::http::ca_bundle"));
+
+    // A file that is not a certificate is the other half of the same mistake: DER instead of
+    // PEM, or a pasted fragment.
+    let der = dir.path().join("cacert.der");
+    std::fs::write(&der, [0x30u8, 0x82, 0x01, 0x0a]).unwrap();
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--output", "-"])
+        .env("PIXI_SBOM_CA_BUNDLE", &der)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("no certificate in the CA bundle"))
+        .stderr(predicate::str::contains("openssl x509 -inform der"));
+
+    // And the configuration block says which roots are in play, so --doctor answers "is it my
+    // CA?" without anyone reading the source.
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .env("SSL_CERT_FILE", "/etc/ssl/corp.pem")
+        .args(["--doctor", "--color", "never"])
+        .assert();
+    let assert = assert.code(1);
+    let text = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    assert!(
+        text.contains("TLS roots  the CA bundle at /etc/ssl/corp.pem (SSL_CERT_FILE)"),
+        "{text}"
+    );
+    // The bundle named there does not exist on the test machine, and --doctor is the one
+    // command that reports that instead of refusing to run.
+    assert!(text.contains("unusable: cannot read the CA bundle"), "{text}");
+
+    // Without any of the three, the platform store is used and said so.
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .env_remove("SSL_CERT_FILE")
+        .args(["--doctor", "--color", "never"])
+        .assert();
+    let text = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    assert!(text.contains("TLS roots  the platform verifier"), "{text}");
 }
