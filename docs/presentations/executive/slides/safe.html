@@ -1,0 +1,34 @@
+<section id="safe" data-transition="fade" style="background:#F7F8F6; color:#10212B; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:44px">
+<h2 style="font-size:72px; font-weight:600; line-height:1.1">What if this turns out to be wrong?</h2>
+<div style="display:flex; gap:32px">
+<div style="flex:1; display:flex; flex-direction:column; gap:24px">
+<div style="display:flex; gap:18px; align-items:start">
+<x-icon name="Verified" style="width:42px; height:42px; color:#1F7A6C"></x-icon>
+<p style="font-size:33px; line-height:1.35; color:#10212B">No contract, no subscription, no vendor who can raise the price or be acquired</p>
+</div>
+<div style="display:flex; gap:18px; align-items:start">
+<x-icon name="Code" style="width:42px; height:42px; color:#1F7A6C"></x-icon>
+<p style="font-size:33px; line-height:1.35; color:#10212B">Open source under Apache-2.0, so the code stays available to us whatever happens to it</p>
+</div>
+<div style="display:flex; gap:18px; align-items:start">
+<x-icon name="Book" style="width:42px; height:42px; color:#1F7A6C"></x-icon>
+<p style="font-size:33px; line-height:1.35; color:#10212B">Output is CycloneDX and SPDX, the two industry standards — no lock-in to switch away from</p>
+</div>
+</div>
+<div style="flex:1; display:flex; flex-direction:column; gap:24px">
+<div style="display:flex; gap:18px; align-items:start">
+<x-icon name="Chart" style="width:42px; height:42px; color:#1F7A6C"></x-icon>
+<p style="font-size:33px; line-height:1.35; color:#10212B">Released, versioned and tested on every platform we build on</p>
+</div>
+<div style="display:flex; gap:18px; align-items:start">
+<x-icon name="Users" style="width:42px; height:42px; color:#1F7A6C"></x-icon>
+<p style="font-size:33px; line-height:1.35; color:#10212B">Maintained by [name] here; small enough that someone else could take it over</p>
+</div>
+<div style="display:flex; gap:18px; align-items:start">
+<x-icon name="Warning" style="width:42px; height:42px; color:#1F7A6C"></x-icon>
+<p style="font-size:33px; line-height:1.35; color:#10212B">Worst case: we stop running it and delete one step from one pipeline</p>
+</div>
+</div>
+</div>
+<aside>The last line is the one to land on. The downside of this decision is genuinely one deleted CI step, and saying so plainly is more persuasive than any benefit on the earlier slides. Be honest about the bus factor if we are the maintainer — name who it is and say the codebase is small and documented. If the room would rather depend on a vendor, that is a reasonable instinct and worth hearing; the answer is that the output format is standard, so moving later costs us nothing we would not pay anyway.</aside>
+</section>

@@ -1,0 +1,48 @@
+{
+  "v": 4,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-09-26T20:00:00Z"
+  },
+  "title": "pixi-sbom: The Executive Case",
+  "order": [
+    "cover",
+    "decision",
+    "today",
+    "cost",
+    "buy",
+    "changes",
+    "claims",
+    "safe",
+    "close"
+  ],
+  "sections": {
+    "s1": {
+      "description": "The decision being requested, stated before anything else",
+      "start": "cover"
+    },
+    "s2": {
+      "description": "What we cannot answer today and what that costs us",
+      "start": "today"
+    },
+    "s3": {
+      "description": "Why buying does not solve it, and what changes if we do this",
+      "start": "buy"
+    },
+    "s4": {
+      "description": "The limits of the claim, the risk of saying yes, and the next step",
+      "start": "claims"
+    }
+  },
+  "faces": {
+    "ibm-plex-sans": {
+      "family": "IBM Plex Sans",
+      "href": "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+    },
+    "jetbrains-mono": {
+      "family": "JetBrains Mono",
+      "href": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap"
+    }
+  },
+  "designSystems": []
+}

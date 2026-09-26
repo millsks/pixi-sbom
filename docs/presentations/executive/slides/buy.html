@@ -1,0 +1,16 @@
+<section id="buy" data-transition="fade" style="background:#F7F8F6; color:#10212B; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:44px">
+<h2 style="font-size:72px; font-weight:600; line-height:1.1">Why we can't simply buy this</h2>
+<p style="font-size:38px; line-height:1.4; color:#4A5568; width:1620px">The tools on the market were built for the ecosystems most companies use. We build on conda packages and Python wheels together, and that combination is the part they handle badly.</p>
+<div style="display:flex; gap:32px; align-items:stretch">
+<div style="flex:1; background:#FFFFFF; border:1px solid #DFE3DE; border-left:8px solid #C2571A; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:12px">
+<h3 style="font-size:34px; font-weight:600">A bought tool reports</h3>
+<p style="font-size:32px; line-height:1.4; color:#4A5568">A clean inventory, missing a large share of what we actually install — with no error to tell us.</p>
+</div>
+<div style="flex:1; background:#10212B; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:12px">
+<h3 style="font-size:34px; font-weight:600; color:#6FBFAE">Which is the dangerous case</h3>
+<p style="font-size:32px; line-height:1.4; color:#B5C4CA">An incomplete list we trust is worse than no list. We'd answer the customer, and be wrong.</p>
+</div>
+</div>
+<p style="font-size:32px; line-height:1.4; color:#10212B; width:1620px">The tool we'd use instead is already built, already runs against our lockfiles, and costs nothing.</p>
+<aside>This is the build-versus-buy slide and it is where a CFO or CTO will push. Two points to hold. First, the gap is silent: a tool that does not understand conda packages reports success, not failure, so we would not discover the hole until someone checked our answer. Second, we are not proposing to build anything — the thing exists and runs today. If they ask whether a vendor will close the gap eventually, say probably, and that we can switch when they do; the output is a standard format, so nothing here locks us in.</aside>
+</section>

@@ -1,0 +1,25 @@
+<section id="gap" data-transition="fade" style="background:#F7F8F6; color:#10212B; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:44px">
+<h2 style="font-size:72px; font-weight:600; line-height:1.1">Why the tools already out there don't fit</h2>
+<p style="font-size:36px; line-height:1.4; color:#4A5568; width:1620px">Most SBOM tooling was built for pip, npm and Maven. A pixi environment is conda packages <b>and</b> PyPI wheels, resolved together into one lockfile.</p>
+<div style="display:flex; gap:32px">
+<div style="flex:1; background:#FFFFFF; border:1px solid #DFE3DE; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:14px">
+<h3 style="font-size:34px; font-weight:600; color:#C2571A">What a generic tool sees</h3>
+<ul style="font-size:30px; line-height:1.5; color:#4A5568">
+<li>The wheels it recognizes</li>
+<li>Conda packages as unknown, or missed entirely</li>
+<li>No channel, build string or subdir</li>
+<li>An inventory that looks complete and isn't</li>
+</ul>
+</div>
+<div style="flex:1; background:#10212B; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:14px">
+<h3 style="font-size:34px; font-weight:600; color:#6FBFAE">What pixi-sbom sees</h3>
+<ul style="font-size:30px; line-height:1.5; color:#B5C4CA">
+<li>Every locked package, both kinds</li>
+<li>Channel, build, subdir and hashes</li>
+<li>PyPI identity matched onto conda packages</li>
+<li>The dependency graph the resolver picked</li>
+</ul>
+</div>
+</div>
+<aside>This is the answer to "why not just use what we already have". An incomplete SBOM is worse than no SBOM, because people trust it. If a scanner never sees the conda half of an environment, it comes back clean and the gap is invisible to everyone. Worth a sentence on the identity point: the conda build of numpy and the PyPI numpy are the same project, and matching them up is what lets a vulnerability database answer at all. Don't name competing products unless someone else does; this is about package ecosystems, not vendors.</aside>
+</section>
