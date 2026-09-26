@@ -128,11 +128,30 @@ allocator. Measured on an Apple M4:
 `panic = "abort"` drops the unwinding tables, which is 17% of the binary and costs nothing at run time: a panic
 in a command-line tool ends the process either way, only now without unwinding first.
 
-mimalloc pays 0.16 MB for a quarter off the run and a fifth off the peak, because a document is made of many
-small allocations and the system allocator on macOS is not fast at those. It is installed in the **binary**, not
-the library, so nothing that links `pixi_sbom` has an allocator forced on it — which also means the criterion
-benchmarks above, which link the library, measure the system allocator. The shipped binary is faster than they
-say.
+mimalloc is installed in the **binary**, not the library, so nothing that links `pixi_sbom` has an allocator
+forced on it — which also means the criterion benchmarks above, which link the library, measure the system
+allocator. The shipped binary is faster than they say.
+
+**What it costs, per platform.** The Performance workflow measured mimalloc on its own, comparing the commit
+that added it against its parent on each runner:
+
+| Platform | binary | wall time | peak memory |
+|---|---:|---:|---:|
+| osx-arm64 | −15.6% | faster | **−7% to −20%** |
+| osx-64 | −11.0% | faster | +1% to +11% |
+| linux-64 | −9.6% | −25% to −27% | **+34% to +44%** |
+| linux-aarch64 | −9.8% | −30% to −35% | **+34% to +45%** |
+| win-64 | −29.6% | faster | **+35% to +40%** |
+
+On macOS it is a straight win. On Linux and Windows it is a **deliberate trade**: a quarter to a third off the
+run, for a third to a half more peak memory — 95 MiB to 128 MiB on a 10000-package lockfile. That is the choice
+this project has made, not a regression that slipped through. If peak memory matters more than wall time where
+you run this, the escape hatch is to build without the allocator; there is no flag for it today, so say so in an
+issue and there will be.
+
+It also means the memory win from writing documents straight out (above) is partly spent again on those
+platforms: the two changes pull in opposite directions and roughly cancel for the document writers, while the
+report path, which still builds a `serde_json::Value`, shows the allocator's cost in full.
 
 `opt-level = "s"` was measured and **not** taken: 6.11 MB, 18% smaller again, but about 10% slower on the path
 that dominates a run. Startup is 2.6 ms and none of these moved it.
@@ -157,12 +176,26 @@ deal.
 
 | Metric | How steady | What the workflow does |
 |---|---|---|
-| Binary size | byte-exact | fails the job at +5% |
-| Peak memory | a few percent | fails the job at +15% |
+| Binary size | byte-exact | fails at +5% **and** more than 256 KiB |
+| Peak memory | a few percent within one allocator | fails at +60% **and** more than 8 MiB |
 | Wall time | tens of percent on a shared runner | reported in the job summary, never fails |
+
+A gate needs both a share and an amount. A share on its own fails a build over mimalloc reserving an arena in a
+2.5 MiB startup footprint — 15.2%, and 0.38 MiB, which is nobody's problem. An amount on its own misses a small
+scenario doubling. `pixi run perf-test` covers what the comparison does with a given pair of numbers, and CI runs
+it, because this gate decides whether a build fails.
+
+The memory limit is 60% rather than something tighter because a change of allocator moves peak memory by tens of
+percent, and the 0.9.5 → 0.10.0 comparison spans exactly that (up to +45.4%, deliberately — see above). Within
+one allocator the real numbers are single digits, so once 0.10.0 is the baseline every comparison starts from,
+this should come back towards 15%; it costs nothing then and catches much more.
 
 Peak memory is the child process's own high-water mark: `wait4` on Linux and macOS,
 `GetProcessMemoryInfo` on the handle of the finished child on Windows. Not a poller, which would miss the peak.
+The child is started with `posix_spawn` rather than a fork, because a forked child inherits the parent's page
+tables and Linux counts those pages against it — which reported the measuring script's own footprint as the
+binary's peak for every scenario smaller than it. The script records its own resident size beside the results so
+that mistake is visible if it ever comes back.
 
 It runs on demand (`workflow_dispatch`, with an optional base ref), weekly, and on pushes to `main` that touch
 the source, comparing against the latest release tag. It deliberately does **not** run on pull requests: each

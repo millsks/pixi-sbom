@@ -70,6 +70,10 @@ jobs:
           cache: true
       - name: cargo bench --test
         run: pixi run bench-test
+      # The performance gate decides whether a build fails, so what it does with a given pair
+      # of numbers is checked here rather than discovered on a red run.
+      - name: The performance gate's own tests
+        run: pixi run perf-test
 
   build:
     name: Build (${{ matrix.os }})

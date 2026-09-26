@@ -121,24 +121,32 @@ def _peak_rss_windows(process: subprocess.Popen[bytes]) -> int:
     return int(counters.PeakWorkingSetSize)
 
 
-def run_once(command: list[str], cwd: Path) -> tuple[float, int]:
+def run_once(command: list[str]) -> tuple[float, int]:
     """Run `command` to completion; return its wall time in seconds and peak RSS in bytes."""
     started = time.perf_counter()
-    process = subprocess.Popen(  # noqa: S603 - the command is built here, not taken from input
-        command,
-        cwd=cwd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
     if os.name == "nt":
+        process = subprocess.Popen(  # noqa: S603 - built here, not taken from input
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         code = process.wait()
         elapsed = time.perf_counter() - started
         peak = _peak_rss_windows(process)
     else:
+        # posix_spawn rather than subprocess, which forks: a forked child inherits the
+        # parent's page tables, and Linux counts those pages in the child's peak RSS. That
+        # reported this script's own footprint (~36 MiB of Python) as the binary's peak,
+        # identically, for every scenario smaller than it.
+        quiet = [
+            (os.POSIX_SPAWN_OPEN, 1, os.devnull, os.O_WRONLY, 0o666),
+            (os.POSIX_SPAWN_OPEN, 2, os.devnull, os.O_WRONLY, 0o666),
+        ]
+        pid = os.posix_spawn(command[0], command, os.environ, file_actions=quiet)
         # wait4 gives this child's own usage; getrusage(RUSAGE_CHILDREN) would give the
         # high-water mark across every child so far, which grows monotonically over a run and
         # would report the largest scenario's peak for all of them.
-        _, status, usage = os.wait4(process.pid, 0)
+        _, status, usage = os.wait4(pid, 0)
         elapsed = time.perf_counter() - started
         code = os.waitstatus_to_exitcode(status)
         # ru_maxrss is kilobytes on Linux and bytes on macOS.
@@ -146,6 +154,20 @@ def run_once(command: list[str], cwd: Path) -> tuple[float, int]:
     if code != 0:
         raise SystemExit(f"{' '.join(command)} exited {code}")
     return elapsed, peak
+
+
+def _own_rss_bytes() -> int:
+    """This script's own resident size, kept beside the results as a contamination check.
+
+    Zero on Windows, which starts processes without forking and so cannot lend its own pages
+    to the thing it is measuring.
+    """
+    if os.name == "nt":
+        return 0
+    import resource
+
+    usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return usage if sys.platform == "darwin" else usage * 1024
 
 
 def measure(binary: Path, workdir: Path) -> dict[str, object]:
@@ -177,7 +199,7 @@ def measure(binary: Path, workdir: Path) -> dict[str, object]:
         times: list[float] = []
         peaks: list[int] = []
         for _ in range(RUNS):
-            elapsed, peak = run_once(command, workdir)
+            elapsed, peak = run_once(command)
             times.append(elapsed)
             peaks.append(peak)
         results[name] = {
@@ -190,6 +212,8 @@ def measure(binary: Path, workdir: Path) -> dict[str, object]:
 
     return {
         "binary_bytes": binary.stat().st_size,
+        # If a scenario's peak ever equals this, the measurement is reporting the measurer.
+        "measurer_rss_bytes": _own_rss_bytes(),
         "platform": f"{platform.system()}-{platform.machine()}",
         "runs": RUNS,
         "scenarios": results,
@@ -202,6 +226,28 @@ def _percent(base: float, head: float) -> float:
 
 def _mib(value: float) -> str:
     return f"{value / 1048576:.2f} MiB"
+
+
+# A growth has to be both a large enough share and a large enough amount to count. A
+# percentage on its own fails a build over mimalloc's arena appearing in a 2.5 MiB startup
+# footprint, which is 0.38 MiB and nobody's problem; an amount on its own ignores a small
+# scenario doubling. Both, and the gate only fires on something worth looking at.
+MEMORY_FLOOR_BYTES = 8 * 1024 * 1024
+SIZE_FLOOR_BYTES = 256 * 1024
+
+# The binary is byte-exact, so a small share of it means something.
+SIZE_LIMIT_PERCENT = 5.0
+
+# Peak memory is steady within one allocator and moves by tens of percent across a change of
+# allocator. 0.9.5 to 0.10.0 is one such change: mimalloc took peak memory up by as much as
+# 45.4% on Linux, Windows and aarch64, deliberately, to buy 25-35% off the run, and
+# docs/benchmarks.md records the trade. A limit tight enough to catch that fails every
+# comparison spanning the change, so this one is set above it with room for a noisy runner,
+# and catches what nobody would choose: something approaching a doubling.
+#
+# Worth bringing back towards 15% once 0.10.0 is the baseline every comparison starts from.
+# Within one allocator the real numbers are single digits, so it costs nothing then.
+MEMORY_LIMIT_PERCENT = 60.0
 
 
 def compare(base: dict, head: dict, size_limit: float, memory_limit: float) -> tuple[list[str], list[str]]:
@@ -220,8 +266,11 @@ def compare(base: dict, head: dict, size_limit: float, memory_limit: float) -> t
     base_size, head_size = base["binary_bytes"], head["binary_bytes"]
     size_change = _percent(base_size, head_size)
     lines.append(f"| binary | {_mib(base_size)} | {_mib(head_size)} | {size_change:+.2f}% |")
-    if size_change > size_limit:
-        failures.append(f"the binary grew {size_change:+.2f}%, over the {size_limit:.0f}% allowed")
+    if size_change > size_limit and head_size - base_size > SIZE_FLOOR_BYTES:
+        failures.append(
+            f"the binary grew {size_change:+.2f}% ({_mib(head_size - base_size)}), "
+            f"over the {size_limit:.0f}% allowed"
+        )
 
     for name, head_result in head["scenarios"].items():
         base_result = base["scenarios"].get(name)
@@ -238,15 +287,19 @@ def compare(base: dict, head: dict, size_limit: float, memory_limit: float) -> t
             f"| {name} peak | {_mib(base_result['peak_rss_bytes'])} | "
             f"{_mib(head_result['peak_rss_bytes'])} | {memory_change:+.1f}% |"
         )
-        if memory_change > memory_limit:
+        grew_by = head_result["peak_rss_bytes"] - base_result["peak_rss_bytes"]
+        if memory_change > memory_limit and grew_by > MEMORY_FLOOR_BYTES:
             failures.append(
-                f"{name} peak memory grew {memory_change:+.1f}%, over the {memory_limit:.0f}% allowed"
+                f"{name} peak memory grew {memory_change:+.1f}% ({_mib(grew_by)}), "
+                f"over the {memory_limit:.0f}% allowed"
             )
 
     lines += [
         "",
-        f"Gated: binary size (±{size_limit:.0f}%) and peak memory (±{memory_limit:.0f}%), both steady enough to",
-        "mean something. Wall time is reported and never fails the job.",
+        f"Gated: binary size (+{size_limit:.0f}% and more than {_mib(SIZE_FLOOR_BYTES)}) and peak memory",
+        f"(+{memory_limit:.0f}% and more than {_mib(MEMORY_FLOOR_BYTES)}), both steady enough to mean something.",
+        "A share alone would fail over a fraction of a megabyte on a small baseline; an amount alone would miss a",
+        "small scenario doubling. Wall time is reported and never fails the job.",
     ]
     return lines, failures
 
@@ -257,8 +310,8 @@ def main() -> int:
     parser.add_argument("--out", type=Path, help="where to write the measurements as JSON")
     parser.add_argument("--compare", nargs=2, type=Path, metavar=("BASE", "HEAD"), help="two measurement files")
     parser.add_argument("--summary", type=Path, help="append the markdown report here as well as to stdout")
-    parser.add_argument("--size-limit", type=float, default=5.0, help="percent the binary may grow")
-    parser.add_argument("--memory-limit", type=float, default=15.0, help="percent peak memory may grow")
+    parser.add_argument("--size-limit", type=float, default=SIZE_LIMIT_PERCENT, help="percent the binary may grow")
+    parser.add_argument("--memory-limit", type=float, default=MEMORY_LIMIT_PERCENT, help="percent peak memory may grow")
     args = parser.parse_args()
 
     if args.compare:

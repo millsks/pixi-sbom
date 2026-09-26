@@ -25,6 +25,7 @@ changelog = "git-cliff --config cliff.toml -o CHANGELOG.md"
 # What the binary costs to run, measured the same way on every platform a release is built
 # for. `--compare` diffs two of its JSON outputs and is what the Performance workflow gates on.
 perf = "python scripts/perf.py"
+perf-test = { cmd = "python -m unittest discover -s scripts -p 'test_*.py' -v", description = "the perf comparison's own tests" }
 bench = "cargo bench --benches"
 bench-test = "cargo bench --benches -- --test"
 
