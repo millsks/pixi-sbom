@@ -92,10 +92,6 @@ static POLICY: OnceLock<Policy> = OnceLock::new();
 /// What each cache did, so the run can say where its answers came from.
 static COUNTS: OnceLock<Mutex<BTreeMap<Service, Counts>>> = OnceLock::new();
 
-/// Caches that served an answer past its lifetime because the fetch failed, with the age of
-/// the oldest such answer.
-static STALE: OnceLock<Mutex<BTreeMap<Service, Duration>>> = OnceLock::new();
-
 /// One service's tally.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Counts {
@@ -121,10 +117,6 @@ fn policy() -> &'static Policy {
 
 fn counts() -> &'static Mutex<BTreeMap<Service, Counts>> {
     COUNTS.get_or_init(|| Mutex::new(BTreeMap::new()))
-}
-
-fn stale_counts() -> &'static Mutex<BTreeMap<Service, Duration>> {
-    STALE.get_or_init(|| Mutex::new(BTreeMap::new()))
 }
 
 /// Whether a cached answer may be used for `service`.
@@ -169,26 +161,13 @@ pub fn miss(service: Service) {
     }
 }
 
-/// Note that a copy older than its lifetime stood in because the fetch failed. What the
-/// document then says came from `age` ago, which is the part a reader months later needs.
-pub fn stale(service: Service, age: Duration) {
-    if let Ok(mut stale) = stale_counts().lock() {
-        let entry = stale.entry(service).or_default();
-        *entry = (*entry).max(age);
-    }
-}
-
-/// One line per cache that served data past its lifetime, as `kev: 9 days old`, sorted.
-pub fn stale_services() -> Vec<String> {
-    stale_counts()
-        .lock()
-        .map(|stale| {
-            stale
-                .iter()
-                .map(|(service, age)| format!("{}: {} old", service.name(), how_old(*age)))
-                .collect()
-        })
-        .unwrap_or_default()
+/// The same thing as [`stale_services`], said the way the document says it: `kev: 9 days
+/// old`, one line per cache, sorted by service.
+pub fn stale_lines() -> Vec<String> {
+    stale_services()
+        .into_iter()
+        .map(|(service, age)| format!("{}: {} old", service.name(), how_old(age)))
+        .collect()
 }
 
 /// An age as a reader says it: `9 days`, `3 hours`, `12 minutes`.
@@ -243,14 +222,14 @@ mod tests {
     #[test]
     fn a_stale_cache_is_reported_with_the_age_of_the_oldest_copy_served() {
         assert!(
-            stale_services().iter().all(|line| !line.starts_with("scorecard")),
+            stale_lines().iter().all(|line| !line.starts_with("scorecard")),
             "nothing has gone stale yet"
         );
         stale(Service::Scorecard, Duration::from_secs(3 * 86_400));
         // The oldest copy served is what the document should say.
         stale(Service::Scorecard, Duration::from_secs(9 * 86_400));
         stale(Service::Scorecard, Duration::from_secs(86_400));
-        let lines = stale_services();
+        let lines = stale_lines();
         assert!(
             lines.contains(&"scorecard: 9 days old".to_string()),
             "expected the oldest age, got {lines:?}"
