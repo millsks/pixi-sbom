@@ -1299,11 +1299,61 @@ allocator. Measured on an Apple M4:</p>
 </table>
 <p><code>panic = "abort"</code> drops the unwinding tables, which is 17% of the binary and costs nothing at run time: a panic
 in a command-line tool ends the process either way, only now without unwinding first.</p>
-<p>mimalloc pays 0.16 MB for a quarter off the run and a fifth off the peak, because a document is made of many
-small allocations and the system allocator on macOS is not fast at those. It is installed in the <strong>binary</strong>, not
-the library, so nothing that links <code>pixi_sbom</code> has an allocator forced on it — which also means the criterion
-benchmarks above, which link the library, measure the system allocator. The shipped binary is faster than they
-say.</p>
+<p>mimalloc is installed in the <strong>binary</strong>, not the library, so nothing that links <code>pixi_sbom</code> has an allocator
+forced on it — which also means the criterion benchmarks above, which link the library, measure the system
+allocator. The shipped binary is faster than they say.</p>
+<p><strong>What it costs, per platform.</strong> The Performance workflow measured mimalloc on its own, comparing the commit
+that added it against its parent on each runner:</p>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th style="text-align: right;">binary</th>
+<th style="text-align: right;">wall time</th>
+<th style="text-align: right;">peak memory</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>osx-arm64</td>
+<td style="text-align: right;">−15.6%</td>
+<td style="text-align: right;">faster</td>
+<td style="text-align: right;"><strong>−7% to −20%</strong></td>
+</tr>
+<tr>
+<td>osx-64</td>
+<td style="text-align: right;">−11.0%</td>
+<td style="text-align: right;">faster</td>
+<td style="text-align: right;">+1% to +11%</td>
+</tr>
+<tr>
+<td>linux-64</td>
+<td style="text-align: right;">−9.6%</td>
+<td style="text-align: right;">−25% to −27%</td>
+<td style="text-align: right;"><strong>+34% to +44%</strong></td>
+</tr>
+<tr>
+<td>linux-aarch64</td>
+<td style="text-align: right;">−9.8%</td>
+<td style="text-align: right;">−30% to −35%</td>
+<td style="text-align: right;"><strong>+34% to +45%</strong></td>
+</tr>
+<tr>
+<td>win-64</td>
+<td style="text-align: right;">−29.6%</td>
+<td style="text-align: right;">faster</td>
+<td style="text-align: right;"><strong>+35% to +40%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>On macOS it is a straight win. On Linux and Windows it is a <strong>deliberate trade</strong>: a quarter to a third off the
+run, for a third to a half more peak memory — 95 MiB to 128 MiB on a 10000-package lockfile. That is the choice
+this project has made, not a regression that slipped through. If peak memory matters more than wall time where
+you run this, the escape hatch is to build without the allocator; there is no flag for it today, so say so in an
+issue and there will be.</p>
+<p>It also means the memory win from writing documents straight out (above) is partly spent again on those
+platforms: the two changes pull in opposite directions and roughly cancel for the document writers, while the
+report path, which still builds a <code>serde_json::Value</code>, shows the allocator's cost in full.</p>
 <p><code>opt-level = "s"</code> was measured and <strong>not</strong> taken: 6.11 MB, 18% smaller again, but about 10% slower on the path
 that dominates a run. Startup is 2.6 ms and none of these moved it.</p>
 <p>What is not trimmable from here: <code>rattler_lock</code> depends on <code>rattler_solve</code> — a dependency solver a lockfile
@@ -1331,12 +1381,12 @@ deal.</p>
 <tr>
 <td>Binary size</td>
 <td>byte-exact</td>
-<td>fails the job at +5%</td>
+<td>fails at +5% <strong>and</strong> more than 256 KiB</td>
 </tr>
 <tr>
 <td>Peak memory</td>
-<td>a few percent</td>
-<td>fails the job at +15%</td>
+<td>a few percent within one allocator</td>
+<td>fails at +60% <strong>and</strong> more than 8 MiB</td>
 </tr>
 <tr>
 <td>Wall time</td>
@@ -1345,8 +1395,20 @@ deal.</p>
 </tr>
 </tbody>
 </table>
+<p>A gate needs both a share and an amount. A share on its own fails a build over mimalloc reserving an arena in a
+2.5 MiB startup footprint — 15.2%, and 0.38 MiB, which is nobody's problem. An amount on its own misses a small
+scenario doubling. <code>pixi run perf-test</code> covers what the comparison does with a given pair of numbers, and CI runs
+it, because this gate decides whether a build fails.</p>
+<p>The memory limit is 60% rather than something tighter because a change of allocator moves peak memory by tens of
+percent, and the 0.9.5 → 0.10.0 comparison spans exactly that (up to +45.4%, deliberately — see above). Within
+one allocator the real numbers are single digits, so once 0.10.0 is the baseline every comparison starts from,
+this should come back towards 15%; it costs nothing then and catches much more.</p>
 <p>Peak memory is the child process's own high-water mark: <code>wait4</code> on Linux and macOS,
-<code>GetProcessMemoryInfo</code> on the handle of the finished child on Windows. Not a poller, which would miss the peak.</p>
+<code>GetProcessMemoryInfo</code> on the handle of the finished child on Windows. Not a poller, which would miss the peak.
+The child is started with <code>posix_spawn</code> rather than a fork, because a forked child inherits the parent's page
+tables and Linux counts those pages against it — which reported the measuring script's own footprint as the
+binary's peak for every scenario smaller than it. The script records its own resident size beside the results so
+that mistake is visible if it ever comes back.</p>
 <p>It runs on demand (<code>workflow_dispatch</code>, with an optional base ref), weekly, and on pushes to <code>main</code> that touch
 the source, comparing against the latest release tag. It deliberately does <strong>not</strong> run on pull requests: each
 platform builds the binary twice with LTO. Run it by hand on the pull requests where performance is the point.</p>
