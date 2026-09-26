@@ -667,6 +667,25 @@ DEBUG pixi_sbom: workspace manifest path=/w/pixi.toml
   deliberately skipped.
 
 `--no-config` says so rather than saying nothing, and so does a directory with no configuration file in it.
+## What a run will talk to
+
+Before the first request, a run that uses the network says how it is set up and which upstreams the flags brought
+in — the one place two machines usually differ:
+
+```console
+$ pixi sbom --fetch-licenses --vulnerabilities osv --pypi-mapping prefix -v
+INFO  pixi_sbom::http: network configuration offline=false proxy="HTTPS_PROXY=http://user:***@proxy.corp:8080" tls_roots="the platform verifier (the operating system trust store)" timeout_s=120 services=4
+DEBUG pixi_sbom::http: upstream service="PyPI index" url=https://pypi.org/pypi source="default"
+DEBUG pixi_sbom::http: upstream service="conda-forge PyPI mapping" url=https://conda-mapping.prefix.dev/... source="default"
+DEBUG pixi_sbom::http: upstream service="OSV" url=https://osv.internal source="PIXI_SBOM_OSV_URL"
+DEBUG pixi_sbom::http: cache directory path=~/Library/Caches/rattler/cache/pixi-sbom exists=true
+```
+
+The summary line is at the default level; the per-service detail needs `-v`. Each upstream says **where its
+address came from** — a default, or the variable that changed it — so a mirror or a typo in
+`PIXI_SBOM_OSV_URL` is visible rather than inferred. The proxy is whichever of `ALL_PROXY`, `HTTPS_PROXY` and
+`HTTP_PROXY` ureq will use, named and with its password replaced; `NO_PROXY` is printed too when set. A run that
+touches no upstream prints none of this.
 
 ## When something comes back empty
 

@@ -24,6 +24,9 @@ fn offline_error() -> Box<ureq::Error> {
     )))
 }
 
+/// How long a single request may take, all in.
+const TIMEOUT: Duration = Duration::from_secs(120);
+
 /// Build the agent: system certificate store, proxies from the environment, one timeout.
 fn agent() -> ureq::Agent {
     let tls = ureq::tls::TlsConfig::builder()
@@ -31,7 +34,7 @@ fn agent() -> ureq::Agent {
         .build();
     ureq::Agent::config_builder()
         .tls_config(tls)
-        .timeout_global(Some(Duration::from_secs(120)))
+        .timeout_global(Some(TIMEOUT))
         .user_agent(concat!("pixi-sbom/", env!("CARGO_PKG_VERSION")))
         .build()
         .into()
@@ -67,6 +70,109 @@ pub fn redact(url: &str) -> String {
     match credentials.split_once(':') {
         Some((user, _)) => format!("{scheme}://{user}:***@{host}"),
         None => format!("{scheme}://{credentials}@{host}"),
+    }
+}
+
+/// One upstream a run may talk to, and where its address came from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Service {
+    /// What it is, in words: `PyPI index`, `OSV`, `CISA KEV`.
+    pub name: &'static str,
+    pub url: String,
+    /// The environment variable that set it, when one did.
+    pub from_env: Option<&'static str>,
+}
+
+impl Service {
+    /// A service whose address `env` may override.
+    pub fn new(name: &'static str, url: String, env: &'static str) -> Self {
+        let overridden = std::env::var(env).is_ok_and(|value| !value.trim().is_empty());
+        Self {
+            name,
+            url,
+            from_env: overridden.then_some(env),
+        }
+    }
+
+    /// A service with no override.
+    pub fn fixed(name: &'static str, url: impl Into<String>) -> Self {
+        Self {
+            name,
+            url: url.into(),
+            from_env: None,
+        }
+    }
+
+    /// Where the address came from, for the log and for `--doctor`.
+    pub fn source(&self) -> &str {
+        self.from_env.unwrap_or("default")
+    }
+}
+
+/// What this run will do on the network. Logged once before the first request, because a run
+/// that behaves differently on another machine usually differs here and nowhere else.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Configuration {
+    pub offline: bool,
+    /// The proxy variable in effect, as `VAR=value` with the password replaced.
+    pub proxy: Option<String>,
+    pub no_proxy: Option<String>,
+    /// Where the TLS trust anchors come from.
+    pub tls_roots: &'static str,
+    pub timeout: Duration,
+    pub services: Vec<Service>,
+    /// Where answers are cached, and whether the directory is there yet.
+    pub cache_dir: std::path::PathBuf,
+    pub cache_exists: bool,
+}
+
+/// How the trust anchors are chosen, in words.
+pub const TLS_ROOTS: &str = "the platform verifier (the operating system trust store)";
+
+impl Configuration {
+    /// Read the environment for the services this run is going to use.
+    pub fn resolve(services: Vec<Service>, cache_dir: std::path::PathBuf) -> Self {
+        Self {
+            offline: offline(),
+            proxy: proxy_for_logging(),
+            no_proxy: ["NO_PROXY", "no_proxy"].iter().find_map(|name| {
+                let value = std::env::var(name).ok()?;
+                (!value.trim().is_empty()).then(|| format!("{name}={}", value.trim()))
+            }),
+            tls_roots: TLS_ROOTS,
+            timeout: TIMEOUT,
+            cache_exists: cache_dir.is_dir(),
+            cache_dir,
+            services,
+        }
+    }
+
+    /// One INFO line, so an ordinary run says how it is set up, and the detail at debug.
+    pub fn log(&self) {
+        tracing::info!(
+            offline = self.offline,
+            proxy = self.proxy.as_deref().unwrap_or("none"),
+            tls_roots = self.tls_roots,
+            timeout_s = self.timeout.as_secs(),
+            services = self.services.len(),
+            "network configuration"
+        );
+        if let Some(no_proxy) = &self.no_proxy {
+            tracing::debug!(no_proxy, "proxy exceptions");
+        }
+        for service in &self.services {
+            tracing::debug!(
+                service = service.name,
+                url = %service.url,
+                source = service.source(),
+                "upstream"
+            );
+        }
+        tracing::debug!(
+            path = %self.cache_dir.display(),
+            exists = self.cache_exists,
+            "cache directory"
+        );
     }
 }
 
@@ -348,6 +454,44 @@ mod tests {
         assert_eq!(redact("http://user@proxy:8080"), "http://user@proxy:8080");
         assert_eq!(redact("http://proxy:8080"), "http://proxy:8080");
         assert_eq!(redact("proxy:8080"), "proxy:8080", "not a URL at all");
+    }
+
+    #[test]
+    fn a_service_says_whether_an_environment_variable_set_its_address() {
+        // Not set: the address is the default.
+        unsafe { std::env::remove_var("PIXI_SBOM_TEST_URL") };
+        let service = Service::new("OSV", "https://api.osv.dev".into(), "PIXI_SBOM_TEST_URL");
+        assert_eq!(service.source(), "default");
+        assert_eq!(service.from_env, None);
+
+        unsafe { std::env::set_var("PIXI_SBOM_TEST_URL", "https://mirror.internal") };
+        let service = Service::new("OSV", "https://mirror.internal".into(), "PIXI_SBOM_TEST_URL");
+        assert_eq!(service.source(), "PIXI_SBOM_TEST_URL");
+
+        // Set but empty is not set, the way every other variable here is read.
+        unsafe { std::env::set_var("PIXI_SBOM_TEST_URL", "  ") };
+        assert_eq!(
+            Service::new("OSV", "https://api.osv.dev".into(), "PIXI_SBOM_TEST_URL").source(),
+            "default"
+        );
+        unsafe { std::env::remove_var("PIXI_SBOM_TEST_URL") };
+
+        assert_eq!(Service::fixed("KEV", "https://example").source(), "default");
+    }
+
+    #[test]
+    fn the_configuration_reports_what_the_run_will_do() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("not-yet");
+        let config = Configuration::resolve(vec![Service::fixed("OSV", "https://api.osv.dev")], missing.clone());
+        assert_eq!(config.tls_roots, TLS_ROOTS);
+        assert_eq!(config.timeout, TIMEOUT);
+        assert_eq!(config.services.len(), 1);
+        assert!(!config.cache_exists, "the directory is not there yet");
+        assert_eq!(config.cache_dir, missing);
+        // Logging it is a side effect with no return; this is here so the format string is
+        // exercised and a broken field name cannot reach a release.
+        config.log();
     }
 
     #[test]

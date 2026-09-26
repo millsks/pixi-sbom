@@ -138,6 +138,12 @@ fn main() -> Result<()> {
     if args.pypi_licenses {
         tracing::warn!("--pypi-licenses is deprecated and now behaves as --fetch-licenses; use that instead");
     }
+    // Say what this run will talk to before it talks to anything: on another network, the
+    // difference is almost always here.
+    let network = network_configuration(&args, fetch_licenses);
+    if !network.services.is_empty() {
+        network.log();
+    }
     let previous = match &args.against {
         Some(path) => Some((path.clone(), diff::resolve_against(path)?)),
         None => None,
@@ -959,6 +965,49 @@ fn describe_input(args: &cli::Args, lockfile: &Path, cwd: &Path) {
             "no workspace manifest: the root component's dependencies are the graph-root heuristic"
         ),
     }
+/// The upstreams this run may use, given the flags, with their addresses resolved the way the
+/// code that calls them resolves them.
+fn network_configuration(args: &cli::Args, fetch_licenses: bool) -> http::Configuration {
+    let mut services = Vec::new();
+    // Wheel metadata and release facts both come from the index.
+    if fetch_licenses || args.report == Some(report::ReportKind::Outdated) {
+        services.push(http::Service::new("PyPI index", pypi::index_url(), pypi::INDEX_URL_ENV));
+    }
+    if args.pypi_mapping == cli::PypiMappingSource::Prefix {
+        services.push(http::Service::fixed(
+            "conda-forge PyPI mapping",
+            mapping::PREFIX_MAPPING_URL,
+        ));
+    }
+    if args.vulnerabilities.is_some() {
+        services.push(http::Service::new("OSV", osv::api_url(), osv::API_URL_ENV));
+    }
+    if args.kev {
+        services.push(http::Service::new("CISA KEV", kev::url(), kev::URL_ENV));
+    }
+    if args.report == Some(report::ReportKind::Outdated) {
+        services.push(http::Service::new(
+            "anaconda.org",
+            outdated::anaconda_url(),
+            outdated::ANACONDA_URL_ENV,
+        ));
+    }
+    if args.scorecard {
+        services.push(http::Service::new(
+            "OpenSSF Scorecard",
+            scorecard::url(),
+            scorecard::SCORECARD_URL_ENV,
+        ));
+    }
+    // Wheels and conda archives are fetched from wherever each package says it lives, so there
+    // is no one address to name; the requests themselves are logged.
+    if fetch_licenses || args.embedded_sboms {
+        services.push(http::Service::fixed(
+            "package archives",
+            "each package's own download URL",
+        ));
+    }
+    http::Configuration::resolve(services, mapping::cache_dir())
 }
 
 /// One workspace to describe: its lockfile (or installed environment) and the documents that
