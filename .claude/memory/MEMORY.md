@@ -1,0 +1,1 @@
+- [Force-push permission](force-push-permission.md) — own feature branches, and the stale-check trap behind it

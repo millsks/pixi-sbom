@@ -169,3 +169,30 @@ watcher parses it with awk; a squash merge leaves the local branch behind — st
 Follow-ups: the action dogfood job could exercise `scorecard`, `vex` and `diff-against`; the `--scan` gitignore
 question stays open; #96 (CEP 27 attestation verification), #97 (Homebrew tap), #98 (winget) and #132 (conda
 channel removals) remain unscheduled.
+
+## 0.9.5 (2026-09-25/26): diagnostics
+
+Twelve issues, all merged, milestone closed with 29 issues total. The theme came from a real symptom the user
+hit: the same command and the same lockfile return vulnerabilities at home and nothing on a private network,
+with no way to tell why.
+
+#148/#149 error chains and the network-configuration block (`src/http.rs`: `error_chain`, `redact`,
+`proxy_for_logging`, `Service`, `Configuration`), #150 `--doctor` (`src/doctor.rs`), #151 an empty report says
+whether anything could be asked, #154/#170 `--refresh` / `--no-cache` and the cache tally (`src/cache.rs`),
+#155 `--explain` input provenance, #156 every gate that fired is named, #158 `--timings` (`src/timings.rs`),
+#159 `--version-details` and the bug-report form, #160 `pixi:incomplete` / `pixi:incomplete-detail` /
+`pixi:stale-cache` in the document (`model::Incomplete`), #161 `--log-format json`, #162 the log-level and
+`RUST_LOG` documentation, #152 SOCKS + Windows system proxies and `--ca-bundle`.
+
+User decisions: the `socks` crate (via ureq's `socks-proxy`, plus `win-system-proxy` on Windows targets) was
+approved for #152. TLS anchors resolve `--ca-bundle` → `PIXI_SBOM_CA_BUNDLE` → `SSL_CERT_FILE` → platform
+verifier, and the user asked specifically that this order be in the documentation (it is, in `cli.md` and
+`troubleshooting.md`). Mid-milestone the user asked to **stop working issues in parallel worktrees** and go
+serial, because every parallel branch appends to the same three files (`tests/cli.rs`, `src/cli.rs`/`main.rs`,
+`docs/cli.md`) and each merge forces a rebase of the rest. Serial it is, unless they say otherwise.
+
+Lessons: `concat!` takes literals only, so a cfg-dependent constant needs two `#[cfg]` definitions; ureq 3 parses
+a PEM bundle with `ureq::tls::parse_pem` into `RootCerts::Specific`; a `ci` run chained after other commands
+reports the *last* command's exit code — capture the gate's own status. And the broken-main story in
+[[force-push-permission]]: a leftover background watcher merged a PR whose green checks had run against an older
+base.
