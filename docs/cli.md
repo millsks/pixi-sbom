@@ -875,7 +875,7 @@ DEBUG pixi_sbom: workspace manifest path=/w/pixi.toml
 
 ```console
 $ pixi sbom --version-details
-pixi-sbom 0.11.0 (aarch64 macos)
+pixi-sbom 1.0.0 (aarch64 macos)
 features: rustls, gzip, platform-verifier, socks-proxy, win-system-proxy: n/a
 caches:   /Users/u/Library/Caches/rattler/cache/pixi-sbom (exists)
 pixi:     pixi 0.81.0

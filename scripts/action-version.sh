@@ -2,7 +2,7 @@
 # Prints the pixi-sbom version the action should install, without the leading `v`.
 #
 #   INPUT_VERSION  the action's `version` input; wins when set
-#   ACTION_REF     github.action_ref: `v0.12.0` pins that release, `v0` the newest v0.x.y release,
+#   ACTION_REF     github.action_ref: `v1.0.0` pins that release, `v1` the newest v1.x.y release,
 #                  anything else (a branch, a sha, `./`) the newest release
 #   GH_TOKEN       optional, for the GitHub API rate limit
 #   RELEASES_API   overridable so the test can point it at a fixture

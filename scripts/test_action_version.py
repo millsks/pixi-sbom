@@ -53,6 +53,12 @@ class ActionVersionTest(unittest.TestCase):
         # Newest by version, not by list order, and never a pre-release or a v1.
         self.assertEqual(self.version(ACTION_REF="v0"), "0.12.0")
 
+    def test_the_next_major_tag_resolves_within_its_own_major(self) -> None:
+        # The case that matters once 1.0 ships: `@v1` must follow 1.x and not fall back to the
+        # newest release overall, which is how a v1 user would end up with a v2 binary behind v1's
+        # inputs. Nothing in the script is hardcoded to a major, and this is what says so.
+        self.assertEqual(self.version(ACTION_REF="v1"), "1.0.0")
+
     def test_branch_takes_latest(self) -> None:
         self.assertEqual(self.version(ACTION_REF="main"), "1.0.0")
 

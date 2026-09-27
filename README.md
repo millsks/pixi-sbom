@@ -4,12 +4,28 @@ A [pixi](https://pixi.sh) extension that generates a Software Bill of Materials 
 [CycloneDX](https://cyclonedx.org) 1.6 / 1.7 or [SPDX](https://spdx.dev) 2.3 / 3.0.1 JSON.
 
 [![CI](https://github.com/millsks/pixi-sbom/actions/workflows/ci.yml/badge.svg)](https://github.com/millsks/pixi-sbom/actions/workflows/ci.yml)
+[![conda-forge](https://img.shields.io/conda/vn/conda-forge/pixi-sbom?logo=conda-forge&color=brightgreen)](https://anaconda.org/conda-forge/pixi-sbom)
+[![crates.io](https://img.shields.io/crates/v/pixi-sbom?logo=rust&color=orange)](https://crates.io/crates/pixi-sbom)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-millsks.github.io%2Fpixi--sbom-teal.svg)](https://millsks.github.io/pixi-sbom/)
 
 Full documentation: **https://millsks.github.io/pixi-sbom/**
 What 1.0 freezes, and what it does not: **[stability.md](docs/stability.md)**
 Found a vulnerability? [SECURITY.md](SECURITY.md) says where to send it privately and what is in scope.
+
+## What it does
+
+| | |
+|---|---|
+| **Writes** | CycloneDX 1.6 / 1.7 and SPDX 2.3 / 3.0.1, validated against each spec's own schema in CI |
+| **Reads** | `pixi.lock` (formats 1–7), an installed conda prefix, a workspace tree, or another tool's SBOM (`--from-sbom`) |
+| **Covers** | conda and PyPI packages together, with purls a scanner can match, license expressions and texts, and the dependency graph |
+| **Finds** | vulnerabilities from OSV with CISA KEV flags, yanked releases, outdated packages, OpenSSF scorecards, undeclared imports |
+| **Gates** | a license policy, a severity threshold, a KEV hit, an SBOM diff — each its own exit code, document still written |
+| **Fits CI** | a GitHub Action, SARIF for code scanning, VEX output, JSON / CSV / Markdown reports, signed build provenance |
+
+What it is **not**: a scanner (it feeds one), a package manager, or a stable Rust library — the
+command line is the interface, and [what 1.0 freezes](docs/stability.md) says exactly which parts.
 
 ## Installation
 
@@ -203,7 +219,7 @@ One document describes one environment on one platform, which is what SBOM consu
 
 ## What goes in the SBOM
 
-| Lockfile data | CycloneDX 1.6 / 1.7 | SPDX 2.3 |
+| Lockfile data | CycloneDX 1.6 / 1.7 | SPDX 2.3 / 3.0.1 |
 |---|---|---|
 | Workspace name, version, license, homepage, repository (from `pixi.toml` / `pyproject.toml`) | `metadata.component` | root package, `DESCRIBES` relationship |
 | Workspace authors | `metadata.authors[]` | `creationInfo.creators[]` (`Person:`) |
@@ -214,12 +230,13 @@ One document describes one environment on one platform, which is what SBOM consu
 | Supplier (conda channel or PyPI index) | `supplier` | `supplier` (`Organization:`) |
 | Download URL | `externalReferences[distribution]` | `downloadLocation` |
 | SHA-256 / MD5 | `hashes[]` | `checksums[]` |
-| License (conda: from the lockfile; PyPI: with `--fetch-licenses`) | `licenses[].expression`, or `.license.name` for non-SPDX text |
-| License file names, summary, project URLs (`--fetch-licenses`); texts (`--license-texts`) | `pixi:license-file` properties, `description`, `externalReferences[]`; `licenses[].license.text` | `licenseComments`, `summary`, `homepage`; extracted licensing infos | `licenseDeclared`, with `LicenseRef-pixi-*` + `hasExtractedLicensingInfos` for non-SPDX text |
+| License (conda: from the lockfile; PyPI: with `--fetch-licenses`) | `licenses[].expression`, or `.license.name` for non-SPDX text | `licenseDeclared`, with `LicenseRef-pixi-*` + `hasExtractedLicensingInfos` for non-SPDX text |
+| License file names, summary, project URLs (`--fetch-licenses`); texts (`--license-texts`) | `pixi:license-file` properties, `description`, `externalReferences[]`; `licenses[].license.text` | `licenseComments`, `summary`, `homepage`; extracted licensing infos |
 | Channel, subdir, build string, build number, size, index URL, ... | `properties[]` (`pixi:*`) | package `comment` (`key=value` lines) |
 | Dependency graph (resolved within the environment) | `dependencies[]` | `DEPENDS_ON` relationships |
 | What the workspace declared itself, per feature (from the manifest's dependency tables) | `pixi:direct` / `pixi:declared-in` properties, and the root's `dependencies` | the same properties in `comment`, and the root's `DEPENDS_ON` |
 | Environment, platform, lockfile name | `metadata.properties[]` | root package `sourceInfo` |
+| Vulnerabilities (`--vulnerabilities osv`), KEV flags, accepted findings | `vulnerabilities[]` | 2.3: not recorded, and it says so. 3.0.1: `security_Vulnerability` elements with CVSS, KEV and VEX assessments |
 
 The documents cover every [CISA 2026 SBOM minimum element](https://www.cisa.gov/sbom) that a lockfile can support:
 author, timestamp, tool, generation context, and per component the name, version, supplier, purl, hashes, license and
@@ -236,7 +253,7 @@ as an artifact; no pixi setup needed:
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: millsks/pixi-sbom@v0
+- uses: millsks/pixi-sbom@v1
   with:
     all-environments: "true"
     fetch-licenses: "true"
@@ -258,6 +275,8 @@ Add `attest: "true"` (with `id-token: write` and `attestations: write`) to sign 
 | [CI recipes](https://millsks.github.io/pixi-sbom/latest/ci-recipes/) | Scanning with grype, license tables in PR comments, diffing SBOMs, air-gapped runners |
 | [Which format to pick](https://millsks.github.io/pixi-sbom/latest/formats/) | CycloneDX 1.6 / 1.7 against SPDX 2.3 / 3.0.1 |
 | [Output format reference](https://millsks.github.io/pixi-sbom/latest/output-format/) | Field-by-field reference for the CycloneDX and SPDX documents, purls, licenses, dependency graph |
+| [What 1.0 freezes](https://millsks.github.io/pixi-sbom/latest/stability/) | The semver contract: flags, config keys, exit codes, `pixi:*` names, the action's inputs — and what is deliberately not covered |
+| [Security policy](https://millsks.github.io/pixi-sbom/latest/security/) | Reporting a vulnerability privately, what is in scope, verifying a release |
 | [Architecture](https://millsks.github.io/pixi-sbom/latest/architecture/) | Pipeline, modules, and the design decisions behind them |
 | [Development](https://millsks.github.io/pixi-sbom/latest/development/) | Toolchain, tasks, the change harness, tests and fixtures, conventions, releasing |
 | [Changelog](https://millsks.github.io/pixi-sbom/latest/changelog/) | Every release's notes |

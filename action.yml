@@ -10,8 +10,8 @@ branding:
 inputs:
   version:
     description: >-
-      pixi-sbom version to run (e.g. 0.12.0). Defaults to the version the action was referenced
-      at: `@v0.12.0` runs 0.12.0, `@v0` the newest 0.x.y release, a branch the latest release.
+      pixi-sbom version to run (e.g. 1.0.0). Defaults to the version the action was referenced
+      at: `@v1.0.0` runs 1.0.0, `@v1` the newest 1.x.y release, a branch the latest release.
     required: false
     default: ""
   lockfile:

@@ -191,7 +191,18 @@ jobs:
       - name: Release notes (this version's changelog section)
         run: |
           set -euo pipefail
-          pixi run git-cliff --config cliff.toml --latest --strip header > RELEASE_NOTES.md
+          # An optional hand-written preamble, for a release where the list of commits is not the
+          # story: `docs/release-notes/v1.2.3.md`. git-cliff rewrites CHANGELOG.md wholesale from
+          # the commit log every release, so this is the one place a narrative survives.
+          preamble="docs/release-notes/${TAG}.md"
+          if [ -f "$preamble" ]; then
+            cat "$preamble" > RELEASE_NOTES.md
+            printf '\n---\n\n' >> RELEASE_NOTES.md
+            echo "prepended $preamble"
+          else
+            : > RELEASE_NOTES.md
+          fi
+          pixi run git-cliff --config cliff.toml --latest --strip header >> RELEASE_NOTES.md
           {
             echo
             echo "---"
