@@ -95,7 +95,21 @@ one. The numbers and what they say are in [benchmarks.md](benchmarks.md); CI run
 executes each benchmark once without timing it, since a shared runner's timings are noise.
 
 The benchmarks reach into the crate through the library target (`src/lib.rs`), which exists for them and for the
-tests. It is the binary's insides made reachable, not a designed API, and nothing in it promises to stay put.
+tests.
+
+**That library is published to crates.io and is deliberately not an API.** The binary depends on it, so it cannot
+be left out of the package; what it gets instead is every module marked `#[doc(hidden)]`, so nothing appears on
+docs.rs, plus a crate-level note saying that none of it is covered by semantic versioning. Modules may move, split
+or disappear in any release, patch releases included.
+
+An `internals` module that everything had to be reached through was tried and rejected: Rust will not re-export a
+private module, so doing it properly means declaring every module inside `internals` with `#[path]` and rewriting
+every `crate::…` reference in 36 files — a large mechanical change for a signal that `#[doc(hidden)]` and the
+crate docs already carry.
+
+The stable surface of this project is the command line, the exit codes, the configuration keys and the documents.
+If someone wants the model or the writers from their own program, the answer is to give them a real API with real
+guarantees, not to let them reach into this one.
 
 ### Snapshot tests (`insta`)
 

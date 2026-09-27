@@ -1,51 +1,99 @@
 //! `pixi-sbom`: CycloneDX and SPDX Software Bills of Materials built from a `pixi.lock`.
 //!
-//! The library exists so the benchmarks and the integration tests can reach the pieces the
-//! binary wires together — the lockfile reader, the model, the writers, the reports, the
-//! enrichment steps. It is the binary's insides rather than a designed API: the modules are
-//! public so they can be measured, and nothing here promises to stay put between releases.
+//! **This library is not an API.** It exists because the binary, the integration tests and the
+//! criterion benchmarks all need the same insides, and a benchmark is a separate crate that
+//! cannot see into a binary. Every module here is `#[doc(hidden)]` and none of it is covered by
+//! semantic versioning: modules move, split and disappear between releases, including patch
+//! releases, without that counting as a breaking change.
+//!
+//! The stable surface of this project is the command line, its exit codes, its configuration
+//! keys and the documents it writes. Those are in `docs/stability.md`. If you want the model
+//! or the writers from another program, say so in an issue and they can be given a real API
+//! with real guarantees; do not reach into this one and hope.
 
+#[doc(hidden)]
 pub mod auditable;
+#[doc(hidden)]
 pub mod batch;
+#[doc(hidden)]
 pub mod cache;
+#[doc(hidden)]
 pub mod cli;
+#[doc(hidden)]
 pub mod concurrency;
+#[doc(hidden)]
 pub mod condaarchive;
+#[doc(hidden)]
 pub mod config;
+#[doc(hidden)]
 pub mod cvss;
+#[doc(hidden)]
 pub mod diff;
+#[doc(hidden)]
 pub mod discover;
+#[doc(hidden)]
 pub mod doctor;
+#[doc(hidden)]
 pub mod embedded;
+#[doc(hidden)]
 pub mod explain;
+#[doc(hidden)]
 pub mod filter;
+#[doc(hidden)]
 pub mod format;
+#[doc(hidden)]
 pub mod fromsbom;
+#[doc(hidden)]
 pub mod http;
+#[doc(hidden)]
 pub mod imports;
+#[doc(hidden)]
 pub mod kev;
+#[doc(hidden)]
 pub mod license;
+#[doc(hidden)]
 pub mod lock;
+#[doc(hidden)]
 pub mod manifest;
+#[doc(hidden)]
 pub mod mapping;
+#[doc(hidden)]
 pub mod model;
+#[doc(hidden)]
 pub mod osv;
+#[doc(hidden)]
 pub mod outdated;
+#[doc(hidden)]
 pub mod phantom;
+#[doc(hidden)]
 pub mod pkgcache;
+#[doc(hidden)]
 pub mod policy;
+#[doc(hidden)]
 pub mod prefix;
+#[doc(hidden)]
 pub mod progress;
+#[doc(hidden)]
 pub mod purl;
+#[doc(hidden)]
 pub mod pypi;
+#[doc(hidden)]
 pub mod pyversion;
+#[doc(hidden)]
 pub mod report;
+#[doc(hidden)]
 pub mod scorecard;
+#[doc(hidden)]
 pub mod stdlib;
+#[doc(hidden)]
 pub mod style;
+#[doc(hidden)]
 pub mod timings;
+#[doc(hidden)]
 pub mod vulnpolicy;
+#[doc(hidden)]
 pub mod wheel;
+#[doc(hidden)]
 pub mod zipread;
 
 /// Assert that a diagnostic tells the user both what it is and what to do next.
