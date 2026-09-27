@@ -15,8 +15,17 @@ fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
 
+/// Read a repository file with line endings normalised. Git checks these out with CRLF on
+/// Windows, and every scan below anchors on `\n` — `action.find("\ninputs:\n")` silently found
+/// nothing there, so the test passed vacuously on Linux and failed on Windows.
+fn read(relative: &str) -> String {
+    std::fs::read_to_string(repo().join(relative))
+        .unwrap_or_else(|err| panic!("{relative}: {err}"))
+        .replace("\r\n", "\n")
+}
+
 fn page() -> String {
-    std::fs::read_to_string(repo().join("docs/stability.md")).expect("docs/stability.md exists")
+    read("docs/stability.md")
 }
 
 /// The section of the page under `heading`, up to the next heading of the same level or higher.
@@ -125,7 +134,7 @@ fn every_alias_the_page_promises_is_actually_accepted() {
 
 #[test]
 fn the_page_lists_every_action_input_and_output() {
-    let action = std::fs::read_to_string(repo().join("action.yml")).unwrap();
+    let action = read("action.yml");
     // `inputs:` and `outputs:` are top-level, and their keys are indented two spaces.
     let keys = |block: &str| -> BTreeSet<String> {
         let start = match action.find(block) {
@@ -166,7 +175,7 @@ fn the_page_lists_every_action_input_and_output() {
 #[test]
 fn the_page_lists_every_configuration_key() {
     // The config struct is the parser, so its field names are the accepted keys.
-    let config = std::fs::read_to_string(repo().join("src/config.rs")).unwrap();
+    let config = read("src/config.rs");
     let start = config.find("pub struct Config").expect("Config exists");
     let body = &config[start..];
     let end = body.find("\n}").unwrap();
@@ -193,7 +202,7 @@ fn the_page_lists_every_exit_code_the_code_defines() {
     // Every `const *_EXIT_CODE` in the sources, plus the ones clap and success own.
     let mut defined: BTreeSet<i32> = BTreeSet::from([0, 2]);
     for file in ["src/main.rs", "src/policy.rs", "src/vulnpolicy.rs", "src/diff.rs"] {
-        let text = std::fs::read_to_string(repo().join(file)).unwrap();
+        let text = read(file);
         for line in text.lines() {
             if line.contains("EXIT_CODE: i32 = ")
                 && let Some(value) = line.split('=').nth(1)
@@ -228,7 +237,9 @@ fn the_page_lists_every_exit_code_the_code_defines() {
 fn the_page_lists_every_pixi_property_the_code_emits() {
     let mut emitted = BTreeSet::new();
     for entry in walk(&repo().join("src")) {
-        let text = std::fs::read_to_string(&entry).unwrap_or_default();
+        let text = std::fs::read_to_string(&entry)
+            .unwrap_or_default()
+            .replace("\r\n", "\n");
         let mut rest = text.as_str();
         while let Some(i) = rest.find("\"pixi:") {
             rest = &rest[i + 1..];
@@ -278,7 +289,9 @@ fn walk(dir: &Path) -> Vec<PathBuf> {
 fn the_page_lists_every_environment_variable_the_code_reads() {
     let mut read = BTreeSet::new();
     for entry in walk(&repo().join("src")) {
-        let text = std::fs::read_to_string(&entry).unwrap_or_default();
+        let text = std::fs::read_to_string(&entry)
+            .unwrap_or_default()
+            .replace("\r\n", "\n");
         let mut rest = text.as_str();
         while let Some(i) = rest.find("\"PIXI_SBOM_") {
             rest = &rest[i + 1..];
