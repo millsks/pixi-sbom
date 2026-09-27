@@ -26,6 +26,25 @@ cp target/release/pixi-sbom ~/.pixi/bin/
 
 Pixi discovers any `pixi-<name>` executable on `PATH` and exposes it as `pixi <name>`; `pixi --list` shows it.
 
+## What it supports
+
+| | |
+|---|---|
+| **Lockfile format** | `version:` 1 through 7 — every format pixi has written. Each of rattler's four parsers has a fixture and an end-to-end test. |
+| **pixi** | **0.49.0 or newer** to run it as `pixi sbom`; that release added discovery of `pixi-` prefixed extensions. Older pixi still works if you call the binary directly as `pixi-sbom`. |
+| **Platforms** | linux-64, linux-aarch64, osx-64, osx-arm64, win-64 |
+
+A lockfile newer than this build understands is refused by name rather than half-read:
+
+```console
+$ pixi sbom
+Error: pixi_sbom::lock::parse
+  × cannot read lockfile pixi.lock
+  ╰─▶ found newer lockfile format version 8, but only up to including version 7 is supported
+  help: this build reads pixi.lock up to version 7: run `pixi lock` to rewrite an older or
+        damaged one, or upgrade pixi-sbom if the file's `version:` is higher
+```
+
 ## Quick start
 
 ```sh

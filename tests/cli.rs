@@ -5366,3 +5366,128 @@ fn a_document_or_report_written_to_stdout_is_the_same_bytes_as_to_a_file() {
     assert!(value["packages"].as_array().is_some_and(|p| !p.is_empty()), "{value}");
     assert!(report.ends_with(b"\n"), "one trailing newline, as before");
 }
+
+#[test]
+fn every_lockfile_format_version_we_support_produces_the_same_document() {
+    // rattler has four parsers, not seven: v1-v3, v4-v5, v6 and v7. One fixture per parser,
+    // each holding the same two conda packages and one wheel, so a difference in the output
+    // is a difference in how that format was read rather than in what it described.
+    //
+    // v1 is there twice over: it is the oldest, and it is the only one that writes
+    // dependencies as a map rather than a list.
+    let versions = [("lock-v1", 1), ("lock-v3", 3), ("lock-v5", 5), ("lock-v6", 6)];
+    let validator = cyclonedx_validator();
+
+    for (fixture, version) in versions {
+        let dir = workspace(fixture);
+        let assert = pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("SOURCE_DATE_EPOCH", "1700000000")
+            .args(["-p", "linux-64", "--output", "-"])
+            .assert()
+            .success();
+        let doc: Value = serde_json::from_slice(&assert.get_output().stdout)
+            .unwrap_or_else(|err| panic!("v{version} did not produce JSON: {err}"));
+        assert_valid(&validator, &doc);
+
+        let components = doc["components"].as_array().unwrap();
+        let by_name = |name: &str| {
+            components
+                .iter()
+                .find(|c| c["name"] == name)
+                .unwrap_or_else(|| panic!("v{version} lost {name}"))
+        };
+        assert_eq!(components.len(), 3, "v{version}");
+
+        // A conda package keeps the identity that only the lockfile can give it. Before v6
+        // these fields were written out; from v6 they are derived from the location, and the
+        // document should not be able to tell.
+        let zlib = by_name("zlib");
+        let props: Vec<(&str, &str)> = zlib["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| (p["name"].as_str().unwrap(), p["value"].as_str().unwrap()))
+            .collect();
+        assert!(props.contains(&("pixi:kind", "conda")), "v{version}: {props:?}");
+        assert!(
+            props.contains(&("pixi:channel", "conda-forge")),
+            "v{version}: {props:?}"
+        );
+        assert!(props.contains(&("pixi:subdir", "linux-64")), "v{version}: {props:?}");
+        assert_eq!(zlib["licenses"][0]["expression"], "Zlib", "v{version}");
+        assert!(
+            zlib["purl"].as_str().unwrap().starts_with("pkg:conda/zlib@1.3.2"),
+            "v{version}: {}",
+            zlib["purl"]
+        );
+
+        // v1 and v2 call it `pip`; v3 renamed it to `pypi`. Either way it is a PyPI package
+        // here, or its identity would be wrong everywhere downstream.
+        let six = by_name("six");
+        assert_eq!(six["purl"], "pkg:pypi/six@1.17.0", "v{version}");
+
+        // The dependency zlib declares on libzlib survives, whether the format wrote it as a
+        // map (v1) or a list (everything after).
+        let edges = doc["dependencies"].as_array().unwrap();
+        let zlib_deps = edges
+            .iter()
+            .find(|e| e["ref"] == zlib["bom-ref"])
+            .map(|e| e["dependsOn"].as_array().cloned().unwrap_or_default())
+            .unwrap_or_default();
+        assert!(
+            zlib_deps.iter().any(|d| d.as_str().unwrap().contains("libzlib")),
+            "v{version} lost the edge to libzlib: {zlib_deps:?}"
+        );
+    }
+}
+
+#[test]
+fn a_format_older_than_multiple_environments_still_answers_every_environment() {
+    // v1 to v3 predate the environments block entirely — rattler synthesizes a single
+    // `default`. The flags that iterate environments and platforms have to cope with that
+    // rather than finding nothing to do.
+    for fixture in ["lock-v1", "lock-v3"] {
+        let dir = workspace(fixture);
+        let out = dir.path().join("out");
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args([
+                "--all-environments",
+                "--all-platforms",
+                "--output",
+                out.to_str().unwrap(),
+            ])
+            .assert()
+            .success();
+        let written: Vec<String> = std::fs::read_dir(&out)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(written, vec!["sbom-default-linux-64.cdx.json".to_string()], "{fixture}");
+    }
+}
+
+#[test]
+fn a_lockfile_newer_than_we_understand_says_so_and_names_the_ceiling() {
+    let dir = workspace("lock-v1");
+    let lock = dir.path().join("pixi.lock");
+    let text = std::fs::read_to_string(&lock)
+        .unwrap()
+        .replace("version: 1", "version: 8");
+    std::fs::write(&lock, text).unwrap();
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args(["-p", "linux-64", "--output", "-"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("version 8"))
+        .stderr(predicate::str::contains("up to"))
+        // The help line says what to do about it, as every diagnostic here does.
+        .stderr(predicate::str::contains("upgrade pixi-sbom"));
+}

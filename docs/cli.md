@@ -83,6 +83,25 @@ With no options this means:
 | `--log-format <text\|json>` | `text` | How the log on stderr is rendered. `json` writes one JSON object per event, with the timestamp back and every field its own key. Also `PIXI_SBOM_LOG_FORMAT`. |
 | `-h, --help`, `-V, --version` | | Usual meanings. |
 
+## Which pixi and which lockfiles
+
+| | |
+|---|---|
+| **Lockfile format** | `version:` 1 through 7 |
+| **pixi** | 0.49.0 or newer for `pixi sbom`; any version if you call `pixi-sbom` directly |
+
+Every format pixi has ever written is read. rattler, which does the parsing, has four parsers rather than seven —
+v1–v3, v4–v5, v6 and v7 — and each has a fixture and an end-to-end test here, asserting that the same environment
+produces the same document whichever format it was written in: the same purls, the same channel and subdir, the
+same licenses, the same dependency edges. Formats before v4 predate multiple environments, and `--all-environments`
+answers with the single `default` that rattler synthesizes rather than finding nothing to do.
+
+The pixi floor is only about how the command is invoked. pixi 0.49.0 added discovery of `pixi-` prefixed
+executables, which is what makes `pixi sbom` work; before that the binary is still fine, it just has to be called
+by its own name.
+
+Dropping support for a lockfile version would be a breaking change, and after 1.0 that means a major version.
+
 ## What the log says, and how to narrow it
 
 The log goes to stderr, always; the document and the reports go to stdout, so `pixi sbom > sbom.json` is safe at
