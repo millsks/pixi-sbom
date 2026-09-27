@@ -1836,7 +1836,7 @@
 <tr>
 <td><code>--refresh [&lt;CACHE&gt;...]</code></td>
 <td>off</td>
-<td>Ignore cached answers this run and ask again; with no value every cache, else the named ones (<code>mapping</code>, <code>osv</code>, <code>kev</code>, <code>wheels</code>, <code>pypi</code>, <code>outdated</code>, <code>scorecard</code>). What is fetched is still cached.</td>
+<td>Ignore cached answers this run and ask again; with no value every cache, else the named ones (<code>mapping</code>, <code>osv</code>, <code>kev</code>, <code>wheels</code>, <code>conda-info</code>, <code>pypi</code>, <code>outdated</code>, <code>scorecard</code>). What is fetched is still cached.</td>
 </tr>
 <tr>
 <td><code>--no-cache</code></td>
@@ -2894,6 +2894,11 @@ touches no upstream prints none of this.</p>
 <td>until the wheel changes, which it never does</td>
 </tr>
 <tr>
+<td><code>conda-info</code></td>
+<td>the <code>info/</code> directory read out of a conda archive</td>
+<td>as above</td>
+</tr>
+<tr>
 <td><code>pypi</code></td>
 <td>release metadata</td>
 <td>as above</td>
@@ -2918,6 +2923,11 @@ is often "my cache is warm". Each run says what they served:</p>
 for those two — while still writing back what it fetches. <code>--no-cache</code> neither reads nor writes, which is the one
 to reach for when reproducing a problem: it proves the answer came from the network this minute. The two cannot be
 combined.</p>
+<p><code>wheels</code> and <code>conda-info</code> are directories of files pulled out of an archive rather than one downloaded document, so
+their answer has to exist on disk before anything can read it. Under <code>--no-cache</code> it is extracted to a scratch
+directory outside the cache and removed before the run ends, so the flag holds: nothing is read from the cache and
+nothing is left in it. Before 0.12.0 neither of those was true of <code>conda-info</code> — it was read and written whatever the
+flags said, which is why a <code>--no-cache</code> run could finish faster than the network allows (#197).</p>
 <h2 id="when-something-comes-back-empty">When something comes back empty<a class="headerlink" href="#when-something-comes-back-empty" title="Permanent link">&para;</a></h2>
 <p>An empty table has two meanings and they are not the same: nothing was found, or nothing could be asked. The
 reports say which.</p>
