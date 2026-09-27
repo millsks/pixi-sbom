@@ -682,6 +682,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#the-minimum-supported-rust-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The minimum supported Rust version
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#benchmarks-benches-criterion" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -932,6 +943,17 @@
     <span class="md-ellipsis">
       
         Unit tests (#[cfg(test)] in each module)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-minimum-supported-rust-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The minimum supported Rust version
       
     </span>
   </a>
@@ -1196,6 +1218,15 @@ assistant rather than only printing it. <code>.claude/memory/</code> holds the r
 edges, error variants). <code>format/*</code> tests run each writer over <code>format::testing::sample_sbom()</code>, a hand-built model
 covering every package kind plus edge cases (missing version, non-SPDX license, local path source, extra purls), and
 check specific fields.</p>
+<h3 id="the-minimum-supported-rust-version">The minimum supported Rust version<a class="headerlink" href="#the-minimum-supported-rust-version" title="Permanent link">&para;</a></h3>
+<p><code>rust-version</code> in <code>Cargo.toml</code> is <strong>1.88</strong>, and the <code>msrv</code> environment pins exactly that toolchain so the claim is
+checked rather than asserted: <code>pixi run -e msrv msrv-check</code>, which CI runs on every pull request.</p>
+<p>It was 1.85 until someone looked. That number came from edition 2024 and was never true — this crate uses
+let-chains in <code>kev.rs</code> and <code>osv.rs</code>, and those did not stabilize until 1.88. Nothing caught it because every job
+built on the toolchain <code>pixi.toml</code> pins, which is far newer.</p>
+<p>Raising the MSRV is a breaking change for anyone pinned to an older toolchain, so after 1.0 it belongs in a minor
+release at the earliest, with the new number in the changelog. Lowering it is free. Either way the <code>msrv</code>
+environment and <code>Cargo.toml</code> change together, or the check is measuring the wrong thing.</p>
 <h3 id="benchmarks-benches-criterion">Benchmarks (<code>benches/</code>, criterion)<a class="headerlink" href="#benchmarks-benches-criterion" title="Permanent link">&para;</a></h3>
 <p><code>pixi run bench</code> times the lockfile reader, the model builder, each writer, license normalization, the report
 renderers and the offline enrichment path, against this repository's own lockfile and a generated 2000-package
@@ -1311,6 +1342,11 @@ release containing them exists; keep <code>action.yml</code> inputs and the CLI 
 <td>Coverage gate</td>
 <td>ubuntu</td>
 <td><code>pixi run cov</code></td>
+</tr>
+<tr>
+<td>Builds on the MSRV</td>
+<td>ubuntu</td>
+<td><code>pixi run -e msrv msrv-check</code>: the oldest toolchain <code>Cargo.toml</code> claims</td>
 </tr>
 <tr>
 <td>Benchmarks compile and run</td>
