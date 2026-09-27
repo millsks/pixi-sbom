@@ -128,7 +128,7 @@ fn main() -> Result<()> {
         _ if args.from_sbom.is_some() => {
             let path = args.from_sbom.as_deref().expect("just checked");
             let root = model::Root {
-                name: args.name.clone().unwrap_or_default(),
+                name: args.root_name.clone().unwrap_or_default(),
                 version: args.root_version.clone(),
                 ..model::Root::default()
             };
@@ -144,7 +144,7 @@ fn main() -> Result<()> {
         (Some(dir), _) => Some(Input::Prefix {
             dir: dir.clone(),
             root: model::Root {
-                name: args.name.clone().unwrap_or_else(|| prefix::environment_name(dir)),
+                name: args.root_name.clone().unwrap_or_else(|| prefix::environment_name(dir)),
                 version: args.root_version.clone(),
                 ..model::Root::default()
             },
@@ -446,7 +446,7 @@ fn main() -> Result<()> {
                 "checked how far behind the packages are"
             );
             let mut report = report::Report::outdated(&sbom, &statuses, std::time::SystemTime::now());
-            if let Some(only) = args.outdated_only {
+            if let Some(only) = args.outdated_min {
                 report.keep_outdated(only);
             }
             reports.push(report);
@@ -932,11 +932,8 @@ fn validate(args: &cli::Args) {
     if !args.fail_on_diff.is_empty() && args.report != Some(report::ReportKind::Diff) {
         usage(ArgumentConflict, "'--fail-on-diff' only applies to '--report diff'");
     }
-    if args.outdated_only.is_some() && args.report != Some(report::ReportKind::Outdated) {
-        usage(
-            ArgumentConflict,
-            "'--outdated-only' only applies to '--report outdated'",
-        );
+    if args.outdated_min.is_some() && args.report != Some(report::ReportKind::Outdated) {
+        usage(ArgumentConflict, "'--outdated-min' only applies to '--report outdated'");
     }
     match (args.report, &args.against) {
         (Some(report::ReportKind::Diff), None) => usage(

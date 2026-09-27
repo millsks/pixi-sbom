@@ -98,7 +98,7 @@ pub enum PrimaryPurl {
 
 /// How far behind a package must be to appear in `--report outdated`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum OutdatedOnly {
+pub enum OutdatedMin {
     /// Any package behind its index.
     Patch,
     /// A minor or major step behind.
@@ -318,8 +318,12 @@ pub struct Args {
 
     /// With --prefix: the name recorded for the described application (default: the
     /// environment directory's name).
-    #[arg(long, value_name = "NAME", requires = "prefix")]
-    pub name: Option<String>,
+    ///
+    /// `--name` is the pre-1.0 spelling and is still accepted. It was renamed because it sat
+    /// beside `--root-version` doing the matching job under a different convention, and read
+    /// like a package filter among `--exclude` / `--include` / `--assume-used`.
+    #[arg(long = "root-name", alias = "name", value_name = "NAME", requires = "prefix")]
+    pub root_name: Option<String>,
 
     /// With --prefix: the version recorded for the described application.
     #[arg(long, value_name = "VERSION", requires = "prefix")]
@@ -563,8 +567,12 @@ pub struct Args {
     pub group_by: Option<GroupBy>,
 
     /// With --report outdated: list only packages at least this far behind.
-    #[arg(long, value_enum, value_name = "STEP")]
-    pub outdated_only: Option<OutdatedOnly>,
+    ///
+    /// `--outdated-only` is the pre-1.0 spelling and is still accepted. It was renamed to match
+    /// `--scorecard-min`, the CLI's other threshold, and because `-only` reads like a boolean
+    /// when the flag in fact requires a value.
+    #[arg(long = "outdated-min", alias = "outdated-only", value_enum, value_name = "STEP")]
+    pub outdated_min: Option<OutdatedMin>,
 
     /// With --report diff: exit with code 6 when the named sections of the comparison are not
     /// empty. Repeatable; the bare flag means any change at all.

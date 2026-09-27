@@ -700,12 +700,12 @@ impl Report {
     }
 
     /// Drop the rows that are not at least `only` behind.
-    pub fn keep_outdated(&mut self, only: crate::cli::OutdatedOnly) {
-        use crate::cli::OutdatedOnly;
+    pub fn keep_outdated(&mut self, only: crate::cli::OutdatedMin) {
+        use crate::cli::OutdatedMin;
         let wanted = |step: &str| match only {
-            OutdatedOnly::Patch => true,
-            OutdatedOnly::Minor => step == "minor" || step == "major",
-            OutdatedOnly::Major => step == "major",
+            OutdatedMin::Patch => true,
+            OutdatedMin::Minor => step == "minor" || step == "major",
+            OutdatedMin::Major => step == "major",
         };
         if let Some(rows) = &mut self.outdated {
             rows.retain(|row| row.behind > 0 && wanted(row.step));
@@ -3201,7 +3201,7 @@ mod tests {
     #[test]
     fn outdated_only_keeps_the_bigger_steps() {
         let mut report = outdated_report();
-        report.keep_outdated(crate::cli::OutdatedOnly::Major);
+        report.keep_outdated(crate::cli::OutdatedMin::Major);
         let names: Vec<&str> = report
             .outdated
             .as_ref()
@@ -3212,7 +3212,7 @@ mod tests {
         assert_eq!(names, ["zlib"]);
 
         let mut report = outdated_report();
-        report.keep_outdated(crate::cli::OutdatedOnly::Patch);
+        report.keep_outdated(crate::cli::OutdatedMin::Patch);
         assert_eq!(report.outdated.as_ref().unwrap().len(), 2, "current packages drop out");
     }
 

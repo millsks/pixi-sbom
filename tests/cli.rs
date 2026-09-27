@@ -3581,7 +3581,7 @@ fn prefix_describes_an_installed_environment_in_every_format() {
     assert_eq!(python_deps, 2);
 
     // SPDX 2.3 and 3.0.1 validate and carry the prefix in the root's source info.
-    let assert = run(&["--format", "spdx", "--name", "My App", "--root-version", "1.2.3"]);
+    let assert = run(&["--format", "spdx", "--root-name", "My App", "--root-version", "1.2.3"]);
     let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
     assert_valid(&spdx_validator(), &doc);
     let root = doc["packages"]
@@ -3955,9 +3955,9 @@ fn outdated_report_reads_both_indexes_from_the_cache() {
     assert!(csv.lines().next().unwrap().ends_with(",behind,step"));
     assert!(csv.lines().any(|l| l.contains(",urllib3,pypi,2.8.0,")));
 
-    // --outdated-only filters by step, and only applies to this report.
+    // --outdated-min filters by step, and only applies to this report.
     let json: Value = serde_json::from_slice(
-        &run(&["--report-format", "json", "--outdated-only", "major"])
+        &run(&["--report-format", "json", "--outdated-min", "major"])
             .get_output()
             .stdout,
     )
@@ -3971,7 +3971,7 @@ fn outdated_report_reads_both_indexes_from_the_cache() {
     assert_eq!(names, ["urllib3"]);
     pixi_sbom()
         .current_dir(dir.path())
-        .args(["--report", "packages", "--outdated-only", "major"])
+        .args(["--report", "packages", "--outdated-min", "major"])
         .assert()
         .code(2)
         .stderr(predicate::str::contains("only applies to '--report outdated'"));
@@ -5776,4 +5776,64 @@ fn refresh_accepts_the_conda_archive_cache_by_name() {
     run(&["--refresh", "conda-info"]).stderr(predicate::str::contains("failed=1"));
     // Refreshing a different cache leaves this one alone.
     run(&["--refresh", "osv"]).stderr(predicate::str::contains("failed=0"));
+}
+
+/// #227: `--name` became `--root-name` and `--outdated-only` became `--outdated-min`. The old
+/// spellings are permanent hidden aliases rather than deprecations with an end date (#117), so
+/// what needs pinning is that they keep working and that `--help` shows only one of each. A
+/// removal later would be a major version with its own notice, not a quiet break.
+#[test]
+fn the_pre_1_0_flag_spellings_are_still_accepted() {
+    // --help advertises the canonical name and not the alias.
+    let help = String::from_utf8(pixi_sbom().arg("--help").assert().success().get_output().stdout.clone()).unwrap();
+    for canonical in ["--root-name", "--outdated-min"] {
+        assert!(help.contains(canonical), "{canonical} missing from --help");
+    }
+    // The aliases get no entry of their own, so there is one spelling to learn. Matched in
+    // entry form — `--flag <VALUE>` at the start of its line — because both names are named in
+    // the surrounding help *text* on purpose: someone who typed the old one and is now reading
+    // --help should be told it still works.
+    for (alias, value) in [("--name", "<NAME>"), ("--outdated-only", "<STEP>")] {
+        let entry = format!("{alias} {value}");
+        assert!(
+            !help.lines().any(|line| line.trim().starts_with(&entry)),
+            "{alias} should have no entry of its own:\n{help}"
+        );
+    }
+    assert!(
+        help.contains("`--outdated-only` is the pre-1.0 spelling"),
+        "and the text should say the old spelling still works"
+    );
+
+    // --root-name / --name: the same document either way.
+    let doc = |flag: &str| {
+        let dir = workspace("conda-only");
+        let prefix = dir.path().join("env");
+        std::fs::create_dir_all(prefix.join("conda-meta")).unwrap();
+        let assert = pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(["--prefix", prefix.to_str().unwrap(), flag, "Named App", "--output", "-"])
+            .assert()
+            .success();
+        let value: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+        value["metadata"]["component"]["name"].as_str().unwrap().to_string()
+    };
+    assert_eq!(doc("--root-name"), "Named App");
+    assert_eq!(
+        doc("--name"),
+        "Named App",
+        "the pre-1.0 spelling still names the root component"
+    );
+
+    // --outdated-min / --outdated-only: both reach the same validation, which is enough to show
+    // the alias resolves to the same argument without needing the network.
+    for flag in ["--outdated-min", "--outdated-only"] {
+        pixi_sbom()
+            .current_dir(workspace("conda-only").path())
+            .args(["--report", "packages", flag, "major"])
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains("only applies to '--report outdated'"));
+    }
 }

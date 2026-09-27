@@ -20,7 +20,7 @@ With no options this means:
 |---|---|---|
 | `--lockfile <PATH>` | upward search from cwd | Lockfile to read. The file must exist; there is no fallback search when this is given. |
 | `--prefix <DIR>` | | Describe an installed environment instead of a lockfile (see below). Cannot be combined with `--lockfile`, `--environment` or the `--all-*` flags. |
-| `--name <NAME>`, `--root-version <VERSION>` | directory name, none | With `--prefix`: what the described application is called. |
+| `--root-name <NAME>`, `--root-version <VERSION>` | directory name, none | With `--prefix`: what the described application is called. |
 | `--config <PATH>` | see below | Configuration file to read before the command line. |
 | `--no-config` | off | Ignore any configuration file. |
 | `--format <cyclonedx\|spdx>` | `cyclonedx` | `cyclonedx` writes CycloneDX JSON; `spdx` writes SPDX 2.3 JSON. |
@@ -60,11 +60,24 @@ With no options this means:
 | `--doctor` | off | Probe every upstream the other flags bring in, print the configuration and the caches, and exit 1 if anything is unreachable. Needs no lockfile. |
 | `--refresh [<CACHE>...]` | off | Ignore cached answers this run and ask again; with no value every cache, else the named ones (`mapping`, `osv`, `kev`, `wheels`, `conda-info`, `pypi`, `outdated`, `scorecard`). What is fetched is still cached. |
 | `--no-cache` | off | Neither read nor write any cache. |
+
+### Flags that answer to an older name
+
+Two flags were renamed before 1.0 for consistency with the ones beside them. **The old spellings are still accepted
+and always will be** — they are hidden from `--help` so there is one name to learn, not removed.
+
+| Pre-1.0 | Now | Why |
+|---|---|---|
+| `--name` | `--root-name` | It pairs with `--root-version`, and read like a package filter among `--exclude` / `--include` / `--assume-used` |
+| `--outdated-only` | `--outdated-min` | It is a threshold like `--scorecard-min`, and `-only` reads like a boolean where the flag requires a value |
+
+`--pypi-licenses` likewise still works as an alias of `--fetch-licenses`, with a warning, as it has since 0.4.0.
+Nothing in this table is scheduled for removal; dropping any of it would be a major version with its own notice.
 | `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom\|scorecard>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
 | `--tree` | off | With `--report packages`: draw the dependency graph from the root downward instead of a flat list. |
 | `--depth <N>` | unlimited | With `--tree`: how deep to go (`0` shows what the root depends on and nothing below). |
 | `--group-by license` | | With `--report licenses`: one section per license instead of one row per package. |
-| `--outdated-only <patch\|minor\|major>` | | With `--report outdated`: list only packages at least that far behind. |
+| `--outdated-min <patch\|minor\|major>` | | With `--report outdated`: list only packages at least that far behind. |
 | `--source <DIR>` | the lockfile's directory | With `--report phantom`: where the workspace's Python sources are (repeatable). |
 | `--assume-used <GLOB>` | | With `--report phantom`: packages matching this are never reported as unused or undeclared (repeatable). |
 | `--fail-on-phantom` | off | With `--report phantom`: exit **8** when the workspace imports a package it never declared. |
@@ -218,7 +231,7 @@ environments inside containers. `--prefix <DIR>` describes one of those from wha
 
 ```sh
 pixi sbom --prefix ~/.pixi/envs/pixi-sbom
-pixi sbom --prefix /opt/conda/envs/app --name app --root-version 1.4.0 --fetch-licenses
+pixi sbom --prefix /opt/conda/envs/app --root-name app --root-version 1.4.0 --fetch-licenses
 ```
 
 Conda packages come from `conda-meta/<name>-<version>-<build>.json`, which carries the same facts as a lock record
@@ -459,7 +472,7 @@ the pinned one, and when each was published:
 
 ```sh
 pixi sbom --report outdated
-pixi sbom --report outdated --outdated-only major --report-format markdown
+pixi sbom --report outdated --outdated-min major --report-format markdown
 ```
 
 | Column | Meaning |
@@ -771,7 +784,7 @@ the dependency graph and the `pixi:*` properties a document this tool wrote carr
 round-trips unchanged, declared dependencies and all. SPDX 3.0.1 is read as packages, versions, purls and
 licenses; its graph, hashes and properties do not come back.
 
-The described application's name and version come from the document's own root component unless `--name` and
+The described application's name and version come from the document's own root component unless `--root-name` and
 `--root-version` say otherwise, and the environment and platform from what the document records (`default` and
 empty when it records nothing, or whatever `--platform` says). A purl that is neither `pkg:conda` nor `pkg:pypi`,
 and a package with no purl at all, is recorded as the `external` kind: the document is the only thing that knows

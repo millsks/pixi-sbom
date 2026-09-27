@@ -94,7 +94,7 @@ pixi sbom --report diff --against previous.cdx.json --fail-on-diff
 pixi sbom --prefix /opt/conda/envs/app --against pixi.lock --report diff --fail-on-diff
 
 # How far behind the environment is: versions, ages, releases behind, patch/minor/major
-pixi sbom --report outdated --outdated-only major
+pixi sbom --report outdated --outdated-min major
 
 # Why the next Python is blocked: which packages cap the interpreter
 pixi sbom --report python
