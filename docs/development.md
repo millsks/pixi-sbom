@@ -198,8 +198,11 @@ real document; the fixtures are small by design.
 `action.yml` at the repository root is a composite action: it resolves the version (the action's own tag, an
 explicit `version` input, or the latest release), downloads the matching release archive and its `.sha256`,
 verifies it, puts the binary on `PATH`, maps the inputs to CLI flags and runs it, then uploads the output with
-`actions/upload-artifact`. The `sbom` job in `ci.yml` dogfoods it on Linux and Windows with the latest release,
-so a change to the action is exercised by CI before it is tagged: one step runs every environment with license
+`actions/upload-artifact`. The `sbom` job in `ci.yml` dogfoods it on **all five release platforms** with the
+latest release, so a change to the action is exercised by CI before it is tagged. Five rather than the usual three,
+because what this job tests is the action's own `RUNNER_OS-RUNNER_ARCH` case statement mapping a runner to a release
+archive; two of those five branches used to run nowhere, so a wrong platform string or archive extension in them
+would have reached a user first (#225). One step runs every environment with license
 fetching, embedded SBOMs and a deny list that pre-commit's `python` (Python-2.0) violates on every platform, with
 `fail-on-policy` off, and asserts the `policy-violated` output; a second step runs a policy that passes. New CLI flags reach the action only once a
 release containing them exists; keep `action.yml` inputs and the CLI in step at release time.
@@ -219,6 +222,7 @@ release containing them exists; keep `action.yml` inputs and the CLI in step at 
 | Performance (separate workflow) | all five release platforms | `pixi run perf`: builds two refs on one runner and compares them; fails on binary size or peak memory, reports wall time. On demand, weekly and on pushes to `main` — not on pull requests. See [benchmarks.md](benchmarks.md) |
 | Build | same three | `pixi run build` and `--version` smoke test |
 | Docs | ubuntu | `pixi run docs-build`: the site must build with `--strict` |
+| SBOM via action | all five release platforms | The repository's own action against its own lockfile; SARIF and the attestation from the linux-64 leg only. See [The GitHub Action](#the-github-action) |
 
 `.github/workflows/supply-chain.yml` runs that same dependency check on a schedule (Mondays, and on demand).
 The per-pull-request run cannot see an advisory published after a merge, and the weekly one is what catches it:
@@ -240,9 +244,11 @@ The `github-pages` environment's deployment branch policy must allow the `v*` ta
 with "Branch ... is not allowed to deploy to github-pages".
 
 All jobs use `prefix-dev/setup-pixi` with caching, so they run the same pinned toolchain as local development. CI
-sticks to the `-latest` labels (x64 Linux and Windows, arm64 macOS); the code has no platform-specific paths, so the
-remaining architectures are only exercised by the release build, which must produce a native binary for each of the
-five pixi platforms and therefore uses `ubuntu-24.04-arm` and `macos-15-intel` for linux-aarch64 and osx-64.
+sticks to the `-latest` labels (x64 Linux and Windows, arm64 macOS) for the jobs that compile and test the code,
+which has no platform-specific paths. The two jobs that are *about* a platform rather than merely running on one —
+`sbom`, which tests the action's runner-to-archive mapping, and the separate performance workflow — use all five,
+adding `ubuntu-24.04-arm` and `macos-15-intel` for linux-aarch64 and osx-64. The release build uses the same five,
+since it must produce a native binary for each.
 
 ## Releasing
 

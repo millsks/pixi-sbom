@@ -138,7 +138,7 @@ jobs:
 
   # Dogfood the GitHub Action: generate this repository's own SBOMs with the released binary.
   sbom:
-    name: SBOM via action (${{ matrix.os }})
+    name: SBOM via action (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
@@ -147,8 +147,19 @@ jobs:
       attestations: write
     strategy:
       fail-fast: false
+      # All five release platforms, not the three `-latest` labels the other jobs use, because
+      # what this job exercises is the action's own `RUNNER_OS-RUNNER_ARCH` mapping to a release
+      # archive (action.yml). Two of those five branches used to never run, so a wrong platform
+      # string or archive extension in them would have been found by a user rather than here
+      # (#225). The job downloads a prebuilt binary rather than compiling, so five legs cost
+      # well under a minute each.
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - { os: ubuntu-latest, target: linux-64 }
+          - { os: ubuntu-24.04-arm, target: linux-aarch64 }
+          - { os: macos-15-intel, target: osx-64 }
+          - { os: macos-latest, target: osx-arm64 }
+          - { os: windows-latest, target: win-64 }
     steps:
       - uses: actions/checkout@v4
       - name: Generate SBOMs for every environment
@@ -159,25 +170,26 @@ jobs:
           fetch-licenses: "true"
           pypi-mapping: prefix
           embedded-sboms: "true"
-          # Vulnerabilities from OSV with CISA KEV flags, uploaded as SARIF from the Linux runner
-          # (one category per commit is enough); the gate reports rather than fails, since this
-          # lockfile's dev dependencies are not what the tool ships.
+          # Vulnerabilities from OSV with CISA KEV flags, uploaded as SARIF from the linux-64 leg
+          # only (one category per commit is enough, and there are two Linux runners now); the
+          # gate reports rather than fails, since this lockfile's dev dependencies are not what
+          # the tool ships.
           vulnerabilities: osv
           kev: "true"
           fail-on-severity: critical
           fail-on-kev: "true"
           fail-on-vulnerabilities: "false"
-          upload-sarif: ${{ matrix.os == 'ubuntu-latest' && 'true' || 'false' }}
-          sarif-category: pixi-sbom-${{ matrix.os }}
-          # Attest the documents on main (pull requests have no id-token), from Linux only.
-          attest: ${{ github.event_name == 'push' && matrix.os == 'ubuntu-latest' && 'true' || 'false' }}
+          upload-sarif: ${{ matrix.target == 'linux-64' && 'true' || 'false' }}
+          sarif-category: pixi-sbom-${{ matrix.target }}
+          # Attest the documents on main (pull requests have no id-token), from linux-64 only.
+          attest: ${{ github.event_name == 'push' && matrix.target == 'linux-64' && 'true' || 'false' }}
           # Python-2.0 (pre-commit's python) is in every environment on every platform, so the
           # deny list trips everywhere and, with fail-on-policy off, becomes a warning.
           # require-license holds since 0.5.1 normalizes conda-forge's "WITH exceptions".
           deny-license: "Python-2.0"
           require-license: "true"
           fail-on-policy: "false"
-          artifact-name: sboms-${{ matrix.os }}
+          artifact-name: sboms-${{ matrix.target }}
       - name: Check the documents and the policy outcome
         shell: bash
         run: |
@@ -189,7 +201,7 @@ jobs:
           # Every document carries the lookup's outcome even when it found nothing.
           test -s sboms/sbom-default.cdx.json
       - name: Verify the attestation
-        if: ${{ github.event_name == 'push' && matrix.os == 'ubuntu-latest' }}
+        if: ${{ github.event_name == 'push' && matrix.target == 'linux-64' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
