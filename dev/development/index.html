@@ -1365,8 +1365,11 @@ real document; the fixtures are small by design.</p>
 <p><code>action.yml</code> at the repository root is a composite action: it resolves the version (the action's own tag, an
 explicit <code>version</code> input, or the latest release), downloads the matching release archive and its <code>.sha256</code>,
 verifies it, puts the binary on <code>PATH</code>, maps the inputs to CLI flags and runs it, then uploads the output with
-<code>actions/upload-artifact</code>. The <code>sbom</code> job in <code>ci.yml</code> dogfoods it on Linux and Windows with the latest release,
-so a change to the action is exercised by CI before it is tagged: one step runs every environment with license
+<code>actions/upload-artifact</code>. The <code>sbom</code> job in <code>ci.yml</code> dogfoods it on <strong>all five release platforms</strong> with the
+latest release, so a change to the action is exercised by CI before it is tagged. Five rather than the usual three,
+because what this job tests is the action's own <code>RUNNER_OS-RUNNER_ARCH</code> case statement mapping a runner to a release
+archive; two of those five branches used to run nowhere, so a wrong platform string or archive extension in them
+would have reached a user first (#225). One step runs every environment with license
 fetching, embedded SBOMs and a deny list that pre-commit's <code>python</code> (Python-2.0) violates on every platform, with
 <code>fail-on-policy</code> off, and asserts the <code>policy-violated</code> output; a second step runs a policy that passes. New CLI flags reach the action only once a
 release containing them exists; keep <code>action.yml</code> inputs and the CLI in step at release time.</p>
@@ -1426,6 +1429,11 @@ release containing them exists; keep <code>action.yml</code> inputs and the CLI 
 <td>ubuntu</td>
 <td><code>pixi run docs-build</code>: the site must build with <code>--strict</code></td>
 </tr>
+<tr>
+<td>SBOM via action</td>
+<td>all five release platforms</td>
+<td>The repository's own action against its own lockfile; SARIF and the attestation from the linux-64 leg only. See <a href="#the-github-action">The GitHub Action</a></td>
+</tr>
 </tbody>
 </table>
 <p><code>.github/workflows/supply-chain.yml</code> runs that same dependency check on a schedule (Mondays, and on demand).
@@ -1445,9 +1453,11 @@ from <code>gh-pages</code>; <code>mike delete --push &lt;version&gt;</code> remo
 (Settings → Environments → github-pages), because a release event runs on the tag; without it the deploy job fails
 with "Branch ... is not allowed to deploy to github-pages".</p>
 <p>All jobs use <code>prefix-dev/setup-pixi</code> with caching, so they run the same pinned toolchain as local development. CI
-sticks to the <code>-latest</code> labels (x64 Linux and Windows, arm64 macOS); the code has no platform-specific paths, so the
-remaining architectures are only exercised by the release build, which must produce a native binary for each of the
-five pixi platforms and therefore uses <code>ubuntu-24.04-arm</code> and <code>macos-15-intel</code> for linux-aarch64 and osx-64.</p>
+sticks to the <code>-latest</code> labels (x64 Linux and Windows, arm64 macOS) for the jobs that compile and test the code,
+which has no platform-specific paths. The two jobs that are <em>about</em> a platform rather than merely running on one —
+<code>sbom</code>, which tests the action's runner-to-archive mapping, and the separate performance workflow — use all five,
+adding <code>ubuntu-24.04-arm</code> and <code>macos-15-intel</code> for linux-aarch64 and osx-64. The release build uses the same five,
+since it must produce a native binary for each.</p>
 <h2 id="releasing">Releasing<a class="headerlink" href="#releasing" title="Permanent link">&para;</a></h2>
 <p>Two workflows. <code>release.yml</code> is run by hand from the Actions tab (<em>Release</em> → <em>Run workflow</em> on <code>main</code>) and ends at
 the tag push; that tag then starts <code>release-artifacts.yml</code>, which builds, signs and publishes everything. One
