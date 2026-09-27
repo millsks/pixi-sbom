@@ -27,6 +27,8 @@ jobs:
           pixi run cargo fmt --check
           pixi run lint
           pixi run check
+      - name: actionlint
+        run: pixi run actionlint
 
   test:
     name: Test (${{ matrix.os }})

@@ -1,7 +1,10 @@
 name: Release
 
-# On-demand releases, built on the pixi toolchain (git-cliff via `pixi run changelog`,
-# the `pixi run ci` gate, cargo release builds for every platform).
+# On-demand releases, built on the pixi toolchain: the `pixi run ci` gate, the version bump, and
+# the changelog from git-cliff. This workflow ends at the tag push. release-artifacts.yml takes
+# over from there, triggered by that tag, and builds, signs and publishes the binaries — see the
+# note at the top of it for why the split exists (#218: provenance has to be able to name the
+# commit the binaries were built from, and only a tag-triggered run can).
 #
 # Operator prerequisite: a release commits the version bump + CHANGELOG.md and pushes a
 # tag to `main` under the branch ruleset, so the default GITHUB_TOKEN is not enough.
@@ -18,11 +21,6 @@ on:
         description: "Version to release (e.g. 1.0.0); leave blank to auto-increment the patch"
         required: false
         type: string
-      prerelease:
-        description: "Mark as pre-release"
-        required: false
-        type: boolean
-        default: false
       force_recreate:
         description: "Remove an existing tag/release before recreating it"
         required: false
@@ -43,10 +41,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     permissions:
       contents: write
-    outputs:
-      released: ${{ steps.should_skip.outputs.skip != 'true' }}
-      version: ${{ steps.resolve.outputs.version }}
-      tag: v${{ steps.resolve.outputs.version }}
+      actions: read # reading back whether the tag started release-artifacts.yml
 
     steps:
       - name: Generate GitHub App token
@@ -128,7 +123,6 @@ jobs:
             new_tag="${{ steps.next_tag.outputs.next_tag }}"
           fi
           echo "NEW_TAG=${new_tag}" >> "$GITHUB_ENV"
-          echo "version=${new_tag}" >> "$GITHUB_OUTPUT"
 
       - name: Validate version format
         if: steps.should_skip.outputs.skip != 'true'
@@ -212,198 +206,23 @@ jobs:
           git commit -m "chore(release): v${{ env.NEW_TAG }}"
           git tag -a "v${{ env.NEW_TAG }}" -m "Release v${{ env.NEW_TAG }}"
           git push origin HEAD:main --tags
+          echo "::notice::Pushed v${{ env.NEW_TAG }}. release-artifacts.yml builds and publishes it from here."
 
-  # ---------------------------------------------------------------------------
-  # Native binaries for every pixi platform, built from the tagged commit.
-  # ---------------------------------------------------------------------------
-  build:
-    name: Build (${{ matrix.target }})
-    needs: release
-    if: needs.release.outputs.released == 'true'
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: read
-      # Signing the provenance: id-token mints the OIDC token that identifies this workflow run
-      # to Sigstore, attestations writes the resulting statement to the repository.
-      id-token: write
-      attestations: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { os: ubuntu-latest, target: linux-64, ext: "", arc: "tar.gz" }
-          - { os: ubuntu-24.04-arm, target: linux-aarch64, ext: "", arc: "tar.gz" }
-          - { os: macos-15-intel, target: osx-64, ext: "", arc: "tar.gz" }
-          - { os: macos-latest, target: osx-arm64, ext: "", arc: "tar.gz" }
-          - { os: windows-latest, target: win-64, ext: ".exe", arc: "zip" }
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.release.outputs.tag }}
-      - uses: prefix-dev/setup-pixi@v0.8.1
-        with:
-          environments: default
-          cache: true
-      - name: Release build
-        run: pixi run build
-      - name: Smoke test
-        run: pixi run cargo run --release -- --version
-      # Tracked release to release: a dependency that doubles the download should be visible
-      # in the run that shipped it, not discovered by someone downloading it.
-      - name: Record the binary size
-        shell: bash
-        run: |
-          binary="target/release/pixi-sbom${{ matrix.ext }}"
-          bytes=$(wc -c < "$binary" | tr -d ' ')
-          {
-            echo "### Binary size"
-            echo
-            echo "| target | bytes | |"
-            echo "|---|---:|---:|"
-            echo "$bytes" | awk -v t="${{ matrix.target }}" '{printf "| %s | %s | %.2f MiB |\n", t, $1, $1/1048576}'
-          } >> "$GITHUB_STEP_SUMMARY"
-      - name: Package
-        shell: bash
+      # The handover. A tag pushed with the App token does start a workflow, but if that ever
+      # stops being true the release would end here looking successful, with no binaries and no
+      # crate — so the run does not finish green until the next one has actually started.
+      - name: Confirm release-artifacts.yml picked the tag up
         env:
-          TAG: ${{ needs.release.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          name="pixi-sbom-${TAG}-${{ matrix.target }}"
-          mkdir -p dist/"$name"
-          cp "target/release/pixi-sbom${{ matrix.ext }}" LICENSE README.md CHANGELOG.md dist/"$name"/
-          cd dist
-          if [[ "${{ matrix.target }}" == win-64 ]]; then
-            7z a "$name.zip" "$name" > /dev/null
-            sha256sum "$name.zip" > "$name.zip.sha256"
-          else
-            tar czf "$name.tar.gz" "$name"
-            shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"
-          fi
-          rm -rf "$name"
-
-      # A .sha256 says the file did not change on the way down. It says nothing about where the
-      # file came from — anyone can publish a file and a checksum of it. This signs a statement
-      # that this archive was built by this workflow, from this commit, on this runner, and it
-      # is signed here rather than in `publish` so the claim covers the artifact round trip too:
-      # a digest computed after the upload could not tell you the upload was honest.
-      - name: Attest the archive's provenance
-        id: attest
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: dist/pixi-sbom-${{ needs.release.outputs.tag }}-${{ matrix.target }}.${{ matrix.arc }}
-
-      # `gh attestation verify` finds the statement through the API on its own. The bundle also
-      # ships beside the archive, because the machine that most needs to check a binary is often
-      # the one that cannot reach api.github.com: `--bundle <file>` verifies offline.
-      - name: Ship the attestation beside the archive
-        shell: bash
-        env:
-          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
-          TAG: ${{ needs.release.outputs.tag }}
-        run: |
-          set -euo pipefail
-          cp "$BUNDLE" "dist/pixi-sbom-${TAG}-${{ matrix.target }}.${{ matrix.arc }}.sigstore.json"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pixi-sbom-${{ matrix.target }}
-          path: dist/*
-
-  # ---------------------------------------------------------------------------
-  # Publish the GitHub Release with this version's changelog section as notes.
-  # ---------------------------------------------------------------------------
-  publish:
-    name: Publish ${{ needs.release.outputs.tag }}
-    needs: [release, build]
-    if: needs.release.outputs.released == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    env:
-      TAG: ${{ needs.release.outputs.tag }}
-    steps:
-      - name: Generate GitHub App token
-        id: app-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.TAG }}
-          fetch-depth: 0
-      - uses: prefix-dev/setup-pixi@v0.8.1
-        with:
-          environments: default
-          cache: true
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-
-      - name: Release notes (this version's changelog section)
-        run: |
-          set -euo pipefail
-          pixi run git-cliff --config cliff.toml --latest --strip header > RELEASE_NOTES.md
-          {
-            echo
-            echo "---"
-            echo
-            echo "## Release artifacts"
-            echo
-            echo "| Artifact | Platform |"
-            echo "|---|---|"
-            echo "| \`pixi-sbom-${TAG}-linux-64.tar.gz\` | Linux x86_64 |"
-            echo "| \`pixi-sbom-${TAG}-linux-aarch64.tar.gz\` | Linux arm64 |"
-            echo "| \`pixi-sbom-${TAG}-osx-64.tar.gz\` | macOS Intel |"
-            echo "| \`pixi-sbom-${TAG}-osx-arm64.tar.gz\` | macOS Apple Silicon |"
-            echo "| \`pixi-sbom-${TAG}-win-64.zip\` | Windows x86_64 |"
-            echo
-            echo "Each archive has a \`.sha256\` and a signed \`.sigstore.json\` provenance bundle beside it."
-            echo
-            echo "To check an archive was built by this repository, from this commit, by this workflow run:"
-            echo
-            echo "\`\`\`sh"
-            echo "gh attestation verify pixi-sbom-${TAG}-linux-64.tar.gz --repo ${GITHUB_REPOSITORY}"
-            echo "\`\`\`"
-            echo
-            echo "Add \`--bundle pixi-sbom-${TAG}-linux-64.tar.gz.sigstore.json\` to verify without reaching GitHub."
-            echo
-            echo "Full changelog: [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md)"
-          } >> RELEASE_NOTES.md
-          cat RELEASE_NOTES.md
-
-      - name: Create GitHub Release
-        id: create_release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.TAG }}
-          name: Release ${{ env.TAG }}
-          body_path: RELEASE_NOTES.md
-          draft: false
-          prerelease: ${{ inputs.prerelease }}
-          files: dist/*
-          token: ${{ steps.app-token.outputs.token }}
-
-      - name: Release summary
-        run: |
-          set -euo pipefail
-          url="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${TAG}.tar.gz"
-          sha=$(curl -sSL "$url" | sha256sum | cut -d' ' -f1)
-          {
-            echo "## ${TAG} published"
-            echo
-            echo "Release: ${{ steps.create_release.outputs.url }}"
-            echo
-            echo "Source tarball SHA-256 for \`recipe/recipe.yaml\`: \`$sha\`"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-  # crates.io, from a clean checkout of the tag (this job's tree holds the downloaded archives,
-  # which cargo would refuse as uncommitted changes).
-  crate:
-    needs: [release, publish]
-    if: needs.release.outputs.released == 'true'
-    uses: ./.github/workflows/publish-crate.yml
-    with:
-      tag: ${{ needs.release.outputs.tag }}
-    secrets: inherit
+          for _ in $(seq 1 20); do
+            if gh run list --workflow=release-artifacts.yml --limit 20 \
+                 --json headBranch --jq '.[].headBranch' | grep -qx "v${{ env.NEW_TAG }}"; then
+              echo "release-artifacts.yml is running for v${{ env.NEW_TAG }}"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::The tag was pushed but release-artifacts.yml never started. Dispatch it by hand with tag=v${{ env.NEW_TAG }}."
+          exit 1

@@ -49,7 +49,7 @@ end-to-end suite in about half a second more. Run `pixi run fmt` before staging 
 done, so clippy findings do not pile up.
 
 **Gate.** `pixi run ci` before committing. It is ordered fast-fail: pre-commit (formatting, clippy, taplo, typos,
-whitespace) → release build → check → lint → coverage. If pre-commit rewrites a file, re-stage it before re-running or
+whitespace, actionlint) → release build → check → lint → coverage. If pre-commit rewrites a file, re-stage it before re-running or
 the next run fails identically. Coverage below 90% lines fails the gate; new code needs tests.
 
 **Dependencies.** `pixi run -e lint deny` checks the dependency tree against `deny.toml`: RUSTSEC advisories,
@@ -60,8 +60,9 @@ saying why that license is acceptable here, not a wider `confidence-threshold`. 
 fix is getting off the crate; an entry in `ignore` needs the issue that tracks doing so.
 
 **Hooks.** `pixi run bootstrap` installs pre-commit for the `pre-commit` and `commit-msg` stages. The local hooks call
-`pixi run cargo fmt`, `pixi run cargo clippy`, `pixi run taplo`, `pixi run typos`, because the git hook runs outside
-the pixi environment. The `commit-msg` hook enforces Conventional Commits. `--no-verify` is not used.
+`pixi run cargo fmt`, `pixi run cargo clippy`, `pixi run taplo`, `pixi run typos` and `pixi run actionlint`, because
+the git hook runs outside the pixi environment. actionlint is there because the release path cannot be exercised by a
+pull request: a wrong `needs:` reference or a typo in an expression would otherwise be found on the day of a release. The `commit-msg` hook enforces Conventional Commits. `--no-verify` is not used.
 
 **Claude Code.** `.claude/settings.json` registers `.claude/hooks/stop-ci.sh` as a Stop hook. It fingerprints the
 working tree (HEAD, staged and unstaged changes, untracked files) and runs `pixi run ci` only when that differs from
@@ -209,7 +210,7 @@ release containing them exists; keep `action.yml` inputs and the CLI in step at 
 
 | Job | Runs on | Does |
 |---|---|---|
-| Lint | ubuntu | `pixi run pre-commit-run`, `cargo fmt --check`, `lint`, `check` |
+| Lint | ubuntu | `pixi run pre-commit-run`, `cargo fmt --check`, `lint`, `check`, `actionlint` |
 | Test | `ubuntu-latest`, `macos-latest`, `windows-latest` | `pixi run test` |
 | Coverage gate | ubuntu | `pixi run cov` |
 | Dependency advisories and licenses | ubuntu | `pixi run -e lint deny`: RUSTSEC advisories, license terms, banned crates and unexpected sources |
@@ -245,15 +246,21 @@ five pixi platforms and therefore uses `ubuntu-24.04-arm` and `macos-15-intel` f
 
 ## Releasing
 
-One workflow, `release.yml`, run by hand from the Actions tab (*Release* → *Run workflow* on `main`). Inputs:
+Two workflows. `release.yml` is run by hand from the Actions tab (*Release* → *Run workflow* on `main`) and ends at
+the tag push; that tag then starts `release-artifacts.yml`, which builds, signs and publishes everything. One
+operator action, two runs.
+
+`release.yml` inputs:
 
 | Input | Default | Meaning |
 |---|---|---|
 | `version` | blank | Version to release without the `v` (e.g. `1.2.0`). Blank auto-increments the patch of the latest `v*` tag; for the very first release it uses `Cargo.toml`'s version. |
-| `prerelease` | false | Mark the GitHub release as a pre-release. |
 | `force_recreate` | false | Delete an existing tag and release of that version first, then recreate them. |
 
-What it does, in order:
+A **pre-release is expressed in the version**, not by a separate flag: `1.0.0-rc.1` is one and `1.0.0` is not.
+That is what semver already means by the suffix, and a flag could contradict the version it was attached to.
+
+What the two do, in order:
 
 1. **Version and guard.** Finds the latest `v*` tag, computes the next version, and exits quietly (no release) if
    nothing changed on `main` since that tag. Validates the version and refuses to reuse an existing tag unless
@@ -262,7 +269,12 @@ What it does, in order:
    `recipe/recipe.yaml`.
 3. **Gate.** Runs `pixi run ci` on the bumped tree; a red gate stops the release before anything is pushed.
 4. **Changelog.** Regenerates `CHANGELOG.md` with `git-cliff --tag vX.Y.Z` (`cliff.toml`), commits the bump and
-   changelog as `chore(release): vX.Y.Z`, tags that commit, and pushes both to `main`.
+   changelog as `chore(release): vX.Y.Z`, tags that commit, and pushes both to `main`. It then waits until
+   `release-artifacts.yml` is visibly running for that tag before going green: a tag that pushed but started
+   nothing would otherwise look like a successful release with no binaries behind it.
+
+   *`release-artifacts.yml` takes over here, triggered by the tag.*
+
 5. **Build.** Checks out the tag on five runners and builds `pixi-sbom` for linux-64, linux-aarch64, osx-64,
    osx-arm64 and win-64, packaged with `LICENSE`, `README.md`, `CHANGELOG.md` and a `.sha256` each.
 6. **Attest.** `actions/attest-build-provenance` signs a provenance statement for each archive: what built it, from
@@ -270,12 +282,26 @@ What it does, in order:
    the round trip through artifact storage as well. The statement goes to the repository's attestation store, and
    the Sigstore bundle also ships beside the archive as `.sigstore.json` for anyone verifying offline.
 7. **Publish.** Creates the GitHub release with this version's changelog section (from `git-cliff --latest`) plus an
-   artifact table as the notes and the packages as assets. The job summary prints the source tarball's SHA-256 for
-   `recipe/recipe.yaml`.
+   artifact table as the notes and the packages as assets, marked pre-release when the tag carries a suffix. The job
+   summary prints the source tarball's SHA-256 for `recipe/recipe.yaml`.
 8. **Crate.** `publish-crate.yml` (reusable, also dispatchable by hand with a `tag` input to republish) checks the
    tag out clean and runs `cargo publish --locked` (skipped with a warning while the `CARGO_REGISTRY_TOKEN` secret
    is missing). The `[package.metadata.binstall]` table in `Cargo.toml` points `cargo binstall` at the release
    archives.
+
+**Why the split exists.** `actions/attest-build-provenance` signs the OIDC identity of the run it is in, and that
+identity comes from the event, not from what the job checked out. While the build lived in the `workflow_dispatch`
+run, the provenance named `refs/heads/main` at the commit the release was dispatched from — one commit before the
+`chore(release):` bump that the build job then checked out. The v0.11.0 archives are attested to `05fc3c8` although
+they were built from `4029b71` (#218). Following the recorded commit gets you a tree whose `Cargo.toml` still says
+the previous version, which is precisely the question an attestation exists to answer. Triggered by the tag, the
+run being signed *is* the run that built the binaries, and the provenance names `refs/tags/vX.Y.Z` at the right
+commit.
+
+This works because the tag is pushed with the release GitHub App's token. A push made with the default
+`GITHUB_TOKEN` deliberately does not start workflows; an App installation token does. If that ever changes, step 4's
+handover check fails the release rather than letting it end quietly with nothing built, and
+`release-artifacts.yml` can be dispatched by hand with a `tag` input.
 
 **What is not attested, and why.** The crates.io publish is not: crates.io has no attestation verification, so a
 statement about the uploaded `.crate` would be one nobody could check at install time, and `cargo install` builds

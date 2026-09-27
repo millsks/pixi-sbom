@@ -1,0 +1,254 @@
+name: Release artifacts
+
+# Builds, signs and publishes the artifacts for a release tag. Split out of release.yml, which
+# only gets as far as pushing the tag, because of what the provenance attestation is allowed to
+# claim: `actions/attest-build-provenance` signs the OIDC identity of the *run*, and a
+# `workflow_dispatch` run on `main` identifies itself as `refs/heads/main` at the commit it was
+# dispatched from — one commit before the release bump that the build job then checks out. The
+# v0.11.0 archives are attested to 05fc3c8 although they were built from 4029b71 (#218).
+#
+# Triggered by the tag push, the same run is the thing being attested: `refs/tags/vX.Y.Z` at the
+# commit the binaries were actually built from. The tag push in release.yml is made with the
+# release GitHub App's token, and App-token pushes do start workflows — the default GITHUB_TOKEN
+# is the one that cannot, which is why this split works at all.
+#
+# Whether a release is a pre-release comes from the tag now rather than a dispatch input: a
+# version with a pre-release part (1.0.0-rc.1) is one, a plain version is not. That is what the
+# version already meant, and an input could contradict it.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to (re)build and publish (e.g. v1.2.0)"
+        required: true
+        type: string
+
+concurrency:
+  group: release-artifacts-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Which tag this run is for, and what that tag says about it.
+  # ---------------------------------------------------------------------------
+  tag:
+    name: Resolve the tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
+    steps:
+      - name: Resolve
+        id: resolve
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag || github.ref_name }}"
+          if ! echo "$tag" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$'; then
+            echo "::error::'$tag' is not a release tag (vX.Y.Z or vX.Y.Z-suffix)"
+            exit 1
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          # Semver: a hyphen after the version is a pre-release, and nothing else is.
+          if echo "${tag#v}" | grep -q -- '-'; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Native binaries for every pixi platform, built from the tagged commit.
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build (${{ matrix.target }})
+    needs: tag
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      # Signing the provenance: id-token mints the OIDC token that identifies this workflow run
+      # to Sigstore, attestations writes the resulting statement to the repository.
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: linux-64, ext: "", arc: "tar.gz" }
+          - { os: ubuntu-24.04-arm, target: linux-aarch64, ext: "", arc: "tar.gz" }
+          - { os: macos-15-intel, target: osx-64, ext: "", arc: "tar.gz" }
+          - { os: macos-latest, target: osx-arm64, ext: "", arc: "tar.gz" }
+          - { os: windows-latest, target: win-64, ext: ".exe", arc: "zip" }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          environments: default
+          cache: true
+      - name: Release build
+        run: pixi run build
+      - name: Smoke test
+        run: pixi run cargo run --release -- --version
+      # Tracked release to release: a dependency that doubles the download should be visible
+      # in the run that shipped it, not discovered by someone downloading it.
+      - name: Record the binary size
+        shell: bash
+        run: |
+          binary="target/release/pixi-sbom${{ matrix.ext }}"
+          bytes=$(wc -c < "$binary" | tr -d ' ')
+          {
+            echo "### Binary size"
+            echo
+            echo "| target | bytes | |"
+            echo "|---|---:|---:|"
+            echo "$bytes" | awk -v t="${{ matrix.target }}" '{printf "| %s | %s | %.2f MiB |\n", t, $1, $1/1048576}'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Package
+        shell: bash
+        env:
+          TAG: ${{ needs.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          name="pixi-sbom-${TAG}-${{ matrix.target }}"
+          mkdir -p dist/"$name"
+          cp "target/release/pixi-sbom${{ matrix.ext }}" LICENSE README.md CHANGELOG.md dist/"$name"/
+          cd dist
+          if [[ "${{ matrix.target }}" == win-64 ]]; then
+            7z a "$name.zip" "$name" > /dev/null
+            sha256sum "$name.zip" > "$name.zip.sha256"
+          else
+            tar czf "$name.tar.gz" "$name"
+            shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"
+          fi
+          rm -rf "$name"
+
+      # A .sha256 says the file did not change on the way down. It says nothing about where the
+      # file came from — anyone can publish a file and a checksum of it. This signs a statement
+      # that this archive was built by this workflow, from this tag's commit, on this runner.
+      #
+      # Signed here rather than in `publish` so the claim covers the artifact round trip too: a
+      # digest computed after the upload could not tell you the upload was honest. And signed in
+      # a tag-triggered run so the commit it names is the commit that was built — see the note at
+      # the top of this file.
+      - name: Attest the archive's provenance
+        id: attest
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/pixi-sbom-${{ needs.tag.outputs.tag }}-${{ matrix.target }}.${{ matrix.arc }}
+
+      # `gh attestation verify` finds the statement through the API on its own. The bundle also
+      # ships beside the archive, because the machine that most needs to check a binary is often
+      # the one that cannot reach api.github.com: `--bundle <file>` verifies offline.
+      - name: Ship the attestation beside the archive
+        shell: bash
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          TAG: ${{ needs.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          cp "$BUNDLE" "dist/pixi-sbom-${TAG}-${{ matrix.target }}.${{ matrix.arc }}.sigstore.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pixi-sbom-${{ matrix.target }}
+          path: dist/*
+
+  # ---------------------------------------------------------------------------
+  # Publish the GitHub Release with this version's changelog section as notes.
+  # ---------------------------------------------------------------------------
+  publish:
+    name: Publish ${{ needs.tag.outputs.tag }}
+    needs: [tag, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.tag.outputs.tag }}
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+          fetch-depth: 0
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          environments: default
+          cache: true
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Release notes (this version's changelog section)
+        run: |
+          set -euo pipefail
+          pixi run git-cliff --config cliff.toml --latest --strip header > RELEASE_NOTES.md
+          {
+            echo
+            echo "---"
+            echo
+            echo "## Release artifacts"
+            echo
+            echo "| Artifact | Platform |"
+            echo "|---|---|"
+            echo "| \`pixi-sbom-${TAG}-linux-64.tar.gz\` | Linux x86_64 |"
+            echo "| \`pixi-sbom-${TAG}-linux-aarch64.tar.gz\` | Linux arm64 |"
+            echo "| \`pixi-sbom-${TAG}-osx-64.tar.gz\` | macOS Intel |"
+            echo "| \`pixi-sbom-${TAG}-osx-arm64.tar.gz\` | macOS Apple Silicon |"
+            echo "| \`pixi-sbom-${TAG}-win-64.zip\` | Windows x86_64 |"
+            echo
+            echo "Each archive has a \`.sha256\` and a signed \`.sigstore.json\` provenance bundle beside it."
+            echo
+            echo "To check an archive was built by this repository, from this commit, by this workflow run:"
+            echo
+            echo "\`\`\`sh"
+            echo "gh attestation verify pixi-sbom-${TAG}-linux-64.tar.gz --repo ${GITHUB_REPOSITORY}"
+            echo "\`\`\`"
+            echo
+            echo "Add \`--bundle pixi-sbom-${TAG}-linux-64.tar.gz.sigstore.json\` to verify without reaching GitHub."
+            echo
+            echo "Full changelog: [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md)"
+          } >> RELEASE_NOTES.md
+          cat RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: Release ${{ env.TAG }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ needs.tag.outputs.prerelease }}
+          files: dist/*
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Release summary
+        run: |
+          set -euo pipefail
+          url="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${TAG}.tar.gz"
+          sha=$(curl -sSL "$url" | sha256sum | cut -d' ' -f1)
+          {
+            echo "## ${TAG} published"
+            echo
+            echo "Release: ${{ steps.create_release.outputs.url }}"
+            echo
+            echo "Source tarball SHA-256 for \`recipe/recipe.yaml\`: \`$sha\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # crates.io, from a clean checkout of the tag (this job's tree holds the downloaded archives,
+  # which cargo would refuse as uncommitted changes).
+  crate:
+    needs: [tag, publish]
+    uses: ./.github/workflows/publish-crate.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+    secrets: inherit

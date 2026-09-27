@@ -45,12 +45,16 @@ pre-commit-hooks = "*"
 taplo = "*"
 typos = "*"
 git-cliff = "*"
+actionlint = ">=1.7.12,<2"
 
 [feature.lint.tasks]
 bootstrap = "pre-commit install --hook-type pre-commit --hook-type commit-msg"
 # Advisories, licenses, banned crates and sources, against deny.toml. No --all-features: the
 # graph deny.toml resolves is meant to be the one we ship.
 deny = "cargo deny check"
+# The release path cannot be exercised by a pull request, so the expressions, `needs:` graph and
+# action inputs in it are checked statically instead of on the day.
+actionlint = "actionlint"
 pre-commit-run = "pre-commit run --all-files"
 
 [feature.cov.dependencies]
