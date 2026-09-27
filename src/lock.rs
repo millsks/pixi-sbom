@@ -306,6 +306,27 @@ fn convert_conda(conda: &CondaPackageData) -> Result<Package, LockError> {
         add_record_properties(record, &mut properties);
     }
 
+    // pixi writes `purls:` as bare names — `pkg:pypi/click?source=compressed-mapping` — because
+    // the mapping behind them is name to name. A purl with no version is a name, not an identity:
+    // OSV cannot query it, and because the entry exists at all the mapping pass skips the package
+    // (see `mapping::enrich`), so nothing later supplies what is missing. The version is in this
+    // same lock entry, so fill it in here and the rest of the run has something to work with.
+    if let Some(version) = version.as_deref() {
+        for stated in &mut extra_purls {
+            if let Some(versioned) = purl::with_version(stated, version) {
+                *stated = versioned;
+            }
+        }
+    } else if extra_purls.iter().any(|p| !p.contains('@')) {
+        // No version to fill in with. Say so, because the alternative is a package that quietly
+        // never gets asked about.
+        tracing::warn!(
+            package = %name,
+            "the lockfile states a PyPI purl with no version and the entry has no version either; \
+             vulnerability lookups cannot query this package"
+        );
+    }
+
     let purl = purl::conda(CondaPurl {
         name: &name,
         version: version.as_deref(),
@@ -624,6 +645,37 @@ mod tests {
             environment,
             platform: Some(platform),
         }
+    }
+
+    #[test]
+    fn a_lockfile_purl_without_a_version_is_given_the_package_version() {
+        // pixi records `purls:` for a conda package as a bare name, because the mapping behind
+        // them is name to name. Taking that at face value produced a document whose PyPI
+        // identity for the package was `pkg:pypi/click` — a name OSV cannot query — while the
+        // version sat two lines away in the same entry (#215).
+        let sbom = build_sbom(&fixture("lock-bare-purls"), select("default", "linux-64"), root()).unwrap();
+        let find = |name: &str| sbom.packages.iter().find(|p| p.name == name).unwrap();
+
+        assert_eq!(
+            find("zlib").extra_purls,
+            vec!["pkg:pypi/zlib@1.3.2?source=compressed-mapping"],
+            "the bare name is completed from the entry's own version, qualifier kept"
+        );
+        assert!(find("zlib").purls_from_lock, "it is still the lockfile's answer");
+
+        // One that already states a version is the lockfile being specific, and is not ours to
+        // correct — even to the version of the conda package it sits on.
+        assert_eq!(find("libzlib").extra_purls, vec!["pkg:pypi/libzlib@9.9.9"]);
+    }
+
+    #[test]
+    fn an_empty_purls_list_still_means_no_pypi_identity() {
+        // `purls: []` is a deliberate statement, not a gap to fill. Nothing to complete here,
+        // and nothing may be invented.
+        let sbom = build_sbom(&fixture("lock-bare-purls"), select("default", "osx-arm64"), root()).unwrap();
+        let zlib = sbom.packages.iter().find(|p| p.name == "zlib").unwrap();
+        assert!(zlib.extra_purls.is_empty());
+        assert!(zlib.purls_from_lock);
     }
 
     #[test]

@@ -3,6 +3,8 @@
 //! Follows the purl spec types `conda` (qualifiers `build`, `channel`, `subdir`, `type`)
 //! and `pypi`.
 
+use std::str::FromStr;
+
 use miette::Diagnostic;
 use packageurl::PackageUrl;
 use thiserror::Error;
@@ -71,6 +73,24 @@ pub fn pypi(name: &str, version: &str) -> Result<String, PurlError> {
     let mut purl = PackageUrl::new("pypi", normalized).map_err(wrap)?;
     purl.with_version(version).map_err(wrap)?;
     Ok(purl.to_string())
+}
+
+/// Fill a version into a purl that has none, leaving one that already has a version alone.
+///
+/// pixi records `purls:` for a conda package as a bare name — `pkg:pypi/click?source=...` — with
+/// no version, because the mapping it comes from is name to name. A purl without a version is a
+/// name, not an identity: OSV has nothing to look up, and a scanner reading the document cannot
+/// tell which release is installed. The version is sitting in the same lock entry, so put it in.
+///
+/// Returns `None` when the string is not a purl we can parse, which leaves the original in place
+/// rather than dropping what the lockfile said.
+pub fn with_version(purl: &str, version: &str) -> Option<String> {
+    let mut parsed = PackageUrl::from_str(purl).ok()?;
+    if parsed.version().is_some() {
+        return None;
+    }
+    parsed.with_version(version).ok()?;
+    Some(parsed.to_string())
 }
 
 /// PEP 503 name normalization: lowercase, runs of `-`, `_`, `.` become a single `-`.
@@ -214,5 +234,27 @@ mod tests {
         assert_eq!(archive_type_from_file_name("zlib-1.3.2-h1.conda"), Some("conda"));
         assert_eq!(archive_type_from_file_name("zlib-1.3.2-h1.tar.bz2"), Some("tar.bz2"));
         assert_eq!(archive_type_from_file_name("zlib.whl"), None);
+    }
+
+    #[test]
+    fn a_bare_purl_gets_the_version_and_a_versioned_one_is_left_alone() {
+        // What pixi actually writes into `purls:` for a workspace with pypi-dependencies.
+        assert_eq!(
+            with_version("pkg:pypi/click?source=compressed-mapping", "8.5.0").as_deref(),
+            Some("pkg:pypi/click@8.5.0?source=compressed-mapping"),
+            "the qualifier that says where the name came from is kept"
+        );
+        assert_eq!(
+            with_version("pkg:pypi/six", "1.17.0").as_deref(),
+            Some("pkg:pypi/six@1.17.0")
+        );
+
+        // Already an identity: not ours to overwrite, even with a different version.
+        assert_eq!(with_version("pkg:pypi/six@1.16.0", "1.17.0"), None);
+
+        // Not a purl at all. None leaves the original in place rather than dropping what the
+        // lockfile said, which is the safer end of a guess.
+        assert_eq!(with_version("not a purl", "1.0"), None);
+        assert_eq!(with_version("", "1.0"), None);
     }
 }

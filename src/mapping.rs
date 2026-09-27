@@ -6,6 +6,11 @@
 //! requirements from conda packages. This module applies that mapping to packages whose lock
 //! entry has no `purls:` (pixi only records purls for environments with `pypi-dependencies`)
 //! and, on request, makes the PyPI purl the primary one so scanners can act on it.
+//!
+//! A package the lockfile already answered for is skipped here. That is only safe because
+//! `lock::convert_conda` completes a stated purl that has no version — pixi writes them as bare
+//! names — before this runs. Without that, skipping would leave behind an identity no database
+//! could query, which is what #215 was.
 
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};

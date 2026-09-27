@@ -5554,3 +5554,89 @@ fn a_run_writes_the_outputs_it_was_asked_for_and_nothing_else() {
         ]
     );
 }
+
+/// #215: pixi records a conda package's PyPI purl in the lockfile as a bare name, with no
+/// version, and the mapping pass then skips the package because the lockfile already answered.
+/// The answer it left behind could not be queried by anything. Checked end to end, because the
+/// symptom was never in the lockfile reader alone — it was what came out the other end.
+#[test]
+fn a_bare_pypi_purl_in_the_lockfile_reaches_the_document_with_a_version() {
+    let dir = workspace("lock-bare-purls");
+    let out = dir.path().join("out.cdx.json");
+    pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args(["-p", "linux-64", "--output", out.to_str().unwrap()])
+        .assert()
+        .success();
+
+    let doc = read_json(&out);
+    let component = |name: &str| {
+        doc["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == name)
+            .unwrap()
+            .clone()
+    };
+    let pixi_purl = |name: &str| {
+        component(name)["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == "pixi:purl")
+            .map(|p| p["value"].as_str().unwrap().to_string())
+    };
+
+    assert_eq!(
+        pixi_purl("zlib").as_deref(),
+        Some("pkg:pypi/zlib@1.3.2?source=compressed-mapping"),
+        "a name with no version is not an identity; the version was in the same lock entry"
+    );
+    assert_eq!(
+        pixi_purl("libzlib").as_deref(),
+        Some("pkg:pypi/libzlib@9.9.9"),
+        "a purl the lockfile already made specific is left exactly as it was"
+    );
+}
+
+/// The other half of #215: with the identity complete, the package is one the vulnerability
+/// lookup will ask about. Offline with an empty cache, so what is asserted is which packages it
+/// tried to query, not what any database said.
+#[test]
+fn a_completed_purl_makes_the_package_one_the_lookup_asks_about() {
+    let dir = workspace("lock-bare-purls");
+    let cache = tempfile::tempdir().unwrap();
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_SBOM_CACHE_DIR", cache.path())
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args([
+            "-p",
+            "linux-64",
+            "--vulnerabilities",
+            "osv",
+            "--report",
+            "vulnerabilities",
+        ])
+        .assert()
+        .success();
+    let output = assert.get_output();
+    let report = String::from_utf8(output.stdout.clone()).unwrap();
+    let log = String::from_utf8(output.stderr.clone()).unwrap();
+
+    assert!(
+        log.contains("queried=2") && log.contains("without_identity=0"),
+        "both packages were asked about: {log}"
+    );
+    assert!(
+        log.contains("pkg:pypi/zlib@1.3.2"),
+        "the completed purl is what went to the database, not the bare name: {log}"
+    );
+    assert!(
+        report.contains("No queryable identity: none"),
+        "and the report says nothing was skipped: {report}"
+    );
+}
