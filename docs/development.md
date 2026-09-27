@@ -69,6 +69,15 @@ the state recorded at the last green run (`.pixi/.last-ci-ok`), so a stop that c
 failing gate exits 2 with the tail of `.pixi/.last-ci.log`, which blocks the stop and hands the failure back to the
 assistant rather than only printing it. `.claude/memory/` holds the recorded design decisions and environment notes.
 
+**The docs environment is the one place this project is not conda-forge-first.** `mkdocs`,
+`mkdocs-material`, `mike` and `pymdown-extensions` come from PyPI, because conda-forge's only mkdocs 1.6.1 build
+declares `click >=7.0,<8.3.0a0` and that held the lockfile on click 8.2.1 — PYSEC-2026-2132, a high-severity command
+injection in `click.edit()` that this project's own SBOM job reported against its own lockfile (#211). mkdocs' real
+metadata asks for `click>=7.0`; the cap is the conda packaging, not the code, and `mkdocs build --strict`,
+`mkdocs serve` with live reload and `mike deploy` were all checked by hand against click 8.5.0. `click >=8.3.3`
+stays on the conda side of the docs feature so a future dependency that caps it again fails the solve rather than
+quietly reintroducing the advisory. Move the four back when conda-forge ships an mkdocs build without the cap.
+
 ## Tests
 
 Three layers, all under `pixi run test`:

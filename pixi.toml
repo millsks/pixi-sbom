@@ -63,7 +63,20 @@ cov = "cargo llvm-cov --all-targets --fail-under-lines 90"
 [feature.dev.tasks]
 ci = { depends-on = ["pre-commit-run", "build", "check", "lint", "cov"] }
 
+# The site toolchain comes from PyPI rather than conda-forge, which is the one place this
+# project departs from conda-forge-first. conda-forge's only mkdocs 1.6.1 build declares
+# `click >=7.0,<8.3.0a0`, which held the lockfile on click 8.2.1 — PYSEC-2026-2132, a high
+# command injection in `click.edit()` that this project's own SBOM job reported against itself
+# (#211). mkdocs' real metadata asks for `click>=7.0`; the cap is the packaging, not the code.
+# Revisit when conda-forge ships an mkdocs build without it.
 [feature.docs.dependencies]
+python = "3.14.*"
+# Conda-side, so the PyPI solve sees it as already satisfied and cannot pull a capped one. The
+# floor is the fixed release: a future dependency that caps click again fails the solve here
+# instead of quietly reintroducing the advisory.
+click = ">=8.3.3"
+
+[feature.docs.pypi-dependencies]
 mkdocs = ">=1.6,<2"
 mkdocs-material = ">=9.6"
 pymdown-extensions = ">=10"
