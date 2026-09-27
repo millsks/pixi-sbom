@@ -8,6 +8,7 @@ A [pixi](https://pixi.sh) extension that generates a Software Bill of Materials 
 [![Docs](https://img.shields.io/badge/docs-millsks.github.io%2Fpixi--sbom-teal.svg)](https://millsks.github.io/pixi-sbom/)
 
 Full documentation: **https://millsks.github.io/pixi-sbom/**
+What 1.0 freezes, and what it does not: **[stability.md](docs/stability.md)**
 Found a vulnerability? [SECURITY.md](SECURITY.md) says where to send it privately and what is in scope.
 
 ## Installation

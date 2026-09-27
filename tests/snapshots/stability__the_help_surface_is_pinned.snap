@@ -1,0 +1,134 @@
+---
+source: tests/stability.rs
+expression: "surface.join(\"\\n\")"
+---
+      --lockfile <PATH>
+      --from-sbom <FILE>
+      --scan <DIR>
+      --scan-depth <N>
+      --prefix <DIR>
+      --root-name <NAME>
+      --root-version <VERSION>
+      --config <PATH>
+      --no-config
+      --format <FORMAT>
+          - cyclonedx: CycloneDX 1.6 or 1.7 (JSON), see --spec-version
+          - spdx:      SPDX 2.3 or 3.0 (JSON), see --spec-version
+          [default: cyclonedx]
+      --spec-version <VERSION>
+          - 1.6: CycloneDX 1.6
+          - 1.7: CycloneDX 1.7 (ECMA-424 2nd edition); adds a citation attributing the inventory to its source
+          - 2.3: SPDX 2.3 (tag-value-style JSON)
+          - 3.0: SPDX 3.0.1 (JSON-LD graph)
+      --output <PATH>
+  -e, --environment <ENVIRONMENT>
+          [default: default]
+      --all-environments
+  -p, --platform <PLATFORM>
+      --all-platforms
+      --pypi-mapping <PYPI_MAPPING>
+          - lock:   Only the purls recorded in the lockfile (no network)
+          - prefix: Also the conda-forge mapping from conda-mapping.prefix.dev, cached for a day
+          [default: lock]
+      --pypi-mapping-file <PATH>
+      --primary-purl <PRIMARY_PURL>
+          - conda: `pkg:conda/...` is the purl; the PyPI purl is an extra reference
+          - pypi:  `pkg:pypi/...` is the purl so vulnerability scanners can match it; the conda purl is an extra reference
+          [default: conda]
+      --fetch-licenses
+      --license-texts
+      --embedded-sboms
+      --exclude <GLOB>
+      --include <GLOB>
+      --exclude-kind <KIND>
+          - conda:        A prebuilt `.conda` / `.tar.bz2` archive from a channel
+          - conda-source: A pixi-build source package
+          - pypi:         A PyPI wheel or sdist
+          - embedded:     A component declared by an SBOM embedded in a wheel
+          - external:     A package from an existing document that is neither conda nor PyPI (`--from-sbom`)
+      --keep-orphans
+      --allow-license <LICENSE>
+      --deny-license <LICENSE>
+      --ignore-license <PACKAGE[:WHY]>
+      --require-license
+      --scorecard
+      --scorecard-min <N>
+          [default: 5]
+      --fail-on-scorecard <N>
+      --fail-on-yanked
+      --vulnerabilities <SOURCE>
+          - osv: The Open Source Vulnerabilities database (osv.dev): PyPI, crates.io, npm and other ecosystems it indexes; conda packages match through their PyPI purl
+      --kev
+      --fail-on-kev
+      --fail-on-severity <SEVERITY>
+          [possible values: low, medium, high, critical]
+      --ignore-vuln <ID[:STATE][:TEXT]>
+      --vex <PATH>
+      --vex-open <STATE>
+          - in-triage:   Somebody still has to look at it
+          - exploitable: The product is affected and the finding is actionable
+          [default: in-triage]
+      --version-details
+      --timings
+      --doctor
+      --refresh [<CACHE>...]
+          - all:        Every cache
+          - mapping
+          - osv
+          - kev
+          - wheels
+          - conda-info
+          - pypi
+          - outdated
+          - scorecard
+      --no-cache
+      --report <REPORT>
+          - packages:        Inventory: one row per package with kind, source, license and purl
+          - licenses:        Licenses: one row per package with license, family, source and files, plus a summary
+          - vulnerabilities: Vulnerabilities: one row per finding and affected package, worst first, plus a summary by severity. Requires --vulnerabilities
+          - diff:            Diff: what changed since the document given with --against (added, removed, version and license changes)
+          - outdated:        Outdated: how far behind its index each package is
+          - python:          Python: which packages constrain the interpreter version
+          - phantom:         Phantom: imports and declarations that do not line up
+          - scorecard:       Scorecard: how each package's repository is maintained
+      --explain <PACKAGE>
+      --report-format <REPORT_FORMAT>
+          - table:    Aligned columns for a terminal
+          - markdown: A GitHub-flavoured Markdown table
+          - csv:      RFC 4180 CSV with a header row
+          - json:     JSON: an object per document, or an array of them in batch mode
+          - sarif:    SARIF 2.1.0 for the vulnerabilities report: one run per document, one result per finding and affected package, for GitHub code scanning and other SARIF consumers
+          [default: table]
+      --color <WHEN>
+          - auto:   Colour when stdout is a terminal and the environment does not forbid it
+          - always: Always colour, even when redirected (useful for `less -R` and CI logs)
+          - never:  Never colour
+          [default: auto]
+      --tree
+      --depth <N>
+      --group-by <WHAT>
+          - license: One section per license expression, listing the packages under it
+      --outdated-min <STEP>
+          - patch: Any package behind its index
+          - minor: A minor or major step behind
+          - major: A major step behind
+      --fail-on-diff [<SECTION>...]
+          - any:     Any of the four below
+          - added:   Packages the previous document does not have
+          - removed: Packages the previous document has and this one does not
+          - version: Same package, different version
+          - license: Same package and version, different license
+          - build:   Same package and version, different conda build string
+          - pip:     Installed by pip into the environment and not in the other side
+      --source <DIR>
+      --assume-used <GLOB>
+      --fail-on-phantom
+      --against <PATH>
+      --ca-bundle <FILE>
+      --log-format <FORMAT>
+          - text: One line per event, written for a person
+          - json: One JSON object per event, with the timestamp and every field kept separate
+  -v, --verbose...
+  -q, --quiet...
+  -h, --help
+  -V, --version

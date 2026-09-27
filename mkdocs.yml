@@ -26,6 +26,7 @@ nav:
   - CI recipes: ci-recipes.md
   - Which format to pick: formats.md
   - Output format reference: output-format.md
+  - What 1.0 freezes: stability.md
   - Troubleshooting: troubleshooting.md
   - Security policy: security.md
   - Contributing:
