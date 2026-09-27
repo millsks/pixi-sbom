@@ -18,7 +18,8 @@ name: Release artifacts
 
 on:
   push:
-    tags: ["v*"]
+    # Release tags only: the floating major tag (v0, v1) that the publish job moves is not one.
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
   workflow_dispatch:
     inputs:
       tag:
@@ -230,6 +231,23 @@ jobs:
           prerelease: ${{ needs.tag.outputs.prerelease }}
           files: dist/*
           token: ${{ steps.app-token.outputs.token }}
+
+      # `uses: millsks/pixi-sbom@v0` follows the newest final release of its major. Moved only once the release
+      # and its binaries exist, and never backwards: rebuilding an older tag leaves it where it is. Pushed with
+      # the default token, which starts no workflows, so the move triggers nothing.
+      - name: Move the floating major tag
+        if: needs.tag.outputs.prerelease != 'true'
+        run: |
+          set -euo pipefail
+          major="${TAG%%.*}"
+          newest=$(git tag -l "${major}.*" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+          if [ "$newest" != "$TAG" ]; then
+            echo "::notice::${TAG} is not the newest ${major} release (${newest}); ${major} stays put"
+            exit 0
+          fi
+          git tag -f "$major" "${TAG}^{commit}"
+          git push --force origin "refs/tags/${major}"
+          echo "${major} -> ${TAG}"
 
       - name: Release summary
         run: |

@@ -10,8 +10,8 @@ branding:
 inputs:
   version:
     description: >-
-      pixi-sbom version to run (e.g. 0.5.1). Defaults to the version the action was referenced
-      at (`uses: millsks/pixi-sbom@v0.5.1`), or the latest release when referenced by branch.
+      pixi-sbom version to run (e.g. 0.12.0). Defaults to the version the action was referenced
+      at: `@v0.12.0` runs 0.12.0, `@v0` the newest 0.x.y release, a branch the latest release.
     required: false
     default: ""
   lockfile:
@@ -246,16 +246,7 @@ runs:
         GH_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
-        version="${INPUT_VERSION#v}"
-        if [ -z "$version" ] && [[ "$ACTION_REF" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-          version="${ACTION_REF#v}"
-        fi
-        if [ -z "$version" ]; then
-          version=$(curl -sSfL -H "Authorization: Bearer $GH_TOKEN" \
-            https://api.github.com/repos/millsks/pixi-sbom/releases/latest | \
-            sed -n 's/.*"tag_name": *"v\{0,1\}\([^"]*\)".*/\1/p')
-        fi
-        [ -n "$version" ] || { echo "::error::cannot determine the pixi-sbom version to install"; exit 1; }
+        version=$(bash "$GITHUB_ACTION_PATH/scripts/action-version.sh")
         case "${RUNNER_OS}-${RUNNER_ARCH}" in
           Linux-X64) platform=linux-64; ext=tar.gz ;;
           Linux-ARM64) platform=linux-aarch64; ext=tar.gz ;;

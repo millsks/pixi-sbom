@@ -78,7 +78,7 @@ the comparison in the job summary:
 ```yaml
 - uses: actions/download-artifact@v4   # the sboms artifact the main branch uploaded
   with: { name: sboms, path: previous }
-- uses: millsks/pixi-sbom@v1
+- uses: millsks/pixi-sbom@v0
   with:
     diff-against: previous/sbom-default.cdx.json
     fail-on-diff: removed version    # adding a package is fine; losing or bumping one is not

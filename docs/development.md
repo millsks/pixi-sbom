@@ -288,6 +288,10 @@ What the two do, in order:
    the Sigstore bundle also ships beside the archive as `.sigstore.json` for anyone verifying offline.
 7. **Publish.** Creates the GitHub release with this version's changelog section (from `git-cliff --latest`) plus an
    artifact table as the notes and the packages as assets, marked pre-release when the tag carries a suffix.
+   A final release then moves the floating major tag (`v0`, later `v1`) to itself, which is what
+   `uses: millsks/pixi-sbom@v0` follows; a rebuild of an older release leaves it alone. `release-artifacts.yml`
+   only triggers on `vX.Y.Z` tags and the version lookups match `vX.Y.Z` only, so the floating tag starts nothing
+   and is never taken for the latest release.
 8. **Crate.** `publish-crate.yml` (reusable, also dispatchable by hand with a `tag` input to republish) checks the
    tag out clean and runs `cargo publish --locked` (skipped with a warning while the `CARGO_REGISTRY_TOKEN` secret
    is missing). The `[package.metadata.binstall]` table in `Cargo.toml` points `cargo binstall` at the release

@@ -235,7 +235,7 @@ as an artifact; no pixi setup needed:
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: millsks/pixi-sbom@v0.5.1
+- uses: millsks/pixi-sbom@v0
   with:
     all-environments: "true"
     fetch-licenses: "true"

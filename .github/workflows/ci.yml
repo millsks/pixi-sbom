@@ -101,6 +101,9 @@ jobs:
           cache: true
       - name: cargo bench --test
         run: pixi run bench-test
+      # Which release `@v0`, `@v0.12.0` or a branch installs; a wrong answer ships every user the wrong binary.
+      - name: The action's version resolution
+        run: pixi run action-test
       # The performance gate decides whether a build fails, so what it does with a given pair
       # of numbers is checked here rather than discovered on a red run.
       - name: The performance gate's own tests

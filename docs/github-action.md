@@ -9,7 +9,7 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: millsks/pixi-sbom@v0.5.1
+- uses: millsks/pixi-sbom@v0
   with:
     all-environments: "true"
     fetch-licenses: "true"
@@ -19,9 +19,13 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
     require-license: "true"
 ```
 
+`@v0` follows the newest 0.x.y release: each release moves the tag once its binaries are published, and the action
+installs the binary of the release the tag points at. For a build that never changes underneath you, pin an exact
+release (`@v0.12.0`) or a commit sha and let Dependabot bump it.
+
 | Input | Default | Meaning |
 |---|---|---|
-| `version` | the action's own tag, else the latest release | pixi-sbom version to run |
+| `version` | the action's own tag (`@v0`: the newest 0.x.y), else the latest release | pixi-sbom version to run |
 | `lockfile`, `format`, `spec-version`, `environment`, `platform`, `all-environments`, `all-platforms` | as the CLI | Selection and format, see the options above |
 | `scan` | | Describe every pixi workspace under this directory instead of one lockfile; the documents land under `output` at the same relative path, so a monorepo job uploads one artifact holding all of them |
 | `config` | | Configuration file; the `pyproject.toml` table or `pixi-sbom.toml` next to the lockfile are read by default, `none` reads nothing. `format` is always passed and wins over the file; the other inputs are passed only when set |
@@ -82,7 +86,7 @@ permissions:
   security-events: write
 steps:
   - uses: actions/checkout@v4
-  - uses: millsks/pixi-sbom@v0.6.0
+  - uses: millsks/pixi-sbom@v0
     with:
       pypi-mapping: prefix
       vulnerabilities: osv
@@ -119,7 +123,7 @@ permissions:
   attestations: write
 steps:
   - uses: actions/checkout@v4
-  - uses: millsks/pixi-sbom@v0.7.0
+  - uses: millsks/pixi-sbom@v0
     with:
       attest: "true"
 ```
@@ -141,7 +145,7 @@ list that is known to trip (`Python-2.0`) proves the `policy-violated` output wi
 second step with a satisfiable policy proves exit 0:
 
 ```yaml
-- uses: millsks/pixi-sbom@v0.5.1
+- uses: millsks/pixi-sbom@v0
   id: sbom
   with:
     all-environments: "true"
