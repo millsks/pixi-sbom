@@ -1536,7 +1536,7 @@ That is what semver already means by the suffix, and a flag could contradict the
 <li><strong>Publish.</strong> Creates the GitHub release with this version's changelog section (from <code>git-cliff --latest</code>) plus an
    artifact table as the notes and the packages as assets, marked pre-release when the tag carries a suffix.
    A final release then moves the floating major tag (<code>v0</code>, later <code>v1</code>) to itself, which is what
-   <code>uses: millsks/pixi-sbom@v0</code> follows; a rebuild of an older release leaves it alone. <code>release-artifacts.yml</code>
+   <code>uses: millsks/pixi-sbom@v1</code> follows; a rebuild of an older release leaves it alone. <code>release-artifacts.yml</code>
    only triggers on <code>vX.Y.Z</code> tags and the version lookups match <code>vX.Y.Z</code> only, so the floating tag starts nothing
    and is never taken for the latest release.</li>
 <li><strong>Crate.</strong> <code>publish-crate.yml</code> (reusable, also dispatchable by hand with a <code>tag</code> input to republish) checks the
