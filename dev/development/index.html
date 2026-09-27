@@ -1534,7 +1534,11 @@ That is what semver already means by the suffix, and a flag could contradict the
    the round trip through artifact storage as well. The statement goes to the repository's attestation store, and
    the Sigstore bundle also ships beside the archive as <code>.sigstore.json</code> for anyone verifying offline.</li>
 <li><strong>Publish.</strong> Creates the GitHub release with this version's changelog section (from <code>git-cliff --latest</code>) plus an
-   artifact table as the notes and the packages as assets, marked pre-release when the tag carries a suffix.</li>
+   artifact table as the notes and the packages as assets, marked pre-release when the tag carries a suffix.
+   A final release then moves the floating major tag (<code>v0</code>, later <code>v1</code>) to itself, which is what
+   <code>uses: millsks/pixi-sbom@v0</code> follows; a rebuild of an older release leaves it alone. <code>release-artifacts.yml</code>
+   only triggers on <code>vX.Y.Z</code> tags and the version lookups match <code>vX.Y.Z</code> only, so the floating tag starts nothing
+   and is never taken for the latest release.</li>
 <li><strong>Crate.</strong> <code>publish-crate.yml</code> (reusable, also dispatchable by hand with a <code>tag</code> input to republish) checks the
    tag out clean and runs <code>cargo publish --locked</code> (skipped with a warning while the <code>CARGO_REGISTRY_TOKEN</code> secret
    is missing). The <code>[package.metadata.binstall]</code> table in <code>Cargo.toml</code> points <code>cargo binstall</code> at the release
