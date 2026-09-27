@@ -476,6 +476,10 @@ expect, and it validates against the CycloneDX schema like everything else this 
 
 ## How far behind the environment is
 
+<p align="center">
+  <img src="assets/report-outdated.gif" alt="pixi sbom --report outdated: every package with its age, the latest release, how many releases behind, and whether that is a major, minor or patch step." width="100%">
+</p>
+
 `--report outdated` asks each package's index what the newest release is, how many releases sit between it and
 the pinned one, and when each was published:
 
@@ -524,6 +528,10 @@ is not a ceiling, since it says nothing about how far up the 3.x series you may 
 no ceiling at all, which is itself the answer.
 
 ## How well each dependency is looked after
+
+<p align="center">
+  <img src="assets/report-scorecard.gif" alt="pixi sbom --report scorecard: OpenSSF scores per repository, the weakest checks for each, and a summary of how many fall below the threshold." width="100%">
+</p>
 
 Vulnerabilities and licenses answer two supply-chain questions. "Is this dependency maintained, reviewed, signed,
 pinned?" is the third, and a lockfile says nothing about it. `--scorecard` asks the

@@ -22,8 +22,10 @@ Each report has a recording of its own in the [command-line reference](https://m
 [licenses](https://millsks.github.io/pixi-sbom/latest/cli/#enforcing-a-license-policy),
 [packages](https://millsks.github.io/pixi-sbom/latest/cli/#looking-instead-of-writing),
 [diff](https://millsks.github.io/pixi-sbom/latest/cli/#looking-instead-of-writing),
-[python](https://millsks.github.io/pixi-sbom/latest/cli/#what-python-the-environment-allows) and
-[phantom](https://millsks.github.io/pixi-sbom/latest/cli/#what-is-imported-but-never-declared).
+[python](https://millsks.github.io/pixi-sbom/latest/cli/#what-python-the-environment-allows),
+[phantom](https://millsks.github.io/pixi-sbom/latest/cli/#what-is-imported-but-never-declared),
+[outdated](https://millsks.github.io/pixi-sbom/latest/cli/#how-far-behind-the-environment-is) and
+[scorecard](https://millsks.github.io/pixi-sbom/latest/cli/#how-well-each-dependency-is-looked-after).
 
 ## What it does
 

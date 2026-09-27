@@ -278,13 +278,19 @@ The cache and the `pixi-sbom` symlink live *beside* the recorded directory rathe
 each sizing its own terminal to what its command prints — a table that scrolls loses its header,
 which is the half that explains it.
 
-**`--report outdated` and `--report scorecard` have no clip.** Both need live services, and the
-caches that would make them reproducible are not worth committing: the anaconda.org project
-documents behind `outdated` are **19 MB**, and `scorecard` needs `--fetch-licenses`, so it drags
-in the archive and wheel caches too — about **940 KB** across three directories. Recording them
-against the live APIs would work, but the scores and dates change weekly, so the clip would age
-faster than the prose beside it and could not be re-recorded on a plane. Their sections keep their
-worked examples instead.
+**Two clips need the network.** `report-outdated` and `report-scorecard` ask live services, and
+the responses are far too large to stage as fixtures — the anaconda.org project documents behind
+`outdated` alone are 19 MB. Their tapes `unset PIXI_SBOM_OFFLINE` in the hidden block and say so
+at the top.
+
+That costs connectivity when re-recording, and nothing else: the committed artifact is the GIF,
+not the cache. What those two show was true on the day they were recorded, the way any screenshot
+of live data is; scores and release counts drift, and the prose beside them does not depend on the
+exact numbers.
+
+Both warm the cache inside the hidden block before filming, so the network wait — about nine
+seconds for `outdated` — happens off camera, and what is filmed is a warm run. That is also what
+the second run of anything looks like.
 
 ## Releasing
 
