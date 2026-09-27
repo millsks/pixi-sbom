@@ -1202,6 +1202,12 @@ done, so clippy findings do not pile up.</p>
 <p><strong>Gate.</strong> <code>pixi run ci</code> before committing. It is ordered fast-fail: pre-commit (formatting, clippy, taplo, typos,
 whitespace) → release build → check → lint → coverage. If pre-commit rewrites a file, re-stage it before re-running or
 the next run fails identically. Coverage below 90% lines fails the gate; new code needs tests.</p>
+<p><strong>Dependencies.</strong> <code>pixi run -e lint deny</code> checks the dependency tree against <code>deny.toml</code>: RUSTSEC advisories,
+license terms, banned crates and unexpected sources. It is not part of <code>pixi run ci</code> — it fetches the advisory
+database, so it wants the network and a few seconds, and a commit is the wrong moment to pay for that. CI runs it
+on every pull request and weekly. When it fails on a license, the fix is a line in the <code>allow</code> list with a sentence
+saying why that license is acceptable here, not a wider <code>confidence-threshold</code>. When it fails on an advisory, the
+fix is getting off the crate; an entry in <code>ignore</code> needs the issue that tracks doing so.</p>
 <p><strong>Hooks.</strong> <code>pixi run bootstrap</code> installs pre-commit for the <code>pre-commit</code> and <code>commit-msg</code> stages. The local hooks call
 <code>pixi run cargo fmt</code>, <code>pixi run cargo clippy</code>, <code>pixi run taplo</code>, <code>pixi run typos</code>, because the git hook runs outside
 the pixi environment. The <code>commit-msg</code> hook enforces Conventional Commits. <code>--no-verify</code> is not used.</p>
@@ -1355,6 +1361,11 @@ release containing them exists; keep <code>action.yml</code> inputs and the CLI 
 <td><code>pixi run cov</code></td>
 </tr>
 <tr>
+<td>Dependency advisories and licenses</td>
+<td>ubuntu</td>
+<td><code>pixi run -e lint deny</code>: RUSTSEC advisories, license terms, banned crates and unexpected sources</td>
+</tr>
+<tr>
 <td>Builds on the MSRV</td>
 <td>ubuntu</td>
 <td><code>pixi run -e msrv msrv-check</code>: the oldest toolchain <code>Cargo.toml</code> claims</td>
@@ -1381,6 +1392,9 @@ release containing them exists; keep <code>action.yml</code> inputs and the CLI 
 </tr>
 </tbody>
 </table>
+<p><code>.github/workflows/supply-chain.yml</code> runs that same dependency check on a schedule (Mondays, and on demand).
+The per-pull-request run cannot see an advisory published after a merge, and the weekly one is what catches it:
+nothing about the repository changes and one day the answer is different.</p>
 <p><code>.github/workflows/docs.yml</code> publishes the site to GitHub Pages (https://millsks.github.io/pixi-sbom/) every time
 a release is published, building from the release tag so the site matches the released binary. The site is
 versioned with <a href="https://github.com/jimporter/mike">mike</a> the way pixi's own docs are: each release deploys under
