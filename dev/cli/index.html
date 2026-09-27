@@ -404,6 +404,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#which-pixi-and-which-lockfiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Which pixi and which lockfiles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-the-log-says-and-how-to-narrow-it" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1139,6 +1150,17 @@
     <span class="md-ellipsis">
       
         Options
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#which-pixi-and-which-lockfiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Which pixi and which lockfiles
       
     </span>
   </a>
@@ -1906,6 +1928,34 @@
 </tr>
 </tbody>
 </table>
+<h2 id="which-pixi-and-which-lockfiles">Which pixi and which lockfiles<a class="headerlink" href="#which-pixi-and-which-lockfiles" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Lockfile format</strong></td>
+<td><code>version:</code> 1 through 7</td>
+</tr>
+<tr>
+<td><strong>pixi</strong></td>
+<td>0.49.0 or newer for <code>pixi sbom</code>; any version if you call <code>pixi-sbom</code> directly</td>
+</tr>
+</tbody>
+</table>
+<p>Every format pixi has ever written is read. rattler, which does the parsing, has four parsers rather than seven —
+v1–v3, v4–v5, v6 and v7 — and each has a fixture and an end-to-end test here, asserting that the same environment
+produces the same document whichever format it was written in: the same purls, the same channel and subdir, the
+same licenses, the same dependency edges. Formats before v4 predate multiple environments, and <code>--all-environments</code>
+answers with the single <code>default</code> that rattler synthesizes rather than finding nothing to do.</p>
+<p>The pixi floor is only about how the command is invoked. pixi 0.49.0 added discovery of <code>pixi-</code> prefixed
+executables, which is what makes <code>pixi sbom</code> work; before that the binary is still fine, it just has to be called
+by its own name.</p>
+<p>Dropping support for a lockfile version would be a breaking change, and after 1.0 that means a major version.</p>
 <h2 id="what-the-log-says-and-how-to-narrow-it">What the log says, and how to narrow it<a class="headerlink" href="#what-the-log-says-and-how-to-narrow-it" title="Permanent link">&para;</a></h2>
 <p>The log goes to stderr, always; the document and the reports go to stdout, so <code>pixi sbom &gt; sbom.json</code> is safe at
 any verbosity.</p>
