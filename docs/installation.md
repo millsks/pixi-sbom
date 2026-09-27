@@ -57,6 +57,28 @@ gh attestation verify pixi-sbom-<version>-linux-64.tar.gz \
   --repo millsks/pixi-sbom
 ```
 
+### The strict form
+
+`--repo` alone accepts an archive signed by *any* workflow in this repository, from any branch. To also require that
+it came from the release workflow, run on the tag of the version you downloaded, on a GitHub-hosted runner:
+
+```sh
+gh attestation verify pixi-sbom-<version>-linux-64.tar.gz --repo millsks/pixi-sbom \
+  --signer-workflow millsks/pixi-sbom/.github/workflows/release-artifacts.yml \
+  --source-ref refs/tags/v<version> \
+  --deny-self-hosted-runners
+```
+
+| Flag | Refuses |
+|---|---|
+| `--signer-workflow` | An archive signed by any other workflow, such as a CI job that also builds binaries |
+| `--source-ref` | One built from a branch, or from a different release's tag |
+| `--deny-self-hosted-runners` | One built on a machine outside GitHub's hosted runners |
+
+It combines with `--bundle` for the offline check. The strict form holds from **0.12.0 onward**. The 0.11.0 archives
+were signed by `release.yml` on `refs/heads/main`, before the build moved to the tag-triggered workflow (#218), so for
+0.11.0 the plain `--repo` check is as far as verification goes.
+
 Two things are deliberately not attested. The crates.io package is not, because nothing checks an attestation at
 `cargo install` time and that path builds from source regardless. The conda-forge package is not, because the
 feedstock builds on conda-forge's infrastructure rather than ours — the provenance there would be theirs to make.

@@ -53,7 +53,9 @@ gh attestation verify pixi-sbom-<version>-linux-64.tar.gz --repo millsks/pixi-sb
 ```
 
 A `.sigstore.json` bundle ships beside each archive for machines that cannot reach `api.github.com`: add
-`--bundle pixi-sbom-<version>-linux-64.tar.gz.sigstore.json` and the check runs offline.
+`--bundle pixi-sbom-<version>-linux-64.tar.gz.sigstore.json` and the check runs offline. The
+[strict form](https://millsks.github.io/pixi-sbom/latest/installation/#the-strict-form) also pins the release
+workflow and the tag.
 
 ## What it supports
 

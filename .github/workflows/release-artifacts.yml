@@ -219,10 +219,13 @@ jobs:
             echo
             echo "Each archive has a \`.sha256\` and a signed \`.sigstore.json\` provenance bundle beside it."
             echo
-            echo "To check an archive was built by this repository, from this commit, by this workflow run:"
+            echo "To check an archive was built by this repository's release workflow, from this tag, on a GitHub-hosted runner:"
             echo
             echo "\`\`\`sh"
-            echo "gh attestation verify pixi-sbom-${TAG}-linux-64.tar.gz --repo ${GITHUB_REPOSITORY}"
+            echo "gh attestation verify pixi-sbom-${TAG}-linux-64.tar.gz --repo ${GITHUB_REPOSITORY} \\"
+            echo "  --signer-workflow ${GITHUB_REPOSITORY}/.github/workflows/release-artifacts.yml \\"
+            echo "  --source-ref refs/tags/${TAG} \\"
+            echo "  --deny-self-hosted-runners"
             echo "\`\`\`"
             echo
             echo "Add \`--bundle pixi-sbom-${TAG}-linux-64.tar.gz.sigstore.json\` to verify without reaching GitHub."

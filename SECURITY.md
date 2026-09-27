@@ -93,12 +93,16 @@ If you find a case where either is untrue, that is the report to send.
 
 ## Verifying a release
 
-Every release archive carries a signed build-provenance attestation. To check a download really came from this
-repository's release workflow:
+Every release archive from 0.11.0 onward carries a signed build-provenance attestation. To check a download really
+came from this repository's release workflow, built from that release's tag on a GitHub-hosted runner (0.12.0 and
+later):
 
 ```sh
-gh attestation verify pixi-sbom-<version>-<platform>.tar.gz --repo millsks/pixi-sbom
+gh attestation verify pixi-sbom-<version>-<platform>.tar.gz --repo millsks/pixi-sbom \
+  --signer-workflow millsks/pixi-sbom/.github/workflows/release-artifacts.yml \
+  --source-ref refs/tags/v<version> \
+  --deny-self-hosted-runners
 ```
 
 See [installation](https://millsks.github.io/pixi-sbom/latest/installation/#checking-where-a-binary-came-from) for
-the offline form.
+the offline form and why 0.11.0 only passes the plain `--repo` check.
