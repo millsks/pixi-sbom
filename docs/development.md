@@ -74,6 +74,19 @@ edges, error variants). `format/*` tests run each writer over `format::testing::
 covering every package kind plus edge cases (missing version, non-SPDX license, local path source, extra purls), and
 check specific fields.
 
+### The minimum supported Rust version
+
+`rust-version` in `Cargo.toml` is **1.88**, and the `msrv` environment pins exactly that toolchain so the claim is
+checked rather than asserted: `pixi run -e msrv msrv-check`, which CI runs on every pull request.
+
+It was 1.85 until someone looked. That number came from edition 2024 and was never true — this crate uses
+let-chains in `kev.rs` and `osv.rs`, and those did not stabilize until 1.88. Nothing caught it because every job
+built on the toolchain `pixi.toml` pins, which is far newer.
+
+Raising the MSRV is a breaking change for anyone pinned to an older toolchain, so after 1.0 it belongs in a minor
+release at the earliest, with the new number in the changelog. Lowering it is free. Either way the `msrv`
+environment and `Cargo.toml` change together, or the check is measuring the wrong thing.
+
 ### Benchmarks (`benches/`, criterion)
 
 `pixi run bench` times the lockfile reader, the model builder, each writer, license normalization, the report
@@ -169,6 +182,7 @@ release containing them exists; keep `action.yml` inputs and the CLI in step at 
 | Lint | ubuntu | `pixi run pre-commit-run`, `cargo fmt --check`, `lint`, `check` |
 | Test | `ubuntu-latest`, `macos-latest`, `windows-latest` | `pixi run test` |
 | Coverage gate | ubuntu | `pixi run cov` |
+| Builds on the MSRV | ubuntu | `pixi run -e msrv msrv-check`: the oldest toolchain `Cargo.toml` claims |
 | Benchmarks compile and run | ubuntu | `pixi run bench-test`: every benchmark runs once, untimed |
 | Performance (separate workflow) | all five release platforms | `pixi run perf`: builds two refs on one runner and compares them; fails on binary size or peak memory, reports wall time. On demand, weekly and on pushes to `main` — not on pull requests. See [benchmarks.md](benchmarks.md) |
 | Build | same three | `pixi run build` and `--version` smoke test |

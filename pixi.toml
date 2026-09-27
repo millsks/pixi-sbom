@@ -29,6 +29,15 @@ perf-test = { cmd = "python -m unittest discover -s scripts -p 'test_*.py' -v", 
 bench = "cargo bench --benches"
 bench-test = "cargo bench --benches -- --test"
 
+# The oldest toolchain the crate claims to build on. Its own environment, because it pins a
+# different rust than the one everything else uses; `pixi run -e msrv msrv-check` is what
+# proves the number in Cargo.toml rather than trusting it.
+[feature.msrv.dependencies]
+rust = "==1.88.0"
+
+[feature.msrv.tasks]
+msrv-check = "cargo check --all-targets --locked"
+
 [feature.lint.dependencies]
 pre-commit = "*"
 pre-commit-hooks = "*"
@@ -64,3 +73,4 @@ docs-build = "mkdocs build --strict"
 default = ["lint", "cov", "dev"]
 lint = { features = ["lint"], no-default-feature = true }
 docs = { features = ["docs"], no-default-feature = true }
+msrv = { features = ["msrv"], no-default-feature = true }

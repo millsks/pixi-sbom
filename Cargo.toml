@@ -2,7 +2,10 @@
 name = "pixi-sbom"
 version = "0.10.1"
 edition = "2024"
-rust-version = "1.85"
+# Proved rather than asserted: `pixi run -e msrv msrv-check` builds on exactly this toolchain,
+# and CI runs it. Raised from 1.85, which had never been true — let-chains, which this crate
+# uses in kev.rs and osv.rs, did not stabilize until 1.88.
+rust-version = "1.88"
 description = "Generate a CycloneDX or SPDX SBOM from a pixi.lock file"
 license = "Apache-2.0"
 repository = "https://github.com/millsks/pixi-sbom"
