@@ -41,6 +41,21 @@ Every figure on a slide that is not a placeholder traces to something in this re
 
 If a number here stops matching its source, the slide is wrong, not the source.
 
+## The exported decks
+
+| File | What it is |
+|---|---|
+| `engineering-management/pixi-sbom-engineering.pptx` · `.pdf` | The twelve-slide deck, presentable as-is |
+| `executive/pixi-sbom-executive.pptx` · `.pdf` | The nine-slide deck, presentable as-is |
+
+These are exported from the artifact each deck lives on, not generated here: open the deck, then **Share ›
+Export**, and take both PowerPoint and PDF. The PowerPoint keeps the text editable, so it can be pasted into a
+corporate template; the PDF is for sending to people who will not open a deck they cannot preview.
+
+**Re-export after changing a slide.** The files here are a snapshot. Nothing checks that they match the sources
+beside them, so a stale export is the most likely way this directory starts lying — if you change a number in a
+slide, export again in the same sitting.
+
 ## Editing and exporting
 
 The sources are the slide format of the Slides artifact type: one `deck.json` index naming the order, and one
