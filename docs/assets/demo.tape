@@ -15,7 +15,7 @@ Require pixi-sbom
 Set Shell bash
 Set FontSize 15
 Set Width 1260
-Set Height 610
+Set Height 750
 Set Padding 18
 Set Margin 12
 Set BorderRadius 8
@@ -46,9 +46,10 @@ Sleep 1800ms
 Type "pixi sbom -e web -p linux-64 --format spdx --spec-version 3.0 --output sbom.spdx.json" Sleep 200ms Enter
 Sleep 1800ms
 
-# --- Licenses as a table rather than a document. -----------------------------------------------
-Type "pixi sbom -e web -p linux-64 -q --report licenses | head -6" Sleep 200ms Enter
-Sleep 2s
+# --- A terminal report rather than a document. Not piped: the tool turns colour off when its
+# --- output is not a terminal, so `| head` would have filmed a monochrome table.
+Type "pixi sbom -e web -p linux-64 -q --report python" Sleep 200ms Enter
+Sleep 2400ms
 
 # --- And why it belongs in CI: a gate with an exit code. ---------------------------------------
 Type "pixi sbom -e web -p linux-64 -q --vulnerabilities osv --kev --fail-on-severity high" Sleep 200ms Enter
