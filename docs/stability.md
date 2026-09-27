@@ -70,21 +70,23 @@ surprised by a number that used to mean nothing. A future gate takes 10 and upwa
 
 ## Configuration keys
 
-`[tool.pixi-sbom]` in `pyproject.toml`, or `pixi-sbom.toml`. Keys are the flag name with `-`
-replaced by `_`. The command line always wins over the file.
+`[tool.pixi-sbom]` in `pyproject.toml`, or `pixi-sbom.toml`. A key is the flag's own name without
+the leading `--`, so `--fetch-licenses` is `fetch-licenses`. The command line always wins over the
+file.
 
 | | | | |
 |---|---|---|---|
-| `format` | `spec_version` | `pypi_mapping` | `pypi_mapping_file` |
-| `primary_purl` | `fetch_licenses` | `license_texts` | `embedded_sboms` |
-| `exclude` | `include` | `exclude_kind` | `keep_orphans` |
-| `allow_license` | `deny_license` | `require_license` | `fail_on_yanked` |
-| `vulnerabilities` | `kev` | `fail_on_kev` | `fail_on_severity` |
-| `ignore_vuln` | `ignore_license` | `scorecard` | `scorecard_min` |
-| `fail_on_scorecard` | `fail_on_diff` | `source` | `assume_used` |
-| `fail_on_phantom` | | | |
+| `format` | `spec-version` | `pypi-mapping` | `pypi-mapping-file` |
+| `primary-purl` | `fetch-licenses` | `license-texts` | `embedded-sboms` |
+| `exclude` | `include` | `exclude-kind` | `keep-orphans` |
+| `allow-license` | `deny-license` | `require-license` | `fail-on-yanked` |
+| `vulnerabilities` | `kev` | `fail-on-kev` | `fail-on-severity` |
+| `ignore-vuln` | `ignore-license` | `scorecard` | `scorecard-min` |
+| `fail-on-scorecard` | `fail-on-diff` | `source` | `assume-used` |
+| `fail-on-phantom` | | | |
 
-An unknown key is an error, not a warning, so a typo cannot pass silently.
+An unknown key is an error, not a warning, and the diagnostic lists every key that is accepted — so
+a typo cannot pass silently and you are never left guessing at the spelling.
 
 ## Environment variables
 

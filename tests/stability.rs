@@ -181,29 +181,72 @@ fn the_page_lists_every_action_input_and_output() {
 }
 
 #[test]
-fn the_page_lists_every_configuration_key() {
-    // The config struct is the parser, so its field names are the accepted keys.
-    let config = read("src/config.rs");
-    let start = config.find("pub struct Config").expect("Config exists");
-    let body = &config[start..];
-    let end = body.find("\n}").unwrap();
-    let real: BTreeSet<String> = body[..end]
-        .lines()
-        .filter_map(|line| line.trim().strip_prefix("pub "))
-        .filter(|line| line.contains(':'))
-        .filter_map(|line| line.split(':').next())
-        .map(|name| name.trim().to_string())
-        .filter(|name| !name.is_empty() && name.chars().all(|c| c.is_ascii_lowercase() || c == '_'))
+fn the_page_lists_every_configuration_key_and_spells_them_as_the_parser_wants() {
+    // Derived from the parser's own rejection message rather than from the struct's field names.
+    // The struct is `rename_all = "kebab-case"`, so its Rust identifiers are snake_case while the
+    // accepted TOML keys are kebab — and comparing the page against the field names let the page
+    // document 29 keys in a casing the parser rejects, with the test agreeing because both sides
+    // were wrong the same way. Asking the binary cannot go wrong that way.
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/conda-only/pixi.lock"),
+        dir.path().join("pixi.lock"),
+    )
+    .unwrap();
+    std::fs::write(dir.path().join("pixi-sbom.toml"), "definitely-not-a-key = true\n").unwrap();
+    let output = Command::cargo_bin("pixi-sbom")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--output", "-"])
+        .output()
+        .unwrap();
+    let complaint = String::from_utf8_lossy(&output.stderr);
+    let expected = complaint
+        .split("expected one of ")
+        .nth(1)
+        .unwrap_or_else(|| panic!("no key list in: {complaint}"));
+    let real: BTreeSet<String> = expected
+        .split('`')
+        .skip(1)
+        .step_by(2)
+        .map(str::to_string)
+        .filter(|key| key.chars().all(|c| c.is_ascii_lowercase() || c == '-'))
         .collect();
-    assert!(real.len() > 20, "expected the whole config surface, got {}", real.len());
 
-    // The section's prose also backticks filenames and the `-` / `_` it talks about replacing, so
-    // keep only tokens shaped like a key.
+    // The section's prose backticks filenames and the `--flag` a key is named after, neither of
+    // which is a key.
     let listed: BTreeSet<String> = quoted(&section(&page(), "## Configuration keys"), "")
         .into_iter()
-        .filter(|token| token.len() > 1 && token.chars().all(|c| c.is_ascii_lowercase() || c == '_'))
+        .filter(|token| !token.contains('.') && !token.contains('[') && !token.starts_with('-'))
         .collect();
     assert_same("config keys", &real, &listed);
+
+    // And every key the page lists is actually accepted, not merely spelled the way the parser
+    // lists it. One file with all of them: `deny_unknown_fields` rejects the first bad one.
+    let all: String = listed
+        .iter()
+        .map(|key| match key.as_str() {
+            // A value of the right shape for each; the point is the key, not the value.
+            "exclude" | "include" | "exclude-kind" | "allow-license" | "deny-license" | "ignore-vuln"
+            | "ignore-license" | "fail-on-diff" | "source" | "assume-used" => format!("{key} = []\n"),
+            "scorecard-min" | "fail-on-scorecard" => format!("{key} = 5.0\n"),
+            "format" | "spec-version" | "pypi-mapping" | "pypi-mapping-file" | "primary-purl" | "vulnerabilities"
+            | "fail-on-severity" => format!("{key} = \"\"\n"),
+            _ => format!("{key} = false\n"),
+        })
+        .collect();
+    std::fs::write(dir.path().join("pixi-sbom.toml"), &all).unwrap();
+    let output = Command::cargo_bin("pixi-sbom")
+        .unwrap()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--output", "-"])
+        .output()
+        .unwrap();
+    let complaint = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !complaint.contains("unknown field"),
+        "a key the page promises is not accepted:\n{complaint}\n\nconfig was:\n{all}"
+    );
 }
 
 #[test]
