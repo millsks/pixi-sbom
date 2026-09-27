@@ -788,6 +788,13 @@ what goes into it. The <a href="../output-format/">output format reference</a> c
 <td><code>SimpleLicensingText</code> elements</td>
 </tr>
 <tr>
+<td>Vulnerabilities (<code>--vulnerabilities</code>)</td>
+<td><code>vulnerabilities[]</code></td>
+<td>same</td>
+<td><strong>not recorded</strong> — a warning says so</td>
+<td><code>security_Vulnerability</code> elements with CVSS, KEV and VEX assessments</td>
+</tr>
+<tr>
 <td>Validated against</td>
 <td>CycloneDX 1.6 schema</td>
 <td>1.7 schema</td>
@@ -801,7 +808,8 @@ what goes into it. The <a href="../output-format/">output format reference</a> c
 <li><strong>Scanning for vulnerabilities</strong>: CycloneDX 1.6, piped straight in (<code>pixi sbom --output - | grype</code>). Add
   <code>--pypi-mapping prefix --primary-purl pypi</code> so conda-installed Python packages match PyPI advisories.</li>
 <li><strong>Handing a bill of materials to a customer or auditor</strong>: SPDX 2.3 is the most widely accepted interchange, and its
-  <code>licenseDeclared</code> / <code>licenseConcluded</code> split maps onto compliance workflows.</li>
+  <code>licenseDeclared</code> / <code>licenseConcluded</code> split maps onto compliance workflows. If the findings have to travel with it,
+  use SPDX 3.0.1 instead — 2.3 has nowhere to record them.</li>
 <li><strong>A newer consumer that reads it</strong>: CycloneDX 1.7 or SPDX 3.0.1. The defaults stay at 1.6 / 2.3 until the common
   consumers move; a version of the other format is a usage error.</li>
 </ul>

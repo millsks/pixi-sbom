@@ -739,6 +739,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#spdx-301-security-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SPDX 3.0.1 security profile
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1257,6 +1268,17 @@
     <span class="md-ellipsis">
       
         The VEX document
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spdx-301-security-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SPDX 3.0.1 security profile
       
     </span>
   </a>
@@ -1937,9 +1959,10 @@ the usual example — is on the root where it belongs. The other half is the gra
 else depends on. Without a readable manifest (<code>--prefix</code>, a lockfile on its own) the heuristic is the whole answer,
 and nothing is marked direct.</p>
 <h2 id="vulnerabilities">Vulnerabilities<a class="headerlink" href="#vulnerabilities" title="Permanent link">&para;</a></h2>
-<p>With <code>--vulnerabilities osv</code> the CycloneDX document carries a <code>vulnerabilities[]</code> array (1.6 and 1.7 alike); SPDX
-2.3 and 3.0.1 documents do not record them. One entry per finding, after records describing the same vulnerability
-have been merged:</p>
+<p>With <code>--vulnerabilities osv</code> the CycloneDX document carries a <code>vulnerabilities[]</code> array (1.6 and 1.7 alike) and an
+SPDX 3.0.1 document carries the same findings through its <a href="#spdx-301-security-profile">security profile</a>. <strong>SPDX 2.3
+has nowhere to put them</strong> and says so on stderr, pointing at <code>--spec-version 3.0</code>.</p>
+<p>One CycloneDX entry per finding, after records describing the same vulnerability have been merged:</p>
 <table>
 <thead>
 <tr>
@@ -2028,6 +2051,46 @@ have been merged:</p>
 </tr>
 </tbody>
 </table>
+<h3 id="spdx-301-security-profile">SPDX 3.0.1 security profile<a class="headerlink" href="#spdx-301-security-profile" title="Permanent link">&para;</a></h3>
+<p>SPDX 3 is a graph, so a finding is an element with assessments attached rather than a row in an array. A document
+that carries any finding adds <code>security</code> to its <code>profileConformance</code>; one that carries none does not claim the
+profile.</p>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>security_Vulnerability</code></td>
+<td>One per finding. <code>name</code> is the advisory id, <code>summary</code> / <code>description</code> the record's text, and <code>externalIdentifier[]</code> holds the id and every alias — <code>CVE-*</code> as type <code>cve</code>, the rest as <code>securityOther</code>, so a reader searching for a CVE finds it whether or not we keyed the record under it. <code>security_publishedTime</code> / <code>security_modifiedTime</code> when the record has them.</td>
+</tr>
+<tr>
+<td><code>Relationship</code> <code>hasAssociatedVulnerability</code></td>
+<td>One per affected package, from the package to the vulnerability: the direction a reader follows from a component.</td>
+</tr>
+<tr>
+<td><code>security_CvssV2/V3/V4VulnAssessmentRelationship</code></td>
+<td>One per CVSS rating, from the vulnerability <code>hasAssessmentFor</code> the affected packages, with <code>security_score</code>, <code>security_severity</code> and <code>security_vectorString</code>. The schema requires all three together, so a rating missing any of them is left out rather than half-recorded — as is a rating whose method is not CVSS, since SPDX has no class for it.</td>
+</tr>
+<tr>
+<td><code>security_ExploitCatalogVulnAssessmentRelationship</code></td>
+<td>With <code>--kev</code>, for a finding in CISA's catalog: <code>security_catalogType: kev</code>, <code>security_exploited: true</code>, and the catalog URL as <code>security_locator</code>. The added and due dates go in <code>comment</code>.</td>
+</tr>
+<tr>
+<td><code>security_VexNotAffectedVulnAssessmentRelationship</code></td>
+<td>For a finding accepted with <code>--ignore-vuln</code> in the <code>not_affected</code> state, carrying your reason as <code>security_impactStatement</code>. The other states CycloneDX accepts have no SPDX class and stay CycloneDX-only.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Timestamps are rewritten.</strong> SPDX 3 pins these fields to exactly <code>YYYY-MM-DDThh:mm:ssZ</code> — no fractional seconds, no
+numeric offset — while OSV records carry nanoseconds (<code>2026-07-08T06:00:54.217433740Z</code>). Values are converted to UTC
+second precision, and one that cannot be parsed is omitted rather than guessed at.</p>
+<p><code>security_justificationType</code> is deliberately never set. Its five permitted values are a fixed vocabulary and
+<code>--ignore-vuln</code> takes free text, so the text goes in the impact statement instead of being forced into a category
+nobody chose.</p>
 <h2 id="spdx-301">SPDX 3.0.1<a class="headerlink" href="#spdx-301" title="Permanent link">&para;</a></h2>
 <p><code>--format spdx --spec-version 3.0</code> writes the SPDX 3.0.1 JSON-LD serialization: a <code>@context</code> of
 <code>https://spdx.org/rdf/3.0.1/spdx-context.jsonld</code> and a <code>@graph</code> of typed elements, each with an IRI <code>spdxId</code> under
