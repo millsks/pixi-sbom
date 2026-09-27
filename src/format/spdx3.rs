@@ -111,6 +111,32 @@ struct Node {
     license_expression: Option<String>,
     #[serde(rename = "simplelicensing_licenseText", skip_serializing_if = "Option::is_none")]
     license_text: Option<String>,
+
+    // security_Vulnerability, and the assessment relationships that share these two.
+    #[serde(rename = "security_publishedTime", skip_serializing_if = "Option::is_none")]
+    published_time: Option<String>,
+    #[serde(rename = "security_modifiedTime", skip_serializing_if = "Option::is_none")]
+    modified_time: Option<String>,
+
+    // security_Cvss{V2,V3,V4}VulnAssessmentRelationship — the schema requires all three together.
+    #[serde(rename = "security_score", skip_serializing_if = "Option::is_none")]
+    score: Option<f64>,
+    #[serde(rename = "security_severity", skip_serializing_if = "Option::is_none")]
+    severity: Option<&'static str>,
+    #[serde(rename = "security_vectorString", skip_serializing_if = "Option::is_none")]
+    vector_string: Option<String>,
+
+    // security_ExploitCatalogVulnAssessmentRelationship — likewise all three.
+    #[serde(rename = "security_catalogType", skip_serializing_if = "Option::is_none")]
+    catalog_type: Option<&'static str>,
+    #[serde(rename = "security_exploited", skip_serializing_if = "Option::is_none")]
+    exploited: Option<bool>,
+    #[serde(rename = "security_locator", skip_serializing_if = "Option::is_none")]
+    locator: Option<String>,
+
+    // security_VexNotAffectedVulnAssessmentRelationship
+    #[serde(rename = "security_impactStatement", skip_serializing_if = "Option::is_none")]
+    impact_statement: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -219,6 +245,61 @@ impl Builder {
         node.to = Some(to);
         self.push(node)
     }
+
+    /// An assessment relationship of `class`, from a vulnerability to the packages it was
+    /// assessed against. Every `security_*VulnAssessmentRelationship` is a `Relationship`
+    /// first, so `from`/`relationshipType`/`to` are required whatever the subclass adds.
+    fn assessment(&mut self, class: &'static str, fragment: &str, from: &str, to: Vec<String>) -> Node {
+        let (_, mut node) = self.element(class, fragment);
+        node.from = Some(from.to_string());
+        node.relationship_type = Some("hasAssessmentFor");
+        node.to = Some(to);
+        node
+    }
+}
+
+/// An advisory timestamp as SPDX 3 insists on writing them.
+///
+/// The schema pins `security_publishedTime` and friends to exactly `YYYY-MM-DDThh:mm:ssZ` — no
+/// fractional seconds and no numeric offset. OSV records carry both (`2026-07-08T06:00:54.217433740Z`
+/// is a real value from the fixtures), so passing them through unchanged produces a document
+/// that fails validation on every finding. Anything unparsable is left out rather than guessed
+/// at: the field is optional, and a wrong timestamp is worse than a missing one.
+fn spdx_timestamp(raw: &str) -> Option<String> {
+    let parsed = chrono::DateTime::parse_from_rfc3339(raw).ok()?;
+    Some(
+        parsed
+            .with_timezone(&chrono::Utc)
+            .format("%Y-%m-%dT%H:%M:%SZ")
+            .to_string(),
+    )
+}
+
+/// The SPDX `security_CvssSeverityType` name for one of our severities, or `None` where SPDX has
+/// no equivalent. `Unknown` is the interesting case: the CVSS classes require a severity, and
+/// there is no "we were not told" value, so such a rating gets no relationship rather than an
+/// invented one.
+fn cvss_severity(severity: crate::model::Severity) -> Option<&'static str> {
+    use crate::model::Severity;
+    Some(match severity {
+        Severity::Unknown => return None,
+        Severity::None => "none",
+        Severity::Low => "low",
+        Severity::Medium => "medium",
+        Severity::High => "high",
+        Severity::Critical => "critical",
+    })
+}
+
+/// The assessment class for a CycloneDX rating method. `other` has no CVSS class in SPDX, and a
+/// rating we cannot place is left out of the graph instead of being filed under the wrong one.
+fn cvss_class(method: &str) -> Option<&'static str> {
+    Some(match method {
+        "CVSSv2" => "security_CvssV2VulnAssessmentRelationship",
+        "CVSSv3" | "CVSSv31" => "security_CvssV3VulnAssessmentRelationship",
+        "CVSSv4" => "security_CvssV4VulnAssessmentRelationship",
+        _ => return None,
+    })
 }
 
 /// Build the SPDX 3.0.1 document for `sbom`.
@@ -406,6 +487,128 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
         let id = b.relationship(&format!("relationship-{fragment}"), &from, kind, to);
         elements.push(id);
     }
+
+    // The security profile. Before this, `--vulnerabilities` findings reached CycloneDX only and
+    // an SPDX run warned that they were being dropped.
+    let mut has_security = false;
+    for (i, vuln) in sbom.vulnerabilities.iter().enumerate() {
+        // Only packages that are actually in this document; a finding can name a purl that was
+        // filtered out, and pointing a relationship at an element that is not here is worse than
+        // leaving the finding unassessed.
+        let affected: Vec<String> = vuln
+            .affects
+            .iter()
+            .filter_map(|a| iri_of.get(a.package_id.as_str()).cloned())
+            .collect();
+        if affected.is_empty() {
+            continue;
+        }
+        has_security = true;
+
+        let (vuln_id, mut node) = b.element("security_Vulnerability", &format!("vuln-{}", id_fragment(&vuln.id)));
+        node.name = Some(vuln.id.clone());
+        node.summary = vuln.summary.clone();
+        node.description = vuln.details.clone();
+        node.published_time = vuln.published.as_deref().and_then(spdx_timestamp);
+        node.modified_time = vuln.modified.as_deref().and_then(spdx_timestamp);
+        // The advisory's own id plus every alias, so a reader searching for a CVE finds it
+        // whether or not the CVE is what we keyed the record under.
+        let mut identifiers = vec![ExternalIdentifier {
+            kind: "ExternalIdentifier",
+            external_identifier_type: if vuln.id.starts_with("CVE-") {
+                "cve"
+            } else {
+                "securityOther"
+            },
+            identifier: vuln.id.clone(),
+        }];
+        identifiers.extend(vuln.aliases.iter().map(|alias| ExternalIdentifier {
+            kind: "ExternalIdentifier",
+            external_identifier_type: if alias.starts_with("CVE-") {
+                "cve"
+            } else {
+                "securityOther"
+            },
+            identifier: alias.clone(),
+        }));
+        node.external_identifier = Some(identifiers);
+        b.push(node);
+        elements.push(vuln_id.clone());
+
+        // Each affected package points at the vulnerability, which is the association a reader
+        // follows from a component.
+        for (n, package_iri) in affected.iter().enumerate() {
+            let id = b.relationship(
+                &format!("relationship-vuln-{i}-affects-{n}"),
+                package_iri,
+                "hasAssociatedVulnerability",
+                vec![vuln_id.clone()],
+            );
+            elements.push(id);
+        }
+
+        // One CVSS assessment per rating we can place. Score, severity and vector string are
+        // required together, so a rating missing any of them is not emitted.
+        for (n, rating) in vuln.ratings.iter().enumerate() {
+            let Some(class) = cvss_class(rating.method) else {
+                continue;
+            };
+            let (Some(score), Some(vector), Some(severity)) =
+                (rating.score, rating.vector.clone(), cvss_severity(rating.severity))
+            else {
+                continue;
+            };
+            let mut node = b.assessment(class, &format!("assessment-cvss-{i}-{n}"), &vuln_id, affected.clone());
+            node.score = Some(score);
+            node.severity = Some(severity);
+            node.vector_string = Some(vector);
+            let id = b.push(node);
+            elements.push(id);
+        }
+
+        if let Some(kev) = &vuln.kev {
+            let mut node = b.assessment(
+                "security_ExploitCatalogVulnAssessmentRelationship",
+                &format!("assessment-kev-{i}"),
+                &vuln_id,
+                affected.clone(),
+            );
+            node.catalog_type = Some("kev");
+            node.exploited = Some(true);
+            node.locator = Some(crate::kev::DEFAULT_URL.to_string());
+            node.comment = kev.date_added.as_ref().map(|added| match &kev.due_date {
+                Some(due) => format!("CISA KEV: added {added}, remediation due {due}"),
+                None => format!("CISA KEV: added {added}"),
+            });
+            let id = b.push(node);
+            elements.push(id);
+        }
+
+        // `--ignore-vuln` accepted the finding. SPDX has a class for exactly one of the states
+        // we accept; the others stay CycloneDX-only rather than being forced into it.
+        if let Some(analysis) = &vuln.analysis
+            && analysis.state == "not_affected"
+        {
+            let mut node = b.assessment(
+                "security_VexNotAffectedVulnAssessmentRelationship",
+                &format!("assessment-vex-{i}"),
+                &vuln_id,
+                affected.clone(),
+            );
+            // The justification enum has five fixed values and our detail is free text, so the
+            // text goes in the impact statement and no justification is invented for it.
+            node.impact_statement = analysis.detail.clone();
+            let id = b.push(node);
+            elements.push(id);
+        }
+    }
+
+    let profiles: Vec<&'static str> = if has_security {
+        vec!["core", "software", "simpleLicensing", "security"]
+    } else {
+        vec!["core", "software", "simpleLicensing"]
+    };
+
     let license_ids: Vec<String> = b.licenses.values().cloned().collect();
     elements.extend(license_ids);
 
@@ -415,7 +618,7 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
     bom.sbom_type = Some(vec!["build"]);
     bom.root_element = Some(vec![root_id]);
     bom.element = Some(elements);
-    bom.profile_conformance = Some(vec!["core", "software", "simpleLicensing"]);
+    bom.profile_conformance = Some(profiles.clone());
     b.push(bom);
 
     let data_license = b.license("CC0-1.0", None);
@@ -424,7 +627,7 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
     doc.root_element = Some(vec![sbom_id.clone()]);
     doc.element = Some(vec![sbom_id]);
     doc.data_license = data_license;
-    doc.profile_conformance = Some(vec!["core", "software", "simpleLicensing"]);
+    doc.profile_conformance = Some(profiles);
     b.push(doc);
 
     Document {

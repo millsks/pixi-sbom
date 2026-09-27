@@ -321,9 +321,11 @@ and nothing is marked direct.
 
 ## Vulnerabilities
 
-With `--vulnerabilities osv` the CycloneDX document carries a `vulnerabilities[]` array (1.6 and 1.7 alike); SPDX
-2.3 and 3.0.1 documents do not record them. One entry per finding, after records describing the same vulnerability
-have been merged:
+With `--vulnerabilities osv` the CycloneDX document carries a `vulnerabilities[]` array (1.6 and 1.7 alike) and an
+SPDX 3.0.1 document carries the same findings through its [security profile](#spdx-301-security-profile). **SPDX 2.3
+has nowhere to put them** and says so on stderr, pointing at `--spec-version 3.0`.
+
+One CycloneDX entry per finding, after records describing the same vulnerability have been merged:
 
 | Field | Content |
 |---|---|
@@ -353,6 +355,29 @@ Entries are ordered by the worst rating, then id.
 | `metadata.properties[]` | `pixi:vex-for` = the SBOM's serial number, besides the usual `pixi:environment` / `pixi:platform` |
 | `analysis` | On **every** finding: the `--ignore-vuln` state where one was given, else `in_triage` (or what `--vex-open` says) |
 | `affects[].ref` | A BOM-Link into the SBOM — `urn:cdx:<the SBOM's serial number without the urn:uuid: prefix>/1#<bom-ref>` — rather than a local reference |
+
+
+### SPDX 3.0.1 security profile
+
+SPDX 3 is a graph, so a finding is an element with assessments attached rather than a row in an array. A document
+that carries any finding adds `security` to its `profileConformance`; one that carries none does not claim the
+profile.
+
+| Element | Content |
+|---|---|
+| `security_Vulnerability` | One per finding. `name` is the advisory id, `summary` / `description` the record's text, and `externalIdentifier[]` holds the id and every alias — `CVE-*` as type `cve`, the rest as `securityOther`, so a reader searching for a CVE finds it whether or not we keyed the record under it. `security_publishedTime` / `security_modifiedTime` when the record has them. |
+| `Relationship` `hasAssociatedVulnerability` | One per affected package, from the package to the vulnerability: the direction a reader follows from a component. |
+| `security_CvssV2/V3/V4VulnAssessmentRelationship` | One per CVSS rating, from the vulnerability `hasAssessmentFor` the affected packages, with `security_score`, `security_severity` and `security_vectorString`. The schema requires all three together, so a rating missing any of them is left out rather than half-recorded — as is a rating whose method is not CVSS, since SPDX has no class for it. |
+| `security_ExploitCatalogVulnAssessmentRelationship` | With `--kev`, for a finding in CISA's catalog: `security_catalogType: kev`, `security_exploited: true`, and the catalog URL as `security_locator`. The added and due dates go in `comment`. |
+| `security_VexNotAffectedVulnAssessmentRelationship` | For a finding accepted with `--ignore-vuln` in the `not_affected` state, carrying your reason as `security_impactStatement`. The other states CycloneDX accepts have no SPDX class and stay CycloneDX-only. |
+
+**Timestamps are rewritten.** SPDX 3 pins these fields to exactly `YYYY-MM-DDThh:mm:ssZ` — no fractional seconds, no
+numeric offset — while OSV records carry nanoseconds (`2026-07-08T06:00:54.217433740Z`). Values are converted to UTC
+second precision, and one that cannot be parsed is omitted rather than guessed at.
+
+`security_justificationType` is deliberately never set. Its five permitted values are a fixed vocabulary and
+`--ignore-vuln` takes free text, so the text goes in the impact statement instead of being forced into a category
+nobody chose.
 
 ## SPDX 3.0.1
 

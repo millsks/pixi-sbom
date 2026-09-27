@@ -365,10 +365,19 @@ fn main() -> Result<()> {
                     "osv: {failed} advisory record(s) could not be fetched, and are recorded by id only"
                 ));
             }
-            if args.format == cli::Format::Spdx && args.report.is_none() && findings > 0 {
+            // SPDX 3.0.1 has a security profile and carries the findings (#118); 2.3 has nowhere
+            // to put them, so the warning is now about the spec version rather than the format.
+            let spdx_version = args
+                .spec_version
+                .unwrap_or_else(|| cli::SpecVersion::default_for(args.format));
+            if args.format == cli::Format::Spdx
+                && spdx_version == cli::SpecVersion::V2_3
+                && args.report.is_none()
+                && findings > 0
+            {
                 tracing::warn!(
                     findings,
-                    "SPDX documents do not record vulnerabilities; use --format cyclonedx or --report vulnerabilities"
+                    "SPDX 2.3 does not record vulnerabilities; use --spec-version 3.0, --format cyclonedx, or --report vulnerabilities"
                 );
             }
             if let Some(catalog) = &kev_catalog {

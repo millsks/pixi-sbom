@@ -10,6 +10,7 @@ what goes into it. The [output format reference](output-format.md) covers every 
 | Shape | components + dependency graph | same, plus `citations` | packages + relationships | JSON-LD graph of elements |
 | Best for | vulnerability scanners (grype, trivy, OSV), most SBOM tooling | consumers that already read 1.7 | procurement, NTIA / CISA minimum-elements checklists, legacy SPDX tooling | SPDX 3 native tooling, linking into larger SPDX 3 graphs |
 | License texts (`--license-texts`) | `licenses[].license.text` | same | extracted licensing infos | `SimpleLicensingText` elements |
+| Vulnerabilities (`--vulnerabilities`) | `vulnerabilities[]` | same | **not recorded** — a warning says so | `security_Vulnerability` elements with CVSS, KEV and VEX assessments |
 | Validated against | CycloneDX 1.6 schema | 1.7 schema | SPDX 2.3 schema | SPDX 3.0.1 schema |
 
 Rules of thumb:
@@ -17,7 +18,8 @@ Rules of thumb:
 - **Scanning for vulnerabilities**: CycloneDX 1.6, piped straight in (`pixi sbom --output - | grype`). Add
   `--pypi-mapping prefix --primary-purl pypi` so conda-installed Python packages match PyPI advisories.
 - **Handing a bill of materials to a customer or auditor**: SPDX 2.3 is the most widely accepted interchange, and its
-  `licenseDeclared` / `licenseConcluded` split maps onto compliance workflows.
+  `licenseDeclared` / `licenseConcluded` split maps onto compliance workflows. If the findings have to travel with it,
+  use SPDX 3.0.1 instead — 2.3 has nowhere to record them.
 - **A newer consumer that reads it**: CycloneDX 1.7 or SPDX 3.0.1. The defaults stay at 1.6 / 2.3 until the common
   consumers move; a version of the other format is a usage error.
 

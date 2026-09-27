@@ -2301,10 +2301,12 @@ fn vulnerabilities_from_osv_are_recorded_in_cyclonedx() {
     assert_valid(&cyclonedx_1_7_validator(), &doc);
     assert_eq!(doc["vulnerabilities"].as_array().unwrap().len(), 9);
 
-    // SPDX has no place for them: the document is written and a warning says so.
+    // SPDX 2.3 has no place for them: the document is written and a warning points at 3.0,
+    // which since #118 does carry them.
     run(&["--format", "spdx"])
         .success()
-        .stderr(predicate::str::contains("SPDX documents do not record vulnerabilities"));
+        .stderr(predicate::str::contains("SPDX 2.3 does not record vulnerabilities"))
+        .stderr(predicate::str::contains("--spec-version 3.0"));
 }
 
 #[test]
@@ -5835,5 +5837,222 @@ fn the_pre_1_0_flag_spellings_are_still_accepted() {
             .assert()
             .code(2)
             .stderr(predicate::str::contains("only applies to '--report outdated'"));
+    }
+}
+
+/// #118: findings used to reach CycloneDX only, and an SPDX run warned it was dropping them.
+/// SPDX 3.0.1 has a security profile, so the same nine findings from the recorded OSV fixtures
+/// now come out as `security_Vulnerability` elements with CVSS and KEV assessments hanging off
+/// them, validated against the real 3.0.1 schema.
+#[test]
+fn vulnerabilities_are_recorded_in_spdx_3_via_the_security_profile() {
+    let dir = workspace_with_vulnerable_urllib3();
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args([
+            "-e",
+            "web",
+            "-p",
+            "linux-64",
+            "--format",
+            "spdx",
+            "--spec-version",
+            "3.0",
+            "--vulnerabilities",
+            "osv",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .success();
+    // The 2.3-only warning must not fire for 3.0 any more.
+    let log = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+    assert!(
+        !log.contains("does not record vulnerabilities"),
+        "3.0 records them now: {log}"
+    );
+
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&spdx3_validator(), &doc);
+    let graph = doc["@graph"].as_array().unwrap();
+    let of_type = |kind: &str| -> Vec<&Value> { graph.iter().filter(|n| n["type"] == kind).collect() };
+
+    // Nine findings, nine elements.
+    let vulns = of_type("security_Vulnerability");
+    assert_eq!(vulns.len(), 9, "one element per finding");
+    assert!(
+        vulns.iter().all(|v| v["name"].as_str().unwrap().starts_with("GHSA-")),
+        "named by the advisory id"
+    );
+
+    // The CVE alias is findable as a cve external identifier, not only as free text.
+    let regex = vulns.iter().find(|v| v["name"] == "GHSA-q2q7-5pp4-w6pg").unwrap();
+    assert!(
+        regex["externalIdentifier"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["externalIdentifierType"] == "cve" && e["identifier"] == "CVE-2021-33503"),
+        "{regex}"
+    );
+    assert!(regex["security_publishedTime"].is_string(), "{regex}");
+
+    // Each affected package points at the vulnerability, which is the direction a reader
+    // follows from a component.
+    let associations = graph
+        .iter()
+        .filter(|n| n["relationshipType"] == "hasAssociatedVulnerability")
+        .count();
+    assert_eq!(associations, 9, "one per affected package per finding");
+
+    // CVSS assessments carry all three fields the schema requires together.
+    let cvss = of_type("security_CvssV3VulnAssessmentRelationship");
+    assert!(!cvss.is_empty(), "the fixtures carry CVSS v3 vectors");
+    for a in &cvss {
+        assert_eq!(a["relationshipType"], "hasAssessmentFor");
+        assert!(a["security_score"].is_number(), "{a}");
+        assert!(
+            ["critical", "high", "medium", "low", "none"].contains(&a["security_severity"].as_str().unwrap()),
+            "{a}"
+        );
+        assert!(
+            a["security_vectorString"].as_str().unwrap().starts_with("CVSS:3"),
+            "{a}"
+        );
+    }
+
+    // The document declares the profile it is now using.
+    let sbom = graph.iter().find(|n| n["type"] == "software_Sbom").unwrap();
+    let profiles: Vec<&str> = sbom["profileConformance"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p.as_str().unwrap())
+        .collect();
+    assert!(profiles.contains(&"security"), "{profiles:?}");
+}
+
+/// A document with no findings must not claim the security profile, and SPDX 2.3 still says it
+/// cannot carry them.
+#[test]
+fn without_findings_spdx_3_does_not_claim_the_security_profile() {
+    let dir = workspace("conda-only");
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args([
+            "-p",
+            "linux-64",
+            "--format",
+            "spdx",
+            "--spec-version",
+            "3.0",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .success();
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&spdx3_validator(), &doc);
+    let graph = doc["@graph"].as_array().unwrap();
+    assert!(
+        graph.iter().all(|n| n["type"] != "security_Vulnerability"),
+        "nothing to record"
+    );
+    let sbom = graph.iter().find(|n| n["type"] == "software_Sbom").unwrap();
+    let profiles: Vec<&str> = sbom["profileConformance"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p.as_str().unwrap())
+        .collect();
+    assert_eq!(profiles, ["core", "software", "simpleLicensing"]);
+}
+
+/// The two assessment kinds beyond CVSS: a KEV catalog entry and an accepted finding. Both are
+/// separate SPDX classes with their own required fields, so they need their own coverage.
+#[test]
+fn kev_and_accepted_findings_become_spdx_3_assessment_relationships() {
+    let dir = workspace_with_vulnerable_urllib3();
+    let kev_dir = dir.path().join("cache").join("kev");
+    std::fs::create_dir_all(&kev_dir).unwrap();
+    std::fs::copy(
+        tests_dir()
+            .join("fixtures")
+            .join("kev")
+            .join("known_exploited_vulnerabilities.json"),
+        kev_dir.join("known_exploited_vulnerabilities.json"),
+    )
+    .unwrap();
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args([
+            "-e",
+            "web",
+            "-p",
+            "linux-64",
+            "--format",
+            "spdx",
+            "--spec-version",
+            "3.0",
+            "--vulnerabilities",
+            "osv",
+            "--kev",
+            "--ignore-vuln",
+            "GHSA-q2q7-5pp4-w6pg:not_affected:the URL parser is never handed user input",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .success();
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&spdx3_validator(), &doc);
+    let graph = doc["@graph"].as_array().unwrap();
+
+    // KEV: catalogType, exploited and locator are required together by the schema.
+    let kev: Vec<&Value> = graph
+        .iter()
+        .filter(|n| n["type"] == "security_ExploitCatalogVulnAssessmentRelationship")
+        .collect();
+    assert!(!kev.is_empty(), "the recorded catalog matches at least one finding");
+    for entry in &kev {
+        assert_eq!(entry["security_catalogType"], "kev");
+        assert_eq!(entry["security_exploited"], true);
+        assert!(
+            entry["security_locator"].as_str().unwrap().contains("cisa.gov"),
+            "{entry}"
+        );
+        assert_eq!(entry["relationshipType"], "hasAssessmentFor");
+    }
+
+    // The accepted finding becomes a VEX not-affected assessment carrying the operator's reason.
+    let vex: Vec<&Value> = graph
+        .iter()
+        .filter(|n| n["type"] == "security_VexNotAffectedVulnAssessmentRelationship")
+        .collect();
+    assert_eq!(vex.len(), 1, "one --ignore-vuln, one assessment");
+    assert_eq!(
+        vex[0]["security_impactStatement"],
+        "the URL parser is never handed user input"
+    );
+
+    // Every timestamp we write is in the one shape SPDX 3 accepts: second precision, UTC, no
+    // fractional part. The OSV records these came from carry nanoseconds.
+    for node in graph {
+        for field in ["security_publishedTime", "security_modifiedTime"] {
+            if let Some(stamp) = node[field].as_str() {
+                assert!(
+                    stamp.len() == 20 && stamp.ends_with('Z') && !stamp.contains('.'),
+                    "{field} = {stamp}"
+                );
+            }
+        }
     }
 }
