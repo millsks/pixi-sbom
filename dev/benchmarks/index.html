@@ -1461,9 +1461,9 @@ deal.</p>
 scenario doubling. <code>pixi run perf-test</code> covers what the comparison does with a given pair of numbers, and CI runs
 it, because this gate decides whether a build fails.</p>
 <p>The memory limit was 60% for one release, so that comparisons spanning the 0.9.5 → 0.10.0 allocator change — up
-to +45.4%, deliberately — did not fail on a documented decision. Every comparison now starts from v0.10.0, which
-already has mimalloc, so both sides use the same allocator and the real numbers are single digits again. The
-limit is back to 15%, where it catches far more.</p>
+to +45.4%, deliberately — did not fail on a documented decision. Every comparison now starts from the latest release tag, which
+<code>perf.yml</code> finds with <code>git describe</code> when no base is given — and every one of those has mimalloc, so both sides use
+the same allocator and the real numbers are single digits again. The limit is back to 15%, where it catches far more.</p>
 <p>Peak memory is the child process's own high-water mark: <code>wait4</code> on Linux and macOS,
 <code>GetProcessMemoryInfo</code> on the handle of the finished child on Windows. Not a poller, which would miss the peak.
 The child is started with <code>posix_spawn</code> rather than a fork, because a forked child inherits the parent's page

@@ -890,10 +890,11 @@ runs it when you type <code>pixi &lt;name&gt;</code>. There is no plugin registr
 checksum says the file did not change between the release page and your disk. It says nothing about who made the
 file — anyone can publish a binary and a correct checksum of it.</p>
 <p>The provenance attestation is the one worth running. It is a Sigstore-signed statement that this exact archive was
-built by this repository's release workflow, from a named commit, in a named workflow run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>gh<span class="w"> </span>attestation<span class="w"> </span>verify<span class="w"> </span>pixi-sbom-v0.10.1-linux-64.tar.gz<span class="w"> </span>--repo<span class="w"> </span>millsks/pixi-sbom
+built by this repository's release workflow, from a named commit, in a named workflow run. Releases carry one from
+<strong>0.11.0 onward</strong>; earlier archives have a checksum and nothing else.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>gh<span class="w"> </span>attestation<span class="w"> </span>verify<span class="w"> </span>pixi-sbom-&lt;version&gt;-linux-64.tar.gz<span class="w"> </span>--repo<span class="w"> </span>millsks/pixi-sbom
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">Loaded digest sha256:... for file://pixi-sbom-v0.10.1-linux-64.tar.gz</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">Loaded digest sha256:... for file://pixi-sbom-&lt;version&gt;-linux-64.tar.gz</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">Loaded 1 attestation from GitHub API</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="go">The following policy criteria will be enforced:</span>
@@ -905,8 +906,8 @@ built by this repository's release workflow, from a named commit, in a named wor
 </code></pre></div>
 <p>That needs the <a href="https://cli.github.com">GitHub CLI</a> and reaches <code>api.github.com</code> to fetch the statement. On a
 machine that cannot, pass the bundle that ships with the archive and the check runs entirely offline:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>gh<span class="w"> </span>attestation<span class="w"> </span>verify<span class="w"> </span>pixi-sbom-v0.10.1-linux-64.tar.gz<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--bundle<span class="w"> </span>pixi-sbom-v0.10.1-linux-64.tar.gz.sigstore.json<span class="w"> </span><span class="se">\</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>gh<span class="w"> </span>attestation<span class="w"> </span>verify<span class="w"> </span>pixi-sbom-&lt;version&gt;-linux-64.tar.gz<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--bundle<span class="w"> </span>pixi-sbom-&lt;version&gt;-linux-64.tar.gz.sigstore.json<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--repo<span class="w"> </span>millsks/pixi-sbom
 </code></pre></div>
 <p>Two things are deliberately not attested. The crates.io package is not, because nothing checks an attestation at
