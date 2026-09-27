@@ -1243,6 +1243,14 @@ working tree (HEAD, staged and unstaged changes, untracked files) and runs <code
 the state recorded at the last green run (<code>.pixi/.last-ci-ok</code>), so a stop that changed nothing costs nothing. A
 failing gate exits 2 with the tail of <code>.pixi/.last-ci.log</code>, which blocks the stop and hands the failure back to the
 assistant rather than only printing it. <code>.claude/memory/</code> holds the recorded design decisions and environment notes.</p>
+<p><strong>The docs environment is the one place this project is not conda-forge-first.</strong> <code>mkdocs</code>,
+<code>mkdocs-material</code>, <code>mike</code> and <code>pymdown-extensions</code> come from PyPI, because conda-forge's only mkdocs 1.6.1 build
+declares <code>click &gt;=7.0,&lt;8.3.0a0</code> and that held the lockfile on click 8.2.1 — PYSEC-2026-2132, a high-severity command
+injection in <code>click.edit()</code> that this project's own SBOM job reported against its own lockfile (#211). mkdocs' real
+metadata asks for <code>click&gt;=7.0</code>; the cap is the conda packaging, not the code, and <code>mkdocs build --strict</code>,
+<code>mkdocs serve</code> with live reload and <code>mike deploy</code> were all checked by hand against click 8.5.0. <code>click &gt;=8.3.3</code>
+stays on the conda side of the docs feature so a future dependency that caps it again fails the solve rather than
+quietly reintroducing the advisory. Move the four back when conda-forge ships an mkdocs build without the cap.</p>
 <h2 id="tests">Tests<a class="headerlink" href="#tests" title="Permanent link">&para;</a></h2>
 <p>Three layers, all under <code>pixi run test</code>:</p>
 <h3 id="unit-tests-cfgtest-in-each-module">Unit tests (<code>#[cfg(test)]</code> in each module)<a class="headerlink" href="#unit-tests-cfgtest-in-each-module" title="Permanent link">&para;</a></h3>
