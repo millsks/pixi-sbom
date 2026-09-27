@@ -2215,6 +2215,10 @@ that off. Either way the root records what was left out, matched packages and or
 is deliberately partial. Excluding every root (for example <code>--exclude-kind pypi</code> on a PyPI-only project) empties
 the document unless orphans are kept.</p>
 <h2 id="enforcing-a-license-policy">Enforcing a license policy<a class="headerlink" href="#enforcing-a-license-policy" title="Permanent link">&para;</a></h2>
+<p align="center">
+  <img src="assets/report-licenses.gif" alt="pixi sbom --report licenses: every package's licence expression, its family, and whether the string came from the lockfile or was fetched." width="100%">
+</p>
+
 <p>Any of <code>--allow-license</code>, <code>--deny-license</code> and <code>--require-license</code> turns on the policy check. Documents (or reports)
 are still produced, the violations are listed on stderr, and the run exits with code <strong>3</strong>, which is what a CI job
 should fail on:</p>
@@ -2259,6 +2263,10 @@ on stderr, and the run exits with code <strong>7</strong>.</p>
 <p>Conda packages are not covered: a channel withdraws a build by removing it from <code>repodata.json</code>, which would mean
 downloading the channel index to detect. That is tracked separately.</p>
 <h2 id="looking-up-vulnerabilities">Looking up vulnerabilities<a class="headerlink" href="#looking-up-vulnerabilities" title="Permanent link">&para;</a></h2>
+<p align="center">
+  <img src="assets/report-vulnerabilities.gif" alt="pixi sbom --report vulnerabilities: a table of OSV findings for urllib3 1.26.4, severities coloured, with a CISA KEV entry and its remediation due date." width="100%">
+</p>
+
 <p><code>--vulnerabilities osv</code> asks the <a href="https://osv.dev">Open Source Vulnerabilities</a> database about every package with a
 purl it indexes (PyPI, crates.io, npm, Go, ...; conda has no ecosystem there) and records the findings in the
 CycloneDX <code>vulnerabilities[]</code> array: id, aliases (CVE, PYSEC, ...), severity and CVSS ratings, CWEs, summary,
@@ -2333,6 +2341,10 @@ expect, and it validates against the CycloneDX schema like everything else this 
 <p><code>--vex</code> needs <code>--vulnerabilities</code> and one document to point at, so it does not combine with <code>--report</code>,
 <code>--all-environments</code>, <code>--all-platforms</code> or <code>--scan</code>.</p>
 <h2 id="how-far-behind-the-environment-is">How far behind the environment is<a class="headerlink" href="#how-far-behind-the-environment-is" title="Permanent link">&para;</a></h2>
+<p align="center">
+  <img src="assets/report-outdated.gif" alt="pixi sbom --report outdated: every package with its age, the latest release, how many releases behind, and whether that is a major, minor or patch step." width="100%">
+</p>
+
 <p><code>--report outdated</code> asks each package's index what the newest release is, how many releases sit between it and
 the pinned one, and when each was published:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>outdated
@@ -2372,6 +2384,10 @@ conda-forge and the other channels hosted there. A channel hosted elsewhere woul
 index cannot answer for, are listed under <em>No index to ask</em> rather than guessed at. Both documents are cached for
 a day, so a second run is free.</p>
 <h2 id="what-python-the-environment-allows">What Python the environment allows<a class="headerlink" href="#what-python-the-environment-allows" title="Permanent link">&para;</a></h2>
+<p align="center">
+  <img src="assets/report-python.gif" alt="pixi sbom --report python: each package's Requires-Python, whether the locked interpreter satisfies it, and which package holds the ceiling." width="100%">
+</p>
+
 <p><code>--report python</code> answers "why can we not move to the next Python yet?" from facts the document already has: the
 <code>Requires-Python</code> of every wheel (from the lockfile or its <code>dist-info</code>) and the environment's own <code>python</code>
 package. No network, no index.</p>
@@ -2386,6 +2402,10 @@ that ceiling, which packages the current interpreter does <em>not</em> satisfy, 
 is not a ceiling, since it says nothing about how far up the 3.x series you may go. Most real environments have
 no ceiling at all, which is itself the answer.</p>
 <h2 id="how-well-each-dependency-is-looked-after">How well each dependency is looked after<a class="headerlink" href="#how-well-each-dependency-is-looked-after" title="Permanent link">&para;</a></h2>
+<p align="center">
+  <img src="assets/report-scorecard.gif" alt="pixi sbom --report scorecard: OpenSSF scores per repository, the weakest checks for each, and a summary of how many fall below the threshold." width="100%">
+</p>
+
 <p>Vulnerabilities and licenses answer two supply-chain questions. "Is this dependency maintained, reviewed, signed,
 pinned?" is the third, and a lockfile says nothing about it. <code>--scorecard</code> asks the
 <a href="https://securityscorecards.dev/">OpenSSF Scorecard</a> service, which scores a repository out of ten from fourteen
@@ -2405,6 +2425,10 @@ weakest checks, a table of how many fall in each band, and the ones below the th
 or one with no repository to ask about, is reported as unknown and never fails the gate: the answer is missing,
 not bad.</p>
 <h2 id="what-is-imported-but-never-declared">What is imported but never declared<a class="headerlink" href="#what-is-imported-but-never-declared" title="Permanent link">&para;</a></h2>
+<p align="center">
+  <img src="assets/report-phantom.gif" alt="pixi sbom --report phantom: urllib3 imported by app.py but never declared, and six declared but imported by nothing." width="100%">
+</p>
+
 <p>A <em>phantom dependency</em> is a package the code imports although nothing declares it: it is in the environment only
 because something else pulled it in, and the day that upstream drops it the import breaks. <code>--report phantom</code>
 names them, together with the two inverses that make environments grow without limit.</p>
@@ -2503,6 +2527,10 @@ asked and how much of it came back empty. A pattern that matches nothing is not 
 rather than printing an empty table.</p>
 <h2 id="looking-instead-of-writing">Looking instead of writing<a class="headerlink" href="#looking-instead-of-writing" title="Permanent link">&para;</a></h2>
 <p><code>--report</code> prints a report to the terminal and writes nothing:</p>
+<p align="center">
+  <img src="assets/report-packages.gif" alt="pixi sbom --report packages: the full inventory, one row per package, with kind, what declared it, source and licence." width="100%">
+</p>
+
 <div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1"># The inventory: name, version, kind, what declared it, source, license, purl</span>
 <a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>packages
 <a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>
@@ -2521,6 +2549,11 @@ rather than printing an empty table.</p>
 <a id="__codelineno-24-16" name="__codelineno-24-16" href="#__codelineno-24-16"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>licenses<span class="w"> </span>--report-format<span class="w"> </span>csv<span class="w"> </span>&gt;<span class="w"> </span>licenses.csv
 <a id="__codelineno-24-17" name="__codelineno-24-17" href="#__codelineno-24-17"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>packages<span class="w"> </span>--report-format<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.packages[] | select(.license == null)'</span>
 </code></pre></div>
+<p>Comparing against an earlier document answers "what changed since the last release" without reading either of them:</p>
+<p align="center">
+  <img src="assets/report-diff.gif" alt="pixi sbom --report diff --against last-release.cdx.json: one row showing urllib3 went from 2.8.0 to 1.26.4, and a summary of added, removed, version and licence changes." width="100%">
+</p>
+
 <p>Reports respect every selection and enrichment flag, so they show exactly what a document would contain; with
 <code>--all-environments</code> / <code>--all-platforms</code> there is one section (or JSON array element) per document. <code>--report</code>
 cannot be combined with <code>--output</code>.</p>
