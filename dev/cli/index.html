@@ -401,6 +401,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flags-that-answer-to-an-older-name" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flags that answer to an older name
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1181,6 +1198,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flags-that-answer-to-an-older-name" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flags that answer to an older name
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1644,7 +1678,7 @@
 <td>Describe an installed environment instead of a lockfile (see below). Cannot be combined with <code>--lockfile</code>, <code>--environment</code> or the <code>--all-*</code> flags.</td>
 </tr>
 <tr>
-<td><code>--name &lt;NAME&gt;</code>, <code>--root-version &lt;VERSION&gt;</code></td>
+<td><code>--root-name &lt;NAME&gt;</code>, <code>--root-version &lt;VERSION&gt;</code></td>
 <td>directory name, none</td>
 <td>With <code>--prefix</code>: what the described application is called.</td>
 </tr>
@@ -1843,118 +1877,56 @@
 <td>off</td>
 <td>Neither read nor write any cache.</td>
 </tr>
+</tbody>
+</table>
+<h3 id="flags-that-answer-to-an-older-name">Flags that answer to an older name<a class="headerlink" href="#flags-that-answer-to-an-older-name" title="Permanent link">&para;</a></h3>
+<p>Two flags were renamed before 1.0 for consistency with the ones beside them. <strong>The old spellings are still accepted
+and always will be</strong> — they are hidden from <code>--help</code> so there is one name to learn, not removed.</p>
+<table>
+<thead>
 <tr>
-<td><code>--report &lt;packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom\|scorecard&gt;</code></td>
-<td></td>
-<td>Print a report to the terminal instead of writing a document (see below). Cannot be combined with <code>--output</code>; <code>vulnerabilities</code> needs <code>--vulnerabilities</code>, <code>diff</code> needs <code>--against</code>.</td>
+<th>Pre-1.0</th>
+<th>Now</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--name</code></td>
+<td><code>--root-name</code></td>
+<td>It pairs with <code>--root-version</code>, and read like a package filter among <code>--exclude</code> / <code>--include</code> / <code>--assume-used</code></td>
 </tr>
 <tr>
-<td><code>--tree</code></td>
-<td>off</td>
-<td>With <code>--report packages</code>: draw the dependency graph from the root downward instead of a flat list.</td>
-</tr>
-<tr>
-<td><code>--depth &lt;N&gt;</code></td>
-<td>unlimited</td>
-<td>With <code>--tree</code>: how deep to go (<code>0</code> shows what the root depends on and nothing below).</td>
-</tr>
-<tr>
-<td><code>--group-by license</code></td>
-<td></td>
-<td>With <code>--report licenses</code>: one section per license instead of one row per package.</td>
-</tr>
-<tr>
-<td><code>--outdated-only &lt;patch\|minor\|major&gt;</code></td>
-<td></td>
-<td>With <code>--report outdated</code>: list only packages at least that far behind.</td>
-</tr>
-<tr>
-<td><code>--source &lt;DIR&gt;</code></td>
-<td>the lockfile's directory</td>
-<td>With <code>--report phantom</code>: where the workspace's Python sources are (repeatable).</td>
-</tr>
-<tr>
-<td><code>--assume-used &lt;GLOB&gt;</code></td>
-<td></td>
-<td>With <code>--report phantom</code>: packages matching this are never reported as unused or undeclared (repeatable).</td>
-</tr>
-<tr>
-<td><code>--fail-on-phantom</code></td>
-<td>off</td>
-<td>With <code>--report phantom</code>: exit <strong>8</strong> when the workspace imports a package it never declared.</td>
-</tr>
-<tr>
-<td><code>--from-sbom &lt;FILE&gt;</code></td>
-<td></td>
-<td>Read an existing document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON) instead of a lockfile and run the reports, the license policy and the vulnerability gate on it.</td>
-</tr>
-<tr>
-<td><code>--scan &lt;DIR&gt;</code></td>
-<td></td>
-<td>Describe every pixi workspace under the directory: one document per <code>pixi.lock</code> found. Cannot be combined with <code>--lockfile</code>, <code>--prefix</code>, <code>--against</code> or <code>--output -</code>.</td>
-</tr>
-<tr>
-<td><code>--scan-depth &lt;N&gt;</code></td>
-<td>unlimited</td>
-<td>With <code>--scan</code>: how far below the directory to walk (<code>0</code> is the directory itself).</td>
-</tr>
-<tr>
-<td><code>--against &lt;PATH&gt;</code></td>
-<td></td>
-<td>With <code>--report diff</code>: what to compare with — a document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON), a <code>pixi.lock</code>, or the directory of an installed environment.</td>
-</tr>
-<tr>
-<td><code>--fail-on-diff [&lt;SECTION&gt;...]</code></td>
-<td>off</td>
-<td>With <code>--report diff</code>: exit <strong>6</strong> when the named sections (<code>added</code>, <code>removed</code>, <code>version</code>, <code>license</code>, <code>build</code>, <code>pip</code>) are not empty. The bare flag means any change.</td>
-</tr>
-<tr>
-<td><code>--explain &lt;PACKAGE&gt;</code></td>
-<td></td>
-<td>Repeatable. Print every fact the tool has about the packages matching this name or shell-style pattern (as in <code>--exclude</code>) and where each fact came from, including the sources that came back empty (see below). Prints instead of writing, so it cannot be combined with <code>--output</code> or <code>--report</code>.</td>
-</tr>
-<tr>
-<td><code>--report-format &lt;table\|markdown\|csv\|json\|sarif&gt;</code></td>
-<td><code>table</code></td>
-<td>How to render the report or <code>--explain</code>; <code>sarif</code> (2.1.0, for GitHub code scanning) applies to <code>--report vulnerabilities</code> only.</td>
-</tr>
-<tr>
-<td><code>--color &lt;auto\|always\|never&gt;</code></td>
-<td><code>auto</code></td>
-<td>Colour the <code>table</code> report. <code>auto</code> colours only when the output is a terminal, honouring <code>NO_COLOR</code>, <code>CLICOLOR_FORCE</code> and <code>TERM=dumb</code>.</td>
-</tr>
-<tr>
-<td><code>--pypi-licenses</code></td>
-<td></td>
-<td>Deprecated alias for <code>--fetch-licenses</code> (hidden from <code>--help</code>; removed in a future release).</td>
-</tr>
-<tr>
-<td><code>-v</code>, <code>-vv</code></td>
-<td>info</td>
-<td>Raise the log level to debug / trace. Logs go to stderr; the SBOM never goes to stdout.</td>
-</tr>
-<tr>
-<td><code>-q</code>, <code>-qq</code>, <code>-qqq</code></td>
-<td>info</td>
-<td>Lower it to warnings only / errors only / silent. Error diagnostics are printed regardless.</td>
-</tr>
-<tr>
-<td><code>--ca-bundle &lt;FILE&gt;</code></td>
-<td>the OS trust store</td>
-<td>Verify TLS against the certificates in this PEM file instead of the operating system's store: a TLS-intercepting appliance's CA, or a private one. The order is <code>--ca-bundle</code>, <code>PIXI_SBOM_CA_BUNDLE</code>, <code>SSL_CERT_FILE</code>, then the platform verifier — see <a href="#which-certificates-tls-is-verified-against">which certificates TLS is verified against</a>.</td>
-</tr>
-<tr>
-<td><code>--log-format &lt;text\|json&gt;</code></td>
-<td><code>text</code></td>
-<td>How the log on stderr is rendered. <code>json</code> writes one JSON object per event, with the timestamp back and every field its own key. Also <code>PIXI_SBOM_LOG_FORMAT</code>.</td>
-</tr>
-<tr>
-<td><code>-h, --help</code>, <code>-V, --version</code></td>
-<td></td>
-<td>Usual meanings.</td>
+<td><code>--outdated-only</code></td>
+<td><code>--outdated-min</code></td>
+<td>It is a threshold like <code>--scorecard-min</code>, and <code>-only</code> reads like a boolean where the flag requires a value</td>
 </tr>
 </tbody>
 </table>
+<p><code>--pypi-licenses</code> likewise still works as an alias of <code>--fetch-licenses</code>, with a warning, as it has since 0.4.0.
+Nothing in this table is scheduled for removal; dropping any of it would be a major version with its own notice.
+| <code>--report &lt;packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom\|scorecard&gt;</code> | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with <code>--output</code>; <code>vulnerabilities</code> needs <code>--vulnerabilities</code>, <code>diff</code> needs <code>--against</code>. |
+| <code>--tree</code> | off | With <code>--report packages</code>: draw the dependency graph from the root downward instead of a flat list. |
+| <code>--depth &lt;N&gt;</code> | unlimited | With <code>--tree</code>: how deep to go (<code>0</code> shows what the root depends on and nothing below). |
+| <code>--group-by license</code> | | With <code>--report licenses</code>: one section per license instead of one row per package. |
+| <code>--outdated-min &lt;patch\|minor\|major&gt;</code> | | With <code>--report outdated</code>: list only packages at least that far behind. |
+| <code>--source &lt;DIR&gt;</code> | the lockfile's directory | With <code>--report phantom</code>: where the workspace's Python sources are (repeatable). |
+| <code>--assume-used &lt;GLOB&gt;</code> | | With <code>--report phantom</code>: packages matching this are never reported as unused or undeclared (repeatable). |
+| <code>--fail-on-phantom</code> | off | With <code>--report phantom</code>: exit <strong>8</strong> when the workspace imports a package it never declared. |
+| <code>--from-sbom &lt;FILE&gt;</code> | | Read an existing document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON) instead of a lockfile and run the reports, the license policy and the vulnerability gate on it. |
+| <code>--scan &lt;DIR&gt;</code> | | Describe every pixi workspace under the directory: one document per <code>pixi.lock</code> found. Cannot be combined with <code>--lockfile</code>, <code>--prefix</code>, <code>--against</code> or <code>--output -</code>. |
+| <code>--scan-depth &lt;N&gt;</code> | unlimited | With <code>--scan</code>: how far below the directory to walk (<code>0</code> is the directory itself). |
+| <code>--against &lt;PATH&gt;</code> | | With <code>--report diff</code>: what to compare with — a document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON), a <code>pixi.lock</code>, or the directory of an installed environment. |
+| <code>--fail-on-diff [&lt;SECTION&gt;...]</code> | off | With <code>--report diff</code>: exit <strong>6</strong> when the named sections (<code>added</code>, <code>removed</code>, <code>version</code>, <code>license</code>, <code>build</code>, <code>pip</code>) are not empty. The bare flag means any change. |
+| <code>--explain &lt;PACKAGE&gt;</code> | | Repeatable. Print every fact the tool has about the packages matching this name or shell-style pattern (as in <code>--exclude</code>) and where each fact came from, including the sources that came back empty (see below). Prints instead of writing, so it cannot be combined with <code>--output</code> or <code>--report</code>. |
+| <code>--report-format &lt;table\|markdown\|csv\|json\|sarif&gt;</code> | <code>table</code> | How to render the report or <code>--explain</code>; <code>sarif</code> (2.1.0, for GitHub code scanning) applies to <code>--report vulnerabilities</code> only. |
+| <code>--color &lt;auto\|always\|never&gt;</code> | <code>auto</code> | Colour the <code>table</code> report. <code>auto</code> colours only when the output is a terminal, honouring <code>NO_COLOR</code>, <code>CLICOLOR_FORCE</code> and <code>TERM=dumb</code>. |
+| <code>--pypi-licenses</code> | | Deprecated alias for <code>--fetch-licenses</code> (hidden from <code>--help</code>; removed in a future release). |
+| <code>-v</code>, <code>-vv</code> | info | Raise the log level to debug / trace. Logs go to stderr; the SBOM never goes to stdout. |
+| <code>-q</code>, <code>-qq</code>, <code>-qqq</code> | info | Lower it to warnings only / errors only / silent. Error diagnostics are printed regardless. |
+| <code>--ca-bundle &lt;FILE&gt;</code> | the OS trust store | Verify TLS against the certificates in this PEM file instead of the operating system's store: a TLS-intercepting appliance's CA, or a private one. The order is <code>--ca-bundle</code>, <code>PIXI_SBOM_CA_BUNDLE</code>, <code>SSL_CERT_FILE</code>, then the platform verifier — see <a href="#which-certificates-tls-is-verified-against">which certificates TLS is verified against</a>. |
+| <code>--log-format &lt;text\|json&gt;</code> | <code>text</code> | How the log on stderr is rendered. <code>json</code> writes one JSON object per event, with the timestamp back and every field its own key. Also <code>PIXI_SBOM_LOG_FORMAT</code>. |
+| <code>-h, --help</code>, <code>-V, --version</code> | | Usual meanings. |</p>
 <h2 id="which-pixi-and-which-lockfiles">Which pixi and which lockfiles<a class="headerlink" href="#which-pixi-and-which-lockfiles" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2149,7 +2121,7 @@ comparable, and <code>--refresh</code> makes the comparison fair.</p>
 <p>Not every environment has a lockfile: <code>pixi global</code> environments, plain conda / mamba / micromamba environments,
 environments inside containers. <code>--prefix &lt;DIR&gt;</code> describes one of those from what it keeps on disk:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--prefix<span class="w"> </span>~/.pixi/envs/pixi-sbom
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--prefix<span class="w"> </span>/opt/conda/envs/app<span class="w"> </span>--name<span class="w"> </span>app<span class="w"> </span>--root-version<span class="w"> </span><span class="m">1</span>.4.0<span class="w"> </span>--fetch-licenses
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--prefix<span class="w"> </span>/opt/conda/envs/app<span class="w"> </span>--root-name<span class="w"> </span>app<span class="w"> </span>--root-version<span class="w"> </span><span class="m">1</span>.4.0<span class="w"> </span>--fetch-licenses
 </code></pre></div>
 <p>Conda packages come from <code>conda-meta/&lt;name&gt;-&lt;version&gt;-&lt;build&gt;.json</code>, which carries the same facts as a lock record
 (name, version, build, channel, subdir, hashes, license, dependencies); pip-installed packages come from the
@@ -2336,7 +2308,7 @@ expect, and it validates against the CycloneDX schema like everything else this 
 <p><code>--report outdated</code> asks each package's index what the newest release is, how many releases sit between it and
 the pinned one, and when each was published:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>outdated
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>outdated<span class="w"> </span>--outdated-only<span class="w"> </span>major<span class="w"> </span>--report-format<span class="w"> </span>markdown
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>outdated<span class="w"> </span>--outdated-min<span class="w"> </span>major<span class="w"> </span>--report-format<span class="w"> </span>markdown
 </code></pre></div>
 <table>
 <thead>
@@ -2635,7 +2607,7 @@ CycloneDX and SPDX 2.x it takes the packages, versions, purls, licenses, hashes,
 the dependency graph and the <code>pixi:*</code> properties a document this tool wrote carries — so a document of ours
 round-trips unchanged, declared dependencies and all. SPDX 3.0.1 is read as packages, versions, purls and
 licenses; its graph, hashes and properties do not come back.</p>
-<p>The described application's name and version come from the document's own root component unless <code>--name</code> and
+<p>The described application's name and version come from the document's own root component unless <code>--root-name</code> and
 <code>--root-version</code> say otherwise, and the environment and platform from what the document records (<code>default</code> and
 empty when it records nothing, or whatever <code>--platform</code> says). A purl that is neither <code>pkg:conda</code> nor <code>pkg:pypi</code>,
 and a package with no purl at all, is recorded as the <code>external</code> kind: the document is the only thing that knows
