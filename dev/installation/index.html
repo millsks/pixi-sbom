@@ -385,6 +385,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Checking where a binary came from">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-strict-form" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The strict form
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -838,6 +855,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Checking where a binary came from">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-strict-form" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The strict form
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -937,6 +971,39 @@ machine that cannot, pass the bundle that ships with the archive and the check r
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--bundle<span class="w"> </span>pixi-sbom-&lt;version&gt;-linux-64.tar.gz.sigstore.json<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--repo<span class="w"> </span>millsks/pixi-sbom
 </code></pre></div>
+<h3 id="the-strict-form">The strict form<a class="headerlink" href="#the-strict-form" title="Permanent link">&para;</a></h3>
+<p><code>--repo</code> alone accepts an archive signed by <em>any</em> workflow in this repository, from any branch. To also require that
+it came from the release workflow, run on the tag of the version you downloaded, on a GitHub-hosted runner:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>gh<span class="w"> </span>attestation<span class="w"> </span>verify<span class="w"> </span>pixi-sbom-&lt;version&gt;-linux-64.tar.gz<span class="w"> </span>--repo<span class="w"> </span>millsks/pixi-sbom<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--signer-workflow<span class="w"> </span>millsks/pixi-sbom/.github/workflows/release-artifacts.yml<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span>--source-ref<span class="w"> </span>refs/tags/v&lt;version&gt;<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span>--deny-self-hosted-runners
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Refuses</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--signer-workflow</code></td>
+<td>An archive signed by any other workflow, such as a CI job that also builds binaries</td>
+</tr>
+<tr>
+<td><code>--source-ref</code></td>
+<td>One built from a branch, or from a different release's tag</td>
+</tr>
+<tr>
+<td><code>--deny-self-hosted-runners</code></td>
+<td>One built on a machine outside GitHub's hosted runners</td>
+</tr>
+</tbody>
+</table>
+<p>It combines with <code>--bundle</code> for the offline check. The strict form holds from <strong>0.12.0 onward</strong>. The 0.11.0 archives
+were signed by <code>release.yml</code> on <code>refs/heads/main</code>, before the build moved to the tag-triggered workflow (#218), so for
+0.11.0 the plain <code>--repo</code> check is as far as verification goes.</p>
 <p>Two things are deliberately not attested. The crates.io package is not, because nothing checks an attestation at
 <code>cargo install</code> time and that path builds from source regardless. The conda-forge package is not, because the
 feedstock builds on conda-forge's infrastructure rather than ours — the provenance there would be theirs to make.
