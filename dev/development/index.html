@@ -851,6 +851,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-readme-recording" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The README recording
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#releasing" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1112,6 +1123,17 @@
     <span class="md-ellipsis">
       
         Continuous integration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-readme-recording" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The README recording
       
     </span>
   </a>
@@ -1485,6 +1507,23 @@ which has no platform-specific paths. The two jobs that are <em>about</em> a pla
 <code>sbom</code>, which tests the action's runner-to-archive mapping, and the separate performance workflow — use all five,
 adding <code>ubuntu-24.04-arm</code> and <code>macos-15-intel</code> for linux-aarch64 and osx-64. The release build uses the same five,
 since it must produce a native binary for each.</p>
+<h2 id="the-readme-recording">The README recording<a class="headerlink" href="#the-readme-recording" title="Permanent link">&para;</a></h2>
+<p><code>docs/assets/demo.gif</code> is generated, not captured by hand: <code>pixi run demo</code> replays
+<code>docs/assets/demo.tape</code> through <a href="https://github.com/charmbracelet/vhs">vhs</a> and overwrites the GIF.
+Re-record it when the output it shows changes.</p>
+<p><strong>vhs is not a project dependency.</strong> It pulls ttyd and ffmpeg — 95 packages, and it more than
+doubled <code>pixi.lock</code> (220 KB to 476 KB) — for a task that runs by hand every few months and never in
+CI. Install it once, globally, and it is there for every project:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pixi<span class="w"> </span>global<span class="w"> </span>install<span class="w"> </span>vhs
+</code></pre></div>
+<p>Everything in the recording is real output from a release build. What is staged is the input:
+<code>scripts/demo-workspace.sh</code> builds a throwaway workspace from the <code>with-pypi</code> fixture with urllib3
+pinned back to a vulnerable 1.26.4, and drops the recorded OSV and CISA KEV responses the tests
+already use into the cache, so the run needs no network and takes the same time every time. It
+makes the same substitution as <code>workspace_with_vulnerable_urllib3</code> in <code>tests/cli.rs</code> and fails
+loudly if the fixture has drifted out from under it.</p>
+<p>The cache and the <code>pixi-sbom</code> symlink live <em>beside</em> the recorded directory rather than in it, so
+<code>ls</code> shows a workspace and not the scaffolding.</p>
 <h2 id="releasing">Releasing<a class="headerlink" href="#releasing" title="Permanent link">&para;</a></h2>
 <p>Two workflows. <code>release.yml</code> is run by hand from the Actions tab (<em>Release</em> → <em>Run workflow</em> on <code>main</code>) and ends at
 the tag push; that tag then starts <code>release-artifacts.yml</code>, which builds, signs and publishes everything. One
