@@ -1700,6 +1700,11 @@ purl matches nothing, so a conda-only Python environment scans as clean whatever
 </table>
 <p>The mapping is applied only to conda-forge binary packages whose lock entry has no <code>purls:</code> at all; the lockfile's own
 answer, including an explicit empty list, is authoritative. The PyPI purl carries the conda package's version.</p>
+<p>pixi writes lockfile purls as bare names — <code>pkg:pypi/click?source=compressed-mapping</code>, with no version, because the
+mapping behind them is name to name. A purl with no version is a name, not an identity: no database can be asked
+about it. Where the lock entry states a bare purl, its version is filled in from that same entry
+(<code>pkg:pypi/click@8.5.0?source=compressed-mapping</code>). A purl that already carries a version is left alone, and
+<code>purls: []</code> keeps meaning "not on PyPI".</p>
 <p><code>--primary-purl pypi</code> then makes that PyPI purl the component's <code>purl</code> (first <code>externalRefs</code> entry in SPDX) and moves
 the conda purl to <code>pixi:purl</code>, because scanners only read the primary identity. With it, <code>grype</code> / <code>trivy</code> /
 <code>osv-scanner</code> report advisories for conda-installed Python packages.</p>
