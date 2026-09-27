@@ -26,6 +26,7 @@ on:
       - mkdocs.yml
       - mkdocs_hooks.py
       - CHANGELOG.md
+      - SECURITY.md
       - .github/workflows/docs.yml
   workflow_dispatch:
     inputs:

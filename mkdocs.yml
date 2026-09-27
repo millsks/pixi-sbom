@@ -27,6 +27,7 @@ nav:
   - Which format to pick: formats.md
   - Output format reference: output-format.md
   - Troubleshooting: troubleshooting.md
+  - Security policy: security.md
   - Contributing:
       - Architecture: architecture.md
       - Development: development.md

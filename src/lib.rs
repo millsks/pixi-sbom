@@ -11,6 +11,12 @@
 //! or the writers from another program, say so in an issue and they can be given a real API
 //! with real guarantees; do not reach into this one and hope.
 
+// Nothing shipped contains `unsafe`. The two places that do are test helpers setting environment
+// variables, which edition 2024 made unsafe; `not(test)` keeps the guarantee honest for the
+// binary without pretending the tests are pure. SECURITY.md states this as a property, so it is
+// the compiler that holds it rather than a habit.
+#![cfg_attr(not(test), forbid(unsafe_code))]
+
 #[doc(hidden)]
 pub mod auditable;
 #[doc(hidden)]

@@ -1,6 +1,9 @@
 //! The `pixi sbom` command: parse the arguments, run the steps the flags asked for, and
 //! decide the exit code. Everything it calls lives in the library beside it.
 
+// See the note in lib.rs: the shipped binary contains no `unsafe`, held by the compiler.
+#![cfg_attr(not(test), forbid(unsafe_code))]
+
 use pixi_sbom::{
     auditable, batch, cache, cli, concurrency, condaarchive, config, diff, discover, doctor, embedded, explain, filter,
     format, fromsbom, http, imports, kev, license, lock, manifest, mapping, model, osv, outdated, phantom, pkgcache,

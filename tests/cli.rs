@@ -5491,3 +5491,66 @@ fn a_lockfile_newer_than_we_understand_says_so_and_names_the_ceiling() {
         // The help line says what to do about it, as every diagnostic here does.
         .stderr(predicate::str::contains("upgrade pixi-sbom"));
 }
+
+/// Every file under `root`, relative and sorted, so two runs can be compared.
+fn tree(root: &Path) -> Vec<String> {
+    fn walk(dir: &Path, root: &Path, found: &mut Vec<String>) {
+        let mut entries: Vec<_> = std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().path()).collect();
+        entries.sort();
+        for path in entries {
+            if path.is_dir() {
+                walk(&path, root, found);
+            } else {
+                found.push(path.strip_prefix(root).unwrap().to_string_lossy().replace('\\', "/"));
+            }
+        }
+    }
+    let mut found = Vec::new();
+    walk(root, root, &mut found);
+    found
+}
+
+/// SECURITY.md states, as a property a reporter can hold us to, that a run writes the output
+/// paths it was given and nothing else outside the cache. Nothing was checking it, and a stray
+/// write — a temporary file left behind, a path built from a package name — is exactly the kind
+/// of thing that would go unnoticed until someone ran this against a package they did not trust.
+#[test]
+fn a_run_writes_the_outputs_it_was_asked_for_and_nothing_else() {
+    let dir = workspace("with-pypi");
+    let before = tree(dir.path());
+    assert_eq!(before, vec!["pixi.lock", "pixi.toml"]);
+
+    let cache = tempfile::tempdir().unwrap();
+    let out = dir.path().join("reports").join("web.cdx.json");
+    pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_SBOM_CACHE_DIR", cache.path())
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args(["--output", out.to_str().unwrap(), "-e", "web", "-p", "linux-64"])
+        .assert()
+        .success();
+
+    // The path the flag named, and nothing beside it: no temporary file left behind, no
+    // directory built from a name that came out of the lockfile.
+    assert_eq!(tree(dir.path()), vec!["pixi.lock", "pixi.toml", "reports/web.cdx.json"]);
+
+    // And the case where the tool picks the names itself, which is where a name taken from
+    // untrusted input would actually reach the filesystem.
+    let many = workspace("conda-only");
+    pixi_sbom()
+        .current_dir(many.path())
+        .env("PIXI_SBOM_CACHE_DIR", cache.path())
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .arg("--all-platforms")
+        .assert()
+        .success();
+    assert_eq!(
+        tree(many.path()),
+        vec![
+            "pixi.lock",
+            "pixi.toml",
+            "sbom-linux-64.cdx.json",
+            "sbom-osx-arm64.cdx.json",
+        ]
+    );
+}
