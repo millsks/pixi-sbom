@@ -234,14 +234,13 @@ jobs:
       - name: Release summary
         run: |
           set -euo pipefail
-          url="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${TAG}.tar.gz"
-          sha=$(curl -sSL "$url" | sha256sum | cut -d' ' -f1)
           {
             echo "## ${TAG} published"
             echo
             echo "Release: ${{ steps.create_release.outputs.url }}"
             echo
-            echo "Source tarball SHA-256 for \`recipe/recipe.yaml\`: \`$sha\`"
+            echo "conda-forge follows from here: the feedstock's autotick bot opens the version"
+            echo "bump against the source tarball on its own, usually within a few hours."
           } >> "$GITHUB_STEP_SUMMARY"
 
   # crates.io, from a clean checkout of the tag (this job's tree holds the downloaded archives,

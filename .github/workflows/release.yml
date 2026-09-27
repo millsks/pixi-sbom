@@ -173,11 +173,10 @@ jobs:
           environments: default
           cache: true
 
-      - name: Bump version in Cargo.toml, Cargo.lock, pixi.toml, recipe
+      - name: Bump version in Cargo.toml, Cargo.lock and pixi.toml
         if: steps.should_skip.outputs.skip != 'true'
         run: |
           sed -i -E "s/^version = \"[^\"]+\"/version = \"${{ env.NEW_TAG }}\"/" Cargo.toml pixi.toml
-          sed -i -E "s/^  version: \"[^\"]+\"/  version: \"${{ env.NEW_TAG }}\"/" recipe/recipe.yaml
           pixi run cargo update --workspace
           git diff --stat
 
@@ -202,7 +201,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md Cargo.toml Cargo.lock pixi.toml recipe/recipe.yaml
+          git add CHANGELOG.md Cargo.toml Cargo.lock pixi.toml
           git commit -m "chore(release): v${{ env.NEW_TAG }}"
           git tag -a "v${{ env.NEW_TAG }}" -m "Release v${{ env.NEW_TAG }}"
           git push origin HEAD:main --tags

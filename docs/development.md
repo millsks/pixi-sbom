@@ -265,8 +265,7 @@ What the two do, in order:
 1. **Version and guard.** Finds the latest `v*` tag, computes the next version, and exits quietly (no release) if
    nothing changed on `main` since that tag. Validates the version and refuses to reuse an existing tag unless
    `force_recreate` is set.
-2. **Bump.** Writes the version into `Cargo.toml`, `Cargo.lock` (via `cargo update --workspace`), `pixi.toml` and
-   `recipe/recipe.yaml`.
+2. **Bump.** Writes the version into `Cargo.toml`, `Cargo.lock` (via `cargo update --workspace`) and `pixi.toml`.
 3. **Gate.** Runs `pixi run ci` on the bumped tree; a red gate stops the release before anything is pushed.
 4. **Changelog.** Regenerates `CHANGELOG.md` with `git-cliff --tag vX.Y.Z` (`cliff.toml`), commits the bump and
    changelog as `chore(release): vX.Y.Z`, tags that commit, and pushes both to `main`. It then waits until
@@ -282,8 +281,7 @@ What the two do, in order:
    the round trip through artifact storage as well. The statement goes to the repository's attestation store, and
    the Sigstore bundle also ships beside the archive as `.sigstore.json` for anyone verifying offline.
 7. **Publish.** Creates the GitHub release with this version's changelog section (from `git-cliff --latest`) plus an
-   artifact table as the notes and the packages as assets, marked pre-release when the tag carries a suffix. The job
-   summary prints the source tarball's SHA-256 for `recipe/recipe.yaml`.
+   artifact table as the notes and the packages as assets, marked pre-release when the tag carries a suffix.
 8. **Crate.** `publish-crate.yml` (reusable, also dispatchable by hand with a `tag` input to republish) checks the
    tag out clean and runs `cargo publish --locked` (skipped with a warning while the `CARGO_REGISTRY_TOKEN` secret
    is missing). The `[package.metadata.binstall]` table in `Cargo.toml` points `cargo binstall` at the release
@@ -309,8 +307,16 @@ from source anyway. Neither is the conda-forge package: the feedstock builds on 
 from the source tarball, so any provenance there is theirs to make, not ours. What is attested is the set of
 binaries we build and hand out ourselves — which is also what `cargo binstall` downloads.
 
-For `pixi global install pixi-sbom`, put that SHA-256 into `recipe/recipe.yaml` and submit it to conda-forge
-`staged-recipes` once; after that the feedstock bot handles version bumps.
+**conda-forge is not ours to release.** The package is built by
+[`conda-forge/pixi-sbom-feedstock`](https://github.com/conda-forge/pixi-sbom-feedstock), whose autotick bot opens the
+version bump against the new source tarball on its own, usually within hours of a release; nothing in this repository
+takes part. A change to how the conda package is built — a build dependency, a platform, the build script — is a pull
+request against the feedstock's own `recipe/recipe.yaml`.
+
+This repository used to carry a copy of that recipe under `recipe/`, from the original `staged-recipes` submission. It
+was removed in #219: it had a placeholder `sha256` that was never going to be filled, and it had drifted from the real
+one in ways that mattered — the feedstock builds with `cargo auditable` so the binary carries its own dependency list,
+and our copy still said plain `cargo install`. A second recipe that is authoritative nowhere is worse than none.
 
 Publishing a release also deploys the documentation site (see [Continuous integration](#continuous-integration)) and
 updates the action's [Marketplace listing](https://github.com/marketplace/actions/pixi-sbom). The listing itself was

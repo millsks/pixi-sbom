@@ -29,7 +29,6 @@ exclude = [
   "mkdocs_hooks.py",
   "pixi.lock",
   "pixi.toml",
-  "recipe/",
   "site/",
   "tests/",
 ]
