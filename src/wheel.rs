@@ -141,8 +141,12 @@ fn info_for(location: &str, key: &str, cache_dir: &Path, texts: bool) -> io::Res
         return Ok(info);
     }
     crate::cache::miss(crate::cache::Service::Wheels);
-    extract(location, &dir)?;
-    read_cached(&dir, texts).ok_or_else(|| io::Error::other("wheel has no METADATA"))
+    crate::cache::extract_into(
+        crate::cache::Service::Wheels,
+        &dir,
+        |into| extract(location, into),
+        |from| read_cached(from, texts).ok_or_else(|| io::Error::other("wheel has no METADATA")),
+    )
 }
 
 /// Read `METADATA` and the license files out of the wheel at `location` into `dir`.

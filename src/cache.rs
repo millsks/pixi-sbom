@@ -1,13 +1,16 @@
 //! What the caches are allowed to do this run, and what they did.
 //!
-//! Seven caches back the network features — the conda-forge mapping, OSV queries and records,
-//! the CISA KEV catalog, wheel `dist-info`, conda archive reads, `--report outdated` documents
-//! and scorecards — with lifetimes from an hour to a week. They are what makes a second run
+//! Eight caches back the network features — the conda-forge mapping, OSV queries and records,
+//! the CISA KEV catalog, wheel `dist-info`, conda archive `info/` directories, `--report
+//! outdated` documents and scorecards — with lifetimes from an hour to a week. They are what makes a second run
 //! fast and an offline run possible, and they are also why "it works on my machine" is often
 //! "my cache is warm". `--refresh` and `--no-cache` take them out of the picture, and the
 //! counts below say, per service, how much of an answer came from disk.
 
 use std::collections::BTreeMap;
+use std::io;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
@@ -22,6 +25,8 @@ pub enum Service {
     Kev,
     /// Wheel `dist-info` extracted for licenses and embedded SBOMs.
     Wheels,
+    /// `info/` directories extracted from conda archives, for licenses and package details.
+    CondaInfo,
     /// PyPI release metadata.
     Pypi,
     /// `--report outdated` project documents.
@@ -38,6 +43,7 @@ impl Service {
             Service::Osv => "osv",
             Service::Kev => "kev",
             Service::Wheels => "wheels",
+            Service::CondaInfo => "conda-info",
             Service::Pypi => "pypi",
             Service::Outdated => "outdated",
             Service::Scorecard => "scorecard",
@@ -65,6 +71,7 @@ impl Policy {
                     Service::Osv,
                     Service::Kev,
                     Service::Wheels,
+                    Service::CondaInfo,
                     Service::Pypi,
                     Service::Outdated,
                     Service::Scorecard,
@@ -127,6 +134,56 @@ pub fn may_read(service: Service) -> bool {
 /// Whether an answer may be written to the cache for `service`.
 pub fn may_write(service: Service) -> bool {
     policy().may_write(service)
+}
+
+/// Extract into a directory this run is allowed to write, and give `work` its path.
+///
+/// Two of the caches are directories of files pulled out of an archive rather than one
+/// downloaded document, so their answer has to be on disk before it can be read at all. Under
+/// `--no-cache` it cannot be `cached`, because the flag promised not to write there — it goes to
+/// a scratch directory outside the cache, which is removed before this returns whether `work`
+/// succeeded or not. `--refresh` is different: it means the cached answer is stale, not that the
+/// cache is off, so a refreshed answer is written where it belongs.
+pub fn extract_into<T>(
+    service: Service,
+    cached: &Path,
+    extract: impl FnOnce(&Path) -> io::Result<()>,
+    work: impl FnOnce(&Path) -> io::Result<T>,
+) -> io::Result<T> {
+    extract_into_where(may_write(service), service, cached, extract, work)
+}
+
+/// [`extract_into`] with the decision handed to it. The policy is a process-wide `OnceLock`, so
+/// a test cannot set it twice; this is what lets both branches be tested in one binary.
+fn extract_into_where<T>(
+    write_cache: bool,
+    service: Service,
+    cached: &Path,
+    extract: impl FnOnce(&Path) -> io::Result<()>,
+    work: impl FnOnce(&Path) -> io::Result<T>,
+) -> io::Result<T> {
+    if write_cache {
+        extract(cached)?;
+        return work(cached);
+    }
+    let scratch = scratch_dir(service);
+    let outcome = extract(&scratch).and_then(|()| work(&scratch));
+    // Both the directory and the `.partial` staging its writer may have left beside it.
+    let _ = std::fs::remove_dir_all(&scratch);
+    let _ = std::fs::remove_dir_all(scratch.with_extension("partial"));
+    outcome
+}
+
+/// A directory outside any cache, unique to this call. The counter is because the archive
+/// readers run several jobs at once and two of them must not land on the same path.
+fn scratch_dir(service: Service) -> PathBuf {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let nth = NEXT.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!(
+        "pixi-sbom-no-cache-{}-{}-{nth}",
+        std::process::id(),
+        service.name()
+    ))
 }
 
 /// Note that a cached answer was used, and how old it was.
@@ -246,6 +303,113 @@ mod tests {
         assert_eq!(how_old(Duration::from_secs(86_400)), "24 hours");
         assert_eq!(how_old(Duration::from_secs(2 * 86_400)), "2 days");
         assert_eq!(how_old(Duration::from_secs(9 * 86_400)), "9 days");
+    }
+
+    #[test]
+    fn a_cache_it_may_write_is_extracted_into_the_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        let cached = dir.path().join("conda-info").join("abc");
+        let read = extract_into_where(
+            true,
+            Service::CondaInfo,
+            &cached,
+            |into| {
+                std::fs::create_dir_all(into)?;
+                std::fs::write(into.join("index.json"), b"{}")
+            },
+            |from| Ok(from.to_path_buf()),
+        )
+        .unwrap();
+        assert_eq!(read, cached, "the work saw the cache directory");
+        assert!(cached.join("index.json").is_file(), "and it is still there afterwards");
+    }
+
+    #[test]
+    fn a_cache_it_may_not_write_is_extracted_somewhere_else_and_cleaned_up() {
+        let dir = tempfile::tempdir().unwrap();
+        let cached = dir.path().join("conda-info").join("abc");
+        let used = extract_into_where(
+            false,
+            Service::CondaInfo,
+            &cached,
+            |into| {
+                std::fs::create_dir_all(into)?;
+                // What the archive writers leave beside the directory while they work.
+                std::fs::create_dir_all(into.with_extension("partial"))?;
+                std::fs::write(into.join("index.json"), b"{}")
+            },
+            |from| {
+                assert!(from.join("index.json").is_file(), "the work still gets its files");
+                Ok(from.to_path_buf())
+            },
+        )
+        .unwrap();
+
+        assert_ne!(used, cached, "--no-cache did not write where the cache lives");
+        assert!(!cached.exists(), "and left nothing there at all");
+        assert!(!used.exists(), "the scratch directory is removed");
+        assert!(!used.with_extension("partial").exists(), "staging too");
+    }
+
+    #[test]
+    fn a_failed_extraction_still_cleans_up_after_itself() {
+        let dir = tempfile::tempdir().unwrap();
+        let outcome: io::Result<()> = extract_into_where(
+            false,
+            Service::Wheels,
+            &dir.path().join("wheel-info").join("abc"),
+            |into| {
+                std::fs::create_dir_all(into)?;
+                std::fs::write(into.join("half-written"), b"x")?;
+                Err(io::Error::other("the archive was truncated"))
+            },
+            |_| unreachable!("work does not run when the extraction failed"),
+        );
+        assert!(outcome.is_err());
+        // The scratch path is not returned on the error path, so check no leftovers of ours
+        // remain in the temp directory for this service.
+        let leftovers: Vec<_> = std::fs::read_dir(std::env::temp_dir())
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .starts_with(&format!("pixi-sbom-no-cache-{}-wheels", std::process::id()))
+            })
+            .collect();
+        assert!(leftovers.is_empty(), "left behind: {leftovers:?}");
+    }
+
+    #[test]
+    fn two_scratch_directories_never_collide() {
+        // The archive readers run several jobs at once against the same service.
+        let a = scratch_dir(Service::CondaInfo);
+        let b = scratch_dir(Service::CondaInfo);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn every_service_has_a_name_and_refresh_all_covers_all_of_them() {
+        // A service added without a `--refresh all` entry would silently keep serving stale
+        // answers, which is the failure this pins.
+        let all = Policy::new(Vec::new(), true, false);
+        for service in [
+            Service::Mapping,
+            Service::Osv,
+            Service::Kev,
+            Service::Wheels,
+            Service::CondaInfo,
+            Service::Pypi,
+            Service::Outdated,
+            Service::Scorecard,
+        ] {
+            assert!(!service.name().is_empty());
+            assert!(
+                !all.may_read(service),
+                "{} is not refreshed by --refresh",
+                service.name()
+            );
+        }
     }
 
     #[test]

@@ -357,6 +357,12 @@ pub fn parse(text: &str) -> Option<Fragment> {
 /// components to the document under the wheel that carries them.
 pub fn enrich(sbom: &mut Sbom, cache_dir: &Path) -> Outcome {
     let mut outcome = Outcome::default();
+    // This reads what the wheel cache already holds rather than fetching anything, so it is
+    // still a cache read and `--no-cache` still means no.
+    if !crate::cache::may_read(crate::cache::Service::Wheels) {
+        tracing::debug!("not reading embedded SBOMs: the wheel cache is off for this run");
+        return outcome;
+    }
     let wheels: Vec<(usize, String, String)> = sbom
         .packages
         .iter()

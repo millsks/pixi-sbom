@@ -5640,3 +5640,140 @@ fn a_completed_purl_makes_the_package_one_the_lookup_asks_about() {
         "and the report says nothing was skipped: {report}"
     );
 }
+
+/// `workspace_with_legacy_archive`, but with the archive copied into the workspace so a test can
+/// take it away afterwards and see what still answers.
+fn workspace_with_a_removable_archive() -> (tempfile::TempDir, PathBuf) {
+    let dir = workspace("conda-only");
+    let source = tests_dir()
+        .join("fixtures")
+        .join("archives")
+        .join("zlib-1.3.2-h25fd6f3_3.tar.bz2");
+    let archive = dir.path().join("zlib-1.3.2-h25fd6f3_3.tar.bz2");
+    std::fs::copy(&source, &archive).unwrap();
+    let path = archive.display().to_string().replace('\\', "/");
+    let url = format!("file://{}{path}", if path.starts_with('/') { "" } else { "/" });
+    let lock = std::fs::read_to_string(dir.path().join("pixi.lock"))
+        .unwrap()
+        .replace("\r\n", "\n")
+        .replace(
+            "https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.2-h25fd6f3_3.conda",
+            &url,
+        )
+        .replace(
+            &format!("- conda: {url}\n  sha256: 16080a1c7724f7d25727cdc23c7658e0cec2db52448c1dc0c33467ee2c6e1c62"),
+            &format!("- conda: {url}\n  subdir: linux-64\n  sha256: d4b0036253168923ee9056a5198f1fc55c7e65cf8f826a4ba8e8afd94a72c97f"),
+        )
+        .replace("  size: 96132\n", "  size: 4762\n")
+        // libzlib is pointed at a legacy archive the lockfile calls huge, so it is skipped for
+        // its size rather than attempted and failed. That keeps the counts in these tests about
+        // zlib, which is the package whose archive comes and goes.
+        .replace(
+            "https://conda.anaconda.org/conda-forge/linux-64/libzlib-1.3.2-h25fd6f3_3.conda",
+            "file:///nonexistent/libzlib-1.3.2-h25fd6f3_3.tar.bz2",
+        )
+        .replace(
+            "- conda: file:///nonexistent/libzlib-1.3.2-h25fd6f3_3.tar.bz2\n  sha256:",
+            "- conda: file:///nonexistent/libzlib-1.3.2-h25fd6f3_3.tar.bz2\n  subdir: linux-64\n  sha256:",
+        )
+        .replace("  size: 63713\n", "  size: 40000000\n");
+    std::fs::write(dir.path().join("pixi.lock"), lock).unwrap();
+    (dir, archive)
+}
+
+/// #197: `--no-cache` is documented as "Neither read nor write any cache", and the conda archive
+/// info cache was exempt from it — read and written unconditionally. Taking the archive away
+/// after warming the cache is what tells the two apart: a run that still succeeds is reading the
+/// cache, whatever the flag says.
+#[test]
+fn no_cache_does_not_read_the_conda_archive_cache() {
+    let (dir, archive) = workspace_with_a_removable_archive();
+    let sbom_cache = dir.path().join("sbom-cache");
+    let run = |flags: &[&str]| {
+        let mut cmd = pixi_sbom();
+        cmd.current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", &sbom_cache)
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(["-p", "linux-64", "--fetch-licenses", "--output", "-"])
+            .args(flags);
+        cmd.assert().success()
+    };
+
+    // Warm it from the archive, then take the archive away.
+    run(&[]).stderr(predicate::str::contains("fetched=1 failed=0"));
+    let key_dir = sbom_cache.join("conda-info");
+    assert!(key_dir.is_dir(), "the info cache was written");
+    std::fs::remove_file(&archive).unwrap();
+
+    // With the cache allowed, the answer comes off disk and the missing archive does not matter.
+    run(&[]).stderr(predicate::str::contains("fetched=0 failed=0"));
+
+    // With --no-cache it must go to the archive, which is gone. Before this was fixed the run
+    // reported fetched=0 failed=0 here: served entirely from a cache the flag said was off.
+    run(&["--no-cache"]).stderr(predicate::str::contains("failed=1"));
+}
+
+/// The other half of the flag: `--no-cache` must not leave the cache behind either.
+#[test]
+fn no_cache_does_not_write_the_conda_archive_cache() {
+    let (dir, _archive) = workspace_with_a_removable_archive();
+    let sbom_cache = dir.path().join("sbom-cache");
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", &sbom_cache)
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args(["-p", "linux-64", "--fetch-licenses", "--no-cache", "--output", "-"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("fetched=1 failed=0"));
+
+    // The licenses were read, so the info was extracted somewhere — just not here.
+    assert!(
+        !sbom_cache.join("conda-info").exists(),
+        "--no-cache wrote the cache it said it would not: {:?}",
+        std::fs::read_dir(&sbom_cache).map(|d| d.filter_map(Result::ok).map(|e| e.path()).collect::<Vec<_>>())
+    );
+
+    // And nothing of ours is left in the temp directory either.
+    let leftovers: Vec<_> = std::fs::read_dir(std::env::temp_dir())
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .filter(|name| name.starts_with("pixi-sbom-no-cache-"))
+        .collect();
+    assert!(leftovers.is_empty(), "scratch directories left behind: {leftovers:?}");
+}
+
+/// `--refresh` gained a value, and a value the flag does not accept is as good as no fix.
+#[test]
+fn refresh_accepts_the_conda_archive_cache_by_name() {
+    pixi_sbom()
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("conda-info"));
+
+    let (dir, archive) = workspace_with_a_removable_archive();
+    let sbom_cache = dir.path().join("sbom-cache");
+    let run = |flags: &[&str]| {
+        let mut cmd = pixi_sbom();
+        cmd.current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", &sbom_cache)
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(["-p", "linux-64", "--fetch-licenses", "--output", "-"])
+            .args(flags);
+        cmd.assert().success()
+    };
+
+    run(&[]).stderr(predicate::str::contains("fetched=1"));
+    std::fs::remove_file(&archive).unwrap();
+    // A refresh ignores what is cached and asks again — so the missing archive is a failure,
+    // where an ordinary run would have answered from disk.
+    run(&["--refresh", "conda-info"]).stderr(predicate::str::contains("failed=1"));
+    // Refreshing a different cache leaves this one alone.
+    run(&["--refresh", "osv"]).stderr(predicate::str::contains("failed=0"));
+}

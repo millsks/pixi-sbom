@@ -133,12 +133,22 @@ pub fn enrich(
 
 /// The info directory for one archive: from the sbom cache when present, otherwise fetched.
 fn info_for(location: &str, key: &str, cache_dir: &Path, texts: bool) -> io::Result<CondaInfo> {
+    let service = crate::cache::Service::CondaInfo;
     let dir = cache_dir.join("conda-info").join(key);
-    if let Some(info) = pkgcache::read_extracted(&dir, texts) {
+    if crate::cache::may_read(service)
+        && let Some(info) = pkgcache::read_extracted(&dir, texts)
+    {
+        let age = crate::cache::age(&dir.join("info").join("index.json"), std::time::SystemTime::now());
+        crate::cache::hit(service, age.unwrap_or_default());
         return Ok(info);
     }
-    extract_info(location, &dir)?;
-    pkgcache::read_extracted(&dir, texts).ok_or_else(|| io::Error::other("archive has no info/index.json"))
+    crate::cache::miss(service);
+    crate::cache::extract_into(
+        service,
+        &dir,
+        |into| extract_info(location, into),
+        |from| pkgcache::read_extracted(from, texts).ok_or_else(|| io::Error::other("archive has no info/index.json")),
+    )
 }
 
 /// Whether `location` names a legacy `.tar.bz2` archive rather than a `.conda` zip.

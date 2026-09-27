@@ -58,7 +58,7 @@ With no options this means:
 | `--version-details` (`--build-info`) | | Print the version with the target, the features compiled in, the caches, pixi's version and the network settings: the block to paste into a bug report. |
 | `--timings` | off | Print where the run spent its time, phase by phase, separating waiting on the network from working. |
 | `--doctor` | off | Probe every upstream the other flags bring in, print the configuration and the caches, and exit 1 if anything is unreachable. Needs no lockfile. |
-| `--refresh [<CACHE>...]` | off | Ignore cached answers this run and ask again; with no value every cache, else the named ones (`mapping`, `osv`, `kev`, `wheels`, `pypi`, `outdated`, `scorecard`). What is fetched is still cached. |
+| `--refresh [<CACHE>...]` | off | Ignore cached answers this run and ask again; with no value every cache, else the named ones (`mapping`, `osv`, `kev`, `wheels`, `conda-info`, `pypi`, `outdated`, `scorecard`). What is fetched is still cached. |
 | `--no-cache` | off | Neither read nor write any cache. |
 | `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom\|scorecard>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
 | `--tree` | off | With `--report packages`: draw the dependency graph from the root downward instead of a flat list. |
@@ -1020,6 +1020,7 @@ Seven caches back the network features, with lifetimes from an hour to a week:
 | `osv` | query results and advisory records | an hour (records until the advisory changes) |
 | `kev` | the CISA catalog | a day |
 | `wheels` | `dist-info` read out of wheels | until the wheel changes, which it never does |
+| `conda-info` | the `info/` directory read out of a conda archive | as above |
 | `pypi` | release metadata | as above |
 | `outdated` | project documents | a day |
 | `scorecard` | OpenSSF scores | a week |
@@ -1035,6 +1036,12 @@ INFO pixi_sbom::cache: cache cache="osv" from_cache=24 fetched=6 oldest_s=2460
 for those two — while still writing back what it fetches. `--no-cache` neither reads nor writes, which is the one
 to reach for when reproducing a problem: it proves the answer came from the network this minute. The two cannot be
 combined.
+
+`wheels` and `conda-info` are directories of files pulled out of an archive rather than one downloaded document, so
+their answer has to exist on disk before anything can read it. Under `--no-cache` it is extracted to a scratch
+directory outside the cache and removed before the run ends, so the flag holds: nothing is read from the cache and
+nothing is left in it. Before 0.12.0 neither of those was true of `conda-info` — it was read and written whatever the
+flags said, which is why a `--no-cache` run could finish faster than the network allows (#197).
 
 ## When something comes back empty
 
