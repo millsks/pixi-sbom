@@ -198,9 +198,9 @@ scenario doubling. `pixi run perf-test` covers what the comparison does with a g
 it, because this gate decides whether a build fails.
 
 The memory limit was 60% for one release, so that comparisons spanning the 0.9.5 → 0.10.0 allocator change — up
-to +45.4%, deliberately — did not fail on a documented decision. Every comparison now starts from v0.10.0, which
-already has mimalloc, so both sides use the same allocator and the real numbers are single digits again. The
-limit is back to 15%, where it catches far more.
+to +45.4%, deliberately — did not fail on a documented decision. Every comparison now starts from the latest release tag, which
+`perf.yml` finds with `git describe` when no base is given — and every one of those has mimalloc, so both sides use
+the same allocator and the real numbers are single digits again. The limit is back to 15%, where it catches far more.
 
 Peak memory is the child process's own high-water mark: `wait4` on Linux and macOS,
 `GetProcessMemoryInfo` on the handle of the finished child on Windows. Not a poller, which would miss the peak.

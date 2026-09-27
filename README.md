@@ -27,16 +27,16 @@ cp target/release/pixi-sbom ~/.pixi/bin/
 
 Pixi discovers any `pixi-<name>` executable on `PATH` and exposes it as `pixi <name>`; `pixi --list` shows it.
 
-Every release archive is signed with build provenance. To check that a downloaded archive really was built by this
-repository, from the commit it claims, in a GitHub Actions run — not just that it arrived unchanged, which is all a
-checksum tells you:
+Every release archive from 0.11.0 onward is signed with build provenance. To check that a downloaded archive really
+was built by this repository, from the commit it claims, in a GitHub Actions run — not just that it arrived
+unchanged, which is all a checksum tells you:
 
 ```sh
-gh attestation verify pixi-sbom-v0.10.1-linux-64.tar.gz --repo millsks/pixi-sbom
+gh attestation verify pixi-sbom-<version>-linux-64.tar.gz --repo millsks/pixi-sbom
 ```
 
 A `.sigstore.json` bundle ships beside each archive for machines that cannot reach `api.github.com`: add
-`--bundle pixi-sbom-v0.10.1-linux-64.tar.gz.sigstore.json` and the check runs offline.
+`--bundle pixi-sbom-<version>-linux-64.tar.gz.sigstore.json` and the check runs offline.
 
 ## What it supports
 

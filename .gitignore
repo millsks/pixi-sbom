@@ -33,5 +33,10 @@ CLAUDE.local.md
 # Triage reports — never commit
 triage-*.md
 
+# `pixi run perf` measurement dumps. Machine-specific timings and RSS figures, of no use to
+# anyone else; head.json was committed by accident once already (#222).
+/head.json
+/base.json
+
 # Python bytecode from the MkDocs hook
 __pycache__/

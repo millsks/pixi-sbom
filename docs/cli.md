@@ -861,9 +861,9 @@ DEBUG pixi_sbom: workspace manifest path=/w/pixi.toml
 
 ```console
 $ pixi sbom --version-details
-pixi-sbom 0.9.0 (aarch64 macos)
-features: rustls, gzip, platform-verifier, socks-proxy: no, win-system-proxy: no
-caches:   /home/u/.cache/rattler/pixi-sbom (exists)
+pixi-sbom 0.11.0 (aarch64 macos)
+features: rustls, gzip, platform-verifier, socks-proxy, win-system-proxy: n/a
+caches:   /Users/u/Library/Caches/rattler/cache/pixi-sbom (exists)
 pixi:     pixi 0.81.0
 offline:  false   proxy: HTTPS_PROXY=http://user:***@proxy.corp:8080   no-proxy: none
 TLS:      the platform verifier (the operating system trust store)

@@ -2,7 +2,7 @@ name: Publish crate
 
 # Publishes the crate for a release tag to crates.io from a clean checkout of that tag, so
 # `cargo install pixi-sbom` builds it and `cargo binstall pixi-sbom` reads its binstall
-# metadata. Called by the release workflow; dispatch it by hand to (re)publish a tag.
+# metadata. Called by release-artifacts.yml; dispatch it by hand to (re)publish a tag.
 
 on:
   workflow_call:

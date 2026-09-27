@@ -29,14 +29,15 @@ checksum says the file did not change between the release page and your disk. It
 file — anyone can publish a binary and a correct checksum of it.
 
 The provenance attestation is the one worth running. It is a Sigstore-signed statement that this exact archive was
-built by this repository's release workflow, from a named commit, in a named workflow run:
+built by this repository's release workflow, from a named commit, in a named workflow run. Releases carry one from
+**0.11.0 onward**; earlier archives have a checksum and nothing else.
 
 ```sh
-gh attestation verify pixi-sbom-v0.10.1-linux-64.tar.gz --repo millsks/pixi-sbom
+gh attestation verify pixi-sbom-<version>-linux-64.tar.gz --repo millsks/pixi-sbom
 ```
 
 ```console
-Loaded digest sha256:... for file://pixi-sbom-v0.10.1-linux-64.tar.gz
+Loaded digest sha256:... for file://pixi-sbom-<version>-linux-64.tar.gz
 Loaded 1 attestation from GitHub API
 
 The following policy criteria will be enforced:
@@ -51,8 +52,8 @@ That needs the [GitHub CLI](https://cli.github.com) and reaches `api.github.com`
 machine that cannot, pass the bundle that ships with the archive and the check runs entirely offline:
 
 ```sh
-gh attestation verify pixi-sbom-v0.10.1-linux-64.tar.gz \
-  --bundle pixi-sbom-v0.10.1-linux-64.tar.gz.sigstore.json \
+gh attestation verify pixi-sbom-<version>-linux-64.tar.gz \
+  --bundle pixi-sbom-<version>-linux-64.tar.gz.sigstore.json \
   --repo millsks/pixi-sbom
 ```
 
