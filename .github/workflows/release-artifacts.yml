@@ -256,7 +256,11 @@ jobs:
             echo "::notice::${TAG} is not the newest ${major} release (${newest}); ${major} stays put"
             exit 0
           fi
-          git tag -f "$major" "${TAG}^{commit}"
+          # -c tag.gpgsign=false: with signing configured, `git tag -f` makes an annotated tag and
+          # then fails with "no tag message?". Hosted runners do not set it, but this is the only
+          # step in the release that creates a tag and it should not depend on the git config it
+          # happens to run under.
+          git -c tag.gpgsign=false tag -f "$major" "${TAG}^{commit}"
           git push --force origin "refs/tags/${major}"
           echo "${major} -> ${TAG}"
 

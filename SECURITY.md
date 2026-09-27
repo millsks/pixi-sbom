@@ -28,10 +28,16 @@ There is no bug bounty.
 
 ## Supported versions
 
-The latest release only. Before 1.0 there are no maintenance branches: a fix ships in the next patch release from
-`main`, and a report against an older version is checked against the current one first.
+**The latest release.** A fix ships in the next patch release from `main`; there are no maintenance branches, and
+nothing is backported to an older minor. A report against an older version is checked against the current release
+first, because the answer is often that it is already fixed.
 
-That changes at 1.0, and this section changes with it.
+There is one supported line and it is the newest one. No 2.0 exists, so there is no older line to have a policy
+about; when one does, what happens to 1.x will be stated here with a date, before it is needed rather than when it is
+asked for.
+
+Practically: stay on the latest release. `pixi global update pixi-sbom` follows the conda-forge feedstock, and
+`uses: millsks/pixi-sbom@v1` follows the newest 1.x.y release on its own.
 
 ## Scope
 
