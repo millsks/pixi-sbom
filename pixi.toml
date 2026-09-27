@@ -39,6 +39,7 @@ rust = "==1.88.0"
 msrv-check = "cargo check --all-targets --locked"
 
 [feature.lint.dependencies]
+cargo-deny = "*"
 pre-commit = "*"
 pre-commit-hooks = "*"
 taplo = "*"
@@ -47,6 +48,9 @@ git-cliff = "*"
 
 [feature.lint.tasks]
 bootstrap = "pre-commit install --hook-type pre-commit --hook-type commit-msg"
+# Advisories, licenses, banned crates and sources, against deny.toml. No --all-features: the
+# graph deny.toml resolves is meant to be the one we ship.
+deny = "cargo deny check"
 pre-commit-run = "pre-commit run --all-files"
 
 [feature.cov.dependencies]

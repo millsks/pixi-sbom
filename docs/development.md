@@ -52,6 +52,13 @@ done, so clippy findings do not pile up.
 whitespace) → release build → check → lint → coverage. If pre-commit rewrites a file, re-stage it before re-running or
 the next run fails identically. Coverage below 90% lines fails the gate; new code needs tests.
 
+**Dependencies.** `pixi run -e lint deny` checks the dependency tree against `deny.toml`: RUSTSEC advisories,
+license terms, banned crates and unexpected sources. It is not part of `pixi run ci` — it fetches the advisory
+database, so it wants the network and a few seconds, and a commit is the wrong moment to pay for that. CI runs it
+on every pull request and weekly. When it fails on a license, the fix is a line in the `allow` list with a sentence
+saying why that license is acceptable here, not a wider `confidence-threshold`. When it fails on an advisory, the
+fix is getting off the crate; an entry in `ignore` needs the issue that tracks doing so.
+
 **Hooks.** `pixi run bootstrap` installs pre-commit for the `pre-commit` and `commit-msg` stages. The local hooks call
 `pixi run cargo fmt`, `pixi run cargo clippy`, `pixi run taplo`, `pixi run typos`, because the git hook runs outside
 the pixi environment. The `commit-msg` hook enforces Conventional Commits. `--no-verify` is not used.
@@ -196,11 +203,16 @@ release containing them exists; keep `action.yml` inputs and the CLI in step at 
 | Lint | ubuntu | `pixi run pre-commit-run`, `cargo fmt --check`, `lint`, `check` |
 | Test | `ubuntu-latest`, `macos-latest`, `windows-latest` | `pixi run test` |
 | Coverage gate | ubuntu | `pixi run cov` |
+| Dependency advisories and licenses | ubuntu | `pixi run -e lint deny`: RUSTSEC advisories, license terms, banned crates and unexpected sources |
 | Builds on the MSRV | ubuntu | `pixi run -e msrv msrv-check`: the oldest toolchain `Cargo.toml` claims |
 | Benchmarks compile and run | ubuntu | `pixi run bench-test`: every benchmark runs once, untimed |
 | Performance (separate workflow) | all five release platforms | `pixi run perf`: builds two refs on one runner and compares them; fails on binary size or peak memory, reports wall time. On demand, weekly and on pushes to `main` — not on pull requests. See [benchmarks.md](benchmarks.md) |
 | Build | same three | `pixi run build` and `--version` smoke test |
 | Docs | ubuntu | `pixi run docs-build`: the site must build with `--strict` |
+
+`.github/workflows/supply-chain.yml` runs that same dependency check on a schedule (Mondays, and on demand).
+The per-pull-request run cannot see an advisory published after a merge, and the weekly one is what catches it:
+nothing about the repository changes and one day the answer is different.
 
 `.github/workflows/docs.yml` publishes the site to GitHub Pages (https://millsks.github.io/pixi-sbom/) every time
 a release is published, building from the release tag so the site matches the released binary. The site is

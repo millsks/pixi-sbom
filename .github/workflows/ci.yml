@@ -56,6 +56,21 @@ jobs:
       - name: cargo llvm-cov (>= 90% lines)
         run: pixi run cov
 
+  # What we carry ourselves. A tool that reports other people's vulnerable dependencies has no
+  # business not checking its own, and a per-pull-request run cannot see an advisory published
+  # after a merge — supply-chain.yml runs the same check weekly for that.
+  deny:
+    name: Dependency advisories and licenses
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          environments: lint
+          cache: true
+      - name: cargo deny
+        run: pixi run -e lint deny
+
   # The MSRV is a promise, and an untested promise is a wrong one waiting to happen: every
   # other job builds on whatever rustc the default environment pins, which is far newer.
   msrv:

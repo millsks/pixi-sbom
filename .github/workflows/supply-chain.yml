@@ -1,0 +1,27 @@
+name: Supply chain
+
+# The same dependency check CI runs, on a schedule. An advisory published after a pull request
+# merged is invisible to a per-pull-request check, and that is the case this catches: nothing
+# about the repository changes, and one day the answer is different.
+
+on:
+  schedule:
+    # Mondays, early enough to be waiting when the week starts.
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deny:
+    name: Dependency advisories and licenses
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          environments: lint
+          cache: true
+      - name: cargo deny
+        run: pixi run -e lint deny

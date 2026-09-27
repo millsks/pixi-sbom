@@ -1,0 +1,69 @@
+# What this project will accept in its own dependency tree.
+#
+# A tool that reports other people's vulnerable and awkwardly licensed dependencies has no
+# business not looking at its own. `pixi run deny` checks this locally and CI runs it on every
+# pull request and once a week — the weekly run is the one that matters, because an advisory
+# published after a merge is exactly what a per-pull-request check cannot see.
+
+[graph]
+# Only what we actually ship. A crate that no release binary reaches is not our exposure, so the
+# graph is resolved with default features for the five targets releases are built for.
+all-features = false
+targets = [
+  "x86_64-unknown-linux-gnu",
+  "aarch64-unknown-linux-gnu",
+  "x86_64-apple-darwin",
+  "aarch64-apple-darwin",
+  "x86_64-pc-windows-msvc",
+]
+
+[advisories]
+version = 2
+# Every RUSTSEC advisory fails the build. Where one has no fix yet, add it here with the issue
+# that tracks getting off it — never a bare id, or nobody will know why it is still here.
+ignore = []
+
+[licenses]
+version = 2
+# The permissive set, plus the two that need a word.
+#
+# Unicode-3.0 is the ICU crates, pulled in transitively through idna and the URL handling. It
+# is a permissive license with an attribution clause, and it is what essentially every Rust
+# program that parses a URL now carries.
+#
+# MPL-2.0 (option-ext, version-ranges) is file-level copyleft: distributing this binary does
+# not oblige us to publish anything, and modifying those files would. We do not modify them.
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Zlib",
+  "Unicode-3.0",
+  "MPL-2.0",
+  # libbz2-rs-sys, which is how conda's .tar.bz2 packages get read. The bzip2 license is
+  # BSD-like: attribution, no warranty, no obligation on us.
+  "bzip2-1.0.6",
+  # xxhash-rust, reached through rattler. Boost 1.0 is permissive and does not even require
+  # attribution for a binary distribution.
+  "BSL-1.0",
+  "Unlicense",
+  "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.9
+
+[bans]
+# A duplicate major version is usually a dependency mid-upgrade rather than a problem, so it is
+# a warning; it stays visible without failing an unrelated pull request.
+multiple-versions = "warn"
+wildcards = "deny"
+# `deny` here is for a crate we have decided against on purpose. Empty is the honest state:
+# nothing has been ruled out yet.
+deny = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
