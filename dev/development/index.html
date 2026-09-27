@@ -1452,6 +1452,10 @@ five pixi platforms and therefore uses <code>ubuntu-24.04-arm</code> and <code>m
    changelog as <code>chore(release): vX.Y.Z</code>, tags that commit, and pushes both to <code>main</code>.</li>
 <li><strong>Build.</strong> Checks out the tag on five runners and builds <code>pixi-sbom</code> for linux-64, linux-aarch64, osx-64,
    osx-arm64 and win-64, packaged with <code>LICENSE</code>, <code>README.md</code>, <code>CHANGELOG.md</code> and a <code>.sha256</code> each.</li>
+<li><strong>Attest.</strong> <code>actions/attest-build-provenance</code> signs a provenance statement for each archive: what built it, from
+   which commit, in which workflow run. It runs on the build runner, before the artifact upload, so the claim covers
+   the round trip through artifact storage as well. The statement goes to the repository's attestation store, and
+   the Sigstore bundle also ships beside the archive as <code>.sigstore.json</code> for anyone verifying offline.</li>
 <li><strong>Publish.</strong> Creates the GitHub release with this version's changelog section (from <code>git-cliff --latest</code>) plus an
    artifact table as the notes and the packages as assets. The job summary prints the source tarball's SHA-256 for
    <code>recipe/recipe.yaml</code>.</li>
@@ -1460,6 +1464,11 @@ five pixi platforms and therefore uses <code>ubuntu-24.04-arm</code> and <code>m
    is missing). The <code>[package.metadata.binstall]</code> table in <code>Cargo.toml</code> points <code>cargo binstall</code> at the release
    archives.</li>
 </ol>
+<p><strong>What is not attested, and why.</strong> The crates.io publish is not: crates.io has no attestation verification, so a
+statement about the uploaded <code>.crate</code> would be one nobody could check at install time, and <code>cargo install</code> builds
+from source anyway. Neither is the conda-forge package: the feedstock builds on conda-forge's own infrastructure
+from the source tarball, so any provenance there is theirs to make, not ours. What is attested is the set of
+binaries we build and hand out ourselves — which is also what <code>cargo binstall</code> downloads.</p>
 <p>For <code>pixi global install pixi-sbom</code>, put that SHA-256 into <code>recipe/recipe.yaml</code> and submit it to conda-forge
 <code>staged-recipes</code> once; after that the feedstock bot handles version bumps.</p>
 <p>Publishing a release also deploys the documentation site (see <a href="#continuous-integration">Continuous integration</a>) and

@@ -377,6 +377,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#checking-where-a-binary-came-from" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checking where a binary came from
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#upgrading" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -765,6 +776,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#checking-where-a-binary-came-from" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checking where a binary came from
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#upgrading" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -819,7 +841,7 @@ runs it when you type <code>pixi &lt;name&gt;</code>. There is no plugin registr
 </tr>
 <tr>
 <td>Prebuilt binary</td>
-<td>Download <code>pixi-sbom-&lt;version&gt;-&lt;platform&gt;.tar.gz</code> (or <code>.zip</code> on Windows) from the <a href="https://github.com/millsks/pixi-sbom/releases">releases page</a>, verify the <code>.sha256</code> next to it, and put <code>pixi-sbom</code> on your <code>PATH</code></td>
+<td>Download <code>pixi-sbom-&lt;version&gt;-&lt;platform&gt;.tar.gz</code> (or <code>.zip</code> on Windows) from the <a href="https://github.com/millsks/pixi-sbom/releases">releases page</a>, check its provenance (below), and put <code>pixi-sbom</code> on your <code>PATH</code></td>
 </tr>
 <tr>
 <td>cargo binstall</td>
@@ -836,6 +858,34 @@ runs it when you type <code>pixi &lt;name&gt;</code>. There is no plugin registr
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--version
 </code></pre></div>
 <p><code>pixi-sbom --help</code> and <code>pixi sbom --help</code> are equivalent; the binary can be run directly without pixi.</p>
+<h2 id="checking-where-a-binary-came-from">Checking where a binary came from<a class="headerlink" href="#checking-where-a-binary-came-from" title="Permanent link">&para;</a></h2>
+<p>Each release archive has a <code>.sha256</code> and a signed <code>.sigstore.json</code> beside it. They answer different questions. The
+checksum says the file did not change between the release page and your disk. It says nothing about who made the
+file — anyone can publish a binary and a correct checksum of it.</p>
+<p>The provenance attestation is the one worth running. It is a Sigstore-signed statement that this exact archive was
+built by this repository's release workflow, from a named commit, in a named workflow run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>gh<span class="w"> </span>attestation<span class="w"> </span>verify<span class="w"> </span>pixi-sbom-v0.10.1-linux-64.tar.gz<span class="w"> </span>--repo<span class="w"> </span>millsks/pixi-sbom
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">Loaded digest sha256:... for file://pixi-sbom-v0.10.1-linux-64.tar.gz</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">Loaded 1 attestation from GitHub API</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="go">The following policy criteria will be enforced:</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="go">- Predicate type must match:................ https://slsa.dev/provenance/v1</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="go">- Source Repository Owner URI must match:... https://github.com/millsks</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="go">- Source Repository URI must match:......... https://github.com/millsks/pixi-sbom</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="go">✓ Verification succeeded!</span>
+</code></pre></div>
+<p>That needs the <a href="https://cli.github.com">GitHub CLI</a> and reaches <code>api.github.com</code> to fetch the statement. On a
+machine that cannot, pass the bundle that ships with the archive and the check runs entirely offline:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>gh<span class="w"> </span>attestation<span class="w"> </span>verify<span class="w"> </span>pixi-sbom-v0.10.1-linux-64.tar.gz<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--bundle<span class="w"> </span>pixi-sbom-v0.10.1-linux-64.tar.gz.sigstore.json<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--repo<span class="w"> </span>millsks/pixi-sbom
+</code></pre></div>
+<p>Two things are deliberately not attested. The crates.io package is not, because nothing checks an attestation at
+<code>cargo install</code> time and that path builds from source regardless. The conda-forge package is not, because the
+feedstock builds on conda-forge's infrastructure rather than ours — the provenance there would be theirs to make.
+The binaries this project builds and hands out are the ones covered, which includes what <code>cargo binstall</code> fetches.</p>
 <h2 id="upgrading">Upgrading<a class="headerlink" href="#upgrading" title="Permanent link">&para;</a></h2>
 <p><code>pixi global update pixi-sbom</code> follows the conda-forge feedstock, which tracks releases within a day or two; a
 downloaded binary is replaced by the next one from the releases page. <code>pixi sbom --version</code> prints the running
