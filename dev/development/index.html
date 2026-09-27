@@ -1233,7 +1233,18 @@ renderers and the offline enrichment path, against this repository's own lockfil
 one. The numbers and what they say are in <a href="../benchmarks/">benchmarks.md</a>; CI runs <code>pixi run bench-test</code>, which
 executes each benchmark once without timing it, since a shared runner's timings are noise.</p>
 <p>The benchmarks reach into the crate through the library target (<code>src/lib.rs</code>), which exists for them and for the
-tests. It is the binary's insides made reachable, not a designed API, and nothing in it promises to stay put.</p>
+tests.</p>
+<p><strong>That library is published to crates.io and is deliberately not an API.</strong> The binary depends on it, so it cannot
+be left out of the package; what it gets instead is every module marked <code>#[doc(hidden)]</code>, so nothing appears on
+docs.rs, plus a crate-level note saying that none of it is covered by semantic versioning. Modules may move, split
+or disappear in any release, patch releases included.</p>
+<p>An <code>internals</code> module that everything had to be reached through was tried and rejected: Rust will not re-export a
+private module, so doing it properly means declaring every module inside <code>internals</code> with <code>#[path]</code> and rewriting
+every <code>crate::…</code> reference in 36 files — a large mechanical change for a signal that <code>#[doc(hidden)]</code> and the
+crate docs already carry.</p>
+<p>The stable surface of this project is the command line, the exit codes, the configuration keys and the documents.
+If someone wants the model or the writers from their own program, the answer is to give them a real API with real
+guarantees, not to let them reach into this one.</p>
 <h3 id="snapshot-tests-insta">Snapshot tests (<code>insta</code>)<a class="headerlink" href="#snapshot-tests-insta" title="Permanent link">&para;</a></h3>
 <p>Each writer has one <code>insta::assert_json_snapshot!</code> over the sample model, stored in <code>src/format/snapshots/</code>. They
 catch unintended output changes. A <code>WriteContext</code> with a fixed timestamp, UUID and tool version keeps them stable.
