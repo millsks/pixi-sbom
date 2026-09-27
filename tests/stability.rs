@@ -56,6 +56,25 @@ fn quoted(text: &str, prefix: &str) -> BTreeSet<String> {
     found
 }
 
+/// Compare a list the code defines against the list the page promises, both ways.
+///
+/// The direction people think of is "something new is undocumented". The direction that breaks a
+/// contract is the other one: the page still promising something that has been removed. A reader
+/// trusting this page would write it into their CI and find out from a failure.
+fn assert_same(kind: &str, real: &BTreeSet<String>, listed: &BTreeSet<String>) {
+    assert!(!real.is_empty(), "found no {kind} at all; the extraction is broken");
+    let missing: Vec<&String> = real.difference(listed).collect();
+    let extra: Vec<&String> = listed.difference(real).collect();
+    assert!(
+        missing.is_empty(),
+        "these {kind} exist but docs/stability.md does not list them: {missing:?}"
+    );
+    assert!(
+        extra.is_empty(),
+        "docs/stability.md promises these {kind} but they no longer exist: {extra:?}"
+    );
+}
+
 fn help() -> String {
     let output = Command::cargo_bin("pixi-sbom")
         .expect("binary builds")
@@ -100,16 +119,7 @@ fn the_page_lists_every_flag_and_only_flags_that_exist() {
     let listed = quoted(table, "--");
     let defined = defined_flags();
 
-    let missing: Vec<&String> = defined.difference(&listed).collect();
-    let extra: Vec<&String> = listed.difference(&defined).collect();
-    assert!(
-        missing.is_empty(),
-        "these flags exist but docs/stability.md does not list them: {missing:?}"
-    );
-    assert!(
-        extra.is_empty(),
-        "docs/stability.md lists these but the binary has no such flag: {extra:?}"
-    );
+    assert_same("flags", &defined, &listed);
     assert_eq!(defined.len(), 65, "the count in the page's prose needs updating too");
 }
 
@@ -160,15 +170,13 @@ fn the_page_lists_every_action_input_and_output() {
         found
     };
     let section = section(&page(), "## The GitHub Action");
-    for (block, label) in [("\ninputs:\n", "input"), ("\noutputs:\n", "output")] {
-        let real = keys(block);
-        assert!(!real.is_empty(), "action.yml has no {label}s?");
-        let listed = quoted(&section, "");
-        let missing: Vec<&String> = real.difference(&listed).collect();
-        assert!(
-            missing.is_empty(),
-            "action.yml has these {label}s but docs/stability.md does not list them: {missing:?}"
-        );
+    for (block, label, bold) in [
+        ("\ninputs:\n", "action inputs", "**Inputs:**"),
+        ("\noutputs:\n", "action outputs", "**Outputs:**"),
+    ] {
+        let start = section.find(bold).unwrap_or_else(|| panic!("no {bold} paragraph"));
+        let paragraph = section[start..].split("\n\n").next().unwrap();
+        assert_same(label, &keys(block), &quoted(paragraph, ""));
     }
 }
 
@@ -189,12 +197,13 @@ fn the_page_lists_every_configuration_key() {
         .collect();
     assert!(real.len() > 20, "expected the whole config surface, got {}", real.len());
 
-    let listed = quoted(&section(&page(), "## Configuration keys"), "");
-    let missing: Vec<&String> = real.difference(&listed).collect();
-    assert!(
-        missing.is_empty(),
-        "these config keys parse but docs/stability.md does not list them: {missing:?}"
-    );
+    // The section's prose also backticks filenames and the `-` / `_` it talks about replacing, so
+    // keep only tokens shaped like a key.
+    let listed: BTreeSet<String> = quoted(&section(&page(), "## Configuration keys"), "")
+        .into_iter()
+        .filter(|token| token.len() > 1 && token.chars().all(|c| c.is_ascii_lowercase() || c == '_'))
+        .collect();
+    assert_same("config keys", &real, &listed);
 }
 
 #[test]
@@ -257,16 +266,14 @@ fn the_page_lists_every_pixi_property_the_code_emits() {
     }
     assert!(emitted.len() > 40, "expected the whole property surface");
 
-    let listed = quoted(&section(&page(), "## `pixi:*` names in a document"), "pixi:");
-    let missing: Vec<&String> = emitted
-        .difference(&listed)
-        // The scorecard checks are a documented family, not individual names.
-        .filter(|name| !name.starts_with("pixi:scorecard-check-"))
-        .collect();
-    assert!(
-        missing.is_empty(),
-        "these pixi:* names are emitted but docs/stability.md does not list them: {missing:?}"
-    );
+    // The scorecard checks are a documented family, not individual names, on both sides.
+    let family = |set: BTreeSet<String>| -> BTreeSet<String> {
+        set.into_iter()
+            .filter(|name| !name.starts_with("pixi:scorecard-check-"))
+            .collect()
+    };
+    let listed = family(quoted(&section(&page(), "## `pixi:*` names in a document"), "pixi:"));
+    assert_same("pixi:* names", &family(emitted), &listed);
 }
 
 fn walk(dir: &Path) -> Vec<PathBuf> {
@@ -311,11 +318,7 @@ fn the_page_lists_every_environment_variable_the_code_reads() {
     assert!(read.len() > 8, "expected the whole environment surface");
 
     let listed = quoted(&section(&page(), "## Environment variables"), "PIXI_SBOM_");
-    let missing: Vec<&String> = read.difference(&listed).collect();
-    assert!(
-        missing.is_empty(),
-        "these variables are read but docs/stability.md does not list them: {missing:?}"
-    );
+    assert_same("environment variables", &read, &listed);
 }
 
 /// The help output itself, snapshotted. The list tests above catch a flag appearing or vanishing;
