@@ -17,6 +17,14 @@ Found a vulnerability? [SECURITY.md](SECURITY.md) says where to send it privatel
   <img src="docs/assets/demo.gif" alt="A terminal: pixi sbom turns a pixi.lock into a CycloneDX document, then an SPDX 3.0.1 one, prints a license table, and fails a vulnerability gate with exit code 4 on a known-exploited urllib3 advisory." width="100%">
 </p>
 
+Each report has a recording of its own in the [command-line reference](https://millsks.github.io/pixi-sbom/latest/cli/):
+[vulnerabilities](https://millsks.github.io/pixi-sbom/latest/cli/#looking-up-vulnerabilities),
+[licenses](https://millsks.github.io/pixi-sbom/latest/cli/#enforcing-a-license-policy),
+[packages](https://millsks.github.io/pixi-sbom/latest/cli/#looking-instead-of-writing),
+[diff](https://millsks.github.io/pixi-sbom/latest/cli/#looking-instead-of-writing),
+[python](https://millsks.github.io/pixi-sbom/latest/cli/#what-python-the-environment-allows) and
+[phantom](https://millsks.github.io/pixi-sbom/latest/cli/#what-is-imported-but-never-declared).
+
 ## What it does
 
 | | |

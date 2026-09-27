@@ -45,12 +45,45 @@ for old, new in swaps:
 path.write_text(lock)
 PY
 
-# The recorded API responses, where an offline run looks for them.
+# The recorded API responses, where an offline run looks for them. Each one is what a different
+# report needs: OSV and the CISA catalogue for --report vulnerabilities, the PyPI index documents
+# for --report outdated and for the licenses the other reports show, scorecards for
+# --report scorecard.
 for sub in queries vulns; do
   mkdir -p "$target/cache/osv/$sub"
   cp "$fixtures/osv/$sub"/* "$target/cache/osv/$sub/"
 done
-mkdir -p "$target/cache/kev"
+mkdir -p "$target/cache/kev" "$target/cache/pypi" "$target/cache/scorecard"
 cp "$fixtures/kev/known_exploited_vulnerabilities.json" "$target/cache/kev/"
+cp "$fixtures/pypi-metadata"/*.json "$target/cache/pypi/"
+cp "$fixtures/scorecard"/*.json "$target/cache/scorecard/" 2>/dev/null || true
+
+# --report phantom reads the workspace's Python sources, which default to the lockfile's own
+# directory. One module that imports something the manifest never declared, and something declared
+# that nothing imports, so the report has both halves to show.
+cat > "$target/workspace/app.py" <<'PYSRC'
+"""The workspace's own code, such as it is."""
+
+import requests          # declared in pixi.toml
+import urllib3           # NOT declared: it is here only because requests pulls it in — a phantom
+import yaml              # not installed at all, so no package can be blamed for it
+
+
+def fetch(url: str) -> dict:
+    return yaml.safe_load(requests.get(url, timeout=10).text)
+PYSRC
+
+# --report diff compares against an earlier document. It is generated here rather than committed:
+# the baseline is this binary's own output from the *unmodified* fixture, so the diff the demo
+# shows is a real one — urllib3 going from 2.8.0 to the 1.26.4 the rest of the demo reports on.
+if [ -n "${DEMO_BINARY:-}" ]; then
+  baseline="$target/baseline"
+  mkdir -p "$baseline"
+  cp "$fixtures/with-pypi/pixi.toml" "$fixtures/with-pypi/pixi.lock" "$baseline/"
+  ( cd "$baseline" && PIXI_SBOM_OFFLINE=1 PIXI_SBOM_CACHE_DIR="$target/cache" \
+      PIXI_CACHE_DIR="$target/no-package-cache" \
+      "$DEMO_BINARY" -q -e web -p linux-64 --output "$target/workspace/last-release.cdx.json" )
+  rm -rf "$baseline"
+fi
 
 echo "demo workspace ready: $target/workspace (cache and bin alongside it)"

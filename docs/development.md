@@ -274,6 +274,18 @@ loudly if the fixture has drifted out from under it.
 The cache and the `pixi-sbom` symlink live *beside* the recorded directory rather than in it, so
 `ls` shows a workspace and not the scaffolding.
 
+`pixi run demo <name>` re-records one clip; `pixi run demo` does all of them. One tape per clip,
+each sizing its own terminal to what its command prints — a table that scrolls loses its header,
+which is the half that explains it.
+
+**`--report outdated` and `--report scorecard` have no clip.** Both need live services, and the
+caches that would make them reproducible are not worth committing: the anaconda.org project
+documents behind `outdated` are **19 MB**, and `scorecard` needs `--fetch-licenses`, so it drags
+in the archive and wheel caches too — about **940 KB** across three directories. Recording them
+against the live APIs would work, but the scores and dates change weekly, so the clip would age
+faster than the prose beside it and could not be re-recorded on a plane. Their sections keep their
+worked examples instead.
+
 ## Releasing
 
 Two workflows. `release.yml` is run by hand from the Actions tab (*Release* → *Run workflow* on `main`) and ends at

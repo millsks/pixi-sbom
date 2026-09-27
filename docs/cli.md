@@ -312,6 +312,10 @@ the document unless orphans are kept.
 
 ## Enforcing a license policy
 
+<p align="center">
+  <img src="assets/report-licenses.gif" alt="pixi sbom --report licenses: every package's licence expression, its family, and whether the string came from the lockfile or was fetched." width="100%">
+</p>
+
 Any of `--allow-license`, `--deny-license` and `--require-license` turns on the policy check. Documents (or reports)
 are still produced, the violations are listed on stderr, and the run exits with code **3**, which is what a CI job
 should fail on:
@@ -371,6 +375,10 @@ Conda packages are not covered: a channel withdraws a build by removing it from 
 downloading the channel index to detect. That is tracked separately.
 
 ## Looking up vulnerabilities
+
+<p align="center">
+  <img src="assets/report-vulnerabilities.gif" alt="pixi sbom --report vulnerabilities: a table of OSV findings for urllib3 1.26.4, severities coloured, with a CISA KEV entry and its remediation due date." width="100%">
+</p>
 
 `--vulnerabilities osv` asks the [Open Source Vulnerabilities](https://osv.dev) database about every package with a
 purl it indexes (PyPI, crates.io, npm, Go, ...; conda has no ecosystem there) and records the findings in the
@@ -493,6 +501,10 @@ a day, so a second run is free.
 
 ## What Python the environment allows
 
+<p align="center">
+  <img src="assets/report-python.gif" alt="pixi sbom --report python: each package's Requires-Python, whether the locked interpreter satisfies it, and which package holds the ceiling." width="100%">
+</p>
+
 `--report python` answers "why can we not move to the next Python yet?" from facts the document already has: the
 `Requires-Python` of every wheel (from the lockfile or its `dist-info`) and the environment's own `python`
 package. No network, no index.
@@ -538,6 +550,10 @@ or one with no repository to ask about, is reported as unknown and never fails t
 not bad.
 
 ## What is imported but never declared
+
+<p align="center">
+  <img src="assets/report-phantom.gif" alt="pixi sbom --report phantom: urllib3 imported by app.py but never declared, and six declared but imported by nothing." width="100%">
+</p>
 
 A *phantom dependency* is a package the code imports although nothing declares it: it is in the environment only
 because something else pulled it in, and the day that upstream drops it the import breaks. `--report phantom`
@@ -635,6 +651,10 @@ rather than printing an empty table.
 
 `--report` prints a report to the terminal and writes nothing:
 
+<p align="center">
+  <img src="assets/report-packages.gif" alt="pixi sbom --report packages: the full inventory, one row per package, with kind, what declared it, source and licence." width="100%">
+</p>
+
 ```sh
 # The inventory: name, version, kind, what declared it, source, license, purl
 pixi sbom --report packages
@@ -654,6 +674,12 @@ pixi sbom --report licenses --report-format markdown
 pixi sbom --report licenses --report-format csv > licenses.csv
 pixi sbom --report packages --report-format json | jq '.packages[] | select(.license == null)'
 ```
+
+Comparing against an earlier document answers "what changed since the last release" without reading either of them:
+
+<p align="center">
+  <img src="assets/report-diff.gif" alt="pixi sbom --report diff --against last-release.cdx.json: one row showing urllib3 went from 2.8.0 to 1.26.4, and a summary of added, removed, version and licence changes." width="100%">
+</p>
 
 Reports respect every selection and enrichment flag, so they show exactly what a document would contain; with
 `--all-environments` / `--all-platforms` there is one section (or JSON array element) per document. `--report`

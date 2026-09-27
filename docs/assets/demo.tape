@@ -27,7 +27,7 @@ Set Framerate 24
 # A plain prompt, so the recording does not carry whoever made it. Inside Hide so the setup is
 # not part of the film; the Ctrl+L afterwards clears what Hide still leaves on screen.
 Hide
-Type `PS1='$ '` Enter
+Type `cd "$DEMO_WORKSPACE" && PS1='$ '` Enter
 Type "clear" Enter
 Ctrl+L
 Show

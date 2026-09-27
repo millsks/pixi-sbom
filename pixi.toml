@@ -59,7 +59,7 @@ actionlint = "actionlint"
 # The README recording. Needs `pixi global install vhs` once; deliberately not a project
 # dependency, since vhs pulls ttyd and ffmpeg (95 packages, and it doubled pixi.lock) for
 # something that runs by hand and never in CI.
-demo = { cmd = "bash scripts/record-demo.sh", description = "re-record docs/assets/demo.gif from docs/assets/demo.tape" }
+demo = { cmd = "bash scripts/record-demo.sh", description = "re-record the demo GIFs; pass a name to do just one" }
 pre-commit-run = "pre-commit run --all-files"
 
 [feature.cov.dependencies]
