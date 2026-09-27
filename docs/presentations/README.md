@@ -43,18 +43,26 @@ If a number here stops matching its source, the slide is wrong, not the source.
 
 ## The exported decks
 
-| File | What it is |
+Each deck is here in three forms, exported from the artifact it lives on:
+
+| | Use it for |
 |---|---|
-| `engineering-management/pixi-sbom-engineering.pptx` · `.pdf` | The twelve-slide deck, presentable as-is |
-| `executive/pixi-sbom-executive.pptx` · `.pdf` | The nine-slide deck, presentable as-is |
+| `.pptx` | Editing. Text stays editable, so it can be pasted into a corporate template. |
+| `.pdf` | Sending. Renders identically for someone who will not open a deck they cannot preview. |
+| `.html` | Presenting anywhere. One self-contained file, opens in a browser, needs no PowerPoint. |
 
-These are exported from the artifact each deck lives on, not generated here: open the deck, then **Share ›
-Export**, and take both PowerPoint and PDF. The PowerPoint keeps the text editable, so it can be pasted into a
-corporate template; the PDF is for sending to people who will not open a deck they cannot preview.
+Named `pixi-sbom-engineering.*` and `pixi-sbom-executive.*` in their respective directories.
 
-**Re-export after changing a slide.** The files here are a snapshot. Nothing checks that they match the sources
+**They are templates, not finished decks.** All three forms still carry the bracketed placeholders — open one,
+fill them in, and save your own copy. Presenting straight from this directory means presenting `[Presenter]` on
+the title slide, and `[__]` where the cost figures should be.
+
+The two typefaces are free from Google Fonts (IBM Plex Sans, JetBrains Mono). The PDF and the HTML carry their own
+rendering, but PowerPoint substitutes if the fonts are not installed locally, and the spacing shifts when it does.
+
+**Re-export after changing a slide.** These files are a snapshot. Nothing checks that they match the sources
 beside them, so a stale export is the most likely way this directory starts lying — if you change a number in a
-slide, export again in the same sitting.
+slide, export all three again in the same sitting.
 
 ## Editing and exporting
 
