@@ -1181,8 +1181,9 @@ failing gate still leaves you the artifact.</p>
 rather than being filled by the next gate, so that a script testing for a specific code is never
 surprised by a number that used to mean nothing. A future gate takes 10 and upward.</p>
 <h2 id="configuration-keys">Configuration keys<a class="headerlink" href="#configuration-keys" title="Permanent link">&para;</a></h2>
-<p><code>[tool.pixi-sbom]</code> in <code>pyproject.toml</code>, or <code>pixi-sbom.toml</code>. Keys are the flag name with <code>-</code>
-replaced by <code>_</code>. The command line always wins over the file.</p>
+<p><code>[tool.pixi-sbom]</code> in <code>pyproject.toml</code>, or <code>pixi-sbom.toml</code>. A key is the flag's own name without
+the leading <code>--</code>, so <code>--fetch-licenses</code> is <code>fetch-licenses</code>. The command line always wins over the
+file.</p>
 <table>
 <thead>
 <tr>
@@ -1195,55 +1196,56 @@ replaced by <code>_</code>. The command line always wins over the file.</p>
 <tbody>
 <tr>
 <td><code>format</code></td>
-<td><code>spec_version</code></td>
-<td><code>pypi_mapping</code></td>
-<td><code>pypi_mapping_file</code></td>
+<td><code>spec-version</code></td>
+<td><code>pypi-mapping</code></td>
+<td><code>pypi-mapping-file</code></td>
 </tr>
 <tr>
-<td><code>primary_purl</code></td>
-<td><code>fetch_licenses</code></td>
-<td><code>license_texts</code></td>
-<td><code>embedded_sboms</code></td>
+<td><code>primary-purl</code></td>
+<td><code>fetch-licenses</code></td>
+<td><code>license-texts</code></td>
+<td><code>embedded-sboms</code></td>
 </tr>
 <tr>
 <td><code>exclude</code></td>
 <td><code>include</code></td>
-<td><code>exclude_kind</code></td>
-<td><code>keep_orphans</code></td>
+<td><code>exclude-kind</code></td>
+<td><code>keep-orphans</code></td>
 </tr>
 <tr>
-<td><code>allow_license</code></td>
-<td><code>deny_license</code></td>
-<td><code>require_license</code></td>
-<td><code>fail_on_yanked</code></td>
+<td><code>allow-license</code></td>
+<td><code>deny-license</code></td>
+<td><code>require-license</code></td>
+<td><code>fail-on-yanked</code></td>
 </tr>
 <tr>
 <td><code>vulnerabilities</code></td>
 <td><code>kev</code></td>
-<td><code>fail_on_kev</code></td>
-<td><code>fail_on_severity</code></td>
+<td><code>fail-on-kev</code></td>
+<td><code>fail-on-severity</code></td>
 </tr>
 <tr>
-<td><code>ignore_vuln</code></td>
-<td><code>ignore_license</code></td>
+<td><code>ignore-vuln</code></td>
+<td><code>ignore-license</code></td>
 <td><code>scorecard</code></td>
-<td><code>scorecard_min</code></td>
+<td><code>scorecard-min</code></td>
 </tr>
 <tr>
-<td><code>fail_on_scorecard</code></td>
-<td><code>fail_on_diff</code></td>
+<td><code>fail-on-scorecard</code></td>
+<td><code>fail-on-diff</code></td>
 <td><code>source</code></td>
-<td><code>assume_used</code></td>
+<td><code>assume-used</code></td>
 </tr>
 <tr>
-<td><code>fail_on_phantom</code></td>
+<td><code>fail-on-phantom</code></td>
 <td></td>
 <td></td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p>An unknown key is an error, not a warning, so a typo cannot pass silently.</p>
+<p>An unknown key is an error, not a warning, and the diagnostic lists every key that is accepted — so
+a typo cannot pass silently and you are never left guessing at the spelling.</p>
 <h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
