@@ -250,6 +250,30 @@ which has no platform-specific paths. The two jobs that are *about* a platform r
 adding `ubuntu-24.04-arm` and `macos-15-intel` for linux-aarch64 and osx-64. The release build uses the same five,
 since it must produce a native binary for each.
 
+## The README recording
+
+`docs/assets/demo.gif` is generated, not captured by hand: `pixi run demo` replays
+`docs/assets/demo.tape` through [vhs](https://github.com/charmbracelet/vhs) and overwrites the GIF.
+Re-record it when the output it shows changes.
+
+**vhs is not a project dependency.** It pulls ttyd and ffmpeg — 95 packages, and it more than
+doubled `pixi.lock` (220 KB to 476 KB) — for a task that runs by hand every few months and never in
+CI. Install it once, globally, and it is there for every project:
+
+```sh
+pixi global install vhs
+```
+
+Everything in the recording is real output from a release build. What is staged is the input:
+`scripts/demo-workspace.sh` builds a throwaway workspace from the `with-pypi` fixture with urllib3
+pinned back to a vulnerable 1.26.4, and drops the recorded OSV and CISA KEV responses the tests
+already use into the cache, so the run needs no network and takes the same time every time. It
+makes the same substitution as `workspace_with_vulnerable_urllib3` in `tests/cli.rs` and fails
+loudly if the fixture has drifted out from under it.
+
+The cache and the `pixi-sbom` symlink live *beside* the recorded directory rather than in it, so
+`ls` shows a workspace and not the scaffolding.
+
 ## Releasing
 
 Two workflows. `release.yml` is run by hand from the Actions tab (*Release* → *Run workflow* on `main`) and ends at
