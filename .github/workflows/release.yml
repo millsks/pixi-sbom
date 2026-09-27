@@ -221,15 +221,21 @@ jobs:
     needs: release
     if: needs.release.outputs.released == 'true'
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      # Signing the provenance: id-token mints the OIDC token that identifies this workflow run
+      # to Sigstore, attestations writes the resulting statement to the repository.
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, target: linux-64, ext: "" }
-          - { os: ubuntu-24.04-arm, target: linux-aarch64, ext: "" }
-          - { os: macos-15-intel, target: osx-64, ext: "" }
-          - { os: macos-latest, target: osx-arm64, ext: "" }
-          - { os: windows-latest, target: win-64, ext: ".exe" }
+          - { os: ubuntu-latest, target: linux-64, ext: "", arc: "tar.gz" }
+          - { os: ubuntu-24.04-arm, target: linux-aarch64, ext: "", arc: "tar.gz" }
+          - { os: macos-15-intel, target: osx-64, ext: "", arc: "tar.gz" }
+          - { os: macos-latest, target: osx-arm64, ext: "", arc: "tar.gz" }
+          - { os: windows-latest, target: win-64, ext: ".exe", arc: "zip" }
     steps:
       - uses: actions/checkout@v4
         with:
@@ -274,6 +280,30 @@ jobs:
             shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"
           fi
           rm -rf "$name"
+
+      # A .sha256 says the file did not change on the way down. It says nothing about where the
+      # file came from — anyone can publish a file and a checksum of it. This signs a statement
+      # that this archive was built by this workflow, from this commit, on this runner, and it
+      # is signed here rather than in `publish` so the claim covers the artifact round trip too:
+      # a digest computed after the upload could not tell you the upload was honest.
+      - name: Attest the archive's provenance
+        id: attest
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/pixi-sbom-${{ needs.release.outputs.tag }}-${{ matrix.target }}.${{ matrix.arc }}
+
+      # `gh attestation verify` finds the statement through the API on its own. The bundle also
+      # ships beside the archive, because the machine that most needs to check a binary is often
+      # the one that cannot reach api.github.com: `--bundle <file>` verifies offline.
+      - name: Ship the attestation beside the archive
+        shell: bash
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          cp "$BUNDLE" "dist/pixi-sbom-${TAG}-${{ matrix.target }}.${{ matrix.arc }}.sigstore.json"
+
       - uses: actions/upload-artifact@v4
         with:
           name: pixi-sbom-${{ matrix.target }}
@@ -329,7 +359,17 @@ jobs:
             echo "| \`pixi-sbom-${TAG}-osx-arm64.tar.gz\` | macOS Apple Silicon |"
             echo "| \`pixi-sbom-${TAG}-win-64.zip\` | Windows x86_64 |"
             echo
-            echo "Each archive has a \`.sha256\` beside it. Full changelog: [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md)"
+            echo "Each archive has a \`.sha256\` and a signed \`.sigstore.json\` provenance bundle beside it."
+            echo
+            echo "To check an archive was built by this repository, from this commit, by this workflow run:"
+            echo
+            echo "\`\`\`sh"
+            echo "gh attestation verify pixi-sbom-${TAG}-linux-64.tar.gz --repo ${GITHUB_REPOSITORY}"
+            echo "\`\`\`"
+            echo
+            echo "Add \`--bundle pixi-sbom-${TAG}-linux-64.tar.gz.sigstore.json\` to verify without reaching GitHub."
+            echo
+            echo "Full changelog: [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md)"
           } >> RELEASE_NOTES.md
           cat RELEASE_NOTES.md
 

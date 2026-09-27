@@ -256,13 +256,23 @@ What it does, in order:
    changelog as `chore(release): vX.Y.Z`, tags that commit, and pushes both to `main`.
 5. **Build.** Checks out the tag on five runners and builds `pixi-sbom` for linux-64, linux-aarch64, osx-64,
    osx-arm64 and win-64, packaged with `LICENSE`, `README.md`, `CHANGELOG.md` and a `.sha256` each.
-6. **Publish.** Creates the GitHub release with this version's changelog section (from `git-cliff --latest`) plus an
+6. **Attest.** `actions/attest-build-provenance` signs a provenance statement for each archive: what built it, from
+   which commit, in which workflow run. It runs on the build runner, before the artifact upload, so the claim covers
+   the round trip through artifact storage as well. The statement goes to the repository's attestation store, and
+   the Sigstore bundle also ships beside the archive as `.sigstore.json` for anyone verifying offline.
+7. **Publish.** Creates the GitHub release with this version's changelog section (from `git-cliff --latest`) plus an
    artifact table as the notes and the packages as assets. The job summary prints the source tarball's SHA-256 for
    `recipe/recipe.yaml`.
-7. **Crate.** `publish-crate.yml` (reusable, also dispatchable by hand with a `tag` input to republish) checks the
+8. **Crate.** `publish-crate.yml` (reusable, also dispatchable by hand with a `tag` input to republish) checks the
    tag out clean and runs `cargo publish --locked` (skipped with a warning while the `CARGO_REGISTRY_TOKEN` secret
    is missing). The `[package.metadata.binstall]` table in `Cargo.toml` points `cargo binstall` at the release
    archives.
+
+**What is not attested, and why.** The crates.io publish is not: crates.io has no attestation verification, so a
+statement about the uploaded `.crate` would be one nobody could check at install time, and `cargo install` builds
+from source anyway. Neither is the conda-forge package: the feedstock builds on conda-forge's own infrastructure
+from the source tarball, so any provenance there is theirs to make, not ours. What is attested is the set of
+binaries we build and hand out ourselves — which is also what `cargo binstall` downloads.
 
 For `pixi global install pixi-sbom`, put that SHA-256 into `recipe/recipe.yaml` and submit it to conda-forge
 `staged-recipes` once; after that the feedstock bot handles version bumps.
