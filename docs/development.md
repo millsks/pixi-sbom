@@ -370,12 +370,17 @@ was removed in #219: it had a placeholder `sha256` that was never going to be fi
 one in ways that mattered — the feedstock builds with `cargo auditable` so the binary carries its own dependency list,
 and our copy still said plain `cargo install`. A second recipe that is authoritative nowhere is worse than none.
 
-Publishing a release also deploys the documentation site (see [Continuous integration](#continuous-integration)) and
-updates the action's [Marketplace listing](https://github.com/marketplace/actions/pixi-sbom). The listing itself was
-created once by hand: on the release page, *Edit* → tick *Publish this Action to the GitHub Marketplace* → accept
-the developer agreement → category *Security*. The Marketplace validates `action.yml` on that page: the `name` must
-be unique among actions and not match a GitHub user or organization, `branding` must be set, and the `description`
-must be at most 125 characters, so keep the long form in the README and the docs.
+Publishing a release also deploys the documentation site (see [Continuous integration](#continuous-integration)).
+
+**The action is not on the GitHub Marketplace yet** (#252). Listing it is a one-time manual step and there is no API
+for it — it needs the Marketplace Developer Agreement accepted, which is tied to a person rather than a token. On a
+release page: *Edit* → tick *Publish this Action to the GitHub Marketplace* → accept the agreement → category
+*Security* → *Update release*. Once it is listed, every later release updates the listing on its own.
+
+The Marketplace validates `action.yml` on that form, and all three currently pass: the `name` must be unique among
+actions and must not match a GitHub user or organization (`pixi-sbom` is free on both counts), `branding` must be set
+(`icon: shield`, `color: blue`), and the `description` must be at most 125 characters — it is 117, so keep the long
+form in the README and the docs rather than growing that line.
 
 Operator prerequisite: the release commit and tag land on `main` under the branch ruleset, so the workflow
 authenticates with the release GitHub App (already in the ruleset's bypass list) rather than `GITHUB_TOKEN`. The
