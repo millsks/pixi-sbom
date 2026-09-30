@@ -4,7 +4,7 @@ site_url: https://millsks.github.io/pixi-sbom/
 repo_url: https://github.com/millsks/pixi-sbom
 repo_name: millsks/pixi-sbom
 edit_uri: edit/main/docs/
-copyright: MIT licensed
+copyright: Apache-2.0 licensed
 
 docs_dir: docs
 # These live under docs/ for the strict build's sake; none of them is a page.
