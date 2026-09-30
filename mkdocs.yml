@@ -7,9 +7,10 @@ edit_uri: edit/main/docs/
 copyright: MIT licensed
 
 docs_dir: docs
-# The theme override lives under docs/ for the strict build's sake; it is not a page.
+# These live under docs/ for the strict build's sake; none of them is a page.
 exclude_docs: |
   overrides/
+  papers/
   presentations/
   release-notes/
 strict: true

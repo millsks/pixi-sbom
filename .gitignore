@@ -40,3 +40,6 @@ triage-*.md
 
 # Python bytecode from the MkDocs hook
 __pycache__/
+
+# Generated beside the papers; the Markdown and the PDF are the committed pair
+docs/papers/*.html
