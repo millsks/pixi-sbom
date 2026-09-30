@@ -923,7 +923,7 @@
 
 
 <h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
-<p><code>pixi-sbom</code> is a single Rust binary (~3k lines including tests) organized as a short pipeline. Each stage has one
+<p><code>pixi-sbom</code> is a single Rust binary (~18.5k lines of source, ~34k counting tests) organized as a short pipeline. Each stage has one
 job and one module, and the stages meet at a format-agnostic model so that lockfile interpretation happens exactly
 once no matter how many output formats exist.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a> pixi.lock ──▶ lock.rs ──▶ model::Sbom ──▶ format/cyclonedx.rs ──▶ sbom.cdx.json
@@ -1024,11 +1024,6 @@ once no matter how many output formats exist.</p>
 <td><code>batch.rs</code></td>
 <td>A run writing many documents looks every document's packages up <strong>once</strong>, over their union, in a single pool, instead of once per document. What the pass learned is worked out by diffing the packages before and after, so a per-environment fact (<code>pixi:direct</code>, the dependency edges) is never copied across and an enrichment step added later is carried without anyone editing this module. Skipped for a single document, for <code>--embedded-sboms</code> and for <code>--prefix</code>, which add components rather than filling fields.</td>
 <td>model.rs</td>
-</tr>
-<tr>
-<td><code>main.rs</code></td>
-<td>The command: parse the arguments, run the steps the flags asked for, decide the exit code. Also where the global allocator is set (mimalloc, in the binary only, so nothing linking the library has one forced on it).</td>
-<td>everything</td>
 </tr>
 <tr>
 <td><code>concurrency.rs</code></td>
@@ -1181,9 +1176,29 @@ once no matter how many output formats exist.</p>
 <td>serde_json</td>
 </tr>
 <tr>
+<td><code>cache.rs</code></td>
+<td>What each cache is allowed to do this run and what it did: the eight caches behind the network features, the <code>--refresh</code> selection and the offline rule, and the summary a run reports.</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>doctor.rs</code></td>
+<td><code>--doctor</code>: asks every upstream this build knows about whether it answers, prints how the run is set up and what the caches hold, and exits non-zero if anything is unreachable. Needs no lockfile.</td>
+<td>http.rs, cache.rs</td>
+</tr>
+<tr>
+<td><code>explain.rs</code></td>
+<td><code>--explain &lt;PACKAGE&gt;</code>: every fact the tool holds about one package and where that fact came from, and for a fact it does not hold, which sources were consulted and what each said.</td>
+<td>model.rs</td>
+</tr>
+<tr>
+<td><code>timings.rs</code></td>
+<td><code>--timings</code>: where the run spent its time, phase by phase, separating work from waiting on the network.</td>
+<td>—</td>
+</tr>
+<tr>
 <td><code>main.rs</code></td>
-<td>Argument parsing, tracing setup, miette report handler, the environment loop, and file output.</td>
-<td>miette, tracing</td>
+<td>The command: parses the arguments, sets up tracing and the miette report handler, runs the steps the flags asked for, loops over environments, writes the files and decides the exit code. Also where the global allocator is set (mimalloc, in the binary only, so nothing linking the library has one forced on it).</td>
+<td>everything</td>
 </tr>
 </tbody>
 </table>
@@ -1230,7 +1245,7 @@ been smaller but would drift from pixi. Only <code>rattler_lock</code> and <code
 workspace crates (<code>pixi_manifest</code> etc.) are deliberately not depended on, since they are git dependencies that need
 <code>[patch]</code> overrides and would bring in most of pixi.</p>
 <p><strong>Own serde models for both formats.</strong> The <code>cyclonedx-bom</code> crate stops at CycloneDX 1.5 and there is no maintained
-SPDX 2.3 writer crate. Writing the small subset of each schema that is actually used (about 150 lines per format)
+SPDX 2.3 writer crate. Writing the subset of each schema that is actually used (400 to 700 lines per writer)
 gives current spec versions, keeps the dependency tree small, and makes the two writers symmetrical. Correctness is
 guarded by validating output against the vendored official JSON schemas in tests rather than by a library.</p>
 <p><strong>One document per environment and platform.</strong> A lockfile is many things at once; an SBOM describes one deliverable.
