@@ -264,8 +264,8 @@ else is preserved as free text.
 
 ## GitHub Action
 
-The repository is also a GitHub Action that downloads the release binary, generates the documents and uploads them
-as an artifact; no pixi setup needed:
+The repository is also a GitHub Action, [listed on the GitHub Marketplace](https://github.com/marketplace/actions/pixi-sbom).
+It downloads the release binary, generates the documents and uploads them as an artifact; no pixi setup needed:
 
 ```yaml
 - uses: actions/checkout@v4

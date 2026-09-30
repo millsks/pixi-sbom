@@ -372,10 +372,11 @@ and our copy still said plain `cargo install`. A second recipe that is authorita
 
 Publishing a release also deploys the documentation site (see [Continuous integration](#continuous-integration)).
 
-**The action is not on the GitHub Marketplace yet** (#252). Listing it is a one-time manual step and there is no API
-for it — it needs the Marketplace Developer Agreement accepted, which is tied to a person rather than a token. On a
-release page: *Edit* → tick *Publish this Action to the GitHub Marketplace* → accept the agreement → category
-*Security* → *Update release*. Once it is listed, every later release updates the listing on its own.
+It also updates the action's [Marketplace listing](https://github.com/marketplace/actions/pixi-sbom), which was
+published by hand from the v1.0.0 release page and is updated by every release after it. Listing it was a one-time
+manual step with no API behind it: it needs the Marketplace Developer Agreement accepted, and that is tied to a
+person rather than a token. Should it ever need doing again — on a release page, *Edit* → tick *Publish this Action
+to the GitHub Marketplace* → accept the agreement → category *Security* → *Update release*.
 
 The Marketplace validates `action.yml` on that form, and all three currently pass: the `name` must be unique among
 actions and must not match a GitHub user or organization (`pixi-sbom` is free on both counts), `branding` must be set
