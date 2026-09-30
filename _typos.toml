@@ -9,6 +9,8 @@ extend-exclude = [
   "pixi.lock",
   "*.cdx.json",
   "*.spdx.json",
+  # Measured data: third-party repository and package names, not prose.
+  "docs/papers/data/**",
 ]
 
 [default.extend-words]

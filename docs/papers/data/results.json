@@ -1,0 +1,1825 @@
+[
+ {
+  "slug": "ADARA-Neutrons__adara",
+  "n": 50,
+  "conda": 50,
+  "pypi_lock": 0,
+  "pypi_mapped": 0,
+  "gained": 0,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "ANUSHKALA__ml_tasks",
+  "n": 186,
+  "conda": 186,
+  "pypi_lock": 0,
+  "pypi_mapped": 58,
+  "gained": 58,
+  "adv_a": 0,
+  "adv_b": 88,
+  "missed": 88,
+  "sev_b": {
+   "critical": 1,
+   "high": 56,
+   "medium": 27,
+   "low": 3,
+   "unknown": 1
+  }
+ },
+ {
+  "slug": "ASFOpenSARlab__opensarlab-docs",
+  "n": 130,
+  "conda": 130,
+  "pypi_lock": 0,
+  "pypi_mapped": 85,
+  "gained": 85,
+  "adv_a": 0,
+  "adv_b": 23,
+  "missed": 23,
+  "sev_b": {
+   "critical": 2,
+   "high": 6,
+   "medium": 13,
+   "low": 2
+  }
+ },
+ {
+  "slug": "AlexAndorra__advanced-gp-pydata",
+  "n": 399,
+  "conda": 399,
+  "pypi_lock": 0,
+  "pypi_mapped": 201,
+  "gained": 201,
+  "adv_a": 0,
+  "adv_b": 129,
+  "missed": 129,
+  "sev_b": {
+   "critical": 6,
+   "high": 60,
+   "medium": 57,
+   "low": 6
+  }
+ },
+ {
+  "slug": "Alvin0523__mdp_firmware",
+  "n": 95,
+  "conda": 77,
+  "pypi_lock": 18,
+  "pypi_mapped": 61,
+  "gained": 43,
+  "adv_a": 5,
+  "adv_b": 5,
+  "missed": 0,
+  "sev_b": {
+   "high": 2,
+   "medium": 3
+  }
+ },
+ {
+  "slug": "Alvin0523__template",
+  "n": 34,
+  "conda": 34,
+  "pypi_lock": 0,
+  "pypi_mapped": 1,
+  "gained": 1,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "Ameyanagi__nami",
+  "n": 53,
+  "conda": 53,
+  "pypi_lock": 0,
+  "pypi_mapped": 15,
+  "gained": 15,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "Ammar-Alnagar__MAXimus",
+  "n": 281,
+  "conda": 281,
+  "pypi_lock": 0,
+  "pypi_mapped": 105,
+  "gained": 105,
+  "adv_a": 0,
+  "adv_b": 51,
+  "missed": 51,
+  "sev_b": {
+   "critical": 1,
+   "medium": 17,
+   "high": 26,
+   "low": 7
+  }
+ },
+ {
+  "slug": "AndrewWasHere__HSM.c",
+  "n": 52,
+  "conda": 52,
+  "pypi_lock": 0,
+  "pypi_mapped": 2,
+  "gained": 2,
+  "adv_a": 0,
+  "adv_b": 1,
+  "missed": 1,
+  "sev_b": {
+   "low": 1
+  }
+ },
+ {
+  "slug": "Auto-Mech__autochem",
+  "n": 152,
+  "conda": 151,
+  "pypi_lock": 1,
+  "pypi_mapped": 69,
+  "gained": 68,
+  "adv_a": 20,
+  "adv_b": 20,
+  "missed": 0,
+  "sev_b": {
+   "high": 13,
+   "medium": 6,
+   "low": 1
+  }
+ },
+ {
+  "slug": "BigDataBiology__macrel",
+  "n": 77,
+  "conda": 76,
+  "pypi_lock": 1,
+  "pypi_mapped": 23,
+  "gained": 22,
+  "adv_a": 1,
+  "adv_b": 1,
+  "missed": 0,
+  "sev_b": {
+   "medium": 1
+  }
+ },
+ {
+  "slug": "BioRadOpenSource__ish",
+  "n": 164,
+  "conda": 164,
+  "pypi_lock": 0,
+  "pypi_mapped": 37,
+  "gained": 37,
+  "adv_a": 0,
+  "adv_b": 32,
+  "missed": 32,
+  "sev_b": {
+   "high": 20,
+   "medium": 11,
+   "low": 1
+  }
+ },
+ {
+  "slug": "Blosc__hdf5-blosc",
+  "n": 54,
+  "conda": 54,
+  "pypi_lock": 0,
+  "pypi_mapped": 0,
+  "gained": 0,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "BraSDon__SpGEMM",
+  "n": 142,
+  "conda": 142,
+  "pypi_lock": 0,
+  "pypi_mapped": 25,
+  "gained": 25,
+  "adv_a": 0,
+  "adv_b": 27,
+  "missed": 27,
+  "sev_b": {
+   "high": 17,
+   "medium": 9,
+   "low": 1
+  }
+ },
+ {
+  "slug": "Bryce285__rf-encryption",
+  "n": 49,
+  "conda": 47,
+  "pypi_lock": 2,
+  "pypi_mapped": 17,
+  "gained": 15,
+  "adv_a": 6,
+  "adv_b": 6,
+  "missed": 0,
+  "sev_b": {
+   "critical": 1,
+   "high": 3,
+   "medium": 1,
+   "low": 1
+  }
+ },
+ {
+  "slug": "CUAnschutzBDC__docker_singularity_recipes",
+  "n": 46,
+  "conda": 46,
+  "pypi_lock": 0,
+  "pypi_mapped": 3,
+  "gained": 3,
+  "adv_a": 0,
+  "adv_b": 8,
+  "missed": 8,
+  "sev_b": {
+   "high": 1,
+   "medium": 6,
+   "low": 1
+  }
+ },
+ {
+  "slug": "CharlieSong1999__sumo_tiamat",
+  "n": 186,
+  "conda": 126,
+  "pypi_lock": 60,
+  "pypi_mapped": 109,
+  "gained": 49,
+  "adv_a": 60,
+  "adv_b": 60,
+  "missed": 0,
+  "sev_b": {
+   "critical": 2,
+   "high": 38,
+   "medium": 17,
+   "low": 2,
+   "unknown": 1
+  }
+ },
+ {
+  "slug": "Chris1221__yamldoc",
+  "n": 38,
+  "conda": 37,
+  "pypi_lock": 1,
+  "pypi_mapped": 13,
+  "gained": 12,
+  "adv_a": 7,
+  "adv_b": 7,
+  "missed": 0,
+  "sev_b": {
+   "medium": 5,
+   "low": 2
+  }
+ },
+ {
+  "slug": "Computational-Biology-Aachen__MxlPy",
+  "n": 268,
+  "conda": 213,
+  "pypi_lock": 55,
+  "pypi_mapped": 168,
+  "gained": 113,
+  "adv_a": 94,
+  "adv_b": 94,
+  "missed": 0,
+  "sev_b": {
+   "critical": 2,
+   "high": 43,
+   "medium": 44,
+   "low": 5
+  }
+ },
+ {
+  "slug": "DataBooth__fasterai-mojo",
+  "n": 296,
+  "conda": 296,
+  "pypi_lock": 0,
+  "pypi_mapped": 98,
+  "gained": 98,
+  "adv_a": 0,
+  "adv_b": 49,
+  "missed": 49,
+  "sev_b": {
+   "high": 25,
+   "medium": 19,
+   "low": 5
+  }
+ },
+ {
+  "slug": "Droneforge-Inc__ExpressLRS-Fork",
+  "n": 59,
+  "conda": 37,
+  "pypi_lock": 22,
+  "pypi_mapped": 22,
+  "gained": 0,
+  "adv_a": 5,
+  "adv_b": 5,
+  "missed": 0,
+  "sev_b": {
+   "medium": 2,
+   "high": 2,
+   "low": 1
+  }
+ },
+ {
+  "slug": "ESSS__serialchemy",
+  "n": 99,
+  "conda": 97,
+  "pypi_lock": 2,
+  "pypi_mapped": 62,
+  "gained": 60,
+  "adv_a": 16,
+  "adv_b": 16,
+  "missed": 0,
+  "sev_b": {
+   "critical": 2,
+   "high": 5,
+   "medium": 7,
+   "low": 2
+  }
+ },
+ {
+  "slug": "ErasmusMC-Bioinformatics__ecpc",
+  "n": 505,
+  "conda": 505,
+  "pypi_lock": 0,
+  "pypi_mapped": 9,
+  "gained": 9,
+  "adv_a": 0,
+  "adv_b": 1,
+  "missed": 1,
+  "sev_b": {
+   "medium": 1
+  }
+ },
+ {
+  "slug": "FNNDSC__pfcon",
+  "n": 93,
+  "conda": 92,
+  "pypi_lock": 1,
+  "pypi_mapped": 64,
+  "gained": 63,
+  "adv_a": 80,
+  "adv_b": 80,
+  "missed": 0,
+  "sev_b": {
+   "low": 9,
+   "critical": 3,
+   "high": 31,
+   "medium": 37
+  }
+ },
+ {
+  "slug": "FairReactionData__RMMD",
+  "n": 37,
+  "conda": 22,
+  "pypi_lock": 15,
+  "pypi_mapped": 15,
+  "gained": 0,
+  "adv_a": 20,
+  "adv_b": 20,
+  "missed": 0,
+  "sev_b": {
+   "high": 14,
+   "medium": 6
+  }
+ },
+ {
+  "slug": "FrancescoCalvanese__pLM-steer-ILMC",
+  "n": 113,
+  "conda": 25,
+  "pypi_lock": 88,
+  "pypi_mapped": 88,
+  "gained": 0,
+  "adv_a": 57,
+  "adv_b": 57,
+  "missed": 0,
+  "sev_b": {
+   "critical": 1,
+   "high": 29,
+   "medium": 22,
+   "low": 5
+  }
+ },
+ {
+  "slug": "FreeTAKTeam__UI",
+  "n": 25,
+  "conda": 25,
+  "pypi_lock": 0,
+  "pypi_mapped": 3,
+  "gained": 3,
+  "adv_a": 0,
+  "adv_b": 8,
+  "missed": 8,
+  "sev_b": {
+   "high": 1,
+   "medium": 6,
+   "low": 1
+  }
+ },
+ {
+  "slug": "HedgehogCode__knime-base-expressions",
+  "n": 73,
+  "conda": 73,
+  "pypi_lock": 0,
+  "pypi_mapped": 2,
+  "gained": 2,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "Hofer-Julian__custom_channel_rattler_build",
+  "n": 23,
+  "conda": 22,
+  "pypi_lock": 1,
+  "pypi_mapped": 1,
+  "gained": 0,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "Hofer-Julian__pixi-0.8",
+  "n": 23,
+  "conda": 23,
+  "pypi_lock": 0,
+  "pypi_mapped": 3,
+  "gained": 3,
+  "adv_a": 0,
+  "adv_b": 10,
+  "missed": 10,
+  "sev_b": {
+   "high": 3,
+   "medium": 6,
+   "low": 1
+  }
+ },
+ {
+  "slug": "Hundo1018__inmojomni",
+  "n": 362,
+  "conda": 362,
+  "pypi_lock": 0,
+  "pypi_mapped": 134,
+  "gained": 134,
+  "adv_a": 0,
+  "adv_b": 11,
+  "missed": 11,
+  "sev_b": {
+   "critical": 1,
+   "high": 3,
+   "medium": 5,
+   "low": 1,
+   "unknown": 1
+  }
+ },
+ {
+  "slug": "IZKF-Genomics__izkf_pack",
+  "n": 70,
+  "conda": 70,
+  "pypi_lock": 0,
+  "pypi_mapped": 0,
+  "gained": 0,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "InsightSoftwareConsortium__ITK-Wasm",
+  "n": 98,
+  "conda": 98,
+  "pypi_lock": 0,
+  "pypi_mapped": 51,
+  "gained": 51,
+  "adv_a": 29,
+  "adv_b": 29,
+  "missed": 0,
+  "sev_b": {
+   "critical": 2,
+   "high": 7,
+   "medium": 15,
+   "low": 4,
+   "unknown": 1
+  }
+ },
+ {
+  "slug": "J-Soffers__website-test",
+  "n": 165,
+  "conda": 165,
+  "pypi_lock": 0,
+  "pypi_mapped": 114,
+  "gained": 114,
+  "adv_a": 0,
+  "adv_b": 57,
+  "missed": 57,
+  "sev_b": {
+   "critical": 2,
+   "high": 21,
+   "medium": 30,
+   "low": 4
+  }
+ },
+ {
+  "slug": "JafarAbdi__jedi_bug_reproduce",
+  "n": 23,
+  "conda": 22,
+  "pypi_lock": 1,
+  "pypi_mapped": 1,
+  "gained": 0,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "JaneliaSciComp__janelia-mojo-sandbox",
+  "n": 51,
+  "conda": 51,
+  "pypi_lock": 0,
+  "pypi_mapped": 15,
+  "gained": 15,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "KathiraveluLab__Ararat",
+  "n": 164,
+  "conda": 164,
+  "pypi_lock": 0,
+  "pypi_mapped": 30,
+  "gained": 30,
+  "adv_a": 0,
+  "adv_b": 8,
+  "missed": 8,
+  "sev_b": {
+   "high": 4,
+   "medium": 2,
+   "low": 2
+  }
+ },
+ {
+  "slug": "a-chahal__fto-admet",
+  "n": 129,
+  "conda": 129,
+  "pypi_lock": 0,
+  "pypi_mapped": 29,
+  "gained": 29,
+  "adv_a": 0,
+  "adv_b": 36,
+  "missed": 36,
+  "sev_b": {
+   "critical": 2,
+   "high": 19,
+   "medium": 9,
+   "unknown": 6
+  }
+ },
+ {
+  "slug": "adrinjalali__joblib-modal",
+  "n": 83,
+  "conda": 22,
+  "pypi_lock": 61,
+  "pypi_mapped": 61,
+  "gained": 0,
+  "adv_a": 51,
+  "adv_b": 51,
+  "missed": 0,
+  "sev_b": {
+   "low": 9,
+   "critical": 1,
+   "medium": 22,
+   "high": 19
+  }
+ },
+ {
+  "slug": "aj-bench__AJ-Bench",
+  "n": 97,
+  "conda": 25,
+  "pypi_lock": 72,
+  "pypi_mapped": 72,
+  "gained": 0,
+  "adv_a": 45,
+  "adv_b": 45,
+  "missed": 0,
+  "sev_b": {
+   "critical": 1,
+   "medium": 13,
+   "high": 27,
+   "low": 4
+  }
+ },
+ {
+  "slug": "architecture-building-systems__CityEnergyAnalyst",
+  "n": 105,
+  "conda": 105,
+  "pypi_lock": 0,
+  "pypi_mapped": 12,
+  "gained": 12,
+  "adv_a": 0,
+  "adv_b": 1,
+  "missed": 1,
+  "sev_b": {
+   "high": 1
+  }
+ },
+ {
+  "slug": "ascii-supply-networks__dagster-slurm",
+  "n": 21,
+  "conda": 21,
+  "pypi_lock": 0,
+  "pypi_mapped": 0,
+  "gained": 0,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "avcopan__pixi-template",
+  "n": 34,
+  "conda": 33,
+  "pypi_lock": 1,
+  "pypi_mapped": 3,
+  "gained": 2,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "baszalmstra__pixi-star-history",
+  "n": 53,
+  "conda": 52,
+  "pypi_lock": 1,
+  "pypi_mapped": 25,
+  "gained": 24,
+  "adv_a": 1,
+  "adv_b": 1,
+  "missed": 0,
+  "sev_b": {
+   "medium": 1
+  }
+ },
+ {
+  "slug": "berquist__pymolresponse",
+  "n": 41,
+  "conda": 37,
+  "pypi_lock": 4,
+  "pypi_mapped": 12,
+  "gained": 8,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "bhklab__STS-data-ingestion",
+  "n": 49,
+  "conda": 49,
+  "pypi_lock": 0,
+  "pypi_mapped": 20,
+  "gained": 20,
+  "adv_a": 0,
+  "adv_b": 1,
+  "missed": 1,
+  "sev_b": {
+   "medium": 1
+  }
+ },
+ {
+  "slug": "bingogome__samm",
+  "n": 28,
+  "conda": 26,
+  "pypi_lock": 2,
+  "pypi_mapped": 6,
+  "gained": 4,
+  "adv_a": 2,
+  "adv_b": 2,
+  "missed": 0,
+  "sev_b": {
+   "medium": 2
+  }
+ },
+ {
+  "slug": "boisgera__LLM-experiment",
+  "n": 282,
+  "conda": 275,
+  "pypi_lock": 7,
+  "pypi_mapped": 142,
+  "gained": 135,
+  "adv_a": 164,
+  "adv_b": 164,
+  "missed": 0,
+  "sev_b": {
+   "critical": 10,
+   "low": 14,
+   "medium": 57,
+   "high": 82,
+   "unknown": 1
+  }
+ },
+ {
+  "slug": "bootphon__phonemizer",
+  "n": 45,
+  "conda": 23,
+  "pypi_lock": 22,
+  "pypi_mapped": 22,
+  "gained": 0,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "booya-at__parabem",
+  "n": 116,
+  "conda": 116,
+  "pypi_lock": 0,
+  "pypi_mapped": 28,
+  "gained": 28,
+  "adv_a": 0,
+  "adv_b": 30,
+  "missed": 30,
+  "sev_b": {
+   "high": 16,
+   "medium": 14
+  }
+ },
+ {
+  "slug": "boubacar-sow__cued-speech",
+  "n": 366,
+  "conda": 309,
+  "pypi_lock": 57,
+  "pypi_mapped": 155,
+  "gained": 98,
+  "adv_a": 74,
+  "adv_b": 74,
+  "missed": 0,
+  "sev_b": {
+   "critical": 4,
+   "high": 35,
+   "medium": 27,
+   "low": 8
+  }
+ },
+ {
+  "slug": "brainwave-sh__mosaic",
+  "n": 74,
+  "conda": 74,
+  "pypi_lock": 0,
+  "pypi_mapped": 15,
+  "gained": 15,
+  "adv_a": 0,
+  "adv_b": 9,
+  "missed": 9,
+  "sev_b": {
+   "high": 5,
+   "medium": 3,
+   "low": 1
+  }
+ },
+ {
+  "slug": "brendanjmeade__celeri_notes",
+  "n": 130,
+  "conda": 130,
+  "pypi_lock": 0,
+  "pypi_mapped": 15,
+  "gained": 15,
+  "adv_a": 0,
+  "adv_b": 30,
+  "missed": 30,
+  "sev_b": {
+   "high": 20,
+   "medium": 9,
+   "low": 1
+  }
+ },
+ {
+  "slug": "carlstadie__DriftwoodMappingBenchmark",
+  "n": 370,
+  "conda": 248,
+  "pypi_lock": 122,
+  "pypi_mapped": 197,
+  "gained": 75,
+  "adv_a": 232,
+  "adv_b": 232,
+  "missed": 0,
+  "sev_b": {
+   "critical": 29,
+   "low": 16,
+   "medium": 57,
+   "high": 128,
+   "unknown": 2
+  }
+ },
+ {
+  "slug": "castelao__GSW-rs",
+  "n": 211,
+  "conda": 211,
+  "pypi_lock": 0,
+  "pypi_mapped": 59,
+  "gained": 59,
+  "adv_a": 0,
+  "adv_b": 39,
+  "missed": 39,
+  "sev_b": {
+   "high": 21,
+   "medium": 15,
+   "low": 3
+  }
+ },
+ {
+  "slug": "cbourjau__onnxrt",
+  "n": 34,
+  "conda": 34,
+  "pypi_lock": 0,
+  "pypi_mapped": 2,
+  "gained": 2,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "cbourjau__ort-custom-op",
+  "n": 95,
+  "conda": 95,
+  "pypi_lock": 0,
+  "pypi_mapped": 42,
+  "gained": 42,
+  "adv_a": 0,
+  "adv_b": 12,
+  "missed": 12,
+  "sev_b": {
+   "high": 5,
+   "medium": 5,
+   "low": 2
+  }
+ },
+ {
+  "slug": "certik__math_notes",
+  "n": 156,
+  "conda": 156,
+  "pypi_lock": 0,
+  "pypi_mapped": 21,
+  "gained": 21,
+  "adv_a": 0,
+  "adv_b": 3,
+  "missed": 3,
+  "sev_b": {
+   "high": 1,
+   "medium": 1,
+   "low": 1
+  }
+ },
+ {
+  "slug": "chaochungkuo__linkar",
+  "n": 43,
+  "conda": 36,
+  "pypi_lock": 7,
+  "pypi_mapped": 19,
+  "gained": 12,
+  "adv_a": 8,
+  "adv_b": 8,
+  "missed": 0,
+  "sev_b": {
+   "medium": 6,
+   "high": 1,
+   "low": 1
+  }
+ },
+ {
+  "slug": "chawyehsu__moonup",
+  "n": 46,
+  "conda": 46,
+  "pypi_lock": 0,
+  "pypi_mapped": 4,
+  "gained": 4,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "chuckpr__jupyterlite-demo",
+  "n": 125,
+  "conda": 125,
+  "pypi_lock": 0,
+  "pypi_mapped": 88,
+  "gained": 88,
+  "adv_a": 0,
+  "adv_b": 6,
+  "missed": 6,
+  "sev_b": {
+   "high": 3,
+   "medium": 2,
+   "low": 1
+  }
+ },
+ {
+  "slug": "cidgoh__VIRUS-MVP",
+  "n": 101,
+  "conda": 78,
+  "pypi_lock": 23,
+  "pypi_mapped": 23,
+  "gained": 0,
+  "adv_a": 17,
+  "adv_b": 17,
+  "missed": 0,
+  "sev_b": {
+   "high": 5,
+   "medium": 10,
+   "low": 1,
+   "unknown": 1
+  }
+ },
+ {
+  "slug": "cristianpjensen__diffusiongym",
+  "n": 137,
+  "conda": 55,
+  "pypi_lock": 82,
+  "pypi_mapped": 111,
+  "gained": 29,
+  "adv_a": 148,
+  "adv_b": 148,
+  "missed": 0,
+  "sev_b": {
+   "critical": 4,
+   "low": 12,
+   "high": 80,
+   "medium": 48,
+   "unknown": 4
+  }
+ },
+ {
+  "slug": "cweitso__U-Mamba-cu118",
+  "n": 176,
+  "conda": 100,
+  "pypi_lock": 76,
+  "pypi_mapped": 80,
+  "gained": 4,
+  "adv_a": 86,
+  "adv_b": 86,
+  "missed": 0,
+  "sev_b": {
+   "high": 46,
+   "critical": 2,
+   "medium": 30,
+   "low": 7,
+   "unknown": 1
+  }
+ },
+ {
+  "slug": "dennissergeev__cv",
+  "n": 145,
+  "conda": 145,
+  "pypi_lock": 0,
+  "pypi_mapped": 31,
+  "gained": 31,
+  "adv_a": 0,
+  "adv_b": 43,
+  "missed": 43,
+  "sev_b": {
+   "high": 25,
+   "medium": 17,
+   "low": 1
+  }
+ },
+ {
+  "slug": "dev-clement__Open-Source-Software-Network",
+  "n": 101,
+  "conda": 101,
+  "pypi_lock": 0,
+  "pypi_mapped": 65,
+  "gained": 65,
+  "adv_a": 0,
+  "adv_b": 32,
+  "missed": 32,
+  "sev_b": {
+   "critical": 2,
+   "medium": 15,
+   "high": 10,
+   "low": 5
+  }
+ },
+ {
+  "slug": "dokyun-kim4__lerobot-arm-behaviors",
+  "n": 36,
+  "conda": 36,
+  "pypi_lock": 0,
+  "pypi_mapped": 0,
+  "gained": 0,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "durrantlab__POVME",
+  "n": 60,
+  "conda": 40,
+  "pypi_lock": 20,
+  "pypi_mapped": 28,
+  "gained": 8,
+  "adv_a": 22,
+  "adv_b": 22,
+  "missed": 0,
+  "sev_b": {
+   "critical": 3,
+   "high": 10,
+   "medium": 9
+  }
+ },
+ {
+  "slug": "eginez__mojo-zed-extension",
+  "n": 52,
+  "conda": 52,
+  "pypi_lock": 0,
+  "pypi_mapped": 16,
+  "gained": 16,
+  "adv_a": 0,
+  "adv_b": 12,
+  "missed": 12,
+  "sev_b": {
+   "high": 7,
+   "medium": 4,
+   "low": 1
+  }
+ },
+ {
+  "slug": "emmapowers__bakelite",
+  "n": 112,
+  "conda": 106,
+  "pypi_lock": 6,
+  "pypi_mapped": 88,
+  "gained": 82,
+  "adv_a": 24,
+  "adv_b": 24,
+  "missed": 0,
+  "sev_b": {
+   "critical": 2,
+   "medium": 11,
+   "high": 9,
+   "low": 2
+  }
+ },
+ {
+  "slug": "ericmjl__2026-bioit-workshop",
+  "n": 57,
+  "conda": 22,
+  "pypi_lock": 35,
+  "pypi_mapped": 35,
+  "gained": 0,
+  "adv_a": 3,
+  "adv_b": 3,
+  "missed": 0,
+  "sev_b": {
+   "high": 1,
+   "medium": 2
+  }
+ },
+ {
+  "slug": "ericmjl__nxviz",
+  "n": 120,
+  "conda": 101,
+  "pypi_lock": 19,
+  "pypi_mapped": 88,
+  "gained": 69,
+  "adv_a": 30,
+  "adv_b": 30,
+  "missed": 0,
+  "sev_b": {
+   "critical": 1,
+   "high": 17,
+   "medium": 10,
+   "low": 1,
+   "unknown": 1
+  }
+ },
+ {
+  "slug": "eval-sys__mcpmark",
+  "n": 97,
+  "conda": 25,
+  "pypi_lock": 72,
+  "pypi_mapped": 72,
+  "gained": 0,
+  "adv_a": 45,
+  "adv_b": 45,
+  "missed": 0,
+  "sev_b": {
+   "critical": 1,
+   "medium": 13,
+   "high": 27,
+   "low": 4
+  }
+ },
+ {
+  "slug": "evolvent-ai__BenchRouter",
+  "n": 97,
+  "conda": 25,
+  "pypi_lock": 72,
+  "pypi_mapped": 72,
+  "gained": 0,
+  "adv_a": 45,
+  "adv_b": 45,
+  "missed": 0,
+  "sev_b": {
+   "critical": 1,
+   "medium": 13,
+   "high": 27,
+   "low": 4
+  }
+ },
+ {
+  "slug": "fangohr__finmag",
+  "n": 262,
+  "conda": 262,
+  "pypi_lock": 0,
+  "pypi_mapped": 45,
+  "gained": 45,
+  "adv_a": 0,
+  "adv_b": 25,
+  "missed": 25,
+  "sev_b": {
+   "high": 13,
+   "medium": 10,
+   "low": 2
+  }
+ },
+ {
+  "slug": "fecet__vape",
+  "n": 63,
+  "conda": 62,
+  "pypi_lock": 1,
+  "pypi_mapped": 23,
+  "gained": 22,
+  "adv_a": 1,
+  "adv_b": 1,
+  "missed": 0,
+  "sev_b": {
+   "low": 1
+  }
+ },
+ {
+  "slug": "felipefulan__CFD",
+  "n": 81,
+  "conda": 81,
+  "pypi_lock": 0,
+  "pypi_mapped": 2,
+  "gained": 2,
+  "adv_a": 0,
+  "adv_b": 6,
+  "missed": 6,
+  "sev_b": {
+   "medium": 5,
+   "low": 1
+  }
+ },
+ {
+  "slug": "fengzileee__drake-pixi",
+  "n": 251,
+  "conda": 251,
+  "pypi_lock": 0,
+  "pypi_mapped": 120,
+  "gained": 120,
+  "adv_a": 0,
+  "adv_b": 81,
+  "missed": 81,
+  "sev_b": {
+   "critical": 2,
+   "high": 37,
+   "medium": 38,
+   "low": 4
+  }
+ },
+ {
+  "slug": "floesche__template-web",
+  "n": 165,
+  "conda": 165,
+  "pypi_lock": 0,
+  "pypi_mapped": 114,
+  "gained": 114,
+  "adv_a": 0,
+  "adv_b": 57,
+  "missed": 57,
+  "sev_b": {
+   "critical": 2,
+   "high": 21,
+   "medium": 30,
+   "low": 4
+  }
+ },
+ {
+  "slug": "flux-framework__flux-sched-py",
+  "n": 95,
+  "conda": 36,
+  "pypi_lock": 59,
+  "pypi_mapped": 68,
+  "gained": 9,
+  "adv_a": 21,
+  "adv_b": 21,
+  "missed": 0,
+  "sev_b": {
+   "critical": 1,
+   "high": 7,
+   "medium": 11,
+   "low": 2
+  }
+ },
+ {
+  "slug": "fonnesbeck__vi_pydata_virginia_2025",
+  "n": 388,
+  "conda": 384,
+  "pypi_lock": 4,
+  "pypi_mapped": 193,
+  "gained": 189,
+  "adv_a": 104,
+  "adv_b": 104,
+  "missed": 0,
+  "sev_b": {
+   "critical": 3,
+   "high": 46,
+   "medium": 49,
+   "low": 6
+  }
+ },
+ {
+  "slug": "fzlsfrv__EGNN-SDM",
+  "n": 499,
+  "conda": 499,
+  "pypi_lock": 0,
+  "pypi_mapped": 244,
+  "gained": 244,
+  "adv_a": 0,
+  "adv_b": 29,
+  "missed": 29,
+  "sev_b": {
+   "critical": 1,
+   "high": 20,
+   "medium": 5,
+   "low": 1,
+   "unknown": 2
+  }
+ },
+ {
+  "slug": "g7xu__worddoc_refresher",
+  "n": 34,
+  "conda": 33,
+  "pypi_lock": 1,
+  "pypi_mapped": 7,
+  "gained": 6,
+  "adv_a": 9,
+  "adv_b": 9,
+  "missed": 0,
+  "sev_b": {
+   "high": 2,
+   "medium": 6,
+   "low": 1
+  }
+ },
+ {
+  "slug": "gbionics__robot-log-visualizer",
+  "n": 290,
+  "conda": 289,
+  "pypi_lock": 1,
+  "pypi_mapped": 55,
+  "gained": 54,
+  "adv_a": 29,
+  "adv_b": 29,
+  "missed": 0,
+  "sev_b": {
+   "high": 17,
+   "medium": 10,
+   "low": 2
+  }
+ },
+ {
+  "slug": "geojupyter__geojupyter.org",
+  "n": 13,
+  "conda": 13,
+  "pypi_lock": 0,
+  "pypi_mapped": 0,
+  "gained": 0,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "geopython__GeoHealthCheck",
+  "n": 112,
+  "conda": 48,
+  "pypi_lock": 64,
+  "pypi_mapped": 68,
+  "gained": 4,
+  "adv_a": 16,
+  "adv_b": 16,
+  "missed": 0,
+  "sev_b": {
+   "high": 4,
+   "medium": 10,
+   "low": 1,
+   "unknown": 1
+  }
+ },
+ {
+  "slug": "geospatial-jeff__aef-mosaic",
+  "n": 261,
+  "conda": 261,
+  "pypi_lock": 0,
+  "pypi_mapped": 51,
+  "gained": 51,
+  "adv_a": 7,
+  "adv_b": 33,
+  "missed": 26,
+  "sev_b": {
+   "low": 2,
+   "high": 17,
+   "medium": 14
+  }
+ },
+ {
+  "slug": "geronimp__enrichM",
+  "n": 278,
+  "conda": 261,
+  "pypi_lock": 17,
+  "pypi_mapped": 58,
+  "gained": 41,
+  "adv_a": 30,
+  "adv_b": 30,
+  "missed": 0,
+  "sev_b": {
+   "high": 17,
+   "medium": 10,
+   "low": 3
+  }
+ },
+ {
+  "slug": "geronimp__graftM",
+  "n": 96,
+  "conda": 95,
+  "pypi_lock": 1,
+  "pypi_mapped": 29,
+  "gained": 28,
+  "adv_a": 8,
+  "adv_b": 8,
+  "missed": 0,
+  "sev_b": {
+   "high": 4,
+   "medium": 4
+  }
+ },
+ {
+  "slug": "ginkgobioworks__abdev-benchmark",
+  "n": 52,
+  "conda": 46,
+  "pypi_lock": 6,
+  "pypi_mapped": 21,
+  "gained": 15,
+  "adv_a": 2,
+  "adv_b": 2,
+  "missed": 0,
+  "sev_b": {
+   "high": 1,
+   "low": 1
+  }
+ },
+ {
+  "slug": "glotzerlab__hoomd-examples",
+  "n": 309,
+  "conda": 309,
+  "pypi_lock": 0,
+  "pypi_mapped": 134,
+  "gained": 134,
+  "adv_a": 0,
+  "adv_b": 10,
+  "missed": 10,
+  "sev_b": {
+   "high": 4,
+   "medium": 4,
+   "low": 2
+  }
+ },
+ {
+  "slug": "goggles-dev__Goggles",
+  "n": 225,
+  "conda": 159,
+  "pypi_lock": 66,
+  "pypi_mapped": 66,
+  "gained": 0,
+  "adv_a": 40,
+  "adv_b": 40,
+  "missed": 0,
+  "sev_b": {
+   "critical": 3,
+   "medium": 14,
+   "high": 16,
+   "low": 7
+  }
+ },
+ {
+  "slug": "gray95__make_hp_pv",
+  "n": 70,
+  "conda": 34,
+  "pypi_lock": 36,
+  "pypi_mapped": 39,
+  "gained": 3,
+  "adv_a": 33,
+  "adv_b": 33,
+  "missed": 0,
+  "sev_b": {
+   "high": 18,
+   "medium": 14,
+   "low": 1
+  }
+ },
+ {
+  "slug": "hadim__olatu",
+  "n": 125,
+  "conda": 125,
+  "pypi_lock": 0,
+  "pypi_mapped": 33,
+  "gained": 33,
+  "adv_a": 0,
+  "adv_b": 1,
+  "missed": 1,
+  "sev_b": {
+   "medium": 1
+  }
+ },
+ {
+  "slug": "helehex__blade",
+  "n": 50,
+  "conda": 50,
+  "pypi_lock": 0,
+  "pypi_mapped": 15,
+  "gained": 15,
+  "adv_a": 0,
+  "adv_b": 3,
+  "missed": 3,
+  "sev_b": {
+   "high": 1,
+   "medium": 1,
+   "low": 1
+  }
+ },
+ {
+  "slug": "hgrecco__pint-pandas",
+  "n": 33,
+  "conda": 22,
+  "pypi_lock": 11,
+  "pypi_mapped": 11,
+  "gained": 0,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "iandol__octicka",
+  "n": 220,
+  "conda": 220,
+  "pypi_lock": 0,
+  "pypi_mapped": 8,
+  "gained": 8,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "iarayad__coding_practices",
+  "n": 198,
+  "conda": 197,
+  "pypi_lock": 1,
+  "pypi_mapped": 71,
+  "gained": 70,
+  "adv_a": 34,
+  "adv_b": 34,
+  "missed": 0,
+  "sev_b": {
+   "high": 16,
+   "medium": 15,
+   "low": 3
+  }
+ },
+ {
+  "slug": "ickc__project-LFRic",
+  "n": 13,
+  "conda": 13,
+  "pypi_lock": 0,
+  "pypi_mapped": 0,
+  "gained": 0,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "idiap__gridtk",
+  "n": 27,
+  "conda": 21,
+  "pypi_lock": 6,
+  "pypi_mapped": 6,
+  "gained": 0,
+  "adv_a": 1,
+  "adv_b": 1,
+  "missed": 0,
+  "sev_b": {
+   "high": 1
+  }
+ },
+ {
+  "slug": "ilmcconnell__reproducible-ml-workflows",
+  "n": 214,
+  "conda": 214,
+  "pypi_lock": 0,
+  "pypi_mapped": 17,
+  "gained": 17,
+  "adv_a": 0,
+  "adv_b": 12,
+  "missed": 12,
+  "sev_b": {
+   "high": 4,
+   "medium": 6,
+   "low": 2
+  }
+ },
+ {
+  "slug": "intel__AI-PC-Samples",
+  "n": 265,
+  "conda": 241,
+  "pypi_lock": 24,
+  "pypi_mapped": 161,
+  "gained": 137,
+  "adv_a": 176,
+  "adv_b": 176,
+  "missed": 0,
+  "sev_b": {
+   "critical": 7,
+   "low": 22,
+   "high": 74,
+   "medium": 72,
+   "unknown": 1
+  }
+ },
+ {
+  "slug": "jacobwilliams__sqpopt",
+  "n": 213,
+  "conda": 212,
+  "pypi_lock": 1,
+  "pypi_mapped": 43,
+  "gained": 42,
+  "adv_a": 3,
+  "adv_b": 3,
+  "missed": 0,
+  "sev_b": {
+   "medium": 2,
+   "low": 1
+  }
+ },
+ {
+  "slug": "janelia-arduino__AT42QT",
+  "n": 87,
+  "conda": 87,
+  "pypi_lock": 0,
+  "pypi_mapped": 30,
+  "gained": 30,
+  "adv_a": 0,
+  "adv_b": 17,
+  "missed": 17,
+  "sev_b": {
+   "critical": 1,
+   "medium": 9,
+   "high": 6,
+   "low": 1
+  }
+ },
+ {
+  "slug": "janelia-arduino__Array",
+  "n": 87,
+  "conda": 87,
+  "pypi_lock": 0,
+  "pypi_mapped": 30,
+  "gained": 30,
+  "adv_a": 0,
+  "adv_b": 17,
+  "missed": 17,
+  "sev_b": {
+   "critical": 1,
+   "medium": 9,
+   "high": 6,
+   "low": 1
+  }
+ },
+ {
+  "slug": "janelia-arduino__Vector",
+  "n": 87,
+  "conda": 87,
+  "pypi_lock": 0,
+  "pypi_mapped": 30,
+  "gained": 30,
+  "adv_a": 0,
+  "adv_b": 17,
+  "missed": 17,
+  "sev_b": {
+   "critical": 1,
+   "medium": 9,
+   "high": 6,
+   "low": 1
+  }
+ },
+ {
+  "slug": "jgarciab__NetworkScience",
+  "n": 270,
+  "conda": 270,
+  "pypi_lock": 0,
+  "pypi_mapped": 137,
+  "gained": 137,
+  "adv_a": 0,
+  "adv_b": 41,
+  "missed": 41,
+  "sev_b": {
+   "critical": 2,
+   "high": 18,
+   "medium": 19,
+   "low": 2
+  }
+ },
+ {
+  "slug": "jguhlin__minimap2-rs",
+  "n": 216,
+  "conda": 216,
+  "pypi_lock": 0,
+  "pypi_mapped": 124,
+  "gained": 124,
+  "adv_a": 0,
+  "adv_b": 76,
+  "missed": 76,
+  "sev_b": {
+   "critical": 3,
+   "high": 32,
+   "medium": 36,
+   "low": 5
+  }
+ },
+ {
+  "slug": "joanjcaceres__sccircuits",
+  "n": 283,
+  "conda": 283,
+  "pypi_lock": 0,
+  "pypi_mapped": 157,
+  "gained": 157,
+  "adv_a": 0,
+  "adv_b": 87,
+  "missed": 87,
+  "sev_b": {
+   "critical": 2,
+   "high": 36,
+   "medium": 45,
+   "low": 4
+  }
+ },
+ {
+  "slug": "johndoe6345789__metabuilder-small",
+  "n": 53,
+  "conda": 53,
+  "pypi_lock": 0,
+  "pypi_mapped": 15,
+  "gained": 15,
+  "adv_a": 0,
+  "adv_b": 9,
+  "missed": 9,
+  "sev_b": {
+   "high": 5,
+   "medium": 3,
+   "low": 1
+  }
+ },
+ {
+  "slug": "jungwook235__RLDX-FineAct",
+  "n": 33,
+  "conda": 28,
+  "pypi_lock": 5,
+  "pypi_mapped": 9,
+  "gained": 4,
+  "adv_a": 5,
+  "adv_b": 5,
+  "missed": 0,
+  "sev_b": {
+   "medium": 5
+  }
+ },
+ {
+  "slug": "kaya-go__katago-onnx",
+  "n": 202,
+  "conda": 200,
+  "pypi_lock": 2,
+  "pypi_mapped": 144,
+  "gained": 142,
+  "adv_a": 77,
+  "adv_b": 77,
+  "missed": 0,
+  "sev_b": {
+   "critical": 2,
+   "high": 32,
+   "medium": 36,
+   "low": 7
+  }
+ },
+ {
+  "slug": "kjam__secure-and-private-ai-products-masterclass",
+  "n": 200,
+  "conda": 23,
+  "pypi_lock": 177,
+  "pypi_mapped": 177,
+  "gained": 0,
+  "adv_a": 72,
+  "adv_b": 72,
+  "missed": 0,
+  "sev_b": {
+   "critical": 2,
+   "high": 35,
+   "medium": 30,
+   "low": 5
+  }
+ },
+ {
+  "slug": "knime-oss__knime-base-expressions",
+  "n": 73,
+  "conda": 73,
+  "pypi_lock": 0,
+  "pypi_mapped": 2,
+  "gained": 2,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "kockahonza__TopoStoch",
+  "n": 181,
+  "conda": 178,
+  "pypi_lock": 3,
+  "pypi_mapped": 45,
+  "gained": 42,
+  "adv_a": 31,
+  "adv_b": 31,
+  "missed": 0,
+  "sev_b": {
+   "high": 19,
+   "medium": 10,
+   "low": 2
+  }
+ },
+ {
+  "slug": "krantzlab__immunogenomics-ref",
+  "n": 122,
+  "conda": 122,
+  "pypi_lock": 0,
+  "pypi_mapped": 0,
+  "gained": 0,
+  "adv_a": 0,
+  "adv_b": 0,
+  "missed": 0,
+  "sev_b": {}
+ },
+ {
+  "slug": "lachlanhurst__so100-mujoco-rl",
+  "n": 109,
+  "conda": 22,
+  "pypi_lock": 87,
+  "pypi_mapped": 87,
+  "gained": 0,
+  "adv_a": 62,
+  "adv_b": 62,
+  "missed": 0,
+  "sev_b": {
+   "high": 30,
+   "medium": 27,
+   "low": 5
+  }
+ },
+ {
+  "slug": "lee101__mojo-bcrypt",
+  "n": 58,
+  "conda": 58,
+  "pypi_lock": 0,
+  "pypi_mapped": 23,
+  "gained": 23,
+  "adv_a": 0,
+  "adv_b": 3,
+  "missed": 3,
+  "sev_b": {
+   "high": 1,
+   "medium": 1,
+   "low": 1
+  }
+ }
+]
