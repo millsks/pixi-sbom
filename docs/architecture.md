@@ -1,6 +1,6 @@
 # Architecture
 
-`pixi-sbom` is a single Rust binary (~3k lines including tests) organized as a short pipeline. Each stage has one
+`pixi-sbom` is a single Rust binary (~18.5k lines of source, ~34k counting tests) organized as a short pipeline. Each stage has one
 job and one module, and the stages meet at a format-agnostic model so that lockfile interpretation happens exactly
 once no matter how many output formats exist.
 
@@ -55,7 +55,6 @@ once no matter how many output formats exist.
 | `embedded.rs` | `--embedded-sboms`: parses the PEP 770 fragments `wheel.rs` cached (CycloneDX 1.4 – 1.7, SPDX 2.x), adds their components as `embedded` packages, merges duplicates by purl, and wires the graph under the wheel. | serde_json, wheel.rs |
 | `wheel.rs` | The same for PyPI wheels: `METADATA` (PEP 639 `License-Expression`, `License`, `License-File`, `Summary`, `Project-URL`) and the license files, through `zipread`, cached under `wheel-info/<sha256>/`. | zipread.rs, concurrency.rs |
 | `batch.rs` | A run writing many documents looks every document's packages up **once**, over their union, in a single pool, instead of once per document. What the pass learned is worked out by diffing the packages before and after, so a per-environment fact (`pixi:direct`, the dependency edges) is never copied across and an enrichment step added later is carried without anyone editing this module. Skipped for a single document, for `--embedded-sboms` and for `--prefix`, which add components rather than filling fields. | model.rs |
-| `main.rs` | The command: parse the arguments, run the steps the flags asked for, decide the exit code. Also where the global allocator is set (mimalloc, in the binary only, so nothing linking the library has one forced on it). | everything |
 | `concurrency.rs` | How many things happen at once, decided once for the whole run: `PIXI_SBOM_CONCURRENCY`, else one thread per core and no more than ten requests in flight. Network jobs run on their own rayon pool, so a slow upstream cannot take every thread; results come back in job order however the threads interleave. | rayon, progress.rs |
 | `condaarchive.rs` | The network fallback for conda license details: pulls the `info-*.tar.zst` member through `zipread`, decompresses it and writes `about.json`, `index.json` and `licenses/` into the pixi-sbom cache in the rattler layout, on a small thread pool. | zstd, tar, zipread.rs, pkgcache.rs |
 | `pkgcache.rs` | Conda license details from the local rattler package cache: `about.json` and `info/licenses/` of extracted packages, and the cache directory rule (`PIXI_CACHE_DIR`, `RATTLER_CACHE_DIR`, platform default). Offline. | serde_json |
@@ -86,7 +85,11 @@ once no matter how many output formats exist.
 | `diff.rs` | `--report diff --against`: resolves the other side — a CycloneDX / SPDX 2.x document through `embedded::parse`, an SPDX 3.0.1 graph directly, a `pixi.lock`, or an installed environment — reduces both sides to (purl type, normalized name, version, normalized license, build string, installer) and lists added, removed, version-, license- and build-changed packages, what pip installed, and the `--fail-on-diff` gate. | embedded.rs, license.rs, lock.rs, prefix.rs |
 | `policy.rs` | `--allow-license` / `--deny-license` / `--require-license`: parses licensees, canonicalizes ids (base, `-or-later`, exception) and evaluates each package's expression with the `spdx` crate's `evaluate`, returning violations; exit code 3 is applied in `main`. | spdx, license.rs |
 | `report.rs` | `--report`: the `packages` and `licenses` views built from the model, rendered as an aligned table, Markdown, CSV or JSON. Owns no I/O beyond the writer it is handed. | serde_json |
-| `main.rs` | Argument parsing, tracing setup, miette report handler, the environment loop, and file output. | miette, tracing |
+| `cache.rs` | What each cache is allowed to do this run and what it did: the eight caches behind the network features, the `--refresh` selection and the offline rule, and the summary a run reports. | — |
+| `doctor.rs` | `--doctor`: asks every upstream this build knows about whether it answers, prints how the run is set up and what the caches hold, and exits non-zero if anything is unreachable. Needs no lockfile. | http.rs, cache.rs |
+| `explain.rs` | `--explain <PACKAGE>`: every fact the tool holds about one package and where that fact came from, and for a fact it does not hold, which sources were consulted and what each said. | model.rs |
+| `timings.rs` | `--timings`: where the run spent its time, phase by phase, separating work from waiting on the network. | — |
+| `main.rs` | The command: parses the arguments, sets up tracing and the miette report handler, runs the steps the flags asked for, loops over environments, writes the files and decides the exit code. Also where the global allocator is set (mimalloc, in the binary only, so nothing linking the library has one forced on it). | everything |
 
 Errors are `thiserror` enums per module (`DiscoverError`, `LockError`, `PurlError`, `WriteError`) that also derive
 `miette::Diagnostic`, giving each variant a stable code (`pixi_sbom::lock::platform`) and, where useful, a `help`
@@ -139,7 +142,7 @@ workspace crates (`pixi_manifest` etc.) are deliberately not depended on, since 
 `[patch]` overrides and would bring in most of pixi.
 
 **Own serde models for both formats.** The `cyclonedx-bom` crate stops at CycloneDX 1.5 and there is no maintained
-SPDX 2.3 writer crate. Writing the small subset of each schema that is actually used (about 150 lines per format)
+SPDX 2.3 writer crate. Writing the subset of each schema that is actually used (400 to 700 lines per writer)
 gives current spec versions, keeps the dependency tree small, and makes the two writers symmetrical. Correctness is
 guarded by validating output against the vendored official JSON schemas in tests rather than by a library.
 
