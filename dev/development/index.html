@@ -1623,12 +1623,16 @@ request against the feedstock's own <code>recipe/recipe.yaml</code>.</p>
 was removed in #219: it had a placeholder <code>sha256</code> that was never going to be filled, and it had drifted from the real
 one in ways that mattered — the feedstock builds with <code>cargo auditable</code> so the binary carries its own dependency list,
 and our copy still said plain <code>cargo install</code>. A second recipe that is authoritative nowhere is worse than none.</p>
-<p>Publishing a release also deploys the documentation site (see <a href="#continuous-integration">Continuous integration</a>) and
-updates the action's <a href="https://github.com/marketplace/actions/pixi-sbom">Marketplace listing</a>. The listing itself was
-created once by hand: on the release page, <em>Edit</em> → tick <em>Publish this Action to the GitHub Marketplace</em> → accept
-the developer agreement → category <em>Security</em>. The Marketplace validates <code>action.yml</code> on that page: the <code>name</code> must
-be unique among actions and not match a GitHub user or organization, <code>branding</code> must be set, and the <code>description</code>
-must be at most 125 characters, so keep the long form in the README and the docs.</p>
+<p>Publishing a release also deploys the documentation site (see <a href="#continuous-integration">Continuous integration</a>).</p>
+<p>It also updates the action's <a href="https://github.com/marketplace/actions/pixi-sbom">Marketplace listing</a>, which was
+published by hand from the v1.0.0 release page and is updated by every release after it. Listing it was a one-time
+manual step with no API behind it: it needs the Marketplace Developer Agreement accepted, and that is tied to a
+person rather than a token. Should it ever need doing again — on a release page, <em>Edit</em> → tick <em>Publish this Action
+to the GitHub Marketplace</em> → accept the agreement → category <em>Security</em> → <em>Update release</em>.</p>
+<p>The Marketplace validates <code>action.yml</code> on that form, and all three currently pass: the <code>name</code> must be unique among
+actions and must not match a GitHub user or organization (<code>pixi-sbom</code> is free on both counts), <code>branding</code> must be set
+(<code>icon: shield</code>, <code>color: blue</code>), and the <code>description</code> must be at most 125 characters — it is 117, so keep the long
+form in the README and the docs rather than growing that line.</p>
 <p>Operator prerequisite: the release commit and tag land on <code>main</code> under the branch ruleset, so the workflow
 authenticates with the release GitHub App (already in the ruleset's bypass list) rather than <code>GITHUB_TOKEN</code>. The
 App's credentials must be present as the repository secrets <code>APP_ID</code> and <code>APP_PRIVATE_KEY</code>; the workflow mints a
