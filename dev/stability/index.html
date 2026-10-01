@@ -586,6 +586,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Environment variables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#spellings-that-answer-to-an-older-name_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spellings that answer to an older name
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -971,6 +988,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Environment variables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#spellings-that-answer-to-an-older-name_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spellings that answer to an older name
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1292,8 +1326,8 @@ a typo cannot pass silently and you are never left guessing at the spelling.</p>
 <td>Where to read PyPI metadata.</td>
 </tr>
 <tr>
-<td><code>PIXI_SBOM_ANACONDA_URL</code></td>
-<td>Where to read anaconda.org metadata.</td>
+<td><code>PIXI_SBOM_CONDAPKG_URL</code></td>
+<td>Base of the conda package index <code>--report outdated</code> asks for conda versions.</td>
 </tr>
 <tr>
 <td><code>PIXI_SBOM_SCORECARD_URL</code></td>
@@ -1303,6 +1337,25 @@ a typo cannot pass silently and you are never left guessing at the spelling.</p>
 </table>
 <p>Also read, and owned by other tools: <code>SSL_CERT_FILE</code>, <code>PIXI_CACHE_DIR</code>, <code>RATTLER_CACHE_DIR</code>,
 <code>HTTPS_PROXY</code> / <code>HTTP_PROXY</code> / <code>NO_PROXY</code>, <code>NO_COLOR</code>, <code>CLICOLOR_FORCE</code>, <code>RUST_LOG</code>.</p>
+<h3 id="spellings-that-answer-to-an-older-name_1">Spellings that answer to an older name<a class="headerlink" href="#spellings-that-answer-to-an-older-name_1" title="Permanent link">&para;</a></h3>
+<p>Accepted permanently. Removing one would be a major version with its own notice. The canonical
+spelling wins when both are set, and the run warns when they disagree.</p>
+<table>
+<thead>
+<tr>
+<th>Accepted</th>
+<th>Canonical</th>
+<th>Since</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PIXI_SBOM_ANACONDA_URL</code></td>
+<td><code>PIXI_SBOM_CONDAPKG_URL</code></td>
+<td>renamed in 1.1.0</td>
+</tr>
+</tbody>
+</table>
 <h2 id="pixi-names-in-a-document"><code>pixi:*</code> names in a document<a class="headerlink" href="#pixi-names-in-a-document" title="Permanent link">&para;</a></h2>
 <p>Property names in CycloneDX and comment / annotation names in SPDX. What is frozen is the name and
 what it holds; whether a given run emits a particular one depends on the flags. <code>output-format.md</code>

@@ -2400,7 +2400,7 @@ the pinned one, and when each was published:</p>
 </table>
 <p>Rows are ordered furthest behind first, then oldest. PyPI packages are read from the project document
 (<code>/pypi/&lt;name&gt;/json</code>); conda packages from anaconda.org's package API
-(<code>https://api.anaconda.org/package/&lt;channel&gt;/&lt;name&gt;</code>, <code>PIXI_SBOM_ANACONDA_URL</code> for a mirror), which covers
+(<code>https://api.anaconda.org/package/&lt;channel&gt;/&lt;name&gt;</code>, <code>PIXI_SBOM_CONDAPKG_URL</code> for a mirror), which covers
 conda-forge and the other channels hosted there. A channel hosted elsewhere would mean downloading its
 <code>repodata.json</code>, which is hundreds of megabytes, so those packages, along with source packages and anything the
 index cannot answer for, are listed under <em>No index to ask</em> rather than guessed at. Both documents are cached for
@@ -2912,7 +2912,7 @@ and the log to the collector.</p>
 <td>conda package index</td>
 <td><code>https://api.anaconda.org</code></td>
 <td><code>--report outdated</code></td>
-<td><code>PIXI_SBOM_ANACONDA_URL</code></td>
+<td><code>PIXI_SBOM_CONDAPKG_URL</code></td>
 </tr>
 <tr>
 <td>OpenSSF Scorecard</td>
@@ -3163,8 +3163,8 @@ prints for it.</p>
 <td>Set to <code>1</code> to turn the progress bars off even on a terminal.</td>
 </tr>
 <tr>
-<td><code>PIXI_SBOM_ANACONDA_URL</code></td>
-<td>Base of the anaconda.org API used by <code>--report outdated</code> for conda packages (default <code>https://api.anaconda.org</code>).</td>
+<td><code>PIXI_SBOM_CONDAPKG_URL</code></td>
+<td>Base of the conda package index used by <code>--report outdated</code> for conda packages (default <code>https://api.anaconda.org</code>). <code>PIXI_SBOM_ANACONDA_URL</code> is the older spelling and is still accepted; the canonical one wins when both are set.</td>
 </tr>
 <tr>
 <td><code>PIXI_SBOM_SCORECARD_URL</code></td>
