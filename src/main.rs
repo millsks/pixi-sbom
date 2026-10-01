@@ -1231,7 +1231,11 @@ fn every_service() -> Vec<http::Service> {
         http::Service::fixed("conda-forge PyPI mapping", mapping::PREFIX_MAPPING_URL),
         http::Service::new("OSV", osv::api_url(), osv::API_URL_ENV),
         http::Service::new("CISA KEV", kev::url(), kev::URL_ENV),
-        http::Service::new("anaconda.org", outdated::anaconda_url(), outdated::ANACONDA_URL_ENV),
+        http::Service::new(
+            "conda package index",
+            outdated::anaconda_url(),
+            outdated::ANACONDA_URL_ENV,
+        ),
         http::Service::new("OpenSSF Scorecard", scorecard::url(), scorecard::SCORECARD_URL_ENV),
     ]
 }
@@ -1261,7 +1265,7 @@ fn network_configuration(args: &cli::Args, fetch_licenses: bool, tls_roots: &htt
     }
     if args.report == Some(report::ReportKind::Outdated) {
         services.push(http::Service::new(
-            "anaconda.org",
+            "conda package index",
             outdated::anaconda_url(),
             outdated::ANACONDA_URL_ENV,
         ));

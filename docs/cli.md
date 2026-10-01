@@ -1013,7 +1013,7 @@ Six have a fixed address, and each can be pointed somewhere else:
 | conda-forge PyPI mapping | `https://conda-mapping.prefix.dev/compressed-v0/compressed_mapping.json` | `--pypi-mapping prefix` | `--pypi-mapping-file <FILE>` |
 | OSV | `https://api.osv.dev` | `--vulnerabilities osv` | `PIXI_SBOM_OSV_URL` |
 | CISA KEV | `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json` | `--kev` | `PIXI_SBOM_KEV_URL` |
-| anaconda.org | `https://api.anaconda.org` | `--report outdated` | `PIXI_SBOM_ANACONDA_URL` |
+| conda package index | `https://api.anaconda.org` | `--report outdated` | `PIXI_SBOM_ANACONDA_URL` |
 | OpenSSF Scorecard | `https://api.securityscorecards.dev` | `--scorecard` | `PIXI_SBOM_SCORECARD_URL` |
 
 Two more have no fixed address, because they are fetched from wherever each package says it lives. Both read a few
@@ -1061,7 +1061,7 @@ Upstreams
                              https://api.osv.dev (default)
   CISA KEV                   ok 200, 114 ms
                              https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json (default)
-  anaconda.org               ok 200, 196 ms
+  conda package index        ok 200, 196 ms
                              https://api.anaconda.org (default)
   OpenSSF Scorecard          ok 200, 162 ms
                              https://api.securityscorecards.dev (default)

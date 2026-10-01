@@ -904,7 +904,7 @@ fn doctor_probes_every_upstream_and_fails_when_one_is_unreachable() {
         "conda-forge PyPI mapping",
         "OSV",
         "CISA KEV",
-        "anaconda.org",
+        "conda package index",
         "OpenSSF Scorecard",
     ] {
         assert!(text.contains(upstream), "bare --doctor must probe {upstream}: {text}");
@@ -921,8 +921,8 @@ fn doctor_probes_every_upstream_and_fails_when_one_is_unreachable() {
     .unwrap();
     assert!(text.contains("OSV"), "{text}");
     assert!(
-        !text.contains("anaconda.org"),
-        "--vulnerabilities must not drag in anaconda.org: {text}"
+        !text.contains("conda package index"),
+        "--vulnerabilities must not drag in the conda package index: {text}"
     );
 
     // It needs no lockfile at all.
