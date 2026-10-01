@@ -216,6 +216,14 @@ impl Service {
         }
     }
 
+    /// A service whose address was already resolved, carrying the variable that set it.
+    ///
+    /// For an upstream with more than one accepted spelling, where the caller knows which one
+    /// answered and [`Service::new`] could only guess.
+    pub fn resolved(name: &'static str, url: String, from_env: Option<&'static str>) -> Self {
+        Self { name, url, from_env }
+    }
+
     /// A service with no override.
     pub fn fixed(name: &'static str, url: impl Into<String>) -> Self {
         Self {

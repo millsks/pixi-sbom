@@ -1231,11 +1231,10 @@ fn every_service() -> Vec<http::Service> {
         http::Service::fixed("conda-forge PyPI mapping", mapping::PREFIX_MAPPING_URL),
         http::Service::new("OSV", osv::api_url(), osv::API_URL_ENV),
         http::Service::new("CISA KEV", kev::url(), kev::URL_ENV),
-        http::Service::new(
-            "conda package index",
-            outdated::anaconda_url(),
-            outdated::ANACONDA_URL_ENV,
-        ),
+        {
+            let (url, from_env) = outdated::url_source();
+            http::Service::resolved("conda package index", url, from_env)
+        },
         http::Service::new("OpenSSF Scorecard", scorecard::url(), scorecard::SCORECARD_URL_ENV),
     ]
 }
@@ -1264,11 +1263,8 @@ fn network_configuration(args: &cli::Args, fetch_licenses: bool, tls_roots: &htt
         services.push(http::Service::new("CISA KEV", kev::url(), kev::URL_ENV));
     }
     if args.report == Some(report::ReportKind::Outdated) {
-        services.push(http::Service::new(
-            "conda package index",
-            outdated::anaconda_url(),
-            outdated::ANACONDA_URL_ENV,
-        ));
+        let (url, from_env) = outdated::url_source();
+        services.push(http::Service::resolved("conda package index", url, from_env));
     }
     if args.scorecard {
         services.push(http::Service::new(
