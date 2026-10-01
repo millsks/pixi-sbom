@@ -357,7 +357,7 @@ fn the_page_lists_every_environment_variable_the_code_reads() {
         }
     }
     // Test-only plumbing is not part of the surface and is not promised.
-    read.remove("PIXI_SBOM_TEST_URL");
+    read.retain(|name| !name.starts_with("PIXI_SBOM_TEST_"));
     assert!(read.len() > 8, "expected the whole environment surface");
 
     let listed = quoted(&section(&page(), "## Environment variables"), "PIXI_SBOM_");

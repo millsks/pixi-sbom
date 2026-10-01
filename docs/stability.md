@@ -102,6 +102,9 @@ a typo cannot pass silently and you are never left guessing at the spelling.
 | `PIXI_SBOM_KEV_URL` | Where to fetch the CISA catalog. |
 | `PIXI_SBOM_PYPI_URL` | Where to read PyPI metadata. |
 | `PIXI_SBOM_ANACONDA_URL` | Where to read anaconda.org metadata. |
+| `PIXI_SBOM_MAPPING_URL` | Where to download the conda-to-PyPI name mapping. |
+| `PIXI_SBOM_CONDA_ARCHIVE_URL` | Base that conda package archives are read from, in place of each package's own host. |
+| `PIXI_SBOM_WHEEL_ARCHIVE_URL` | Base that PyPI wheel archives are read from, in place of each wheel's own host. |
 | `PIXI_SBOM_SCORECARD_URL` | Where to query OpenSSF Scorecard. |
 
 Also read, and owned by other tools: `SSL_CERT_FILE`, `PIXI_CACHE_DIR`, `RATTLER_CACHE_DIR`,

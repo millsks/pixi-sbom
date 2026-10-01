@@ -6,8 +6,8 @@
 
 use pixi_sbom::{
     auditable, batch, cache, cli, concurrency, condaarchive, config, diff, discover, doctor, embedded, explain, filter,
-    format, fromsbom, http, imports, kev, license, lock, manifest, mapping, model, osv, outdated, phantom, pkgcache,
-    policy, prefix, progress, pypi, report, scorecard, style, timings, vulnpolicy, wheel,
+    format, fromsbom, http, imports, kev, license, lock, manifest, mapping, mirror, model, osv, outdated, phantom,
+    pkgcache, policy, prefix, progress, pypi, report, scorecard, style, timings, vulnpolicy, wheel,
 };
 
 /// The system allocator on macOS and Windows is slow under the many small allocations a
@@ -1220,6 +1220,18 @@ fn selects_an_upstream(args: &cli::Args, fetch_licenses: bool) -> bool {
         || args.report == Some(report::ReportKind::Outdated)
 }
 
+/// The archive mirrors, when the operator named one. Without a base these hosts come from each
+/// package's own URL and there is nothing single to probe.
+fn archive_services() -> Vec<http::Service> {
+    [
+        ("conda package archives", mirror::CONDA_ARCHIVE_URL_ENV),
+        ("PyPI wheel archives", mirror::WHEEL_ARCHIVE_URL_ENV),
+    ]
+    .into_iter()
+    .filter_map(|(name, env)| mirror::base(env).map(|url| http::Service::new(name, url, env)))
+    .collect()
+}
+
 /// Every upstream this build can reach, for a `--doctor` run that named no flags.
 ///
 /// `--report outdated` is the only thing that reaches anaconda.org and `--doctor` conflicts with
@@ -1228,7 +1240,11 @@ fn selects_an_upstream(args: &cli::Args, fetch_licenses: bool) -> bool {
 fn every_service() -> Vec<http::Service> {
     vec![
         http::Service::new("PyPI index", pypi::index_url(), pypi::INDEX_URL_ENV),
-        http::Service::fixed("conda-forge PyPI mapping", mapping::PREFIX_MAPPING_URL),
+        http::Service::new(
+            "conda-forge PyPI mapping",
+            mapping::mapping_url(),
+            mapping::MAPPING_URL_ENV,
+        ),
         http::Service::new("OSV", osv::api_url(), osv::API_URL_ENV),
         http::Service::new("CISA KEV", kev::url(), kev::URL_ENV),
         http::Service::new(
@@ -1238,6 +1254,9 @@ fn every_service() -> Vec<http::Service> {
         ),
         http::Service::new("OpenSSF Scorecard", scorecard::url(), scorecard::SCORECARD_URL_ENV),
     ]
+    .into_iter()
+    .chain(archive_services())
+    .collect()
 }
 
 /// The upstreams this run may use, given the flags, with their addresses resolved the way the
@@ -1252,9 +1271,10 @@ fn network_configuration(args: &cli::Args, fetch_licenses: bool, tls_roots: &htt
         services.push(http::Service::new("PyPI index", pypi::index_url(), pypi::INDEX_URL_ENV));
     }
     if args.pypi_mapping == cli::PypiMappingSource::Prefix {
-        services.push(http::Service::fixed(
+        services.push(http::Service::new(
             "conda-forge PyPI mapping",
-            mapping::PREFIX_MAPPING_URL,
+            mapping::mapping_url(),
+            mapping::MAPPING_URL_ENV,
         ));
     }
     if args.vulnerabilities.is_some() {
@@ -1280,10 +1300,15 @@ fn network_configuration(args: &cli::Args, fetch_licenses: bool, tls_roots: &htt
     // Wheels and conda archives are fetched from wherever each package says it lives, so there
     // is no one address to name; the requests themselves are logged.
     if fetch_licenses || args.embedded_sboms {
-        services.push(http::Service::fixed(
-            "package archives",
-            "each package's own download URL",
-        ));
+        let named = archive_services();
+        if named.is_empty() {
+            services.push(http::Service::fixed(
+                "package archives",
+                "each package's own download URL",
+            ));
+        } else {
+            services.extend(named);
+        }
     }
     http::Configuration::resolve(services, mapping::cache_dir(), tls_roots)
 }

@@ -66,6 +66,7 @@ struct Job {
 
 /// Fill in details for every PyPI wheel in the SBOM. Texts are read only with `texts`.
 pub fn enrich(sbom: &mut Sbom, cache_dir: &Path, texts: bool, progress: crate::progress::Progress) -> Outcome {
+    let mirror_base = crate::mirror::base(crate::mirror::WHEEL_ARCHIVE_URL_ENV);
     let mut outcome = Outcome::default();
     let mut jobs = Vec::new();
     for (index, package) in sbom.packages.iter().enumerate() {
@@ -81,7 +82,10 @@ pub fn enrich(sbom: &mut Sbom, cache_dir: &Path, texts: bool, progress: crate::p
         jobs.push(Job {
             index,
             name: package.name.clone(),
-            location: package.location.clone(),
+            location: mirror_base
+                .as_deref()
+                .map(|base| crate::mirror::rewrite(&package.location, base, false))
+                .unwrap_or_else(|| package.location.clone()),
             key,
         });
     }

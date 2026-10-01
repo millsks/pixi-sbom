@@ -1010,7 +1010,7 @@ Six have a fixed address, and each can be pointed somewhere else:
 | Upstream | Default address | Reached by | Override |
 |---|---|---|---|
 | PyPI index | `https://pypi.org/pypi` | `--fetch-licenses`, `--report outdated` | `PIXI_SBOM_PYPI_URL` |
-| conda-forge PyPI mapping | `https://conda-mapping.prefix.dev/compressed-v0/compressed_mapping.json` | `--pypi-mapping prefix` | `--pypi-mapping-file <FILE>` |
+| conda-forge PyPI mapping | `https://conda-mapping.prefix.dev/compressed-v0/compressed_mapping.json` | `--pypi-mapping prefix` | `PIXI_SBOM_MAPPING_URL`, or `--pypi-mapping-file <FILE>` for a copy on disk |
 | OSV | `https://api.osv.dev` | `--vulnerabilities osv` | `PIXI_SBOM_OSV_URL` |
 | CISA KEV | `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json` | `--kev` | `PIXI_SBOM_KEV_URL` |
 | conda package index | `https://api.anaconda.org` | `--report outdated` | `PIXI_SBOM_ANACONDA_URL` |
@@ -1019,10 +1019,33 @@ Six have a fixed address, and each can be pointed somewhere else:
 Two more have no fixed address, because they are fetched from wherever each package says it lives. Both read a few
 kilobytes out of the archive with HTTP range requests rather than downloading it:
 
-| Upstream | Address | Reached by |
-|---|---|---|
-| Conda package archives | each package's own `url` in the lockfile, so `conda.anaconda.org` for conda-forge and your own host for a private channel | `--fetch-licenses`, and only for packages missing from the local package cache |
-| PyPI wheel archives | each wheel's own URL, usually `files.pythonhosted.org` | `--fetch-licenses`, `--embedded-sboms` |
+| Upstream | Address | Reached by | Override |
+|---|---|---|---|
+| Conda package archives | each package's own `url` in the lockfile, so `conda.anaconda.org` for conda-forge and your own host for a private channel | `--fetch-licenses`, and only for packages missing from the local package cache | `PIXI_SBOM_CONDA_ARCHIVE_URL` |
+| PyPI wheel archives | each wheel's own URL, usually `files.pythonhosted.org` | `--fetch-licenses`, `--embedded-sboms` | `PIXI_SBOM_WHEEL_ARCHIVE_URL` |
+
+Those two take a base rather than a full address, because there is one URL per package rather than one for the
+upstream. The rules differ, because the two URL shapes do:
+
+```
+PIXI_SBOM_CONDA_ARCHIVE_URL=https://mirror.internal
+  https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-h1.conda
+  -> https://mirror.internal/conda-forge/linux-64/zlib-1.3.1-h1.conda
+
+PIXI_SBOM_WHEEL_ARCHIVE_URL=https://mirror.internal/pypi
+  https://files.pythonhosted.org/packages/b7/ce/149a00.../six-1.17.0-py2.py3-none-any.whl
+  -> https://mirror.internal/pypi/packages/b7/ce/149a00.../six-1.17.0-py2.py3-none-any.whl
+```
+
+A conda URL decomposes into channel, subdir and filename, so the last three segments move onto the new base and
+any host serving a conda channel layout works. A wheel's path is `packages/<2>/<2>/<hash>/<file>` where the hash is
+assigned by PyPI's CDN and cannot be derived from the name and version, so only the host is replaced and the path is
+kept. **That is correct for a transparent proxy in front of `files.pythonhosted.org` and wrong for a mirror with a
+layout of its own**, such as devpi or Artifactory serving their own paths.
+
+Setting either base rewrites every archive URL of that kind, including packages from a channel that was already
+reachable: naming the base says it serves them. A URL that cannot be mapped is logged and used unchanged rather
+than guessed at. With a base set, `--doctor` probes it like any other upstream.
 
 Notes that matter on a restricted network:
 
@@ -1217,6 +1240,9 @@ To narrow the log to the part of the tool you are chasing — the requests, one 
 | `PIXI_SBOM_CONCURRENCY` | How many jobs run at once: requests in flight and threads for local work. Default: one thread per core, and no more than ten requests in flight however many cores there are. A value that is not a positive number is named in the log and ignored. |
 | `PIXI_SBOM_NO_PROGRESS` | Set to `1` to turn the progress bars off even on a terminal. |
 | `PIXI_SBOM_ANACONDA_URL` | Base of the anaconda.org API used by `--report outdated` for conda packages (default `https://api.anaconda.org`). |
+| `PIXI_SBOM_MAPPING_URL` | Where to download the conda-to-PyPI name mapping (default `https://conda-mapping.prefix.dev/compressed-v0/compressed_mapping.json`). `--pypi-mapping-file` reads one from disk instead. |
+| `PIXI_SBOM_CONDA_ARCHIVE_URL` | Base that conda package archives are read from, replacing each package's own host. |
+| `PIXI_SBOM_WHEEL_ARCHIVE_URL` | Base that PyPI wheel archives are read from, replacing each wheel's own host and keeping its path. |
 | `PIXI_SBOM_SCORECARD_URL` | Base of the OpenSSF Scorecard API used by `--scorecard` (default `https://api.securityscorecards.dev`). |
 | `PIXI_SBOM_KEV_URL` | Where `--kev` downloads CISA's Known Exploited Vulnerabilities catalog (default `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json`). |
 | `PIXI_SBOM_PYPI_URL` | Base of the PyPI JSON API queried by `--fetch-licenses` (default `https://pypi.org/pypi`); point it at a mirror such as devpi or Artifactory. |

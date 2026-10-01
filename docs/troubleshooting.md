@@ -104,9 +104,13 @@ does allow:
 | `PIXI_SBOM_ANACONDA_URL` | The anaconda.org API used by `--report outdated` |
 | `PIXI_SBOM_SCORECARD_URL` | The OpenSSF Scorecard API |
 | `PIXI_SBOM_KEV_URL` | The CISA KEV catalog |
+| `PIXI_SBOM_MAPPING_URL` | The conda-to-PyPI name mapping |
+| `PIXI_SBOM_CONDA_ARCHIVE_URL` | Base for conda package archives, replacing each package's own host |
+| `PIXI_SBOM_WHEEL_ARCHIVE_URL` | Base for PyPI wheel archives, replacing each wheel's host and keeping its path |
 
-`--pypi-mapping-file <FILE>` takes the conda → PyPI name mapping from disk instead of downloading it, which is
-the one download an air-gapped run of `--vulnerabilities osv` over conda packages cannot do without.
+`--pypi-mapping-file <FILE>` takes the conda → PyPI name mapping from disk instead of downloading it, for a run
+with no network at all. That mapping is what an air-gapped run of `--vulnerabilities osv` over conda packages
+cannot do without.
 
 ## 3. Read the requests
 

@@ -936,6 +936,58 @@ fn doctor_probes_every_upstream_and_fails_when_one_is_unreachable() {
 }
 
 #[test]
+fn an_archive_mirror_is_probed_by_doctor_and_named_by_its_variable() {
+    let dir = workspace("with-pypi");
+    let text = String::from_utf8(
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "200")
+            .env("PIXI_SBOM_MAPPING_URL", "https://mirror.invalid/mapping.json")
+            .env("PIXI_SBOM_CONDA_ARCHIVE_URL", "https://mirror.invalid")
+            .env("PIXI_SBOM_WHEEL_ARCHIVE_URL", "https://mirror.invalid/pypi")
+            .args(["--doctor", "--color", "never"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+
+    // The archive upstreams have no single address until a base names one, so they appear only now.
+    for (upstream, variable) in [
+        ("conda package archives", "PIXI_SBOM_CONDA_ARCHIVE_URL"),
+        ("PyPI wheel archives", "PIXI_SBOM_WHEEL_ARCHIVE_URL"),
+        ("conda-forge PyPI mapping", "PIXI_SBOM_MAPPING_URL"),
+    ] {
+        assert!(text.contains(upstream), "{upstream} missing: {text}");
+        assert!(
+            text.contains(variable),
+            "{variable} should be named as the source: {text}"
+        );
+    }
+
+    // Without the bases there is nothing single to probe, so they are absent again.
+    let bare = String::from_utf8(
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(["--doctor", "--color", "never"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(!bare.contains("conda package archives"), "{bare}");
+    assert!(!bare.contains("PyPI wheel archives"), "{bare}");
+}
+
+#[test]
 fn every_gate_that_fired_is_named_with_the_one_that_chose_the_exit_code() {
     let dir = workspace("with-pypi");
 

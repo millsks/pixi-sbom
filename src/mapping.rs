@@ -26,6 +26,22 @@ use crate::purl;
 /// Where the compressed conda-forge mapping is published.
 pub const PREFIX_MAPPING_URL: &str = "https://conda-mapping.prefix.dev/compressed-v0/compressed_mapping.json";
 
+/// Environment variable naming the mapping to download instead.
+pub const MAPPING_URL_ENV: &str = "PIXI_SBOM_MAPPING_URL";
+
+/// The mapping URL from the environment or the default.
+///
+/// `--pypi-mapping-file` reads one from disk; this is for a mirror that serves the same document,
+/// on a network where `conda-mapping.prefix.dev` is blocked. Without either, conda packages keep
+/// only their `pkg:conda` identity, which no advisory database indexes.
+pub fn mapping_url() -> String {
+    std::env::var(MAPPING_URL_ENV)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| PREFIX_MAPPING_URL.to_string())
+}
+
 /// How long a downloaded mapping is reused before it is fetched again.
 pub const CACHE_MAX_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 
@@ -165,10 +181,11 @@ impl PypiMapping {
         }
         crate::cache::miss(crate::cache::Service::Mapping);
 
-        tracing::info!(url = PREFIX_MAPPING_URL, "downloading the conda-forge PyPI mapping");
-        match download(PREFIX_MAPPING_URL) {
+        let url = mapping_url();
+        tracing::info!(url = %url, "downloading the conda-forge PyPI mapping");
+        match download(&url) {
             Ok(json) => {
-                let mapping = Self::from_json(&json, PREFIX_MAPPING_URL, "prefix")?;
+                let mapping = Self::from_json(&json, &url, "prefix")?;
                 if crate::cache::may_write(crate::cache::Service::Mapping)
                     && let Err(err) =
                         std::fs::create_dir_all(cache_dir).and_then(|()| std::fs::write(&cache_file, &json))
@@ -188,7 +205,7 @@ impl PypiMapping {
                     Self::from_json(&json, &cache_file.display().to_string(), "prefix")
                 }
                 None => Err(MappingError::Fetch {
-                    url: PREFIX_MAPPING_URL.to_string(),
+                    url: url.clone(),
                     source,
                 }),
             },

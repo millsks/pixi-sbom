@@ -57,6 +57,7 @@ pub fn enrich(
     texts: bool,
     progress: crate::progress::Progress,
 ) -> Outcome {
+    let mirror_base = crate::mirror::base(crate::mirror::CONDA_ARCHIVE_URL_ENV);
     let mut outcome = Outcome::default();
     let mut jobs = Vec::new();
     for &index in indexes {
@@ -95,7 +96,10 @@ pub fn enrich(
         jobs.push(Job {
             index,
             name: package.name.clone(),
-            location: package.location.clone(),
+            location: mirror_base
+                .as_deref()
+                .map(|base| crate::mirror::rewrite(&package.location, base, true))
+                .unwrap_or_else(|| package.location.clone()),
             key,
         });
     }
