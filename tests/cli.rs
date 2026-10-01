@@ -936,7 +936,7 @@ fn doctor_probes_every_upstream_and_fails_when_one_is_unreachable() {
 }
 
 #[test]
-fn an_archive_mirror_is_probed_by_doctor_and_named_by_its_variable() {
+fn doctor_probes_the_archive_hosts_from_the_base_or_the_lockfile() {
     let dir = workspace("with-pypi");
     let text = String::from_utf8(
         pixi_sbom()
@@ -956,7 +956,7 @@ fn an_archive_mirror_is_probed_by_doctor_and_named_by_its_variable() {
     )
     .unwrap();
 
-    // The archive upstreams have no single address until a base names one, so they appear only now.
+    // A configured base is what the archives are probed at, and it is named as the source.
     for (upstream, variable) in [
         ("conda package archives", "PIXI_SBOM_CONDA_ARCHIVE_URL"),
         ("PyPI wheel archives", "PIXI_SBOM_WHEEL_ARCHIVE_URL"),
@@ -969,12 +969,13 @@ fn an_archive_mirror_is_probed_by_doctor_and_named_by_its_variable() {
         );
     }
 
-    // Without the bases there is nothing single to probe, so they are absent again.
+    // Without a base the archives are still probed, from the hosts the lockfile itself names.
     let bare = String::from_utf8(
         pixi_sbom()
             .current_dir(dir.path())
             .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
             .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "200")
             .args(["--doctor", "--color", "never"])
             .assert()
             .success()
@@ -983,8 +984,16 @@ fn an_archive_mirror_is_probed_by_doctor_and_named_by_its_variable() {
             .clone(),
     )
     .unwrap();
-    assert!(!bare.contains("conda package archives"), "{bare}");
-    assert!(!bare.contains("PyPI wheel archives"), "{bare}");
+    assert!(bare.contains("conda package archives"), "{bare}");
+    assert!(bare.contains("PyPI wheel archives"), "{bare}");
+    assert!(
+        bare.contains("(pixi.lock)"),
+        "the archive hosts should be attributed to the lockfile: {bare}"
+    );
+    assert!(
+        bare.contains("https://conda.anaconda.org"),
+        "the fixture's own conda host should be the one probed: {bare}"
+    );
 }
 
 #[test]

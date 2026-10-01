@@ -1220,16 +1220,56 @@ fn selects_an_upstream(args: &cli::Args, fetch_licenses: bool) -> bool {
         || args.report == Some(report::ReportKind::Outdated)
 }
 
-/// The archive mirrors, when the operator named one. Without a base these hosts come from each
-/// package's own URL and there is nothing single to probe.
-fn archive_services() -> Vec<http::Service> {
-    [
-        ("conda package archives", mirror::CONDA_ARCHIVE_URL_ENV),
-        ("PyPI wheel archives", mirror::WHEEL_ARCHIVE_URL_ENV),
-    ]
-    .into_iter()
-    .filter_map(|(name, env)| mirror::base(env).map(|url| http::Service::new(name, url, env)))
-    .collect()
+/// The archive hosts this run would read from, in the order the answer is trusted: the base the
+/// operator named, else the hosts the lockfile itself names, else the public defaults.
+///
+/// `--fetch-licenses` reads a few kilobytes out of each package's archive, so these are real
+/// upstreams. They had no single address to probe until now, which let `--doctor` report every
+/// upstream answering while every wheel was about to fail.
+fn archive_services(lockfile: Option<&std::path::Path>) -> Vec<http::Service> {
+    let named = |name: &'static str, env: &'static str| mirror::base(env).map(|url| http::Service::new(name, url, env));
+    let from_lock = lockfile
+        .and_then(|path| std::fs::read_to_string(path).ok())
+        .map(|text| mirror::archive_hosts(&text));
+
+    let mut services = Vec::new();
+    for (name, env, from_lock_hosts, fallback) in [
+        (
+            "conda package archives",
+            mirror::CONDA_ARCHIVE_URL_ENV,
+            from_lock.as_ref().map(|(conda, _)| conda),
+            mirror::DEFAULT_CONDA_ARCHIVE_HOST,
+        ),
+        (
+            "PyPI wheel archives",
+            mirror::WHEEL_ARCHIVE_URL_ENV,
+            from_lock.as_ref().map(|(_, wheel)| wheel),
+            mirror::DEFAULT_WHEEL_ARCHIVE_HOST,
+        ),
+    ] {
+        if let Some(service) = named(name, env) {
+            services.push(service);
+        } else if let Some(hosts) = from_lock_hosts {
+            // A lockfile that names no archive of this kind has nothing to probe for it.
+            services.extend(
+                hosts
+                    .iter()
+                    .map(|host| http::Service::sourced(name, host.clone(), "pixi.lock")),
+            );
+        } else {
+            services.push(http::Service::fixed(name, fallback));
+        }
+    }
+    services
+}
+
+/// The lockfile `--doctor` should read for archive hosts, when one can be found.
+///
+/// Opportunistic: `--doctor` is documented to need no lockfile, so a failure here is silence
+/// rather than an error.
+fn doctor_lockfile(args: &cli::Args) -> Option<std::path::PathBuf> {
+    let start = std::env::current_dir().ok()?;
+    discover::resolve_lockfile(args.lockfile.as_deref(), &start).ok()
 }
 
 /// Every upstream this build can reach, for a `--doctor` run that named no flags.
@@ -1237,7 +1277,7 @@ fn archive_services() -> Vec<http::Service> {
 /// `--report outdated` is the only thing that reaches anaconda.org and `--doctor` conflicts with
 /// `--report`, so without this the one host a restricted network is most likely to block could
 /// never be probed at all.
-fn every_service() -> Vec<http::Service> {
+fn every_service(lockfile: Option<&std::path::Path>) -> Vec<http::Service> {
     vec![
         http::Service::new("PyPI index", pypi::index_url(), pypi::INDEX_URL_ENV),
         http::Service::new(
@@ -1255,7 +1295,7 @@ fn every_service() -> Vec<http::Service> {
         http::Service::new("OpenSSF Scorecard", scorecard::url(), scorecard::SCORECARD_URL_ENV),
     ]
     .into_iter()
-    .chain(archive_services())
+    .chain(archive_services(lockfile))
     .collect()
 }
 
@@ -1263,7 +1303,8 @@ fn every_service() -> Vec<http::Service> {
 /// code that calls them resolves them.
 fn network_configuration(args: &cli::Args, fetch_licenses: bool, tls_roots: &http::TlsRoots) -> http::Configuration {
     if args.doctor && !selects_an_upstream(args, fetch_licenses) {
-        return http::Configuration::resolve(every_service(), mapping::cache_dir(), tls_roots);
+        let lockfile = doctor_lockfile(args);
+        return http::Configuration::resolve(every_service(lockfile.as_deref()), mapping::cache_dir(), tls_roots);
     }
     let mut services = Vec::new();
     // Wheel metadata and release facts both come from the index.
@@ -1300,15 +1341,7 @@ fn network_configuration(args: &cli::Args, fetch_licenses: bool, tls_roots: &htt
     // Wheels and conda archives are fetched from wherever each package says it lives, so there
     // is no one address to name; the requests themselves are logged.
     if fetch_licenses || args.embedded_sboms {
-        let named = archive_services();
-        if named.is_empty() {
-            services.push(http::Service::fixed(
-                "package archives",
-                "each package's own download URL",
-            ));
-        } else {
-            services.extend(named);
-        }
+        services.extend(archive_services(doctor_lockfile(args).as_deref()));
     }
     http::Configuration::resolve(services, mapping::cache_dir(), tls_roots)
 }

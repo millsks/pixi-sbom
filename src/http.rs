@@ -201,8 +201,9 @@ pub struct Service {
     /// What it is, in words: `PyPI index`, `OSV`, `CISA KEV`.
     pub name: &'static str,
     pub url: String,
-    /// The environment variable that set it, when one did.
-    pub from_env: Option<&'static str>,
+    /// Where the address came from: an environment variable, `pixi.lock`, or nothing when it is
+    /// the built-in default.
+    pub origin: Option<&'static str>,
 }
 
 impl Service {
@@ -212,7 +213,17 @@ impl Service {
         Self {
             name,
             url,
-            from_env: overridden.then_some(env),
+            origin: overridden.then_some(env),
+        }
+    }
+
+    /// A service whose address came from somewhere that is not an environment variable, named for
+    /// the report: the lockfile, for instance.
+    pub fn sourced(name: &'static str, url: String, origin: &'static str) -> Self {
+        Self {
+            name,
+            url,
+            origin: Some(origin),
         }
     }
 
@@ -221,13 +232,13 @@ impl Service {
         Self {
             name,
             url: url.into(),
-            from_env: None,
+            origin: None,
         }
     }
 
     /// Where the address came from, for the log and for `--doctor`.
     pub fn source(&self) -> &str {
-        self.from_env.unwrap_or("default")
+        self.origin.unwrap_or("default")
     }
 }
 
@@ -690,7 +701,7 @@ mod tests {
         unsafe { std::env::remove_var("PIXI_SBOM_TEST_URL") };
         let service = Service::new("OSV", "https://api.osv.dev".into(), "PIXI_SBOM_TEST_URL");
         assert_eq!(service.source(), "default");
-        assert_eq!(service.from_env, None);
+        assert_eq!(service.origin, None);
 
         unsafe { std::env::set_var("PIXI_SBOM_TEST_URL", "https://mirror.internal") };
         let service = Service::new("OSV", "https://mirror.internal".into(), "PIXI_SBOM_TEST_URL");

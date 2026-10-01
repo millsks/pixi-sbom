@@ -19,6 +19,40 @@
 //! channel that was already reachable. Naming the base is an explicit statement that it serves
 //! them.
 
+/// The default archive hosts, for a `--doctor` run with no lockfile to read.
+pub const DEFAULT_CONDA_ARCHIVE_HOST: &str = "https://conda.anaconda.org";
+pub const DEFAULT_WHEEL_ARCHIVE_HOST: &str = "https://files.pythonhosted.org";
+
+/// The distinct archive hosts a lockfile names, as `(conda, wheel)`.
+///
+/// Read from the text rather than the parsed lockfile on purpose: `--doctor` should not have to
+/// choose an environment and a platform to answer "which hosts would this workspace use", and a
+/// scan covers every environment at once. The kind is taken from the file extension, which is what
+/// decides whether `condaarchive` or `wheel` would read it.
+pub fn archive_hosts(lockfile: &str) -> (Vec<String>, Vec<String>) {
+    let (mut conda_hosts, mut wheel_hosts) = (Vec::new(), Vec::new());
+    for token in lockfile.split_whitespace() {
+        let url = token.trim_matches(|c: char| !c.is_ascii_graphic() || c == '"' || c == '\'');
+        if !url.starts_with("http://") && !url.starts_with("https://") {
+            continue;
+        }
+        let Some((host_end, _)) = segments(url) else { continue };
+        let host = url[..host_end].to_string();
+        let path = url[host_end..].split('?').next().unwrap_or_default();
+        let into = if path.ends_with(".conda") || path.ends_with(".tar.bz2") {
+            &mut conda_hosts
+        } else if path.ends_with(".whl") || path.ends_with(".tar.gz") || path.ends_with(".zip") {
+            &mut wheel_hosts
+        } else {
+            continue;
+        };
+        if !into.contains(&host) {
+            into.push(host);
+        }
+    }
+    (conda_hosts, wheel_hosts)
+}
+
 /// Environment variable naming the base that conda package archives are read from.
 pub const CONDA_ARCHIVE_URL_ENV: &str = "PIXI_SBOM_CONDA_ARCHIVE_URL";
 
@@ -93,6 +127,27 @@ pub fn rewrite(location: &str, base: &str, conda_kind: bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn archive_hosts_are_split_by_what_would_read_them() {
+        let lockfile = r#"
+          - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-h1.conda
+          - conda: https://conda.anaconda.org/conda-forge/noarch/tzdata-2026a-h0.conda
+          - conda: https://mirror.internal/private/linux-64/thing-1.0-h0.tar.bz2
+          - pypi: https://files.pythonhosted.org/packages/ab/cd/ef/six-1.17.0-py3-none-any.whl
+          - pypi: https://files.pythonhosted.org/packages/gh/ij/kl/other-1.0.tar.gz
+          url: https://conda.anaconda.org/conda-forge/linux-64/repodata.json
+        "#;
+        let (conda_hosts, wheel_hosts) = archive_hosts(lockfile);
+        // Distinct hosts, in the order first seen, and never duplicated.
+        assert_eq!(conda_hosts, ["https://conda.anaconda.org", "https://mirror.internal"]);
+        assert_eq!(wheel_hosts, ["https://files.pythonhosted.org"]);
+    }
+
+    #[test]
+    fn a_lockfile_with_no_archives_names_no_hosts() {
+        assert_eq!(archive_hosts("version: 6\nenvironments: {}"), (vec![], vec![]));
+    }
 
     #[test]
     fn conda_urls_move_channel_subdir_and_file_onto_the_base() {

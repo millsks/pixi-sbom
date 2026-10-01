@@ -1045,7 +1045,22 @@ layout of its own**, such as devpi or Artifactory serving their own paths.
 
 Setting either base rewrites every archive URL of that kind, including packages from a channel that was already
 reachable: naming the base says it serves them. A URL that cannot be mapped is logged and used unchanged rather
-than guessed at. With a base set, `--doctor` probes it like any other upstream.
+than guessed at.
+
+`--doctor` probes both either way. With a base set it probes that; otherwise it reads the hosts out of your
+`pixi.lock`, so a workspace solved against a private channel is checked against that channel rather than against
+a public host it never touches:
+
+```console
+$ pixi sbom --doctor
+  conda package archives     reachable, HTTP 403, 389 ms
+                             https://conda.anaconda.org (pixi.lock)
+  PyPI wheel archives        reachable, HTTP 404, 120 ms
+                             https://files.pythonhosted.org (pixi.lock)
+```
+
+With no lockfile to read it falls back to `conda.anaconda.org` and `files.pythonhosted.org`, marked `(default)`.
+A lockfile naming several channels yields one row per host.
 
 Notes that matter on a restricted network:
 
@@ -1062,8 +1077,9 @@ Notes that matter on a restricted network:
 
 `pixi sbom --doctor` answers "which service could not be reached, and why" without a lockfile, a workspace or
 `curl`. On its own it probes every fixed upstream in the table above, because the point of asking is that you do
-not yet know which one to suspect. The two archive upstreams have no single address, so they cannot be probed;
-everything else is:
+not yet know which one to suspect. The two archive upstreams have no fixed address, so it takes theirs from the
+base you configured, else from the hosts your own `pixi.lock` names, else the public defaults, and the source
+column says which:
 
 ```console
 $ pixi sbom --doctor
