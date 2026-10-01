@@ -888,9 +888,42 @@ fn doctor_probes_every_upstream_and_fails_when_one_is_unreachable() {
     assert!(text.contains("http://127.0.0.1:1 (PIXI_SBOM_OSV_URL)"), "{text}");
     assert!(text.contains("could not be reached: OSV."), "{text}");
 
-    // With no network flag there is nothing to probe, and it says what to add.
-    let text = String::from_utf8(run(&[], &[]).assert().success().get_output().stdout.clone()).unwrap();
-    assert!(text.contains("No upstream is in play"), "{text}");
+    // With no flag at all it probes every upstream the build knows about, which is the whole
+    // point of asking a diagnostic what is wrong: you do not yet know which one to suspect.
+    let text = String::from_utf8(
+        run(&[], &[("PIXI_SBOM_OFFLINE", "1")])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    for upstream in [
+        "PyPI index",
+        "conda-forge PyPI mapping",
+        "OSV",
+        "CISA KEV",
+        "anaconda.org",
+        "OpenSSF Scorecard",
+    ] {
+        assert!(text.contains(upstream), "bare --doctor must probe {upstream}: {text}");
+    }
+    // Naming the flags of a run still narrows the probe to those.
+    let text = String::from_utf8(
+        run(&["--vulnerabilities", "osv"], &[("PIXI_SBOM_OFFLINE", "1")])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(text.contains("OSV"), "{text}");
+    assert!(
+        !text.contains("anaconda.org"),
+        "--vulnerabilities must not drag in anaconda.org: {text}"
+    );
 
     // It needs no lockfile at all.
     let empty = tempfile::tempdir().unwrap();

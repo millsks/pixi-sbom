@@ -57,7 +57,7 @@ With no options this means:
 | `--vex-open <in-triage\|exploitable>` | `in-triage` | The analysis state the VEX gives findings nobody assessed with `--ignore-vuln`. |
 | `--version-details` (`--build-info`) | | Print the version with the target, the features compiled in, the caches, pixi's version and the network settings: the block to paste into a bug report. |
 | `--timings` | off | Print where the run spent its time, phase by phase, separating waiting on the network from working. |
-| `--doctor` | off | Probe every upstream the other flags bring in, print the configuration and the caches, and exit 1 if anything is unreachable. Needs no lockfile. |
+| `--doctor` | off | Probe every upstream this build knows about, print the configuration and the caches, and exit 1 if anything is unreachable. Naming the flags of a run narrows it to the upstreams that run uses. Needs no lockfile. |
 | `--refresh [<CACHE>...]` | off | Ignore cached answers this run and ask again; with no value every cache, else the named ones (`mapping`, `osv`, `kev`, `wheels`, `conda-info`, `pypi`, `outdated`, `scorecard`). What is fetched is still cached. |
 | `--no-cache` | off | Neither read nor write any cache. |
 
@@ -1000,10 +1000,79 @@ and the log to the collector.
 The format has to be chosen before anything can be logged, which is before the configuration file is read, so
 `--log-format` and `PIXI_SBOM_LOG_FORMAT` are the only ways to set it.
 
+## Every upstream it can reach
+
+A default run touches nothing. Generating a document from a lockfile is entirely offline, and so is
+`--pypi-mapping lock`, which is the default. Every address below is reached only by the option that names it.
+
+Six have a fixed address, and each can be pointed somewhere else:
+
+| Upstream | Default address | Reached by | Override |
+|---|---|---|---|
+| PyPI index | `https://pypi.org/pypi` | `--fetch-licenses`, `--report outdated` | `PIXI_SBOM_PYPI_URL` |
+| conda-forge PyPI mapping | `https://conda-mapping.prefix.dev/compressed-v0/compressed_mapping.json` | `--pypi-mapping prefix` | `--pypi-mapping-file <FILE>` |
+| OSV | `https://api.osv.dev` | `--vulnerabilities osv` | `PIXI_SBOM_OSV_URL` |
+| CISA KEV | `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json` | `--kev` | `PIXI_SBOM_KEV_URL` |
+| anaconda.org | `https://api.anaconda.org` | `--report outdated` | `PIXI_SBOM_ANACONDA_URL` |
+| OpenSSF Scorecard | `https://api.securityscorecards.dev` | `--scorecard` | `PIXI_SBOM_SCORECARD_URL` |
+
+Two more have no fixed address, because they are fetched from wherever each package says it lives. Both read a few
+kilobytes out of the archive with HTTP range requests rather than downloading it:
+
+| Upstream | Address | Reached by |
+|---|---|---|
+| Conda package archives | each package's own `url` in the lockfile, so `conda.anaconda.org` for conda-forge and your own host for a private channel | `--fetch-licenses`, and only for packages missing from the local package cache |
+| PyPI wheel archives | each wheel's own URL, usually `files.pythonhosted.org` | `--fetch-licenses`, `--embedded-sboms` |
+
+Notes that matter on a restricted network:
+
+- **`--kev` implies `--vulnerabilities`**, so enabling the KEV catalog also reaches OSV.
+- **`--scorecard` implies `--fetch-licenses`**, which is what collects the repository URLs, so it also reaches the
+  PyPI index and the package archives.
+- **Scorecard does not contact GitHub.** It turns a repository URL into a project path and asks its own API.
+- **The conda-forge mapping is the one with no environment variable.** Use `--pypi-mapping-file` to supply it from
+  disk. If it cannot be reached and has not been cached, conda packages silently keep only their `pkg:conda`
+  identity, which no advisory database indexes.
+- **`PIXI_SBOM_OFFLINE=1`** stops all of it and serves whatever is already cached.
+
 ## --doctor: is it the network?
 
 `pixi sbom --doctor` answers "which service could not be reached, and why" without a lockfile, a workspace or
-`curl`. Give it the flags of the run you are diagnosing and it probes exactly those upstreams:
+`curl`. On its own it probes every fixed upstream in the table above, because the point of asking is that you do
+not yet know which one to suspect. The two archive upstreams have no single address, so they cannot be probed;
+everything else is:
+
+```console
+$ pixi sbom --doctor
+Configuration
+  offline    false
+  proxy      none
+  no-proxy   none
+  TLS roots  the platform verifier (the operating system trust store)
+  timeout    120s
+  cache      /home/u/.cache/rattler/pixi-sbom (exists)
+
+Upstreams
+  PyPI index                 ok 200, 305 ms
+                             https://pypi.org/pypi (default)
+  conda-forge PyPI mapping   ok 200, 515 ms
+                             https://conda-mapping.prefix.dev/compressed-v0/compressed_mapping.json (default)
+  OSV                        reachable, HTTP 404, 163 ms
+                             https://api.osv.dev (default)
+  CISA KEV                   ok 200, 114 ms
+                             https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json (default)
+  anaconda.org               ok 200, 196 ms
+                             https://api.anaconda.org (default)
+  OpenSSF Scorecard          ok 200, 162 ms
+                             https://api.securityscorecards.dev (default)
+
+6 upstream(s) asked, all answered.
+```
+
+OSV answers 404 at its base address because its API lives under `/v1/`; the probe asks whether the host is there
+and speaking HTTP, so that is reported as reachable rather than as a failure.
+
+Give it the flags of a run instead and it narrows to exactly the upstreams that run uses:
 
 ```console
 $ pixi sbom --doctor --fetch-licenses --vulnerabilities osv

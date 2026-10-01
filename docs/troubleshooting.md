@@ -90,6 +90,10 @@ Error: pixi_sbom::http::ca_bundle
 
 ### A blocked host
 
+`pixi sbom --doctor` on its own probes every fixed upstream and names the ones that did not answer, so start
+there rather than guessing which flag reaches which host. [Every upstream it can
+reach](cli.md#every-upstream-it-can-reach) lists all eight addresses and the option that brings each one in.
+
 Where the host itself is unreachable and no proxy or CA will change that, point the tool at whatever the network
 does allow:
 

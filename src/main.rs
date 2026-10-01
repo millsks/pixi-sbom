@@ -1141,17 +1141,6 @@ fn run_doctor(network: &http::Configuration, palette: &style::Palette, out: &mut
         ),
     )?;
 
-    if network.services.is_empty() {
-        write(out, String::new())?;
-        write(
-            out,
-            palette.dim(
-                "No upstream is in play. Add the flags of the run you are diagnosing                  (--fetch-licenses, --vulnerabilities osv, --scorecard, ...) to probe them.",
-            ),
-        )?;
-        return Ok(true);
-    }
-
     let probes = doctor::probes(network, &doctor::request);
     write(out, String::new())?;
     write(out, palette.header("Upstreams"))?;
@@ -1217,9 +1206,42 @@ fn run_doctor(network: &http::Configuration, palette: &style::Palette, out: &mut
     Ok(failed.is_empty())
 }
 
+/// Whether any flag on this run selects an upstream.
+///
+/// `--doctor` on its own means "tell me about my setup", so it probes every upstream the build
+/// knows about rather than nothing at all; naming the flags of a run still narrows it to those.
+fn selects_an_upstream(args: &cli::Args, fetch_licenses: bool) -> bool {
+    fetch_licenses
+        || args.embedded_sboms
+        || args.kev
+        || args.scorecard
+        || args.vulnerabilities.is_some()
+        || args.pypi_mapping == cli::PypiMappingSource::Prefix
+        || args.report == Some(report::ReportKind::Outdated)
+}
+
+/// Every upstream this build can reach, for a `--doctor` run that named no flags.
+///
+/// `--report outdated` is the only thing that reaches anaconda.org and `--doctor` conflicts with
+/// `--report`, so without this the one host a restricted network is most likely to block could
+/// never be probed at all.
+fn every_service() -> Vec<http::Service> {
+    vec![
+        http::Service::new("PyPI index", pypi::index_url(), pypi::INDEX_URL_ENV),
+        http::Service::fixed("conda-forge PyPI mapping", mapping::PREFIX_MAPPING_URL),
+        http::Service::new("OSV", osv::api_url(), osv::API_URL_ENV),
+        http::Service::new("CISA KEV", kev::url(), kev::URL_ENV),
+        http::Service::new("anaconda.org", outdated::anaconda_url(), outdated::ANACONDA_URL_ENV),
+        http::Service::new("OpenSSF Scorecard", scorecard::url(), scorecard::SCORECARD_URL_ENV),
+    ]
+}
+
 /// The upstreams this run may use, given the flags, with their addresses resolved the way the
 /// code that calls them resolves them.
 fn network_configuration(args: &cli::Args, fetch_licenses: bool, tls_roots: &http::TlsRoots) -> http::Configuration {
+    if args.doctor && !selects_an_upstream(args, fetch_licenses) {
+        return http::Configuration::resolve(every_service(), mapping::cache_dir(), tls_roots);
+    }
     let mut services = Vec::new();
     // Wheel metadata and release facts both come from the index.
     if fetch_licenses || args.report == Some(report::ReportKind::Outdated) {
