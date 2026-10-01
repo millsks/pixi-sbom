@@ -16,19 +16,11 @@ use serde::Deserialize;
 use crate::http;
 use crate::model::{PackageKind, Sbom};
 
-/// Where conda versions are looked up; `PIXI_SBOM_CONDAPKG_URL` overrides it.
+/// Where conda versions are looked up; `PIXI_SBOM_ANACONDA_URL` overrides it.
 pub const DEFAULT_ANACONDA_URL: &str = "https://api.anaconda.org";
 
-/// Environment variable naming the conda package index base.
-pub const CONDAPKG_URL_ENV: &str = "PIXI_SBOM_CONDAPKG_URL";
-
-/// The older spelling of [`CONDAPKG_URL_ENV`], accepted permanently. It named one host, and the
-/// index is configurable, so the variable that points somewhere else should not be called after
-/// the place it is pointing away from.
+/// Environment variable naming the anaconda.org API base.
 pub const ANACONDA_URL_ENV: &str = "PIXI_SBOM_ANACONDA_URL";
-
-/// Both spellings, canonical first: the order they are consulted in.
-pub const URL_ENVS: [&str; 2] = [CONDAPKG_URL_ENV, ANACONDA_URL_ENV];
 
 /// Project documents list every release, so they change with each one: a day is long enough
 /// to make a CI run cheap and short enough to stay useful.
@@ -37,45 +29,12 @@ const CACHE_MAX_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 /// Largest project document accepted, in bytes.
 const MAX_BYTES: u64 = 32 * 1024 * 1024;
 
-/// The conda package index base from the environment or the default.
+/// The anaconda.org API base from the environment or the default.
 pub fn anaconda_url() -> String {
-    url_source().0
-}
-
-/// The configured base and the variable that set it, so `--doctor` and the log can name the
-/// spelling actually in effect rather than guessing which of the two it was.
-///
-/// `PIXI_SBOM_CONDAPKG_URL` wins when both are set; the older spelling is still honoured on its
-/// own so nothing that already sets it breaks.
-pub fn url_source() -> (String, Option<&'static str>) {
-    let read = |name: &'static str| {
-        std::env::var(name)
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-            .map(|value| (value, name))
-    };
-    match (read(CONDAPKG_URL_ENV), read(ANACONDA_URL_ENV)) {
-        (Some((new, name)), Some((old, _))) => {
-            if new != old {
-                tracing::warn!(
-                    canonical = CONDAPKG_URL_ENV,
-                    older = ANACONDA_URL_ENV,
-                    "both spellings are set and disagree; using {CONDAPKG_URL_ENV}"
-                );
-            }
-            (new, Some(name))
-        }
-        (Some((value, name)), None) => (value, Some(name)),
-        (None, Some((value, name))) => {
-            tracing::info!(
-                older = ANACONDA_URL_ENV,
-                canonical = CONDAPKG_URL_ENV,
-                "{ANACONDA_URL_ENV} is the older spelling of {CONDAPKG_URL_ENV}; both are accepted"
-            );
-            (value, Some(name))
-        }
-        (None, None) => (DEFAULT_ANACONDA_URL.to_string(), None),
-    }
+    std::env::var(ANACONDA_URL_ENV)
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .unwrap_or_else(|| DEFAULT_ANACONDA_URL.to_string())
 }
 
 /// One published release of a package.
@@ -475,55 +434,6 @@ pub fn age_in_days(published: &str, now: SystemTime) -> Option<i64> {
 
 #[cfg(test)]
 mod tests {
-    /// Both spellings of the index variable resolve, canonical first, and the caller is told
-    /// which one answered so `--doctor` can name it. Serialised because it reads the process
-    /// environment.
-    #[test]
-    fn condapkg_url_accepts_the_older_anaconda_spelling() {
-        use super::{ANACONDA_URL_ENV, CONDAPKG_URL_ENV, DEFAULT_ANACONDA_URL, url_source};
-        static GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
-        let _held = GUARD.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-
-        let restore: Vec<_> = [CONDAPKG_URL_ENV, ANACONDA_URL_ENV]
-            .map(|name| (name, std::env::var(name).ok()))
-            .into();
-        let set = |name: &str, value: Option<&str>| unsafe {
-            match value {
-                Some(value) => std::env::set_var(name, value),
-                None => std::env::remove_var(name),
-            }
-        };
-
-        set(CONDAPKG_URL_ENV, None);
-        set(ANACONDA_URL_ENV, None);
-        assert_eq!(url_source(), (DEFAULT_ANACONDA_URL.to_string(), None));
-
-        // The older spelling on its own still works: nothing that already sets it breaks.
-        set(ANACONDA_URL_ENV, Some("https://old.example"));
-        assert_eq!(
-            url_source(),
-            ("https://old.example".to_string(), Some(ANACONDA_URL_ENV))
-        );
-
-        // The canonical spelling wins when both are set.
-        set(CONDAPKG_URL_ENV, Some("https://new.example"));
-        assert_eq!(
-            url_source(),
-            ("https://new.example".to_string(), Some(CONDAPKG_URL_ENV))
-        );
-
-        // An empty value is not a value, so it falls through to the older spelling.
-        set(CONDAPKG_URL_ENV, Some("   "));
-        assert_eq!(
-            url_source(),
-            ("https://old.example".to_string(), Some(ANACONDA_URL_ENV))
-        );
-
-        for (name, value) in restore {
-            set(name, value.as_deref());
-        }
-    }
-
     use super::*;
 
     fn release(version: &str, published: Option<&str>, yanked: bool) -> Release {

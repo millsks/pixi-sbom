@@ -497,7 +497,7 @@ pixi sbom --report outdated --outdated-min major --report-format markdown
 
 Rows are ordered furthest behind first, then oldest. PyPI packages are read from the project document
 (`/pypi/<name>/json`); conda packages from anaconda.org's package API
-(`https://api.anaconda.org/package/<channel>/<name>`, `PIXI_SBOM_CONDAPKG_URL` for a mirror), which covers
+(`https://api.anaconda.org/package/<channel>/<name>`, `PIXI_SBOM_ANACONDA_URL` for a mirror), which covers
 conda-forge and the other channels hosted there. A channel hosted elsewhere would mean downloading its
 `repodata.json`, which is hundreds of megabytes, so those packages, along with source packages and anything the
 index cannot answer for, are listed under *No index to ask* rather than guessed at. Both documents are cached for
@@ -1013,7 +1013,7 @@ Six have a fixed address, and each can be pointed somewhere else:
 | conda-forge PyPI mapping | `https://conda-mapping.prefix.dev/compressed-v0/compressed_mapping.json` | `--pypi-mapping prefix` | `--pypi-mapping-file <FILE>` |
 | OSV | `https://api.osv.dev` | `--vulnerabilities osv` | `PIXI_SBOM_OSV_URL` |
 | CISA KEV | `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json` | `--kev` | `PIXI_SBOM_KEV_URL` |
-| conda package index | `https://api.anaconda.org` | `--report outdated` | `PIXI_SBOM_CONDAPKG_URL` |
+| conda package index | `https://api.anaconda.org` | `--report outdated` | `PIXI_SBOM_ANACONDA_URL` |
 | OpenSSF Scorecard | `https://api.securityscorecards.dev` | `--scorecard` | `PIXI_SBOM_SCORECARD_URL` |
 
 Two more have no fixed address, because they are fetched from wherever each package says it lives. Both read a few
@@ -1216,7 +1216,7 @@ To narrow the log to the part of the tool you are chasing — the requests, one 
 | `PIXI_SBOM_OSV_URL` | Base of the OSV API queried by `--vulnerabilities osv` (default `https://api.osv.dev`). |
 | `PIXI_SBOM_CONCURRENCY` | How many jobs run at once: requests in flight and threads for local work. Default: one thread per core, and no more than ten requests in flight however many cores there are. A value that is not a positive number is named in the log and ignored. |
 | `PIXI_SBOM_NO_PROGRESS` | Set to `1` to turn the progress bars off even on a terminal. |
-| `PIXI_SBOM_CONDAPKG_URL` | Base of the conda package index used by `--report outdated` for conda packages (default `https://api.anaconda.org`). `PIXI_SBOM_ANACONDA_URL` is the older spelling and is still accepted; the canonical one wins when both are set. |
+| `PIXI_SBOM_ANACONDA_URL` | Base of the anaconda.org API used by `--report outdated` for conda packages (default `https://api.anaconda.org`). |
 | `PIXI_SBOM_SCORECARD_URL` | Base of the OpenSSF Scorecard API used by `--scorecard` (default `https://api.securityscorecards.dev`). |
 | `PIXI_SBOM_KEV_URL` | Where `--kev` downloads CISA's Known Exploited Vulnerabilities catalog (default `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json`). |
 | `PIXI_SBOM_PYPI_URL` | Base of the PyPI JSON API queried by `--fetch-licenses` (default `https://pypi.org/pypi`); point it at a mirror such as devpi or Artifactory. |
