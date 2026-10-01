@@ -1125,10 +1125,23 @@ does allow:</p>
 <td><code>PIXI_SBOM_KEV_URL</code></td>
 <td>The CISA KEV catalog</td>
 </tr>
+<tr>
+<td><code>PIXI_SBOM_MAPPING_URL</code></td>
+<td>The conda-to-PyPI name mapping</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_CONDA_ARCHIVE_URL</code></td>
+<td>Base for conda package archives, replacing each package's own host</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_WHEEL_ARCHIVE_URL</code></td>
+<td>Base for PyPI wheel archives, replacing each wheel's host and keeping its path</td>
+</tr>
 </tbody>
 </table>
-<p><code>--pypi-mapping-file &lt;FILE&gt;</code> takes the conda → PyPI name mapping from disk instead of downloading it, which is
-the one download an air-gapped run of <code>--vulnerabilities osv</code> over conda packages cannot do without.</p>
+<p><code>--pypi-mapping-file &lt;FILE&gt;</code> takes the conda → PyPI name mapping from disk instead of downloading it, for a run
+with no network at all. That mapping is what an air-gapped run of <code>--vulnerabilities osv</code> over conda packages
+cannot do without.</p>
 <h2 id="3-read-the-requests">3. Read the requests<a class="headerlink" href="#3-read-the-requests" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">RUST_LOG</span><span class="o">=</span>pixi_sbom::http<span class="o">=</span>debug,pixi_sbom<span class="o">=</span>info<span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
 </code></pre></div>
