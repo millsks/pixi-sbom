@@ -101,7 +101,7 @@ does allow:
 |---|---|
 | `PIXI_SBOM_PYPI_URL` | The PyPI JSON API — a devpi or Artifactory mirror |
 | `PIXI_SBOM_OSV_URL` | The OSV API |
-| `PIXI_SBOM_ANACONDA_URL` | The anaconda.org API used by `--report outdated` |
+| `PIXI_SBOM_CONDAPKG_URL` | The conda package index used by `--report outdated` (`PIXI_SBOM_ANACONDA_URL` is the older spelling, still accepted) |
 | `PIXI_SBOM_SCORECARD_URL` | The OpenSSF Scorecard API |
 | `PIXI_SBOM_KEV_URL` | The CISA KEV catalog |
 

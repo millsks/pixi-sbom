@@ -101,11 +101,20 @@ a typo cannot pass silently and you are never left guessing at the spelling.
 | `PIXI_SBOM_OSV_URL` | Where to query OSV. |
 | `PIXI_SBOM_KEV_URL` | Where to fetch the CISA catalog. |
 | `PIXI_SBOM_PYPI_URL` | Where to read PyPI metadata. |
-| `PIXI_SBOM_ANACONDA_URL` | Where to read anaconda.org metadata. |
+| `PIXI_SBOM_CONDAPKG_URL` | Base of the conda package index `--report outdated` asks for conda versions. |
 | `PIXI_SBOM_SCORECARD_URL` | Where to query OpenSSF Scorecard. |
 
 Also read, and owned by other tools: `SSL_CERT_FILE`, `PIXI_CACHE_DIR`, `RATTLER_CACHE_DIR`,
 `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY`, `NO_COLOR`, `CLICOLOR_FORCE`, `RUST_LOG`.
+
+### Spellings that answer to an older name
+
+Accepted permanently. Removing one would be a major version with its own notice. The canonical
+spelling wins when both are set, and the run warns when they disagree.
+
+| Accepted | Canonical | Since |
+|---|---|---|
+| `PIXI_SBOM_ANACONDA_URL` | `PIXI_SBOM_CONDAPKG_URL` | renamed in 1.1.0 |
 
 ## `pixi:*` names in a document
 
