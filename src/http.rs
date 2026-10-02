@@ -429,12 +429,21 @@ fn failed(method: &str, url: &str, started: Instant, err: ureq::Error) -> Box<ur
     );
     // A rejected credential and a missing one are the same status code and want opposite fixes,
     // so the one case worth a louder line than the rest is the one nobody can diagnose.
-    if let ureq::Error::StatusCode(401 | 403) = err {
-        tracing::warn!(
+    // 401 means authentication is required. 403 often means policy or a proxy instead, and
+    // leading with credentials there sends people after the wrong thing: api.anaconda.org is
+    // public and answers 403 from a network that blocks it.
+    match err {
+        ureq::Error::StatusCode(401) => tracing::warn!(
             url,
             credentials = crate::auth::describe(url),
-            "the host refused the request; see the credentials section of the troubleshooting guide"
-        );
+            "the host requires authentication; see the credentials section of the troubleshooting guide"
+        ),
+        ureq::Error::StatusCode(403) => tracing::warn!(
+            url,
+            credentials = crate::auth::describe(url),
+            "the host refused the request; this is often a proxy or a policy rather than credentials"
+        ),
+        _ => {}
     }
     Box::new(err)
 }

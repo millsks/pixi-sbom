@@ -22,6 +22,24 @@ pub const DEFAULT_ANACONDA_URL: &str = "https://api.anaconda.org";
 /// Environment variable naming the anaconda.org API base.
 pub const ANACONDA_URL_ENV: &str = "PIXI_SBOM_ANACONDA_URL";
 
+/// The channel a package is checked against when its own channel is not one the index knows.
+///
+/// conda-forge because that is what the overwhelming majority of mirrored channels proxy, and
+/// because a wrong guess is caught by the hash rather than believed.
+pub const DEFAULT_FALLBACK_CHANNEL: &str = "conda-forge";
+
+/// Environment variable naming the channel to fall back to.
+pub const FALLBACK_CHANNEL_ENV: &str = "PIXI_SBOM_CONDA_FALLBACK_CHANNEL";
+
+/// The fallback channel from the environment or the default; empty disables the fallback.
+pub fn fallback_channel() -> Option<String> {
+    match std::env::var(FALLBACK_CHANNEL_ENV) {
+        Ok(value) if value.trim().is_empty() => None,
+        Ok(value) => Some(value.trim().to_string()),
+        Err(_) => Some(DEFAULT_FALLBACK_CHANNEL.to_string()),
+    }
+}
+
 /// Where prefix.dev answers GraphQL.
 pub const DEFAULT_PREFIX_INDEX_URL: &str = "https://prefix.dev/api/graphql";
 
@@ -233,6 +251,9 @@ struct AnacondaPackage {
 #[derive(Debug, Deserialize)]
 struct AnacondaFile {
     version: String,
+    /// Identifies the exact build; top-level on the file rather than under `attrs`.
+    #[serde(default)]
+    sha256: Option<String>,
     #[serde(default)]
     attrs: AnacondaAttrs,
 }
@@ -254,7 +275,9 @@ pub fn prefix_versions_query(channel: &str, name: &str, installed: &str) -> Stri
     let query = "query($c:String!,$n:String!,$v:String){ package(channelName:$c, name:$n) { \
                  versions(limit:500) { page { version } } \
                  current: variants(limit:200, version:$v, orderBy:{byField:{field:CREATED_AT, direction:ASC}}) \
-                 { page { createdAt rawIndex } } } }";
+                 { page { createdAt rawIndex sha256 } } \
+                 newest: variants(limit:200, version:$v, orderBy:{byField:{field:CREATED_AT, direction:DESC}}) \
+                 { page { sha256 } } } }";
     serde_json::json!({
         "query": query,
         "variables": { "c": channel, "n": name, "v": installed },
@@ -290,8 +313,13 @@ struct PrefixData {
 struct PrefixPackage {
     #[serde(default)]
     versions: Option<PrefixVersionPage>,
+    /// The oldest builds of the installed version: the first of them is its release date.
     #[serde(default)]
     current: Option<PrefixVariantPage>,
+    /// The newest builds of the same version. A page is capped, so a version with more builds
+    /// than fit needs both ends to be sure the installed one is seen at all.
+    #[serde(default)]
+    newest: Option<PrefixVariantPage>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -315,6 +343,9 @@ struct PrefixVariantPage {
 struct PrefixVariant {
     #[serde(rename = "createdAt")]
     created_at: Option<String>,
+    /// Identifies the exact build, so a mirrored package can be matched to its upstream.
+    #[serde(default)]
+    sha256: Option<String>,
     /// The build's own `index.json`, whose `timestamp` is when conda-forge built it rather than
     /// when prefix.dev ingested it. Served as an object or as a string holding one.
     #[serde(rename = "rawIndex", default)]
@@ -350,6 +381,10 @@ pub struct PrefixDocument {
     pub versions: Vec<String>,
     /// Version to its first build, RFC 3339.
     pub dates: std::collections::BTreeMap<String, String>,
+    /// The sha256 of every build of the installed version this channel has, which is how a
+    /// package from a mirror is matched to the channel it was mirrored from.
+    #[serde(default)]
+    pub installed_hashes: Vec<String>,
 }
 
 /// The versions and the installed version's first build, from one `prefix_versions_query`.
@@ -369,6 +404,11 @@ pub fn prefix_page(json: &str, installed: &str) -> PrefixDocument {
             .map(|entry| entry.version)
             .collect(),
         dates: Default::default(),
+        installed_hashes: [&package.current, &package.newest]
+            .into_iter()
+            .flatten()
+            .flat_map(|page| page.page.iter().filter_map(|v| v.sha256.clone()))
+            .collect(),
     };
     if let Some(date) = prefix_first_date(&package.current) {
         document.dates.insert(installed.to_string(), date);
@@ -403,6 +443,20 @@ pub fn prefix_releases(json: &str) -> Vec<Release> {
             yanked: false,
         })
         .collect()
+}
+
+/// The sha256 of every build of one version in an anaconda.org package document.
+pub fn anaconda_hashes(json: &str, version: &str) -> Vec<String> {
+    serde_json::from_str::<AnacondaPackage>(json)
+        .map(|package| {
+            package
+                .files
+                .into_iter()
+                .filter(|file| file.version == version)
+                .filter_map(|file| file.sha256)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Every version in an anaconda.org package document, with the earliest build time of each as
@@ -443,7 +497,12 @@ fn timestamp_to_rfc3339(milliseconds: i64) -> Option<String> {
 pub fn index_is_configured(kind: crate::cli::CondaIndexKind) -> bool {
     // Choosing `prefix` is as much a statement as naming an address: prefix.dev answers for a
     // channel by name, whatever host the lockfile happened to fetch the package from.
+    //
+    // A fallback channel does the same for a different reason: an unrecognised channel is then
+    // recoverable by matching the package's hash, which is a better guard than its host ever was.
+    // Asking and being told nothing costs a request; not asking costs the answer.
     kind == crate::cli::CondaIndexKind::Prefix
+        || fallback_channel().is_some()
         || std::env::var(ANACONDA_URL_ENV).is_ok_and(|value| !value.trim().is_empty())
 }
 
@@ -601,15 +660,41 @@ impl Lookup<'_> {
 
         let mut statuses = vec![None; sbom.packages.len()];
         for (job, document) in jobs.iter().zip(documents) {
-            let Some(document) = document else {
+            let current = sbom.packages[job.index].version.clone().unwrap_or_default();
+            // A channel the index does not know answers two ways: prefix.dev returns a document
+            // saying nothing, anaconda.org returns 404 and no document at all. Both mean the same
+            // thing here, so both fall through to the hash check below.
+            let releases = match (&document, job.kind, self.kind) {
+                (Some(document), PackageKind::Pypi, _) => pypi_releases(document),
+                (Some(document), _, crate::cli::CondaIndexKind::Prefix) => prefix_releases(document),
+                (Some(document), _, crate::cli::CondaIndexKind::Anaconda) => anaconda_releases(document),
+                (None, _, _) => Vec::new(),
+            };
+            if document.is_none() && job.kind != PackageKind::CondaBinary {
                 outcome.unknown += 1;
                 continue;
-            };
-            let current = sbom.packages[job.index].version.clone().unwrap_or_default();
-            let releases = match (job.kind, self.kind) {
-                (PackageKind::Pypi, _) => pypi_releases(&document),
-                (_, crate::cli::CondaIndexKind::Prefix) => prefix_releases(&document),
-                (_, crate::cli::CondaIndexKind::Anaconda) => anaconda_releases(&document),
+            }
+            // An empty answer means the index does not know this package's channel, which is the
+            // normal case for a mirror: the channel is named after the local repository and the
+            // upstream has never heard of it. The package's own hash says which channel it really
+            // came from, so ask a candidate and believe it only if a build matches.
+            let releases = if releases.is_empty() && job.kind == PackageKind::CondaBinary {
+                match self.verified_against_fallback(&sbom.packages[job.index], &current, fetch) {
+                    Some((releases, channel)) => {
+                        tracing::debug!(
+                            package = %job.display_name,
+                            channel = %channel,
+                            "the recorded hash matches a build in this channel; using its releases"
+                        );
+                        releases
+                    }
+                    None => {
+                        outcome.unknown += 1;
+                        continue;
+                    }
+                }
+            } else {
+                releases
             };
             if releases.is_empty() {
                 outcome.unknown += 1;
@@ -637,6 +722,16 @@ impl Lookup<'_> {
             return json;
         };
         let mut document = prefix_page(&json, installed);
+        self.date_the_newest(&mut document, channel, &job.display_name, &job.url, fetch);
+        serde_json::to_string(&document).unwrap_or(json)
+    }
+
+    /// Fill in the newest release's date, which takes a second request because its version is
+    /// only known once the first has answered.
+    ///
+    /// Shared with the fallback path: a package rescued by its hash deserves the same `Released`
+    /// column as one whose channel the index recognised.
+    fn date_the_newest(&self, document: &mut PrefixDocument, channel: &str, name: &str, url: &str, fetch: Fetch<'_>) {
         let newest = document
             .versions
             .iter()
@@ -645,15 +740,75 @@ impl Lookup<'_> {
             .cloned();
         if let Some(newest) = newest
             && !document.dates.contains_key(&newest)
-            && let Ok(answer) = fetch(
-                &job.url,
-                Some(&prefix_version_date_query(channel, &job.display_name, &newest)),
-            )
+            && let Ok(answer) = fetch(url, Some(&prefix_version_date_query(channel, name, &newest)))
             && let Some(date) = prefix_date(&answer)
         {
             document.dates.insert(newest, date);
         }
-        serde_json::to_string(&document).unwrap_or(json)
+    }
+
+    /// The releases of a candidate channel, but only if it holds the exact build installed here.
+    ///
+    /// A mirrored channel is named after the local repository, so the index cannot be asked about
+    /// it by name. The sha256 the lockfile records identifies the build, and a proxying mirror
+    /// serves the upstream bytes unchanged, so a channel holding that hash *is* where the package
+    /// came from. A mirror that rebuilds produces different bytes and is correctly refused.
+    fn verified_against_fallback(
+        &self,
+        package: &crate::model::Package,
+        installed: &str,
+        fetch: Fetch<'_>,
+    ) -> Option<(Vec<Release>, String)> {
+        let sha256 = package.sha256.as_deref()?;
+        let channel = fallback_channel()?;
+        // Nothing to try when the package already claims the candidate channel.
+        if package.properties.get("pixi:channel").map(String::as_str) == Some(channel.as_str()) {
+            return None;
+        }
+
+        let (url, body) = match self.kind {
+            crate::cli::CondaIndexKind::Prefix => (
+                self.prefix_index_url.to_string(),
+                Some(prefix_versions_query(&channel, &package.name, installed)),
+            ),
+            crate::cli::CondaIndexKind::Anaconda => (
+                format!(
+                    "{}/package/{channel}/{}",
+                    self.anaconda_url.trim_end_matches('/'),
+                    package.name
+                ),
+                None,
+            ),
+        };
+        let document = fetch(&url, body.as_deref()).ok()?;
+
+        let (releases, hashes) = match self.kind {
+            crate::cli::CondaIndexKind::Prefix => {
+                let mut page = prefix_page(&document, installed);
+                let hashes = page.installed_hashes.clone();
+                // Only worth a second request once the hash has vouched for the channel.
+                if hashes.iter().any(|known| known.eq_ignore_ascii_case(sha256)) {
+                    self.date_the_newest(&mut page, &channel, &package.name, &url, fetch);
+                }
+                (prefix_releases(&serde_json::to_string(&page).ok()?), hashes)
+            }
+            crate::cli::CondaIndexKind::Anaconda => {
+                (anaconda_releases(&document), anaconda_hashes(&document, installed))
+            }
+        };
+        if releases.is_empty() {
+            return None;
+        }
+        if !hashes.iter().any(|known| known.eq_ignore_ascii_case(sha256)) {
+            tracing::debug!(
+                package = %package.name,
+                channel = %channel,
+                builds = hashes.len(),
+                "no build in this channel has the recorded hash; the package is not a mirror of it"
+            );
+            return None;
+        }
+        Some((releases, channel))
     }
 
     fn document(&self, job: &Job, fetch: Fetch<'_>, now: SystemTime) -> Option<String> {
@@ -972,12 +1127,42 @@ mod tests {
     }
 
     #[test]
+    fn both_ends_of_the_build_list_contribute_hashes() {
+        // A version with more builds than a page holds: the installed one may be at either end,
+        // so the query asks for both and the hashes are the union.
+        let json = r#"{"data":{"package":{
+            "versions":{"page":[{"version":"3.14.7"}]},
+            "current":{"page":[{"createdAt":"2026-01-01T00:00:00Z","sha256":"oldest"}]},
+            "newest":{"page":[{"sha256":"newest"}]}}}}"#;
+        let document = prefix_page(json, "3.14.7");
+        assert_eq!(document.installed_hashes, ["oldest", "newest"]);
+        // The date still comes from the oldest build only.
+        assert_eq!(
+            document.dates.get("3.14.7").map(String::as_str),
+            Some("2026-01-01T00:00:00Z")
+        );
+    }
+
+    #[test]
+    fn anaconda_hashes_are_read_from_the_top_of_each_file() {
+        // sha256 sits beside `version` on the file, not under `attrs`.
+        let json = r#"{"versions":["1.0"],"files":[
+            {"version":"1.0","sha256":"aaa","attrs":{"timestamp":1700000000000}},
+            {"version":"1.0","sha256":"bbb","attrs":{}},
+            {"version":"0.9","sha256":"ccc","attrs":{}}]}"#;
+        assert_eq!(anaconda_hashes(json, "1.0"), ["aaa", "bbb"]);
+        assert!(anaconda_hashes(json, "2.0").is_empty());
+        assert!(anaconda_hashes("not json", "1.0").is_empty());
+    }
+
+    #[test]
     fn a_prefix_document_becomes_releases_dated_where_known() {
         let document = PrefixDocument {
             versions: vec!["1.3.2".into(), "1.3.1".into()],
             dates: [("1.3.2".to_string(), "2026-03-21T06:58:29Z".to_string())]
                 .into_iter()
                 .collect(),
+            installed_hashes: Vec::new(),
         };
         let releases = prefix_releases(&serde_json::to_string(&document).unwrap());
         assert_eq!(releases.len(), 2);

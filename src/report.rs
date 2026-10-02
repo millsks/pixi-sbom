@@ -1644,11 +1644,11 @@ pub fn render_with_width(
                     }
                     writeln!(out)?;
                     if summary.unknown.is_empty() {
-                        writeln!(out, "{}", palette.dim("No index to ask: none"))?;
+                        writeln!(out, "{}", palette.dim("No releases to compare against: none"))?;
                     } else {
                         writeln!(
                             out,
-                            "No index to ask ({}): {}",
+                            "No releases to compare against ({}): {}",
                             summary.unknown.len(),
                             summary.unknown.join(", ")
                         )?;

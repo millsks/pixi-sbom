@@ -105,6 +105,7 @@ so they are not frozen here; they are honoured with the meanings rattler and cur
 | `PIXI_SBOM_KEV_URL` | Where to fetch the CISA catalog. |
 | `PIXI_SBOM_PYPI_URL` | Where to read PyPI metadata. |
 | `PIXI_SBOM_ANACONDA_URL` | Where to read anaconda.org metadata. |
+| `PIXI_SBOM_CONDA_FALLBACK_CHANNEL` | The channel a mirrored package is checked against, by hash. |
 | `PIXI_SBOM_PREFIX_INDEX_URL` | Where to reach prefix.dev's GraphQL API. |
 | `PIXI_SBOM_MAPPING_URL` | Where to download the conda-to-PyPI name mapping. |
 | `PIXI_SBOM_CONDA_ARCHIVE_URL` | Base that conda package archives are read from, in place of each package's own host. |
