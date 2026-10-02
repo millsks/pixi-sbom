@@ -90,6 +90,9 @@ a typo cannot pass silently and you are never left guessing at the spelling.
 
 ## Environment variables
 
+`RATTLER_AUTH_FILE` and `NETRC` are read for credentials. They are not this project's to define,
+so they are not frozen here; they are honoured with the meanings rattler and curl give them.
+
 | Variable | |
 |---|---|
 | `PIXI_SBOM_CACHE_DIR` | Where the caches live. |

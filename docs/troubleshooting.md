@@ -88,6 +88,40 @@ Error: pixi_sbom::http::ca_bundle
         a DER file must be converted first (openssl x509 -inform der -in ca.der -out ca.pem)
 ```
 
+### A channel that needs credentials
+
+A private channel or index answers 401, usually on `--fetch-licenses`, which reads each archive
+from the host the lockfile names. pixi-sbom reads the credentials the conda ecosystem already
+keeps, in the order `rattler` consults them:
+
+| Source | |
+|---|---|
+| `RATTLER_AUTH_FILE` | a credentials file named by the environment |
+| `~/.rattler/credentials.json` | where `pixi auth login` writes |
+| `~/.netrc` | `NETRC` overrides the path; `_netrc` on Windows |
+
+So a host already set up for pixi needs nothing further:
+
+```sh
+pixi auth login artifactory.corp --token "$TOKEN"
+pixi sbom --fetch-licenses
+```
+
+Entries are matched by exact host first, then `*.domain` walking up the labels, so
+`*.corp.example` covers `artifactory.corp.example`. A `.netrc` `default` entry applies to any host
+with no better match.
+
+Bearer tokens, basic auth and conda tokens are all used; a conda token goes in the path as
+`/t/<token>/` the way conda does it. Credentials never appear in a log line, a cache key or a
+produced document.
+
+**The platform keyring is not read.** pixi can keep credentials there, and pixi-sbom cannot reach
+them without a platform dependency that would not help a CI runner anyway. Export the entry into a
+file and point `RATTLER_AUTH_FILE` at it.
+
+**S3 and OAuth credentials are recognised but not used.** A host configured with either is
+requested unauthenticated, with a warning naming the host, rather than failing silently.
+
 ### A blocked host
 
 `pixi sbom --doctor` on its own probes every fixed upstream and names the ones that did not answer, so start

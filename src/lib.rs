@@ -19,6 +19,7 @@
 
 #[doc(hidden)]
 pub mod auditable;
+pub mod auth;
 #[doc(hidden)]
 pub mod batch;
 #[doc(hidden)]

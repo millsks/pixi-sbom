@@ -151,6 +151,15 @@ pub fn init_tls(roots: &TlsRoots) -> Result<(), CaBundleError> {
 
 /// Build the agent: the trust anchors this run resolved, proxies from the environment (and,
 /// on Windows, from the system settings), one timeout.
+/// Apply whatever credentials this machine holds for a URL.
+///
+/// Returns the URL to request, which a conda token rewrites, and the header to send. The caller
+/// keeps the original URL for logging: a rewritten one carries the token in its path.
+fn authorized(url: &str) -> (String, Option<String>) {
+    let prepared = crate::auth::prepare(url);
+    (prepared.url, prepared.authorization)
+}
+
 fn agent() -> ureq::Agent {
     let roots = ROOTS.get().cloned().unwrap_or(ureq::tls::RootCerts::PlatformVerifier);
     let tls = ureq::tls::TlsConfig::builder().root_certs(roots).build();
@@ -373,10 +382,12 @@ pub fn get_text(url: &str, limit: u64) -> Result<String, Box<ureq::Error>> {
     }
     let started = Instant::now();
     starting("GET", url, "");
-    let mut response = agent()
-        .get(url)
-        .call()
-        .map_err(|err| failed("GET", url, started, err))?;
+    let (target, authorization) = authorized(url);
+    let mut request = agent().get(&target);
+    if let Some(value) = &authorization {
+        request = request.header("Authorization", value);
+    }
+    let mut response = request.call().map_err(|err| failed("GET", url, started, err))?;
     let status = response.status().as_u16();
     let body = response
         .body_mut()
@@ -396,11 +407,12 @@ pub fn post_json(url: &str, body: &str, limit: u64) -> Result<String, Box<ureq::
     }
     let started = Instant::now();
     starting("POST", url, &format!("{} byte body", body.len()));
-    let mut response = agent()
-        .post(url)
-        .header("Content-Type", "application/json")
-        .send(body)
-        .map_err(|err| failed("POST", url, started, err))?;
+    let (target, authorization) = authorized(url);
+    let mut request = agent().post(&target).header("Content-Type", "application/json");
+    if let Some(value) = &authorization {
+        request = request.header("Authorization", value);
+    }
+    let mut response = request.send(body).map_err(|err| failed("POST", url, started, err))?;
     let status = response.status().as_u16();
     let text = response
         .body_mut()
@@ -419,10 +431,12 @@ pub fn get_bytes(url: &str, limit: u64) -> Result<Vec<u8>, Box<ureq::Error>> {
     }
     let started = Instant::now();
     starting("GET", url, "whole body");
-    let mut response = agent()
-        .get(url)
-        .call()
-        .map_err(|err| failed("GET", url, started, err))?;
+    let (target, authorization) = authorized(url);
+    let mut request = agent().get(&target);
+    if let Some(value) = &authorization {
+        request = request.header("Authorization", value);
+    }
+    let mut response = request.call().map_err(|err| failed("GET", url, started, err))?;
     let status = response.status().as_u16();
     let bytes = response
         .body_mut()
@@ -455,7 +469,12 @@ pub fn get_tail(url: &str, count: u64) -> Result<(u64, Vec<u8>), Box<ureq::Error
     }
     let started = Instant::now();
     starting("GET", url, &format!("range bytes=-{count}"));
-    let mut response = match agent().get(url).header("Range", &format!("bytes=-{count}")).call() {
+    let (target, authorization) = authorized(url);
+    let mut tail = agent().get(&target).header("Range", &format!("bytes=-{count}"));
+    if let Some(value) = &authorization {
+        tail = tail.header("Authorization", value);
+    }
+    let mut response = match tail.call() {
         Ok(response) => response,
         // Some CDNs answer 416 to a suffix longer than the file instead of sending it whole
         // (RFC 9110 allows either). Learn the size and ask for an exact range instead.
@@ -500,10 +519,12 @@ pub fn get_tail(url: &str, count: u64) -> Result<(u64, Vec<u8>), Box<ureq::Error
 fn content_length(url: &str) -> Result<u64, Box<ureq::Error>> {
     let started = Instant::now();
     starting("HEAD", url, "");
-    let response = agent()
-        .head(url)
-        .call()
-        .map_err(|err| failed("HEAD", url, started, err))?;
+    let (target, authorization) = authorized(url);
+    let mut head = agent().head(&target);
+    if let Some(value) = &authorization {
+        head = head.header("Authorization", value);
+    }
+    let response = head.call().map_err(|err| failed("HEAD", url, started, err))?;
     finished("HEAD", url, response.status().as_u16(), 0, started);
     response
         .headers()
@@ -520,11 +541,12 @@ pub fn get_range(url: &str, start: u64, end: u64) -> Result<Vec<u8>, Box<ureq::E
     }
     let started_at = Instant::now();
     starting("GET", url, &format!("range bytes={start}-{end}"));
-    let mut response = agent()
-        .get(url)
-        .header("Range", &format!("bytes={start}-{end}"))
-        .call()
-        .map_err(|err| failed("GET", url, started_at, err))?;
+    let (target, authorization) = authorized(url);
+    let mut ranged = agent().get(&target).header("Range", &format!("bytes={start}-{end}"));
+    if let Some(value) = &authorization {
+        ranged = ranged.header("Authorization", value);
+    }
+    let mut response = ranged.call().map_err(|err| failed("GET", url, started_at, err))?;
     let status = response.status().as_u16();
     if response.status() != 206 {
         return Err(other("server does not support HTTP range requests"));
