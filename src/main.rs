@@ -446,6 +446,8 @@ fn main() -> Result<()> {
                 index_url: &pypi::index_url(),
                 anaconda_url: &outdated::anaconda_url(),
                 index_is_configured: outdated::index_is_configured(),
+                kind: outdated::resolve_kind(args.conda_index_kind),
+                prefix_index_url: &outdated::prefix_index_url(),
                 cache_dir: &cache_dir,
             };
             let (statuses, outcome) = timings::time(timings::Phase::Outdated, || lookup.run(&sbom, progress));
@@ -1278,7 +1280,26 @@ fn doctor_lockfile(args: &cli::Args) -> Option<std::path::PathBuf> {
 /// `--report outdated` is the only thing that reaches anaconda.org and `--doctor` conflicts with
 /// `--report`, so without this the one host a restricted network is most likely to block could
 /// never be probed at all.
-fn every_service(lockfile: Option<&std::path::Path>) -> Vec<http::Service> {
+/// The conda index `--report outdated` would ask, at the address its kind resolves to.
+///
+/// One row either way: which service answers is the kind's business, and `--doctor` should report
+/// the one this run would actually use rather than a fixed host.
+fn conda_index_service(kind: cli::CondaIndexKind) -> http::Service {
+    match kind {
+        cli::CondaIndexKind::Prefix => http::Service::new(
+            "conda package index",
+            outdated::prefix_index_url(),
+            outdated::PREFIX_INDEX_URL_ENV,
+        ),
+        cli::CondaIndexKind::Anaconda => http::Service::new(
+            "conda package index",
+            outdated::anaconda_url(),
+            outdated::ANACONDA_URL_ENV,
+        ),
+    }
+}
+
+fn every_service(lockfile: Option<&std::path::Path>, kind: cli::CondaIndexKind) -> Vec<http::Service> {
     vec![
         http::Service::new("PyPI index", pypi::index_url(), pypi::INDEX_URL_ENV),
         http::Service::new(
@@ -1288,11 +1309,7 @@ fn every_service(lockfile: Option<&std::path::Path>) -> Vec<http::Service> {
         ),
         http::Service::new("OSV", osv::api_url(), osv::API_URL_ENV),
         http::Service::new("CISA KEV", kev::url(), kev::URL_ENV),
-        http::Service::new(
-            "conda package index",
-            outdated::anaconda_url(),
-            outdated::ANACONDA_URL_ENV,
-        ),
+        conda_index_service(kind),
         http::Service::new("OpenSSF Scorecard", scorecard::url(), scorecard::SCORECARD_URL_ENV),
     ]
     .into_iter()
@@ -1305,7 +1322,11 @@ fn every_service(lockfile: Option<&std::path::Path>) -> Vec<http::Service> {
 fn network_configuration(args: &cli::Args, fetch_licenses: bool, tls_roots: &http::TlsRoots) -> http::Configuration {
     if args.doctor && !selects_an_upstream(args, fetch_licenses) {
         let lockfile = doctor_lockfile(args);
-        return http::Configuration::resolve(every_service(lockfile.as_deref()), mapping::cache_dir(), tls_roots);
+        return http::Configuration::resolve(
+            every_service(lockfile.as_deref(), outdated::resolve_kind(args.conda_index_kind)),
+            mapping::cache_dir(),
+            tls_roots,
+        );
     }
     let mut services = Vec::new();
     // Wheel metadata and release facts both come from the index.
@@ -1326,11 +1347,7 @@ fn network_configuration(args: &cli::Args, fetch_licenses: bool, tls_roots: &htt
         services.push(http::Service::new("CISA KEV", kev::url(), kev::URL_ENV));
     }
     if args.report == Some(report::ReportKind::Outdated) {
-        services.push(http::Service::new(
-            "conda package index",
-            outdated::anaconda_url(),
-            outdated::ANACONDA_URL_ENV,
-        ));
+        services.push(conda_index_service(outdated::resolve_kind(args.conda_index_kind)));
     }
     if args.scorecard {
         services.push(http::Service::new(

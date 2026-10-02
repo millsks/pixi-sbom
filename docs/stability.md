@@ -14,26 +14,26 @@ this page fails the build, and so does a line on this page for something that do
 
 ## Command-line flags
 
-All 65. Their meanings are in [cli.md](cli.md); what this page promises is that none of them
+All 66. Their meanings are in [cli.md](cli.md); what this page promises is that none of them
 disappears or changes shape before 2.0.
 
 | `--against` | `--all-environments` | `--all-platforms` | `--allow-license` |
-| `--assume-used` | `--ca-bundle` | `--color` | `--config` |
-| `--deny-license` | `--depth` | `--doctor` | `--embedded-sboms` |
-| `--environment` | `--exclude` | `--exclude-kind` | `--explain` |
-| `--fail-on-diff` | `--fail-on-kev` | `--fail-on-phantom` | `--fail-on-scorecard` |
-| `--fail-on-severity` | `--fail-on-yanked` | `--fetch-licenses` | `--format` |
-| `--from-sbom` | `--group-by` | `--help` | `--ignore-license` |
-| `--ignore-vuln` | `--include` | `--keep-orphans` | `--kev` |
-| `--license-texts` | `--lockfile` | `--log-format` | `--no-cache` |
-| `--no-config` | `--outdated-min` | `--output` | `--platform` |
-| `--prefix` | `--primary-purl` | `--pypi-mapping` | `--pypi-mapping-file` |
-| `--quiet` | `--refresh` | `--report` | `--report-format` |
-| `--require-license` | `--root-name` | `--root-version` | `--scan` |
-| `--scan-depth` | `--scorecard` | `--scorecard-min` | `--source` |
-| `--spec-version` | `--timings` | `--tree` | `--verbose` |
-| `--version` | `--version-details` | `--vex` | `--vex-open` |
-| `--vulnerabilities` | | | |
+| `--assume-used` | `--ca-bundle` | `--color` | `--conda-index-kind` |
+| `--config` | `--deny-license` | `--depth` | `--doctor` |
+| `--embedded-sboms` | `--environment` | `--exclude` | `--exclude-kind` |
+| `--explain` | `--fail-on-diff` | `--fail-on-kev` | `--fail-on-phantom` |
+| `--fail-on-scorecard` | `--fail-on-severity` | `--fail-on-yanked` | `--fetch-licenses` |
+| `--format` | `--from-sbom` | `--group-by` | `--help` |
+| `--ignore-license` | `--ignore-vuln` | `--include` | `--keep-orphans` |
+| `--kev` | `--license-texts` | `--lockfile` | `--log-format` |
+| `--no-cache` | `--no-config` | `--outdated-min` | `--output` |
+| `--platform` | `--prefix` | `--primary-purl` | `--pypi-mapping` |
+| `--pypi-mapping-file` | `--quiet` | `--refresh` | `--report` |
+| `--report-format` | `--require-license` | `--root-name` | `--root-version` |
+| `--scan` | `--scan-depth` | `--scorecard` | `--scorecard-min` |
+| `--source` | `--spec-version` | `--timings` | `--tree` |
+| `--verbose` | `--version` | `--version-details` | `--vex` |
+| `--vex-open` | `--vulnerabilities` |
 
 ### Spellings that answer to an older name
 
@@ -102,6 +102,7 @@ a typo cannot pass silently and you are never left guessing at the spelling.
 | `PIXI_SBOM_KEV_URL` | Where to fetch the CISA catalog. |
 | `PIXI_SBOM_PYPI_URL` | Where to read PyPI metadata. |
 | `PIXI_SBOM_ANACONDA_URL` | Where to read anaconda.org metadata. |
+| `PIXI_SBOM_PREFIX_INDEX_URL` | Where to reach prefix.dev's GraphQL API. |
 | `PIXI_SBOM_MAPPING_URL` | Where to download the conda-to-PyPI name mapping. |
 | `PIXI_SBOM_CONDA_ARCHIVE_URL` | Base that conda package archives are read from, in place of each package's own host. |
 | `PIXI_SBOM_WHEEL_ARCHIVE_URL` | Base that PyPI wheel archives are read from, in place of each wheel's own host. |

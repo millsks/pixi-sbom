@@ -3978,6 +3978,66 @@ fn yanked_releases_are_flagged_and_can_fail_the_run() {
 }
 
 #[test]
+fn the_default_conda_index_is_prefix_dev_and_reads_its_graphql_shape() {
+    let dir = workspace("with-pypi");
+    let cache = dir.path().join("cache").join("outdated");
+    std::fs::create_dir_all(&cache).unwrap();
+    // A recorded GraphQL response, under the cache name the prefix kind uses.
+    std::fs::write(
+        cache.join("prefix-conda-forge-python.json"),
+        serde_json::json!({
+            "data": {"package": {
+                "latestVersion": {"version": "3.13.1"},
+                "versions": {"page": [{"version": "3.13.1"}, {"version": "3.12.14"}]},
+                "recent": {"page": [{"version": "3.13.1", "createdAt": "2026-05-28T00:00:00Z"}]},
+                "current": {"page": [{"createdAt": "2024-01-02T00:00:00Z"}]}
+            }}
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .env("COLUMNS", "160")
+        // No --conda-index-kind: the default is what is under test.
+        .args([
+            "-e",
+            "web",
+            "-p",
+            "linux-64",
+            "--report",
+            "outdated",
+            "--report-format",
+            "json",
+        ])
+        .assert()
+        .success();
+    let report: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    let rows = report["outdated"].as_array().unwrap();
+    let python = rows
+        .iter()
+        .find(|r| r["name"] == "python")
+        .expect("the conda package was read from the prefix.dev cache");
+    assert_eq!(python["version"], "3.12.14");
+    assert_eq!(python["latest"], "3.13.1");
+    assert_eq!(python["behind"], 1);
+    // `recent` dates the latest release; `current` is filtered to the installed version, so its
+    // date is exact however far behind it is.
+    assert!(
+        python["latest_published"].as_str().unwrap().starts_with("2026-05-28"),
+        "{python}"
+    );
+    assert!(
+        python["published"].as_str().unwrap().starts_with("2024-01-02"),
+        "{python}"
+    );
+}
+
+#[test]
 fn outdated_report_reads_both_indexes_from_the_cache() {
     let dir = workspace("with-pypi");
     // Recorded project documents: one PyPI project behind by two releases, one conda package
@@ -4015,7 +4075,16 @@ fn outdated_report_reads_both_indexes_from_the_cache() {
             .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
             .env("PIXI_SBOM_OFFLINE", "1")
             .env("COLUMNS", "160")
-            .args(["-e", "web", "-p", "linux-64", "--report", "outdated"])
+            .args([
+                "-e",
+                "web",
+                "-p",
+                "linux-64",
+                "--report",
+                "outdated",
+                "--conda-index-kind",
+                "anaconda",
+            ])
             .args(args)
             .assert()
             .success()

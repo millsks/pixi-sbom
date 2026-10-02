@@ -22,12 +22,46 @@ pub const DEFAULT_ANACONDA_URL: &str = "https://api.anaconda.org";
 /// Environment variable naming the anaconda.org API base.
 pub const ANACONDA_URL_ENV: &str = "PIXI_SBOM_ANACONDA_URL";
 
+/// Where prefix.dev answers GraphQL.
+pub const DEFAULT_PREFIX_INDEX_URL: &str = "https://prefix.dev/api/graphql";
+
+/// Environment variable naming the prefix.dev GraphQL endpoint.
+pub const PREFIX_INDEX_URL_ENV: &str = "PIXI_SBOM_PREFIX_INDEX_URL";
+
 /// Project documents list every release, so they change with each one: a day is long enough
 /// to make a CI run cheap and short enough to stay useful.
 const CACHE_MAX_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 
+/// How one document is fetched: a GET, or a POST carrying a query body for an index that is asked
+/// rather than read. Taken as a parameter so the tests need no network.
+type Fetch<'a> = &'a (dyn Fn(&str, Option<&str>) -> Result<String, Box<ureq::Error>> + Sync);
+
 /// Largest project document accepted, in bytes.
 const MAX_BYTES: u64 = 32 * 1024 * 1024;
+
+/// The prefix.dev GraphQL endpoint from the environment or the default.
+pub fn prefix_index_url() -> String {
+    std::env::var(PREFIX_INDEX_URL_ENV)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| DEFAULT_PREFIX_INDEX_URL.to_string())
+}
+
+/// Which index a run asks, resolved once.
+///
+/// `prefix` is the default because prefix.dev serves the same data and is reachable on networks
+/// that block anaconda.org. Setting `PIXI_SBOM_ANACONDA_URL` selects `anaconda` instead, so a run
+/// already pointed at an anaconda.org-compatible index is not silently sent somewhere else.
+pub fn resolve_kind(explicit: Option<crate::cli::CondaIndexKind>) -> crate::cli::CondaIndexKind {
+    explicit.unwrap_or_else(|| {
+        if std::env::var(ANACONDA_URL_ENV).is_ok_and(|value| !value.trim().is_empty()) {
+            crate::cli::CondaIndexKind::Anaconda
+        } else {
+            crate::cli::CondaIndexKind::Prefix
+        }
+    })
+}
 
 /// The anaconda.org API base from the environment or the default.
 pub fn anaconda_url() -> String {
@@ -225,6 +259,117 @@ struct AnacondaAttrs {
     timestamp: Option<i64>,
 }
 
+/// The one GraphQL request a package needs.
+///
+/// `versions` is the release list. `recent` is the newest builds across every version, which is
+/// where the latest release's date comes from — it is the latest precisely because its builds are
+/// the most recent. `current` is filtered to the installed version, so its date is exact however
+/// far behind it is. The server caps an unfiltered `variants` page, which is why the installed
+/// version is asked for by name rather than hunted for in `recent`.
+pub fn prefix_query(channel: &str, name: &str, installed: &str) -> String {
+    let query = "query($c:String!,$n:String!,$v:String){ package(channelName:$c, name:$n) {                  latestVersion { version }                  versions(limit:200) { page { version } }                  recent: variants(limit:200) { page { version createdAt } }                  current: variants(limit:200, version:$v) { page { createdAt } } } }";
+    serde_json::json!({
+        "query": query,
+        "variables": { "c": channel, "n": name, "v": installed },
+    })
+    .to_string()
+}
+
+#[derive(Debug, Deserialize)]
+struct PrefixEnvelope {
+    #[serde(default)]
+    data: Option<PrefixData>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PrefixData {
+    #[serde(default)]
+    package: Option<PrefixPackage>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PrefixPackage {
+    #[serde(default)]
+    versions: Option<PrefixVersionPage>,
+    #[serde(default)]
+    recent: Option<PrefixVariantPage>,
+    #[serde(default)]
+    current: Option<PrefixVariantPage>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PrefixVersionPage {
+    #[serde(default)]
+    page: Vec<PrefixVersion>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PrefixVersion {
+    version: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PrefixVariantPage {
+    #[serde(default)]
+    page: Vec<PrefixVariant>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PrefixVariant {
+    #[serde(default)]
+    version: Option<String>,
+    #[serde(rename = "createdAt")]
+    created_at: Option<String>,
+}
+
+/// Every version in a prefix.dev package response, with the earliest build time of each as its
+/// publication date, matching what [`anaconda_releases`] takes from anaconda.org.
+///
+/// `installed` names the version the `current` alias was filtered to, so its builds are attributed
+/// to it; `recent` carries its own version per build.
+pub fn prefix_releases(json: &str, installed: &str) -> Vec<Release> {
+    let Ok(envelope) = serde_json::from_str::<PrefixEnvelope>(json) else {
+        return Vec::new();
+    };
+    let Some(package) = envelope.data.and_then(|data| data.package) else {
+        return Vec::new();
+    };
+
+    let mut earliest: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
+    let mut note = |version: &str, created: &Option<String>| {
+        if let Some(created) = created {
+            earliest
+                .entry(version.to_string())
+                .and_modify(|held| {
+                    if created < held {
+                        *held = created.clone();
+                    }
+                })
+                .or_insert_with(|| created.clone());
+        }
+    };
+    for variant in package.recent.map(|p| p.page).unwrap_or_default() {
+        if let Some(version) = &variant.version {
+            note(version, &variant.created_at);
+        }
+    }
+    for variant in package.current.map(|p| p.page).unwrap_or_default() {
+        note(installed, &variant.created_at);
+    }
+
+    package
+        .versions
+        .map(|p| p.page)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|entry| Release {
+            published: earliest.get(&entry.version).cloned(),
+            version: entry.version,
+            yanked: false,
+        })
+        .collect()
+}
+
 /// Every version in an anaconda.org package document, with the earliest build time of each as
 /// its publication date.
 pub fn anaconda_releases(json: &str) -> Vec<Release> {
@@ -304,6 +449,10 @@ pub struct Lookup<'a> {
     pub anaconda_url: &'a str,
     /// Whether that base was named rather than defaulted; see [`anaconda_channel`].
     pub index_is_configured: bool,
+    /// Which index to ask; see [`resolve_kind`].
+    pub kind: crate::cli::CondaIndexKind,
+    /// The prefix.dev GraphQL endpoint, used when `kind` is `Prefix`.
+    pub prefix_index_url: &'a str,
     pub cache_dir: &'a Path,
 }
 
@@ -313,6 +462,8 @@ struct Job {
     index: usize,
     display_name: String,
     url: String,
+    /// The GraphQL request body, for an index that is asked rather than read.
+    body: Option<String>,
     cache_file: PathBuf,
     kind: PackageKind,
 }
@@ -320,13 +471,21 @@ struct Job {
 impl Lookup<'_> {
     /// Fill `statuses` with what each index says, keyed by the package's position in `sbom`.
     pub fn run(&self, sbom: &Sbom, progress: crate::progress::Progress) -> (Vec<Option<Status>>, Outcome) {
-        self.run_with(sbom, &|url| http::get_text(url, MAX_BYTES), SystemTime::now(), progress)
+        self.run_with(
+            sbom,
+            &|url, body| match body {
+                Some(body) => http::post_json(url, body, MAX_BYTES),
+                None => http::get_text(url, MAX_BYTES),
+            },
+            SystemTime::now(),
+            progress,
+        )
     }
 
     fn run_with(
         &self,
         sbom: &Sbom,
-        fetch: &(dyn Fn(&str) -> Result<String, Box<ureq::Error>> + Sync),
+        fetch: Fetch<'_>,
         now: SystemTime,
         progress: crate::progress::Progress,
     ) -> (Vec<Option<Status>>, Outcome) {
@@ -340,24 +499,45 @@ impl Lookup<'_> {
                         index,
                         display_name: package.name.clone(),
                         url: format!("{}/{name}/json", self.index_url.trim_end_matches('/')),
+                        body: None,
                         cache_file: self.cache_dir.join("outdated").join(format!("pypi-{name}.json")),
                         kind: package.kind,
                     })
                 }
-                PackageKind::CondaBinary => anaconda_channel(package, self.index_is_configured).map(|channel| Job {
-                    index,
-                    display_name: package.name.clone(),
-                    url: format!(
-                        "{}/package/{channel}/{}",
-                        self.anaconda_url.trim_end_matches('/'),
-                        package.name
-                    ),
-                    cache_file: self
-                        .cache_dir
-                        .join("outdated")
-                        .join(format!("conda-{channel}-{}.json", package.name)),
-                    kind: package.kind,
-                }),
+                PackageKind::CondaBinary => {
+                    anaconda_channel(package, self.index_is_configured).map(|channel| match self.kind {
+                        crate::cli::CondaIndexKind::Prefix => Job {
+                            index,
+                            display_name: package.name.clone(),
+                            url: self.prefix_index_url.to_string(),
+                            body: Some(prefix_query(
+                                &channel,
+                                &package.name,
+                                package.version.as_deref().unwrap_or_default(),
+                            )),
+                            cache_file: self
+                                .cache_dir
+                                .join("outdated")
+                                .join(format!("prefix-{channel}-{}.json", package.name)),
+                            kind: package.kind,
+                        },
+                        crate::cli::CondaIndexKind::Anaconda => Job {
+                            index,
+                            display_name: package.name.clone(),
+                            url: format!(
+                                "{}/package/{channel}/{}",
+                                self.anaconda_url.trim_end_matches('/'),
+                                package.name
+                            ),
+                            body: None,
+                            cache_file: self
+                                .cache_dir
+                                .join("outdated")
+                                .join(format!("conda-{channel}-{}.json", package.name)),
+                            kind: package.kind,
+                        },
+                    })
+                }
                 _ => None,
             };
             match job {
@@ -381,15 +561,16 @@ impl Lookup<'_> {
                 outcome.unknown += 1;
                 continue;
             };
-            let releases = match job.kind {
-                PackageKind::Pypi => pypi_releases(&document),
-                _ => anaconda_releases(&document),
+            let current = sbom.packages[job.index].version.clone().unwrap_or_default();
+            let releases = match (job.kind, self.kind) {
+                (PackageKind::Pypi, _) => pypi_releases(&document),
+                (_, crate::cli::CondaIndexKind::Prefix) => prefix_releases(&document, &current),
+                (_, crate::cli::CondaIndexKind::Anaconda) => anaconda_releases(&document),
             };
             if releases.is_empty() {
                 outcome.unknown += 1;
                 continue;
             }
-            let current = sbom.packages[job.index].version.clone().unwrap_or_default();
             let status = status(&releases, &current);
             outcome.checked += 1;
             if status.behind > 0 {
@@ -401,12 +582,7 @@ impl Lookup<'_> {
     }
 
     /// One project document, from the cache when young enough (or offline), else fetched.
-    fn document(
-        &self,
-        job: &Job,
-        fetch: &(dyn Fn(&str) -> Result<String, Box<ureq::Error>> + Sync),
-        now: SystemTime,
-    ) -> Option<String> {
+    fn document(&self, job: &Job, fetch: Fetch<'_>, now: SystemTime) -> Option<String> {
         let cached = std::fs::read_to_string(&job.cache_file).ok();
         let age = std::fs::metadata(&job.cache_file)
             .and_then(|meta| meta.modified())
@@ -420,7 +596,7 @@ impl Lookup<'_> {
             return Some(json.clone());
         }
         crate::cache::miss(crate::cache::Service::Outdated);
-        match fetch(&job.url) {
+        match fetch(&job.url, job.body.as_deref()) {
             Ok(json) => {
                 if crate::cache::may_write(crate::cache::Service::Outdated)
                     && let Err(err) = job
@@ -567,7 +743,7 @@ mod tests {
             }
         }
         let asked = std::sync::Mutex::new(Vec::new());
-        let fetch = |url: &str| {
+        let fetch = |url: &str, _body: Option<&str>| {
             asked.lock().unwrap().push(url.to_string());
             Ok(if url.contains("/package/") {
                 serde_json::json!({
@@ -589,6 +765,8 @@ mod tests {
             index_url: "https://index.example/pypi",
             anaconda_url: "https://anaconda.example",
             index_is_configured: false,
+            kind: crate::cli::CondaIndexKind::Anaconda,
+            prefix_index_url: "https://prefix.example/api/graphql",
             cache_dir: dir.path(),
         };
         let now = SystemTime::now();
@@ -640,7 +818,7 @@ mod tests {
         // The documents are cached: a second pass asks nothing.
         let (again, _) = lookup.run_with(
             &sbom,
-            &|url| panic!("must not fetch {url}"),
+            &|url, _body| panic!("must not fetch {url}"),
             now,
             crate::progress::Progress::default(),
         );
@@ -664,6 +842,91 @@ mod tests {
             anaconda_channel(sbom.packages.iter().find(|p| p.name == "libzlib").unwrap(), false),
             Some("conda-forge".into())
         );
+    }
+
+    #[test]
+    fn a_prefix_response_yields_the_same_releases_an_anaconda_one_would() {
+        let json = r#"{"data":{"package":{
+            "latestVersion":{"version":"1.3.2"},
+            "versions":{"page":[{"version":"1.3.2"},{"version":"1.3.1"},{"version":"1.2.11"}]},
+            "recent":{"page":[
+                {"version":"1.3.2","createdAt":"2026-03-21T06:58:29Z"},
+                {"version":"1.3.2","createdAt":"2026-03-21T07:40:00Z"},
+                {"version":"1.3.1","createdAt":"2024-03-05T13:14:38Z"}]},
+            "current":{"page":[
+                {"createdAt":"2019-09-09T23:22:40Z"},
+                {"createdAt":"2019-09-10T01:00:00Z"}]}}}}"#;
+        let releases = prefix_releases(json, "1.2.11");
+        assert_eq!(releases.len(), 3);
+        // The earliest build of a version is its release date, as anaconda_releases does.
+        let find = |v: &str| releases.iter().find(|r| r.version == v).unwrap().published.clone();
+        assert_eq!(find("1.3.2").as_deref(), Some("2026-03-21T06:58:29Z"));
+        assert_eq!(find("1.3.1").as_deref(), Some("2024-03-05T13:14:38Z"));
+        // The installed version is dated from `current`, which is filtered to it, so a version too
+        // old to appear among the recent builds is still exact.
+        assert_eq!(find("1.2.11").as_deref(), Some("2019-09-09T23:22:40Z"));
+    }
+
+    #[test]
+    fn a_prefix_response_that_says_nothing_yields_nothing() {
+        for json in [
+            r#"{"data":{"package":null}}"#,
+            r#"{"errors":[{"message":"nope"}]}"#,
+            "not json",
+            r#"{"data":{"package":{"versions":{"page":[]}}}}"#,
+        ] {
+            assert!(prefix_releases(json, "1.0").is_empty(), "{json}");
+        }
+    }
+
+    #[test]
+    fn the_query_names_the_channel_the_package_and_the_installed_version() {
+        let body = prefix_query("conda-forge", "zlib", "1.3.2");
+        let parsed: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(parsed["variables"]["c"], "conda-forge");
+        assert_eq!(parsed["variables"]["n"], "zlib");
+        assert_eq!(parsed["variables"]["v"], "1.3.2");
+        let query = parsed["query"].as_str().unwrap();
+        for part in [
+            "latestVersion",
+            "versions(limit:200)",
+            "recent: variants",
+            "current: variants",
+        ] {
+            assert!(query.contains(part), "{part} missing from {query}");
+        }
+    }
+
+    #[test]
+    fn the_default_kind_is_prefix_unless_an_anaconda_index_was_named() {
+        use crate::cli::CondaIndexKind;
+        static GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _held = GUARD.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let restore = std::env::var(ANACONDA_URL_ENV).ok();
+        let set = |value: Option<&str>| unsafe {
+            match value {
+                Some(value) => std::env::set_var(ANACONDA_URL_ENV, value),
+                None => std::env::remove_var(ANACONDA_URL_ENV),
+            }
+        };
+
+        set(None);
+        assert_eq!(resolve_kind(None), CondaIndexKind::Prefix);
+
+        // Someone already pointing at an anaconda.org-compatible index keeps using it rather than
+        // being silently sent to a different service.
+        set(Some("https://mirror.internal"));
+        assert_eq!(resolve_kind(None), CondaIndexKind::Anaconda);
+
+        // An empty value is not a value.
+        set(Some("  "));
+        assert_eq!(resolve_kind(None), CondaIndexKind::Prefix);
+
+        // The flag wins over both.
+        set(Some("https://mirror.internal"));
+        assert_eq!(resolve_kind(Some(CondaIndexKind::Prefix)), CondaIndexKind::Prefix);
+
+        set(restore.as_deref());
     }
 
     #[test]

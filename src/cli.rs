@@ -80,6 +80,14 @@ impl SpecVersion {
 
 /// Where PyPI identities for conda packages come from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum CondaIndexKind {
+    /// prefix.dev's GraphQL API. The default.
+    Prefix,
+    /// anaconda.org's package API, which only anaconda.org serves.
+    Anaconda,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum PypiMappingSource {
     /// Only the purls recorded in the lockfile (no network).
     Lock,
@@ -368,6 +376,13 @@ pub struct Args {
     /// Generate one SBOM per platform the environment is locked for instead of a single platform.
     #[arg(long)]
     pub all_platforms: bool,
+
+    /// Which index `--report outdated` asks for conda versions.
+    ///
+    /// Defaults to `prefix`, except that setting `PIXI_SBOM_ANACONDA_URL` selects `anaconda`, so a
+    /// run already pointed at an anaconda.org-compatible index keeps using it.
+    #[arg(long, value_enum, value_name = "KIND")]
+    pub conda_index_kind: Option<CondaIndexKind>,
 
     /// Where to get PyPI identities for conda packages. `prefix` downloads the conda-forge
     /// mapping (same source pixi uses) so scanners can match conda-installed Python packages.

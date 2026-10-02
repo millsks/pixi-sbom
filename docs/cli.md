@@ -496,10 +496,27 @@ pixi sbom --report outdated --outdated-min major --report-format markdown
 | `Step` | `patch`, `minor` or `major`, by the leading numeric segments; `current` when nothing is newer |
 
 Rows are ordered furthest behind first, then oldest. PyPI packages are read from the project document
-(`/pypi/<name>/json`); conda packages from anaconda.org's package API
-(`https://api.anaconda.org/package/<channel>/<name>`), which covers conda-forge and the other channels hosted
-there. Source packages and anything the index cannot answer for are listed under *No index to ask* rather than
-guessed at. Both documents are cached for a day, so a second run is free.
+(`/pypi/<name>/json`). Conda packages are asked of whichever index `--conda-index-kind` selects. Source packages
+and anything the index cannot answer for are listed under *No index to ask* rather than guessed at. Documents are
+cached for a day, so a second run is free.
+
+| `--conda-index-kind` | Address | Override | |
+|---|---|---|---|
+| `prefix` | `https://prefix.dev/api/graphql` | `PIXI_SBOM_PREFIX_INDEX_URL` | the default |
+| `anaconda` | `https://api.anaconda.org` | `PIXI_SBOM_ANACONDA_URL` | only anaconda.org serves this API |
+
+**prefix.dev is the default** because it serves the same data and is reachable on networks that block
+anaconda.org. Both answer with a version list and the earliest build time of each version, which is where
+`Latest`, `Behind`, `Step`, `Released` and `Age` come from. Measured against each other for `conda-forge/zlib`,
+the release dates agree exactly for some versions and within an hour for recent ones; versions published before
+prefix.dev existed can differ by longer.
+
+**Setting `PIXI_SBOM_ANACONDA_URL` selects `anaconda`**, so a run already pointed at an anaconda.org-compatible
+index keeps using it rather than being sent somewhere else. `--conda-index-kind` wins over that.
+
+prefix.dev is asked with one GraphQL request per package, the same request count as the anaconda.org API: the
+query carries the version list, the newest builds across versions (where the latest release's date comes from) and
+the builds of the installed version by name, so its date is exact however far behind it is.
 
 By default a conda package is only asked about when the lockfile says it came from anaconda.org, because that is
 where the default index is pointed and asking it about a channel it does not host costs a request per package to be
@@ -1265,6 +1282,7 @@ To narrow the log to the part of the tool you are chasing — the requests, one 
 | `PIXI_SBOM_CONCURRENCY` | How many jobs run at once: requests in flight and threads for local work. Default: one thread per core, and no more than ten requests in flight however many cores there are. A value that is not a positive number is named in the log and ignored. |
 | `PIXI_SBOM_NO_PROGRESS` | Set to `1` to turn the progress bars off even on a terminal. |
 | `PIXI_SBOM_ANACONDA_URL` | Base of the anaconda.org API used by `--report outdated` for conda packages (default `https://api.anaconda.org`). |
+| `PIXI_SBOM_PREFIX_INDEX_URL` | prefix.dev's GraphQL endpoint used by `--report outdated` for conda packages (default `https://prefix.dev/api/graphql`). |
 | `PIXI_SBOM_MAPPING_URL` | Where to download the conda-to-PyPI name mapping (default `https://conda-mapping.prefix.dev/compressed-v0/compressed_mapping.json`). `--pypi-mapping-file` reads one from disk instead. |
 | `PIXI_SBOM_CONDA_ARCHIVE_URL` | Base that conda package archives are read from, replacing each package's own host. |
 | `PIXI_SBOM_WHEEL_ARCHIVE_URL` | Base that PyPI wheel archives are read from, replacing each wheel's own host and keeping its path. |
