@@ -497,11 +497,20 @@ pixi sbom --report outdated --outdated-min major --report-format markdown
 
 Rows are ordered furthest behind first, then oldest. PyPI packages are read from the project document
 (`/pypi/<name>/json`); conda packages from anaconda.org's package API
-(`https://api.anaconda.org/package/<channel>/<name>`, `PIXI_SBOM_ANACONDA_URL` for a mirror), which covers
-conda-forge and the other channels hosted there. A channel hosted elsewhere would mean downloading its
-`repodata.json`, which is hundreds of megabytes, so those packages, along with source packages and anything the
-index cannot answer for, are listed under *No index to ask* rather than guessed at. Both documents are cached for
-a day, so a second run is free.
+(`https://api.anaconda.org/package/<channel>/<name>`), which covers conda-forge and the other channels hosted
+there. Source packages and anything the index cannot answer for are listed under *No index to ask* rather than
+guessed at. Both documents are cached for a day, so a second run is free.
+
+By default a conda package is only asked about when the lockfile says it came from anaconda.org, because that is
+where the default index is pointed and asking it about a channel it does not host costs a request per package to be
+told nothing. A channel hosted elsewhere would otherwise mean downloading its `repodata.json`, which is hundreds of
+megabytes.
+
+**`PIXI_SBOM_ANACONDA_URL` lifts that test.** Naming an index is a statement that it answers for this workspace's
+channels, so every conda package is asked about regardless of where the lockfile fetched it from. That is what
+makes the report work for a workspace solved against a mirror, where nothing in the lockfile mentions anaconda.org
+and every package would otherwise be reported unknown. The index needs to speak the anaconda.org package API; a
+host serving only `repodata.json` is not one, though a small adapter in front of it is.
 
 ## What Python the environment allows
 

@@ -255,11 +255,30 @@ fn timestamp_to_rfc3339(milliseconds: i64) -> Option<String> {
     chrono::DateTime::from_timestamp_millis(milliseconds).map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
 }
 
-/// The channel name an anaconda.org-hosted package belongs to, or `None` when the package
-/// comes from somewhere the API does not cover.
-pub fn anaconda_channel(package: &crate::model::Package) -> Option<String> {
+/// Whether an index base was named rather than defaulted.
+///
+/// Naming one is a statement that it answers for this workspace's channels, which is the only
+/// signal available: the lockfile records where packages were *fetched from*, which says nothing
+/// about what the configured index can answer for.
+pub fn index_is_configured() -> bool {
+    std::env::var(ANACONDA_URL_ENV).is_ok_and(|value| !value.trim().is_empty())
+}
+
+/// The channel name to ask the index about, or `None` when there is no reason to think it would
+/// answer.
+///
+/// By default the test is whether the package came from anaconda.org, because the default index
+/// *is* anaconda.org and asking it about a channel it does not host wastes a request per package
+/// to be told nothing.
+///
+/// That test is wrong the moment an index is configured. It reads `pixi:channel-url`, which is
+/// where the package was fetched from, so a workspace solved against a mirror failed it for every
+/// package and reported them all unknown however the index was pointed — the override was
+/// unreachable in exactly the situation anyone would set it. With one named, the channel is
+/// returned and the index gets to answer for itself.
+pub fn anaconda_channel(package: &crate::model::Package, configured: bool) -> Option<String> {
     let url = package.properties.get("pixi:channel-url")?;
-    url.contains("anaconda.org")
+    (configured || url.contains("anaconda.org"))
         .then(|| package.properties.get("pixi:channel").cloned())
         .flatten()
 }
@@ -283,6 +302,8 @@ pub struct Lookup<'a> {
     pub index_url: &'a str,
     /// anaconda.org API base.
     pub anaconda_url: &'a str,
+    /// Whether that base was named rather than defaulted; see [`anaconda_channel`].
+    pub index_is_configured: bool,
     pub cache_dir: &'a Path,
 }
 
@@ -323,7 +344,7 @@ impl Lookup<'_> {
                         kind: package.kind,
                     })
                 }
-                PackageKind::CondaBinary => anaconda_channel(package).map(|channel| Job {
+                PackageKind::CondaBinary => anaconda_channel(package, self.index_is_configured).map(|channel| Job {
                     index,
                     display_name: package.name.clone(),
                     url: format!(
@@ -567,6 +588,7 @@ mod tests {
         let lookup = Lookup {
             index_url: "https://index.example/pypi",
             anaconda_url: "https://anaconda.example",
+            index_is_configured: false,
             cache_dir: dir.path(),
         };
         let now = SystemTime::now();
@@ -632,16 +654,49 @@ mod tests {
         let zlib = sbom.packages.iter_mut().find(|p| p.name == "zlib").unwrap();
         zlib.properties
             .insert("pixi:channel-url".into(), "https://prefix.dev/my-channel/".into());
-        assert_eq!(anaconda_channel(&sbom.packages[1]), None);
+        assert_eq!(anaconda_channel(&sbom.packages[1], false), None);
         let libzlib = sbom.packages.iter_mut().find(|p| p.name == "libzlib").unwrap();
         libzlib.properties.insert(
             "pixi:channel-url".into(),
             "https://conda.anaconda.org/conda-forge/".into(),
         );
         assert_eq!(
-            anaconda_channel(sbom.packages.iter().find(|p| p.name == "libzlib").unwrap()),
+            anaconda_channel(sbom.packages.iter().find(|p| p.name == "libzlib").unwrap(), false),
             Some("conda-forge".into())
         );
+    }
+
+    #[test]
+    fn a_named_index_is_asked_about_every_channel_including_a_mirrored_one() {
+        use crate::format::testing::sample_sbom;
+        let mut sbom = sample_sbom();
+        // A workspace solved against a mirror: nothing in the lockfile mentions anaconda.org.
+        for package in sbom.packages.iter_mut() {
+            package.properties.insert(
+                "pixi:channel-url".into(),
+                "https://artifactory.corp/conda/conda-forge/".into(),
+            );
+            package.properties.insert("pixi:channel".into(), "conda-forge".into());
+        }
+        let mirrored = &sbom.packages[1];
+
+        // Defaulted, the index is anaconda.org, so a channel it does not host is not worth asking
+        // about and the package is reported unknown rather than costing a request.
+        assert_eq!(anaconda_channel(mirrored, false), None);
+
+        // Named, it is the operator saying this index answers for their channels.
+        assert_eq!(anaconda_channel(mirrored, true), Some("conda-forge".into()));
+    }
+
+    #[test]
+    fn a_package_with_no_channel_url_is_never_asked_about() {
+        use crate::format::testing::sample_sbom;
+        let mut sbom = sample_sbom();
+        for package in sbom.packages.iter_mut() {
+            package.properties.remove("pixi:channel-url");
+        }
+        // Even with an index named: there is nothing to attribute the package to.
+        assert_eq!(anaconda_channel(&sbom.packages[1], true), None);
     }
 
     #[test]

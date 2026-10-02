@@ -445,6 +445,7 @@ fn main() -> Result<()> {
             let lookup = outdated::Lookup {
                 index_url: &pypi::index_url(),
                 anaconda_url: &outdated::anaconda_url(),
+                index_is_configured: outdated::index_is_configured(),
                 cache_dir: &cache_dir,
             };
             let (statuses, outcome) = timings::time(timings::Phase::Outdated, || lookup.run(&sbom, progress));
