@@ -2426,10 +2426,18 @@ cached for a day, so a second run is free.</p>
 </tr>
 </tbody>
 </table>
-<p>Both answer with a version list and the earliest build time of each version, which is where <code>Latest</code>, <code>Behind</code>,
-<code>Step</code>, <code>Released</code> and <code>Age</code> come from. Measured against each other for <code>conda-forge/zlib</code>, the release dates
-agree exactly for some versions and within an hour for recent ones; versions published before prefix.dev existed
-can differ by longer.</p>
+<p>Both answer with a version list and the first build time of a version, which is where <code>Latest</code>, <code>Behind</code>, <code>Step</code>,
+<code>Released</code> and <code>Age</code> come from.</p>
+<p>Compared across the 52 conda packages of this workspace, both freshly fetched, the two reports are identical:
+every <code>Latest</code>, <code>Released</code>, <code>Age</code>, <code>Behind</code> and <code>Step</code> matches.</p>
+<p>Getting there needs two details that are easy to get wrong. A version's date is the first build of it, and
+prefix.dev reports a build two ways: <code>createdAt</code> is when prefix.dev ingested it, and the build's own <code>index.json</code>
+records when conda-forge made it. For anything built before prefix.dev mirrored conda-forge those differ by years,
+and the build's own timestamp is the one anaconda.org reports, so that is the one used. The other is that a page of
+builds is capped by the server, so the query asks for them oldest-first rather than taking the earliest of whatever
+a page happened to contain.</p>
+<p>prefix.dev takes one request per package, and a second only to date the newest release when the package is behind,
+since that version is only known once the first request answers.</p>
 <p><code>prefix</code> is the one to reach for on a network that blocks anaconda.org, which is otherwise the only service
 speaking the API this report expects:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>outdated<span class="w"> </span>--conda-index-kind<span class="w"> </span>prefix
