@@ -1210,7 +1210,35 @@ does allow:</p>
 with no network at all. That mapping is what an air-gapped run of <code>--vulnerabilities osv</code> over conda packages
 cannot do without.</p>
 <h2 id="3-read-the-requests">3. Read the requests<a class="headerlink" href="#3-read-the-requests" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">RUST_LOG</span><span class="o">=</span>pixi_sbom::http<span class="o">=</span>debug,pixi_sbom<span class="o">=</span>info<span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+<p><code>-v</code> turns on the per-request lines; <code>-vv</code> adds the detail that matters when a run cannot be reproduced on
+another machine:</p>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-v</code> (debug)</td>
+<td>every request and its outcome, which credentials file was loaded, cache hits and misses</td>
+</tr>
+<tr>
+<td><code>-vv</code> (trace)</td>
+<td>per-request credential attribution, the hosts credentials exist for, and <strong>response headers</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Response headers are the thing to reach for when a request fails and the status does not say why. A proxy or a
+gateway that strips or rewrites <code>Authorization</code> is invisible from a status code and obvious from the headers.
+Values that carry a credential are masked by length rather than printed, so a log is safe to paste:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>TRACE pixi_sbom::http: response headers url="https://artifactory.corp/..."
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>      headers="server: Artifactory; set-cookie: &lt;32 chars&gt;; x-api-key: &lt;15 chars&gt;; content-length: 11"
+</code></pre></div>
+<p><code>Authorization</code>, <code>Proxy-Authorization</code>, <code>Cookie</code>, <code>Set-Cookie</code>, <code>X-JFrog-Art-Api</code> and <code>X-Api-Key</code> are masked
+everywhere they appear. A conda token changes the URL that is requested, and the original is what gets logged.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">RUST_LOG</span><span class="o">=</span>pixi_sbom::http<span class="o">=</span>debug,pixi_sbom<span class="o">=</span>info<span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
 </code></pre></div>
 <p>Every request is logged with its URL, status, size and elapsed time, and every failure with its <strong>whole error
 chain</strong> — <code>invalid peer certificate</code>, <code>Connection refused</code>, the proxy's own message — rather than only the
@@ -1218,7 +1246,7 @@ outermost "request failed". <a href="../cli/#what-the-log-says-and-how-to-narrow
 targets and three worked recipes.</p>
 <h2 id="4-work-from-the-cache">4. Work from the cache<a class="headerlink" href="#4-work-from-the-cache" title="Permanent link">&para;</a></h2>
 <p>An unreachable upstream does not have to stop a run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">PIXI_SBOM_OFFLINE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">PIXI_SBOM_OFFLINE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
 </code></pre></div>
 <p>Nothing is requested; every cache is used where it has an answer and every skipped request is logged. Warm the
 caches on a machine that can reach the network, copy <code>PIXI_SBOM_CACHE_DIR</code> across, and the restricted machine
