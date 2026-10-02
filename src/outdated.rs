@@ -48,21 +48,6 @@ pub fn prefix_index_url() -> String {
         .unwrap_or_else(|| DEFAULT_PREFIX_INDEX_URL.to_string())
 }
 
-/// Which index a run asks, resolved once.
-///
-/// `prefix` is the default because prefix.dev serves the same data and is reachable on networks
-/// that block anaconda.org. Setting `PIXI_SBOM_ANACONDA_URL` selects `anaconda` instead, so a run
-/// already pointed at an anaconda.org-compatible index is not silently sent somewhere else.
-pub fn resolve_kind(explicit: Option<crate::cli::CondaIndexKind>) -> crate::cli::CondaIndexKind {
-    explicit.unwrap_or_else(|| {
-        if std::env::var(ANACONDA_URL_ENV).is_ok_and(|value| !value.trim().is_empty()) {
-            crate::cli::CondaIndexKind::Anaconda
-        } else {
-            crate::cli::CondaIndexKind::Prefix
-        }
-    })
-}
-
 /// The anaconda.org API base from the environment or the default.
 pub fn anaconda_url() -> String {
     std::env::var(ANACONDA_URL_ENV)
@@ -449,7 +434,7 @@ pub struct Lookup<'a> {
     pub anaconda_url: &'a str,
     /// Whether that base was named rather than defaulted; see [`anaconda_channel`].
     pub index_is_configured: bool,
-    /// Which index to ask; see [`resolve_kind`].
+    /// Which index to ask.
     pub kind: crate::cli::CondaIndexKind,
     /// The prefix.dev GraphQL endpoint, used when `kind` is `Prefix`.
     pub prefix_index_url: &'a str,
@@ -895,38 +880,6 @@ mod tests {
         ] {
             assert!(query.contains(part), "{part} missing from {query}");
         }
-    }
-
-    #[test]
-    fn the_default_kind_is_prefix_unless_an_anaconda_index_was_named() {
-        use crate::cli::CondaIndexKind;
-        static GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
-        let _held = GUARD.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        let restore = std::env::var(ANACONDA_URL_ENV).ok();
-        let set = |value: Option<&str>| unsafe {
-            match value {
-                Some(value) => std::env::set_var(ANACONDA_URL_ENV, value),
-                None => std::env::remove_var(ANACONDA_URL_ENV),
-            }
-        };
-
-        set(None);
-        assert_eq!(resolve_kind(None), CondaIndexKind::Prefix);
-
-        // Someone already pointing at an anaconda.org-compatible index keeps using it rather than
-        // being silently sent to a different service.
-        set(Some("https://mirror.internal"));
-        assert_eq!(resolve_kind(None), CondaIndexKind::Anaconda);
-
-        // An empty value is not a value.
-        set(Some("  "));
-        assert_eq!(resolve_kind(None), CondaIndexKind::Prefix);
-
-        // The flag wins over both.
-        set(Some("https://mirror.internal"));
-        assert_eq!(resolve_kind(Some(CondaIndexKind::Prefix)), CondaIndexKind::Prefix);
-
-        set(restore.as_deref());
     }
 
     #[test]

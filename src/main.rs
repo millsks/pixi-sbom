@@ -446,7 +446,7 @@ fn main() -> Result<()> {
                 index_url: &pypi::index_url(),
                 anaconda_url: &outdated::anaconda_url(),
                 index_is_configured: outdated::index_is_configured(),
-                kind: outdated::resolve_kind(args.conda_index_kind),
+                kind: args.conda_index_kind,
                 prefix_index_url: &outdated::prefix_index_url(),
                 cache_dir: &cache_dir,
             };
@@ -1323,7 +1323,7 @@ fn network_configuration(args: &cli::Args, fetch_licenses: bool, tls_roots: &htt
     if args.doctor && !selects_an_upstream(args, fetch_licenses) {
         let lockfile = doctor_lockfile(args);
         return http::Configuration::resolve(
-            every_service(lockfile.as_deref(), outdated::resolve_kind(args.conda_index_kind)),
+            every_service(lockfile.as_deref(), args.conda_index_kind),
             mapping::cache_dir(),
             tls_roots,
         );
@@ -1347,7 +1347,7 @@ fn network_configuration(args: &cli::Args, fetch_licenses: bool, tls_roots: &htt
         services.push(http::Service::new("CISA KEV", kev::url(), kev::URL_ENV));
     }
     if args.report == Some(report::ReportKind::Outdated) {
-        services.push(conda_index_service(outdated::resolve_kind(args.conda_index_kind)));
+        services.push(conda_index_service(args.conda_index_kind));
     }
     if args.scorecard {
         services.push(http::Service::new(

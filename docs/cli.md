@@ -502,17 +502,20 @@ cached for a day, so a second run is free.
 
 | `--conda-index-kind` | Address | Override | |
 |---|---|---|---|
-| `prefix` | `https://prefix.dev/api/graphql` | `PIXI_SBOM_PREFIX_INDEX_URL` | the default |
-| `anaconda` | `https://api.anaconda.org` | `PIXI_SBOM_ANACONDA_URL` | only anaconda.org serves this API |
+| `anaconda` | `https://api.anaconda.org` | `PIXI_SBOM_ANACONDA_URL` | the default; only anaconda.org serves this API |
+| `prefix` | `https://prefix.dev/api/graphql` | `PIXI_SBOM_PREFIX_INDEX_URL` | the same data from a different host |
 
-**prefix.dev is the default** because it serves the same data and is reachable on networks that block
-anaconda.org. Both answer with a version list and the earliest build time of each version, which is where
-`Latest`, `Behind`, `Step`, `Released` and `Age` come from. Measured against each other for `conda-forge/zlib`,
-the release dates agree exactly for some versions and within an hour for recent ones; versions published before
-prefix.dev existed can differ by longer.
+Both answer with a version list and the earliest build time of each version, which is where `Latest`, `Behind`,
+`Step`, `Released` and `Age` come from. Measured against each other for `conda-forge/zlib`, the release dates
+agree exactly for some versions and within an hour for recent ones; versions published before prefix.dev existed
+can differ by longer.
 
-**Setting `PIXI_SBOM_ANACONDA_URL` selects `anaconda`**, so a run already pointed at an anaconda.org-compatible
-index keeps using it rather than being sent somewhere else. `--conda-index-kind` wins over that.
+`prefix` is the one to reach for on a network that blocks anaconda.org, which is otherwise the only service
+speaking the API this report expects:
+
+```sh
+pixi sbom --report outdated --conda-index-kind prefix
+```
 
 prefix.dev is asked with one GraphQL request per package, the same request count as the anaconda.org API: the
 query carries the version list, the newest builds across versions (where the latest release's date comes from) and

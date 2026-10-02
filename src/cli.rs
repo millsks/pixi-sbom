@@ -81,10 +81,10 @@ impl SpecVersion {
 /// Where PyPI identities for conda packages come from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum CondaIndexKind {
-    /// prefix.dev's GraphQL API. The default.
-    Prefix,
-    /// anaconda.org's package API, which only anaconda.org serves.
+    /// anaconda.org's package API. The default, and only anaconda.org serves it.
     Anaconda,
+    /// prefix.dev's GraphQL API, which serves the same data from a different host.
+    Prefix,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -379,10 +379,10 @@ pub struct Args {
 
     /// Which index `--report outdated` asks for conda versions.
     ///
-    /// Defaults to `prefix`, except that setting `PIXI_SBOM_ANACONDA_URL` selects `anaconda`, so a
-    /// run already pointed at an anaconda.org-compatible index keeps using it.
-    #[arg(long, value_enum, value_name = "KIND")]
-    pub conda_index_kind: Option<CondaIndexKind>,
+    /// `prefix` answers with the same versions and release dates from a host that is reachable
+    /// where anaconda.org is blocked.
+    #[arg(long, value_enum, default_value_t = CondaIndexKind::Anaconda, value_name = "KIND")]
+    pub conda_index_kind: CondaIndexKind,
 
     /// Where to get PyPI identities for conda packages. `prefix` downloads the conda-forge
     /// mapping (same source pixi uses) so scanners can match conda-installed Python packages.

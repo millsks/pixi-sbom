@@ -3978,7 +3978,7 @@ fn yanked_releases_are_flagged_and_can_fail_the_run() {
 }
 
 #[test]
-fn the_default_conda_index_is_prefix_dev_and_reads_its_graphql_shape() {
+fn the_prefix_conda_index_reads_its_graphql_shape() {
     let dir = workspace("with-pypi");
     let cache = dir.path().join("cache").join("outdated");
     std::fs::create_dir_all(&cache).unwrap();
@@ -4003,7 +4003,6 @@ fn the_default_conda_index_is_prefix_dev_and_reads_its_graphql_shape() {
         .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
         .env("PIXI_SBOM_OFFLINE", "1")
         .env("COLUMNS", "160")
-        // No --conda-index-kind: the default is what is under test.
         .args([
             "-e",
             "web",
@@ -4011,6 +4010,8 @@ fn the_default_conda_index_is_prefix_dev_and_reads_its_graphql_shape() {
             "linux-64",
             "--report",
             "outdated",
+            "--conda-index-kind",
+            "prefix",
             "--report-format",
             "json",
         ])
@@ -4075,16 +4076,7 @@ fn outdated_report_reads_both_indexes_from_the_cache() {
             .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
             .env("PIXI_SBOM_OFFLINE", "1")
             .env("COLUMNS", "160")
-            .args([
-                "-e",
-                "web",
-                "-p",
-                "linux-64",
-                "--report",
-                "outdated",
-                "--conda-index-kind",
-                "anaconda",
-            ])
+            .args(["-e", "web", "-p", "linux-64", "--report", "outdated"])
             .args(args)
             .assert()
             .success()
