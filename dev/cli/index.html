@@ -2400,8 +2400,16 @@ the pinned one, and when each was published:</p>
 </table>
 <p>Rows are ordered furthest behind first, then oldest. PyPI packages are read from the project document
 (<code>/pypi/&lt;name&gt;/json</code>). Conda packages are asked of whichever index <code>--conda-index-kind</code> selects. Source packages
-and anything the index cannot answer for are listed under <em>No index to ask</em> rather than guessed at. Documents are
-cached for a day, so a second run is free.</p>
+and anything the index cannot answer for are listed under <em>No releases to compare against</em> rather than guessed at.
+Documents are cached for a day, so a second run is free.</p>
+<p>A package installed from a mirror is a case of its own. Its channel is named after the local repository, so no
+index has heard of it, and asking by name returns nothing. The lockfile records a sha256 and a proxying mirror
+serves the upstream bytes unchanged, so the channel is <strong>confirmed rather than guessed</strong>: the candidate channel is
+asked for that name, and its releases are used only when one of its builds has the recorded hash. A mirror that
+rebuilds its packages produces different bytes, and the package is reported as having nothing to compare against,
+which is the right answer rather than another channel's version history.</p>
+<p><code>PIXI_SBOM_CONDA_FALLBACK_CHANNEL</code> names the candidate, <code>conda-forge</code> by default; setting it empty turns the
+behaviour off.</p>
 <table>
 <thead>
 <tr>
