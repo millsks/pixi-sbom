@@ -600,6 +600,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#a-channel-that-needs-credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A channel that needs credentials
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#a-blocked-host" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -925,6 +936,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#a-channel-that-needs-credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A channel that needs credentials
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#a-blocked-host" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1091,6 +1113,47 @@ handshake failure:</p>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="go">  help: the file given by --ca-bundle must be PEM, with at least one -----BEGIN CERTIFICATE----- block;</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="go">        a DER file must be converted first (openssl x509 -inform der -in ca.der -out ca.pem)</span>
 </code></pre></div>
+<h3 id="a-channel-that-needs-credentials">A channel that needs credentials<a class="headerlink" href="#a-channel-that-needs-credentials" title="Permanent link">&para;</a></h3>
+<p>A private channel or index answers 401, usually on <code>--fetch-licenses</code>, which reads each archive
+from the host the lockfile names. pixi-sbom reads the credentials the conda ecosystem already
+keeps, in the order <code>rattler</code> consults them:</p>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RATTLER_AUTH_FILE</code></td>
+<td>a credentials file named by the environment</td>
+</tr>
+<tr>
+<td><code>~/.rattler/credentials.json</code></td>
+<td>where <code>pixi auth login</code> writes</td>
+</tr>
+<tr>
+<td><code>~/.netrc</code></td>
+<td><code>NETRC</code> overrides the path; <code>_netrc</code> on Windows</td>
+</tr>
+</tbody>
+</table>
+<p>So a host already set up for pixi needs nothing further:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pixi<span class="w"> </span>auth<span class="w"> </span>login<span class="w"> </span>artifactory.corp<span class="w"> </span>--token<span class="w"> </span><span class="s2">"</span><span class="nv">$TOKEN</span><span class="s2">"</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses
+</code></pre></div>
+<p>Entries are matched by exact host first, then <code>*.domain</code> walking up the labels, so
+<code>*.corp.example</code> covers <code>artifactory.corp.example</code>. A <code>.netrc</code> <code>default</code> entry applies to any host
+with no better match.</p>
+<p>Bearer tokens, basic auth and conda tokens are all used; a conda token goes in the path as
+<code>/t/&lt;token&gt;/</code> the way conda does it. Credentials never appear in a log line, a cache key or a
+produced document.</p>
+<p><strong>The platform keyring is not read.</strong> pixi can keep credentials there, and pixi-sbom cannot reach
+them without a platform dependency that would not help a CI runner anyway. Export the entry into a
+file and point <code>RATTLER_AUTH_FILE</code> at it.</p>
+<p><strong>S3 and OAuth credentials are recognised but not used.</strong> A host configured with either is
+requested unauthenticated, with a warning naming the host, rather than failing silently.</p>
 <h3 id="a-blocked-host">A blocked host<a class="headerlink" href="#a-blocked-host" title="Permanent link">&para;</a></h3>
 <p><code>pixi sbom --doctor</code> on its own probes every fixed upstream and names the ones that did not answer, so start
 there rather than guessing which flag reaches which host. <a href="../cli/#every-upstream-it-can-reach">Every upstream it can
@@ -1147,7 +1210,7 @@ does allow:</p>
 with no network at all. That mapping is what an air-gapped run of <code>--vulnerabilities osv</code> over conda packages
 cannot do without.</p>
 <h2 id="3-read-the-requests">3. Read the requests<a class="headerlink" href="#3-read-the-requests" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">RUST_LOG</span><span class="o">=</span>pixi_sbom::http<span class="o">=</span>debug,pixi_sbom<span class="o">=</span>info<span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">RUST_LOG</span><span class="o">=</span>pixi_sbom::http<span class="o">=</span>debug,pixi_sbom<span class="o">=</span>info<span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
 </code></pre></div>
 <p>Every request is logged with its URL, status, size and elapsed time, and every failure with its <strong>whole error
 chain</strong> — <code>invalid peer certificate</code>, <code>Connection refused</code>, the proxy's own message — rather than only the
@@ -1155,7 +1218,7 @@ outermost "request failed". <a href="../cli/#what-the-log-says-and-how-to-narrow
 targets and three worked recipes.</p>
 <h2 id="4-work-from-the-cache">4. Work from the cache<a class="headerlink" href="#4-work-from-the-cache" title="Permanent link">&para;</a></h2>
 <p>An unreachable upstream does not have to stop a run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">PIXI_SBOM_OFFLINE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">PIXI_SBOM_OFFLINE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
 </code></pre></div>
 <p>Nothing is requested; every cache is used where it has an answer and every skipped request is logged. Warm the
 caches on a machine that can reach the network, copy <code>PIXI_SBOM_CACHE_DIR</code> across, and the restricted machine
