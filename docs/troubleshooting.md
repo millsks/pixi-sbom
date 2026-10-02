@@ -149,6 +149,26 @@ cannot do without.
 
 ## 3. Read the requests
 
+`-v` turns on the per-request lines; `-vv` adds the detail that matters when a run cannot be reproduced on
+another machine:
+
+| Level | |
+|---|---|
+| `-v` (debug) | every request and its outcome, which credentials file was loaded, cache hits and misses |
+| `-vv` (trace) | per-request credential attribution, the hosts credentials exist for, and **response headers** |
+
+Response headers are the thing to reach for when a request fails and the status does not say why. A proxy or a
+gateway that strips or rewrites `Authorization` is invisible from a status code and obvious from the headers.
+Values that carry a credential are masked by length rather than printed, so a log is safe to paste:
+
+```
+TRACE pixi_sbom::http: response headers url="https://artifactory.corp/..."
+      headers="server: Artifactory; set-cookie: <32 chars>; x-api-key: <15 chars>; content-length: 11"
+```
+
+`Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-JFrog-Art-Api` and `X-Api-Key` are masked
+everywhere they appear. A conda token changes the URL that is requested, and the original is what gets logged.
+
 ```sh
 RUST_LOG=pixi_sbom::http=debug,pixi_sbom=info pixi sbom --vulnerabilities osv
 ```

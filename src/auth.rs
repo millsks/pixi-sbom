@@ -73,27 +73,44 @@ impl Prepared {
 }
 
 /// Every host this machine has credentials for, loaded once.
-fn store() -> &'static BTreeMap<String, Credential> {
-    static STORE: OnceLock<BTreeMap<String, Credential>> = OnceLock::new();
+/// A credential and the file it came from, which is what a 401 needs to be explainable.
+pub type Held = (Credential, String);
+
+fn store() -> &'static BTreeMap<String, Held> {
+    static STORE: OnceLock<BTreeMap<String, Held>> = OnceLock::new();
     STORE.get_or_init(load)
 }
 
-fn load() -> BTreeMap<String, Credential> {
+fn load() -> BTreeMap<String, Held> {
     let mut hosts = BTreeMap::new();
     // Later sources fill gaps rather than overwrite, so the order here is the priority order.
     for path in credential_files() {
-        merge(&mut hosts, read_credentials_file(&path));
+        let from = path.display().to_string();
+        merge(&mut hosts, read_credentials_file(&path), &from);
     }
-    merge(&mut hosts, read_netrc(&netrc_path()));
-    if !hosts.is_empty() {
-        tracing::debug!(hosts = hosts.len(), "loaded credentials");
+    let netrc = netrc_path();
+    let from = netrc.display().to_string();
+    merge(&mut hosts, read_netrc(&netrc), &from);
+    // Said once, before anything fails, so a log shows what was available rather than only what
+    // went wrong. Hosts and files, never values.
+    if hosts.is_empty() {
+        tracing::debug!("no credentials configured");
+    } else {
+        let mut sources: Vec<&str> = hosts.values().map(|(_, from)| from.as_str()).collect();
+        sources.sort_unstable();
+        sources.dedup();
+        tracing::debug!(hosts = hosts.len(), sources = sources.join("; "), "loaded credentials");
+        tracing::trace!(
+            hosts = hosts.keys().cloned().collect::<Vec<_>>().join("; "),
+            "credential hosts"
+        );
     }
     hosts
 }
 
-fn merge(into: &mut BTreeMap<String, Credential>, from: BTreeMap<String, Credential>) {
-    for (host, credential) in from {
-        into.entry(host).or_insert(credential);
+fn merge(into: &mut BTreeMap<String, Held>, found: BTreeMap<String, Credential>, from: &str) {
+    for (host, credential) in found {
+        into.entry(host).or_insert_with(|| (credential, from.to_string()));
     }
 }
 
@@ -202,7 +219,7 @@ fn host_of(url: &str) -> Option<&str> {
 }
 
 /// The credential for a host: the host itself, then `*.domain` up the labels, then `default`.
-fn credential_for(host: &str) -> Option<&'static Credential> {
+fn credential_for(host: &str) -> Option<&'static Held> {
     let store = store();
     if let Some(found) = store.get(host) {
         return Some(found);
@@ -263,19 +280,19 @@ pub fn prepare(url: &str) -> Prepared {
         return Prepared::plain(url);
     };
     match credential_for(host) {
-        Some(Credential::BearerToken(token)) => Prepared {
+        Some((Credential::BearerToken(token), _)) => Prepared {
             url: url.to_string(),
             authorization: Some(format!("Bearer {token}")),
         },
-        Some(Credential::BasicHTTP { username, password }) => Prepared {
+        Some((Credential::BasicHTTP { username, password }, _)) => Prepared {
             url: url.to_string(),
             authorization: Some(format!("Basic {}", base64(&format!("{username}:{password}")))),
         },
-        Some(Credential::CondaToken(token)) => Prepared {
+        Some((Credential::CondaToken(token), _)) => Prepared {
             url: with_conda_token(url, token),
             authorization: None,
         },
-        Some(other) => {
+        Some((other, _)) => {
             // Recognised but not usable over HTTP from here; saying so beats a silent 401.
             tracing::warn!(
                 host,
@@ -289,6 +306,35 @@ pub fn prepare(url: &str) -> Prepared {
         }
         None => Prepared::plain(url),
     }
+}
+
+/// What was sent for a URL and where it came from, for a diagnostic. Never the credential itself.
+///
+/// A rejected request and an unauthenticated one look identical from a status code, and they want
+/// opposite fixes: one is a wrong credential, the other is a credential that was never found.
+pub fn describe(url: &str) -> String {
+    let Some(host) = host_of(url) else {
+        return "no credentials: not a URL with a host".to_string();
+    };
+    match credential_for(host) {
+        Some((credential, from)) => {
+            let kind = match credential {
+                Credential::BearerToken(_) => "bearer token",
+                Credential::BasicHTTP { .. } => "basic auth",
+                Credential::CondaToken(_) => "conda token",
+                Credential::S3Credentials { .. } => "S3 credentials, unusable here",
+                Credential::OAuth { .. } => "OAuth credentials, unusable here",
+            };
+            format!("{kind} from {from}")
+        }
+        None => format!("no credentials found for {host}"),
+    }
+}
+
+/// Whether any credentials at all were loaded, so a diagnostic can tell "none configured" from
+/// "configured, but not for this host".
+pub fn any_configured() -> bool {
+    !store().is_empty()
 }
 
 #[cfg(test)]
