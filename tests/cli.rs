@@ -3982,16 +3982,13 @@ fn the_prefix_conda_index_reads_its_graphql_shape() {
     let dir = workspace("with-pypi");
     let cache = dir.path().join("cache").join("outdated");
     std::fs::create_dir_all(&cache).unwrap();
-    // A recorded GraphQL response, under the cache name the prefix kind uses.
+    // The cache holds the resolved answer, not the raw GraphQL response: the dates cost a request
+    // each, so normalising at fetch time means a second run needs no network.
     std::fs::write(
         cache.join("prefix-conda-forge-python.json"),
         serde_json::json!({
-            "data": {"package": {
-                "latestVersion": {"version": "3.13.1"},
-                "versions": {"page": [{"version": "3.13.1"}, {"version": "3.12.14"}]},
-                "recent": {"page": [{"version": "3.13.1", "createdAt": "2026-05-28T00:00:00Z"}]},
-                "current": {"page": [{"createdAt": "2024-01-02T00:00:00Z"}]}
-            }}
+            "versions": ["3.13.1", "3.12.14"],
+            "dates": {"3.12.14": "2024-01-02T00:00:00Z", "3.13.1": "2026-05-28T00:00:00Z"}
         })
         .to_string(),
     )

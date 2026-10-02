@@ -244,18 +244,32 @@ struct AnacondaAttrs {
     timestamp: Option<i64>,
 }
 
-/// The one GraphQL request a package needs.
+/// The versions a package has, and the first build of the installed one.
 ///
-/// `versions` is the release list. `recent` is the newest builds across every version, which is
-/// where the latest release's date comes from — it is the latest precisely because its builds are
-/// the most recent. `current` is filtered to the installed version, so its date is exact however
-/// far behind it is. The server caps an unfiltered `variants` page, which is why the installed
-/// version is asked for by name rather than hunted for in `recent`.
-pub fn prefix_query(channel: &str, name: &str, installed: &str) -> String {
-    let query = "query($c:String!,$n:String!,$v:String){ package(channelName:$c, name:$n) {                  latestVersion { version }                  versions(limit:200) { page { version } }                  recent: variants(limit:200) { page { version createdAt } }                  current: variants(limit:200, version:$v) { page { createdAt } } } }";
+/// `orderBy CREATED_AT ASC` with `limit:1` is the whole trick: the server caps a page, so taking
+/// the minimum of a page gives the earliest of the *newest* builds rather than the earliest build.
+/// Asking the server to sort and returning one row is exact in a single request, however many
+/// builds a version has.
+pub fn prefix_versions_query(channel: &str, name: &str, installed: &str) -> String {
+    let query = "query($c:String!,$n:String!,$v:String){ package(channelName:$c, name:$n) { \
+                 versions(limit:500) { page { version } } \
+                 current: variants(limit:200, version:$v, orderBy:{byField:{field:CREATED_AT, direction:ASC}}) \
+                 { page { createdAt rawIndex } } } }";
     serde_json::json!({
         "query": query,
         "variables": { "c": channel, "n": name, "v": installed },
+    })
+    .to_string()
+}
+
+/// The first build of one named version.
+pub fn prefix_version_date_query(channel: &str, name: &str, version: &str) -> String {
+    let query = "query($c:String!,$n:String!,$v:String){ package(channelName:$c, name:$n) { \
+                 current: variants(limit:200, version:$v, orderBy:{byField:{field:CREATED_AT, direction:ASC}}) \
+                 { page { createdAt rawIndex } } } }";
+    serde_json::json!({
+        "query": query,
+        "variables": { "c": channel, "n": name, "v": version },
     })
     .to_string()
 }
@@ -276,8 +290,6 @@ struct PrefixData {
 struct PrefixPackage {
     #[serde(default)]
     versions: Option<PrefixVersionPage>,
-    #[serde(default)]
-    recent: Option<PrefixVariantPage>,
     #[serde(default)]
     current: Option<PrefixVariantPage>,
 }
@@ -301,55 +313,93 @@ struct PrefixVariantPage {
 
 #[derive(Debug, Deserialize)]
 struct PrefixVariant {
-    #[serde(default)]
-    version: Option<String>,
     #[serde(rename = "createdAt")]
     created_at: Option<String>,
+    /// The build's own `index.json`, whose `timestamp` is when conda-forge built it rather than
+    /// when prefix.dev ingested it. Served as an object or as a string holding one.
+    #[serde(rename = "rawIndex", default)]
+    raw_index: Option<serde_json::Value>,
 }
 
-/// Every version in a prefix.dev package response, with the earliest build time of each as its
-/// publication date, matching what [`anaconda_releases`] takes from anaconda.org.
+impl PrefixVariant {
+    /// When this build was made, preferring its own record over the mirror's ingest time.
+    ///
+    /// For anything built before prefix.dev mirrored conda-forge the two differ by years, and the
+    /// build's own timestamp is the one anaconda.org reports.
+    fn built(&self) -> Option<String> {
+        self.raw_index
+            .as_ref()
+            .and_then(|raw| match raw {
+                serde_json::Value::String(text) => serde_json::from_str(text).ok(),
+                other => Some(other.clone()),
+            })
+            .and_then(|index| index.get("timestamp")?.as_i64())
+            .and_then(timestamp_to_rfc3339)
+            .or_else(|| self.created_at.clone())
+    }
+}
+
+/// What a prefix.dev lookup is reduced to before caching: the version list and the first build
+/// date of the versions the report needs dated.
 ///
-/// `installed` names the version the `current` alias was filtered to, so its builds are attributed
-/// to it; `recent` carries its own version per build.
-pub fn prefix_releases(json: &str, installed: &str) -> Vec<Release> {
+/// Normalised at fetch time rather than at parse time because the dates take a request each: the
+/// cache then holds the answer rather than the raw response, and a second run needs no network
+/// even for a package that took two requests the first time.
+#[derive(Debug, Default, serde::Serialize, Deserialize)]
+pub struct PrefixDocument {
+    pub versions: Vec<String>,
+    /// Version to its first build, RFC 3339.
+    pub dates: std::collections::BTreeMap<String, String>,
+}
+
+/// The versions and the installed version's first build, from one `prefix_versions_query`.
+pub fn prefix_page(json: &str, installed: &str) -> PrefixDocument {
     let Ok(envelope) = serde_json::from_str::<PrefixEnvelope>(json) else {
-        return Vec::new();
+        return PrefixDocument::default();
     };
     let Some(package) = envelope.data.and_then(|data| data.package) else {
+        return PrefixDocument::default();
+    };
+    let mut document = PrefixDocument {
+        versions: package
+            .versions
+            .map(|p| p.page)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|entry| entry.version)
+            .collect(),
+        dates: Default::default(),
+    };
+    if let Some(date) = prefix_first_date(&package.current) {
+        document.dates.insert(installed.to_string(), date);
+    }
+    document
+}
+
+/// The one date in a `prefix_version_date_query` response.
+pub fn prefix_date(json: &str) -> Option<String> {
+    let envelope = serde_json::from_str::<PrefixEnvelope>(json).ok()?;
+    prefix_first_date(&envelope.data?.package?.current)
+}
+
+/// The earliest build on a page, by each build's own timestamp.
+fn prefix_first_date(page: &Option<PrefixVariantPage>) -> Option<String> {
+    page.as_ref()?.page.iter().filter_map(PrefixVariant::built).min()
+}
+
+/// The releases a normalised prefix.dev document describes, matching what [`anaconda_releases`]
+/// takes from anaconda.org. A version with no date is still a release; it is only its age that is
+/// unknown.
+pub fn prefix_releases(json: &str) -> Vec<Release> {
+    let Ok(document) = serde_json::from_str::<PrefixDocument>(json) else {
         return Vec::new();
     };
-
-    let mut earliest: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
-    let mut note = |version: &str, created: &Option<String>| {
-        if let Some(created) = created {
-            earliest
-                .entry(version.to_string())
-                .and_modify(|held| {
-                    if created < held {
-                        *held = created.clone();
-                    }
-                })
-                .or_insert_with(|| created.clone());
-        }
-    };
-    for variant in package.recent.map(|p| p.page).unwrap_or_default() {
-        if let Some(version) = &variant.version {
-            note(version, &variant.created_at);
-        }
-    }
-    for variant in package.current.map(|p| p.page).unwrap_or_default() {
-        note(installed, &variant.created_at);
-    }
-
-    package
+    document
         .versions
-        .map(|p| p.page)
-        .unwrap_or_default()
         .into_iter()
-        .map(|entry| Release {
-            published: earliest.get(&entry.version).cloned(),
-            version: entry.version,
+        .map(|version| Release {
+            published: document.dates.get(&version).cloned(),
+            version,
             yanked: false,
         })
         .collect()
@@ -385,13 +435,16 @@ fn timestamp_to_rfc3339(milliseconds: i64) -> Option<String> {
     chrono::DateTime::from_timestamp_millis(milliseconds).map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
 }
 
-/// Whether an index base was named rather than defaulted.
+/// Whether this run chose its index rather than falling back to the default.
 ///
-/// Naming one is a statement that it answers for this workspace's channels, which is the only
+/// Choosing one is a statement that it answers for this workspace's channels, which is the only
 /// signal available: the lockfile records where packages were *fetched from*, which says nothing
-/// about what the configured index can answer for.
-pub fn index_is_configured() -> bool {
-    std::env::var(ANACONDA_URL_ENV).is_ok_and(|value| !value.trim().is_empty())
+/// about what the chosen index can answer for.
+pub fn index_is_configured(kind: crate::cli::CondaIndexKind) -> bool {
+    // Choosing `prefix` is as much a statement as naming an address: prefix.dev answers for a
+    // channel by name, whatever host the lockfile happened to fetch the package from.
+    kind == crate::cli::CondaIndexKind::Prefix
+        || std::env::var(ANACONDA_URL_ENV).is_ok_and(|value| !value.trim().is_empty())
 }
 
 /// The channel name to ask the index about, or `None` when there is no reason to think it would
@@ -447,6 +500,9 @@ struct Job {
     index: usize,
     display_name: String,
     url: String,
+    /// The channel and the installed version, for an index that needs a second request to date
+    /// the newest release.
+    follow_up: Option<(String, String)>,
     /// The GraphQL request body, for an index that is asked rather than read.
     body: Option<String>,
     cache_file: PathBuf,
@@ -484,6 +540,7 @@ impl Lookup<'_> {
                         index,
                         display_name: package.name.clone(),
                         url: format!("{}/{name}/json", self.index_url.trim_end_matches('/')),
+                        follow_up: None,
                         body: None,
                         cache_file: self.cache_dir.join("outdated").join(format!("pypi-{name}.json")),
                         kind: package.kind,
@@ -495,7 +552,8 @@ impl Lookup<'_> {
                             index,
                             display_name: package.name.clone(),
                             url: self.prefix_index_url.to_string(),
-                            body: Some(prefix_query(
+                            follow_up: Some((channel.clone(), package.version.clone().unwrap_or_default())),
+                            body: Some(prefix_versions_query(
                                 &channel,
                                 &package.name,
                                 package.version.as_deref().unwrap_or_default(),
@@ -514,6 +572,7 @@ impl Lookup<'_> {
                                 self.anaconda_url.trim_end_matches('/'),
                                 package.name
                             ),
+                            follow_up: None,
                             body: None,
                             cache_file: self
                                 .cache_dir
@@ -549,7 +608,7 @@ impl Lookup<'_> {
             let current = sbom.packages[job.index].version.clone().unwrap_or_default();
             let releases = match (job.kind, self.kind) {
                 (PackageKind::Pypi, _) => pypi_releases(&document),
-                (_, crate::cli::CondaIndexKind::Prefix) => prefix_releases(&document, &current),
+                (_, crate::cli::CondaIndexKind::Prefix) => prefix_releases(&document),
                 (_, crate::cli::CondaIndexKind::Anaconda) => anaconda_releases(&document),
             };
             if releases.is_empty() {
@@ -567,6 +626,36 @@ impl Lookup<'_> {
     }
 
     /// One project document, from the cache when young enough (or offline), else fetched.
+    /// Reduce a response to what the report needs, before it is cached.
+    ///
+    /// For prefix.dev that means dating the newest release, which takes a second request because
+    /// its version is only known once the first answers. Packages already on their newest release
+    /// need no second request, which is most of them. Every other index answers in one document
+    /// and passes straight through.
+    fn resolve(&self, job: &Job, json: String, fetch: Fetch<'_>) -> String {
+        let Some((channel, installed)) = &job.follow_up else {
+            return json;
+        };
+        let mut document = prefix_page(&json, installed);
+        let newest = document
+            .versions
+            .iter()
+            .filter(|version| !is_prerelease(version))
+            .max_by(|a, b| compare(a, b))
+            .cloned();
+        if let Some(newest) = newest
+            && !document.dates.contains_key(&newest)
+            && let Ok(answer) = fetch(
+                &job.url,
+                Some(&prefix_version_date_query(channel, &job.display_name, &newest)),
+            )
+            && let Some(date) = prefix_date(&answer)
+        {
+            document.dates.insert(newest, date);
+        }
+        serde_json::to_string(&document).unwrap_or(json)
+    }
+
     fn document(&self, job: &Job, fetch: Fetch<'_>, now: SystemTime) -> Option<String> {
         let cached = std::fs::read_to_string(&job.cache_file).ok();
         let age = std::fs::metadata(&job.cache_file)
@@ -581,7 +670,7 @@ impl Lookup<'_> {
             return Some(json.clone());
         }
         crate::cache::miss(crate::cache::Service::Outdated);
-        match fetch(&job.url, job.body.as_deref()) {
+        match fetch(&job.url, job.body.as_deref()).map(|json| self.resolve(job, json, fetch)) {
             Ok(json) => {
                 if crate::cache::may_write(crate::cache::Service::Outdated)
                     && let Err(err) = job
@@ -830,26 +919,72 @@ mod tests {
     }
 
     #[test]
-    fn a_prefix_response_yields_the_same_releases_an_anaconda_one_would() {
+    fn a_prefix_page_takes_the_version_list_and_the_installed_version_date() {
         let json = r#"{"data":{"package":{
-            "latestVersion":{"version":"1.3.2"},
             "versions":{"page":[{"version":"1.3.2"},{"version":"1.3.1"},{"version":"1.2.11"}]},
-            "recent":{"page":[
-                {"version":"1.3.2","createdAt":"2026-03-21T06:58:29Z"},
-                {"version":"1.3.2","createdAt":"2026-03-21T07:40:00Z"},
-                {"version":"1.3.1","createdAt":"2024-03-05T13:14:38Z"}]},
+            "current":{"page":[{"createdAt":"2019-09-09T23:22:40Z"}]}}}}"#;
+        let document = prefix_page(json, "1.2.11");
+        assert_eq!(document.versions, ["1.3.2", "1.3.1", "1.2.11"]);
+        // The server sorted ascending and returned one row, so this is the first build, not the
+        // earliest of a capped page.
+        assert_eq!(
+            document.dates.get("1.2.11").map(String::as_str),
+            Some("2019-09-09T23:22:40Z")
+        );
+        assert_eq!(
+            document.dates.len(),
+            1,
+            "only the version that was asked about is dated"
+        );
+    }
+
+    #[test]
+    fn a_builds_own_timestamp_beats_the_mirrors_ingest_time() {
+        // yaml 0.2.5 as prefix.dev serves it: ingested in 2023, built in 2020, which is the date
+        // anaconda.org reports and the one the report should show.
+        let json = r#"{"data":{"package":{
+            "versions":{"page":[{"version":"0.2.5"}]},
             "current":{"page":[
-                {"createdAt":"2019-09-09T23:22:40Z"},
-                {"createdAt":"2019-09-10T01:00:00Z"}]}}}}"#;
-        let releases = prefix_releases(json, "1.2.11");
-        assert_eq!(releases.len(), 3);
-        // The earliest build of a version is its release date, as anaconda_releases does.
+                {"createdAt":"2023-03-15T00:00:00Z","rawIndex":{"timestamp":1591056000000}},
+                {"createdAt":"2023-03-16T00:00:00Z","rawIndex":{"timestamp":1600000000000}}]}}}}"#;
+        let document = prefix_page(json, "0.2.5");
+        assert_eq!(
+            document.dates.get("0.2.5").map(String::as_str),
+            Some("2020-06-02T00:00:00Z")
+        );
+
+        // rawIndex also arrives as a string holding the object.
+        let as_text = r#"{"data":{"package":{"versions":{"page":[{"version":"1.0"}]},
+            "current":{"page":[{"createdAt":"2023-01-01T00:00:00Z",
+                                "rawIndex":"{\"timestamp\":1591056000000}"}]}}}}"#;
+        assert_eq!(
+            prefix_page(as_text, "1.0").dates.get("1.0").map(String::as_str),
+            Some("2020-06-02T00:00:00Z")
+        );
+
+        // With no rawIndex at all the ingest time is all there is, and is better than nothing.
+        let bare = r#"{"data":{"package":{"versions":{"page":[{"version":"1.0"}]},
+            "current":{"page":[{"createdAt":"2023-01-01T00:00:00Z"}]}}}}"#;
+        assert_eq!(
+            prefix_page(bare, "1.0").dates.get("1.0").map(String::as_str),
+            Some("2023-01-01T00:00:00Z")
+        );
+    }
+
+    #[test]
+    fn a_prefix_document_becomes_releases_dated_where_known() {
+        let document = PrefixDocument {
+            versions: vec!["1.3.2".into(), "1.3.1".into()],
+            dates: [("1.3.2".to_string(), "2026-03-21T06:58:29Z".to_string())]
+                .into_iter()
+                .collect(),
+        };
+        let releases = prefix_releases(&serde_json::to_string(&document).unwrap());
+        assert_eq!(releases.len(), 2);
         let find = |v: &str| releases.iter().find(|r| r.version == v).unwrap().published.clone();
         assert_eq!(find("1.3.2").as_deref(), Some("2026-03-21T06:58:29Z"));
-        assert_eq!(find("1.3.1").as_deref(), Some("2024-03-05T13:14:38Z"));
-        // The installed version is dated from `current`, which is filtered to it, so a version too
-        // old to appear among the recent builds is still exact.
-        assert_eq!(find("1.2.11").as_deref(), Some("2019-09-09T23:22:40Z"));
+        // A version nobody asked the date of is still a release; only its age is unknown.
+        assert_eq!(find("1.3.1"), None);
     }
 
     #[test]
@@ -858,28 +993,39 @@ mod tests {
             r#"{"data":{"package":null}}"#,
             r#"{"errors":[{"message":"nope"}]}"#,
             "not json",
-            r#"{"data":{"package":{"versions":{"page":[]}}}}"#,
         ] {
-            assert!(prefix_releases(json, "1.0").is_empty(), "{json}");
+            assert!(prefix_page(json, "1.0").versions.is_empty(), "{json}");
+            assert!(prefix_date(json).is_none(), "{json}");
         }
+        assert!(prefix_releases("not json").is_empty());
     }
 
     #[test]
-    fn the_query_names_the_channel_the_package_and_the_installed_version() {
-        let body = prefix_query("conda-forge", "zlib", "1.3.2");
+    fn the_queries_sort_oldest_first_and_ask_for_each_build_own_record() {
+        let body = prefix_versions_query("conda-forge", "zlib", "1.3.2");
         let parsed: serde_json::Value = serde_json::from_str(&body).unwrap();
         assert_eq!(parsed["variables"]["c"], "conda-forge");
         assert_eq!(parsed["variables"]["n"], "zlib");
         assert_eq!(parsed["variables"]["v"], "1.3.2");
         let query = parsed["query"].as_str().unwrap();
-        for part in [
-            "latestVersion",
-            "versions(limit:200)",
-            "recent: variants",
-            "current: variants",
-        ] {
-            assert!(query.contains(part), "{part} missing from {query}");
-        }
+        // A page is capped, so the oldest builds have to be the ones the server returns.
+        assert!(query.contains("direction:ASC"), "{query}");
+        // rawIndex carries the build's own timestamp; createdAt is only when prefix.dev ingested
+        // it, which for anything older than the mirror is years out.
+        assert!(query.contains("rawIndex"), "{query}");
+        assert!(query.contains("versions(limit:500)"), "{query}");
+
+        let follow_up = prefix_version_date_query("conda-forge", "zlib", "1.4.0");
+        let parsed: serde_json::Value = serde_json::from_str(&follow_up).unwrap();
+        assert_eq!(parsed["variables"]["v"], "1.4.0");
+        assert!(parsed["query"].as_str().unwrap().contains("direction:ASC"));
+    }
+
+    #[test]
+    fn a_prefix_date_response_is_the_one_row() {
+        let json = r#"{"data":{"package":{"current":{"page":[{"createdAt":"2026-03-21T06:58:29Z"}]}}}}"#;
+        assert_eq!(prefix_date(json).as_deref(), Some("2026-03-21T06:58:29Z"));
+        assert_eq!(prefix_date(r#"{"data":{"package":{"current":{"page":[]}}}}"#), None);
     }
 
     #[test]

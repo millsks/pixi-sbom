@@ -445,7 +445,7 @@ fn main() -> Result<()> {
             let lookup = outdated::Lookup {
                 index_url: &pypi::index_url(),
                 anaconda_url: &outdated::anaconda_url(),
-                index_is_configured: outdated::index_is_configured(),
+                index_is_configured: outdated::index_is_configured(args.conda_index_kind),
                 kind: args.conda_index_kind,
                 prefix_index_url: &outdated::prefix_index_url(),
                 cache_dir: &cache_dir,

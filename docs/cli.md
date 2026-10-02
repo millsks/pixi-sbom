@@ -505,10 +505,21 @@ cached for a day, so a second run is free.
 | `anaconda` | `https://api.anaconda.org` | `PIXI_SBOM_ANACONDA_URL` | the default; only anaconda.org serves this API |
 | `prefix` | `https://prefix.dev/api/graphql` | `PIXI_SBOM_PREFIX_INDEX_URL` | the same data from a different host |
 
-Both answer with a version list and the earliest build time of each version, which is where `Latest`, `Behind`,
-`Step`, `Released` and `Age` come from. Measured against each other for `conda-forge/zlib`, the release dates
-agree exactly for some versions and within an hour for recent ones; versions published before prefix.dev existed
-can differ by longer.
+Both answer with a version list and the first build time of a version, which is where `Latest`, `Behind`, `Step`,
+`Released` and `Age` come from.
+
+Compared across the 52 conda packages of this workspace, both freshly fetched, the two reports are identical:
+every `Latest`, `Released`, `Age`, `Behind` and `Step` matches.
+
+Getting there needs two details that are easy to get wrong. A version's date is the first build of it, and
+prefix.dev reports a build two ways: `createdAt` is when prefix.dev ingested it, and the build's own `index.json`
+records when conda-forge made it. For anything built before prefix.dev mirrored conda-forge those differ by years,
+and the build's own timestamp is the one anaconda.org reports, so that is the one used. The other is that a page of
+builds is capped by the server, so the query asks for them oldest-first rather than taking the earliest of whatever
+a page happened to contain.
+
+prefix.dev takes one request per package, and a second only to date the newest release when the package is behind,
+since that version is only known once the first request answers.
 
 `prefix` is the one to reach for on a network that blocks anaconda.org, which is otherwise the only service
 speaking the API this report expects:
