@@ -8,8 +8,27 @@ use jsonschema::{Registry, Validator};
 use predicates::prelude::*;
 use serde_json::Value;
 
+/// The binary, with the machine's own configuration kept out of the way.
+///
+/// Since the user-level configuration layer was added, a `~/.pixi/pixi-sbom-config.toml` on the
+/// developer's machine is read by every run — including these. One line in it (`conda-index-kind`,
+/// say) silently changes what the tests assert against, and the suite passes on CI only because a
+/// fresh runner happens to have no such file. `PIXI_HOME` is what the user layer resolves through,
+/// so pointing it at an empty directory makes these runs depend on the fixture and nothing else.
 fn pixi_sbom() -> Command {
-    Command::cargo_bin("pixi-sbom").expect("binary builds")
+    let mut command = Command::cargo_bin("pixi-sbom").expect("binary builds");
+    command.env("PIXI_HOME", empty_pixi_home());
+    command
+}
+
+/// A directory with no configuration in it, shared by every test and never written to.
+fn empty_pixi_home() -> &'static Path {
+    static HOME: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    HOME.get_or_init(|| {
+        let dir = std::env::temp_dir().join("pixi-sbom-tests-empty-home");
+        std::fs::create_dir_all(&dir).expect("a directory for an empty PIXI_HOME");
+        dir
+    })
 }
 
 fn tests_dir() -> PathBuf {
@@ -2992,6 +3011,37 @@ fn excluding_pre_commit_from_this_repository() {
         .collect();
     assert!(!names.iter().any(|n| n.starts_with("pre-commit")), "{names:?}");
     assert!(names.contains(&"rust"), "the toolchain itself stays");
+}
+
+#[test]
+fn the_user_layer_is_read_from_pixi_home_and_nothing_else() {
+    // Two things at once. That a user-level file applies at all, which is the #289 feature, and
+    // that `PIXI_HOME` is what decides where it is read from — which is what lets this suite run
+    // on a machine that has a real `~/.pixi/pixi-sbom-config.toml` without inheriting it.
+    let dir = workspace("with-pypi");
+    let home = tempfile::tempdir().unwrap();
+    std::fs::write(home.path().join("pixi-sbom-config.toml"), "format = \"spdx\"\n").unwrap();
+
+    let run = |pixi_home: &Path| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_HOME", pixi_home)
+            .args(["-e", "web", "-p", "linux-64", "--output", "-"])
+            .assert()
+            .success()
+    };
+
+    let assert = run(home.path()).stderr(predicate::str::contains("pixi-sbom-config.toml"));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_eq!(doc["spdxVersion"], "SPDX-2.3", "the user layer chose the format");
+
+    // Pointed somewhere with no file, the same run falls back to the default format. If the user
+    // layer were read from anywhere but PIXI_HOME this would still be SPDX on a machine that has
+    // one, and the suite's results would depend on who ran it.
+    let empty = tempfile::tempdir().unwrap();
+    let assert = run(empty.path());
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_eq!(doc["bomFormat"], "CycloneDX", "no user layer, so the default stands");
 }
 
 #[test]
