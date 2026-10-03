@@ -98,8 +98,9 @@ pub fn probes(configuration: &http::Configuration, probe: &dyn Fn(&str) -> Resul
 /// A real probe: ask for the document and read nothing but its status.
 pub fn request(url: &str) -> Result<u16, String> {
     // A few kilobytes is enough to know the answer came from the service rather than from a
-    // captive portal, and small enough to be polite.
-    classify(http::get_text(url, 8 * 1024))
+    // captive portal, and small enough to be polite. `probe_text` leaves the status entirely to
+    // `classify`: a probe that is refused is reporting, not failing.
+    classify(http::probe_text(url, 8 * 1024))
 }
 
 /// What a probe's response says about the host: a status, or the transport failure.

@@ -122,6 +122,12 @@ file and point `RATTLER_AUTH_FILE` at it.
 **S3 and OAuth credentials are recognised but not used.** A host configured with either is
 requested unauthenticated, with a warning naming the host, rather than failing silently.
 
+**401 and 403 are different problems.** A 401 means the host wants authentication, and the warning
+names what this machine had for it, because a rejected credential and a missing one look identical
+from the status code and want opposite fixes. A 403 means the host refused — usually a proxy or a
+policy — and credentials are only named when some were actually sent and refused anyway. A 403 from
+a host you have no credentials for is not a credentials problem, and is not reported as one.
+
 ### A blocked host
 
 `pixi sbom --doctor` on its own probes every fixed upstream and names the ones that did not answer, so start

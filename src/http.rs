@@ -416,10 +416,46 @@ fn finished(method: &str, url: &str, status: u16, bytes: usize, started: Instant
     );
 }
 
+/// What a failing status is worth saying beyond the debug line every failure already gets, and
+/// whether naming this machine's credentials for the host helps or misleads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Explanation {
+    pub message: &'static str,
+    pub name_credentials: bool,
+}
+
+/// A rejected credential and a missing one are the same status code and want opposite fixes, so
+/// the cases worth a louder line than the rest are the ones nobody can diagnose from the status.
+///
+/// `None` for a status that explains itself. 403 is the subtle one: with no credential sent it is
+/// a proxy or a policy, and leading with credentials sends people after a problem they do not
+/// have — `conda.anaconda.org` answers 403 at its root for everyone, because the root is not an
+/// endpoint. With a credential sent, "refused it anyway" is exactly what the reader needs.
+pub(crate) fn explain(status: u16, credentialed: bool) -> Option<Explanation> {
+    match status {
+        401 => Some(Explanation {
+            message: "the host requires authentication; see the credentials section of the troubleshooting guide",
+            name_credentials: true,
+        }),
+        403 if credentialed => Some(Explanation {
+            message: "the host refused the request although credentials were sent; this is often a proxy or a policy",
+            name_credentials: true,
+        }),
+        403 => Some(Explanation {
+            message: "the host refused the request; this is usually a proxy or a policy rather than credentials",
+            name_credentials: false,
+        }),
+        _ => None,
+    }
+}
+
 /// Log a failed request with the whole chain, so the line a user pastes carries the cause, and
 /// hand the error on unchanged — callers read its variant to tell one dead URL from a dead
 /// network.
-fn failed(method: &str, url: &str, started: Instant, err: ureq::Error) -> Box<ureq::Error> {
+///
+/// `explained` is false for `--doctor`'s probes, where the status *is* the report: warning about
+/// it would repeat the table and dress an expected answer up as a problem.
+fn failed(method: &str, url: &str, started: Instant, err: ureq::Error, explained: bool) -> Box<ureq::Error> {
     tracing::debug!(
         method,
         url,
@@ -427,29 +463,32 @@ fn failed(method: &str, url: &str, started: Instant, err: ureq::Error) -> Box<ur
         cause = error_chain(&err),
         "request failed"
     );
-    // A rejected credential and a missing one are the same status code and want opposite fixes,
-    // so the one case worth a louder line than the rest is the one nobody can diagnose.
-    // 401 means authentication is required. 403 often means policy or a proxy instead, and
-    // leading with credentials there sends people after the wrong thing: api.anaconda.org is
-    // public and answers 403 from a network that blocks it.
-    match err {
-        ureq::Error::StatusCode(401) => tracing::warn!(
-            url,
-            credentials = crate::auth::describe(url),
-            "the host requires authentication; see the credentials section of the troubleshooting guide"
-        ),
-        ureq::Error::StatusCode(403) => tracing::warn!(
-            url,
-            credentials = crate::auth::describe(url),
-            "the host refused the request; this is often a proxy or a policy rather than credentials"
-        ),
-        _ => {}
+    if let ureq::Error::StatusCode(status) = err
+        && explained
+        && let Some(explanation) = explain(status, crate::auth::presented(url))
+    {
+        if explanation.name_credentials {
+            tracing::warn!(url, credentials = crate::auth::describe(url), "{}", explanation.message);
+        } else {
+            tracing::warn!(url, "{}", explanation.message);
+        }
     }
     Box::new(err)
 }
 
 /// GET `url` and return the body as text, refusing bodies larger than `limit` bytes.
 pub fn get_text(url: &str, limit: u64) -> Result<String, Box<ureq::Error>> {
+    get_text_inner(url, limit, true)
+}
+
+/// The same GET for `--doctor`'s probes, which report the status themselves. A probe deliberately
+/// asks for a URL that may well refuse it — `conda.anaconda.org`'s root answers 403 for everyone —
+/// so the status belongs in the table and nowhere else.
+pub fn probe_text(url: &str, limit: u64) -> Result<String, Box<ureq::Error>> {
+    get_text_inner(url, limit, false)
+}
+
+fn get_text_inner(url: &str, limit: u64, explained: bool) -> Result<String, Box<ureq::Error>> {
     if offline() {
         return Err(refuse("GET", url));
     }
@@ -460,7 +499,9 @@ pub fn get_text(url: &str, limit: u64) -> Result<String, Box<ureq::Error>> {
     if let Some(value) = &authorization {
         request = request.header("Authorization", value);
     }
-    let mut response = request.call().map_err(|err| failed("GET", url, started, err))?;
+    let mut response = request
+        .call()
+        .map_err(|err| failed("GET", url, started, err, explained))?;
     trace_response(url, &response);
     let status = response.status().as_u16();
     let body = response
@@ -468,7 +509,7 @@ pub fn get_text(url: &str, limit: u64) -> Result<String, Box<ureq::Error>> {
         .with_config()
         .limit(limit)
         .read_to_string()
-        .map_err(|err| failed("GET", url, started, err))?;
+        .map_err(|err| failed("GET", url, started, err, explained))?;
     finished("GET", url, status, body.len(), started);
     Ok(body)
 }
@@ -486,14 +527,16 @@ pub fn post_json(url: &str, body: &str, limit: u64) -> Result<String, Box<ureq::
     if let Some(value) = &authorization {
         request = request.header("Authorization", value);
     }
-    let mut response = request.send(body).map_err(|err| failed("POST", url, started, err))?;
+    let mut response = request
+        .send(body)
+        .map_err(|err| failed("POST", url, started, err, true))?;
     let status = response.status().as_u16();
     let text = response
         .body_mut()
         .with_config()
         .limit(limit)
         .read_to_string()
-        .map_err(|err| failed("POST", url, started, err))?;
+        .map_err(|err| failed("POST", url, started, err, true))?;
     finished("POST", url, status, text.len(), started);
     Ok(text)
 }
@@ -510,14 +553,14 @@ pub fn get_bytes(url: &str, limit: u64) -> Result<Vec<u8>, Box<ureq::Error>> {
     if let Some(value) = &authorization {
         request = request.header("Authorization", value);
     }
-    let mut response = request.call().map_err(|err| failed("GET", url, started, err))?;
+    let mut response = request.call().map_err(|err| failed("GET", url, started, err, true))?;
     let status = response.status().as_u16();
     let bytes = response
         .body_mut()
         .with_config()
         .limit(limit)
         .read_to_vec()
-        .map_err(|err| failed("GET", url, started, err))?;
+        .map_err(|err| failed("GET", url, started, err, true))?;
     finished("GET", url, status, bytes.len(), started);
     Ok(bytes)
 }
@@ -563,7 +606,7 @@ pub fn get_tail(url: &str, count: u64) -> Result<(u64, Vec<u8>), Box<ureq::Error
             };
             return Ok((total, bytes));
         }
-        Err(err) => return Err(failed("GET", url, started, err)),
+        Err(err) => return Err(failed("GET", url, started, err, true)),
     };
     if response.status() != 206 {
         return Err(other("server does not support HTTP range requests"));
@@ -581,7 +624,7 @@ pub fn get_tail(url: &str, count: u64) -> Result<(u64, Vec<u8>), Box<ureq::Error
         .with_config()
         .limit(count + 1)
         .read_to_vec()
-        .map_err(|err| failed("GET", url, started, err))?;
+        .map_err(|err| failed("GET", url, started, err, true))?;
     if bytes.len() as u64 != count.min(total) {
         return Err(other("short range response"));
     }
@@ -598,7 +641,7 @@ fn content_length(url: &str) -> Result<u64, Box<ureq::Error>> {
     if let Some(value) = &authorization {
         head = head.header("Authorization", value);
     }
-    let response = head.call().map_err(|err| failed("HEAD", url, started, err))?;
+    let response = head.call().map_err(|err| failed("HEAD", url, started, err, true))?;
     finished("HEAD", url, response.status().as_u16(), 0, started);
     response
         .headers()
@@ -620,7 +663,7 @@ pub fn get_range(url: &str, start: u64, end: u64) -> Result<Vec<u8>, Box<ureq::E
     if let Some(value) = &authorization {
         ranged = ranged.header("Authorization", value);
     }
-    let mut response = ranged.call().map_err(|err| failed("GET", url, started_at, err))?;
+    let mut response = ranged.call().map_err(|err| failed("GET", url, started_at, err, true))?;
     let status = response.status().as_u16();
     if response.status() != 206 {
         return Err(other("server does not support HTTP range requests"));
@@ -633,7 +676,7 @@ pub fn get_range(url: &str, start: u64, end: u64) -> Result<Vec<u8>, Box<ureq::E
         .with_config()
         .limit(wanted + 1)
         .read_to_vec()
-        .map_err(|err| failed("GET", url, started_at, err))?;
+        .map_err(|err| failed("GET", url, started_at, err, true))?;
     if bytes.len() as u64 != wanted {
         return Err(other("short range response"));
     }
@@ -643,6 +686,46 @@ pub fn get_range(url: &str, start: u64, end: u64) -> Result<Vec<u8>, Box<ureq::E
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_refusal_only_blames_credentials_when_some_were_sent() {
+        use super::{Explanation, explain};
+        // The reported bug: `conda.anaconda.org`'s root answers 403 for everyone, so on a machine
+        // with no credentials for it the warning must not point at credentials at all.
+        let refused = explain(403, false).expect("a 403 is worth a line");
+        assert!(!refused.name_credentials, "nothing was sent, so nothing was rejected");
+        assert!(
+            refused.message.contains("proxy or a policy"),
+            "and it names the usual cause: {}",
+            refused.message
+        );
+
+        // With a credential sent, "refused it anyway" is the fact the reader needs.
+        let rejected = explain(403, true).expect("a 403 is worth a line");
+        assert!(rejected.name_credentials);
+        assert!(
+            rejected.message.contains("although credentials were sent"),
+            "{}",
+            rejected.message
+        );
+
+        // 401 is about authentication either way: whether one was sent is the first thing to check.
+        for credentialed in [true, false] {
+            assert_eq!(
+                explain(401, credentialed),
+                Some(Explanation {
+                    message: "the host requires authentication; see the credentials section of the troubleshooting guide",
+                    name_credentials: true,
+                })
+            );
+        }
+
+        // Every other status explains itself and gets only the debug line.
+        for status in [200, 301, 404, 429, 500, 503] {
+            assert_eq!(explain(status, false), None, "{status} needs no warning");
+            assert_eq!(explain(status, true), None, "{status} needs no warning");
+        }
+    }
+
     /// A log line is the thing people paste into an issue, so nothing in it may be a credential.
     #[test]
     fn credential_carrying_headers_are_masked_by_length() {

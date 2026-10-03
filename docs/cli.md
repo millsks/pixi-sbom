@@ -1153,6 +1153,11 @@ $ pixi sbom --doctor
 With no lockfile to read it falls back to `conda.anaconda.org` and `files.pythonhosted.org`, marked `(default)`.
 A lockfile naming several channels yields one row per host.
 
+**A status in that column is an answer, not a fault.** An archive host serves packages at
+`/<channel>/<subdir>/<file>`; its root is not an endpoint, so `conda.anaconda.org` answers 403 to everyone and
+`files.pythonhosted.org` answers 404. The probe asked "is this host reachable and speaking HTTP", and both of
+those say yes. Only the transport failures at the bottom of the report count against it.
+
 Notes that matter on a restricted network:
 
 - **`--kev` implies `--vulnerabilities`**, so enabling the KEV catalog also reaches OSV.

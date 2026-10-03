@@ -308,6 +308,13 @@ pub fn prepare(url: &str) -> Prepared {
     }
 }
 
+/// Whether this machine has a credential for the URL's host, and so whether the request carried
+/// one. A refusal means different things either way: refused *with* a credential is worth naming
+/// it, refused without one is almost always a proxy or a policy instead.
+pub fn presented(url: &str) -> bool {
+    host_of(url).is_some_and(|host| credential_for(host).is_some())
+}
+
 /// What was sent for a URL and where it came from, for a diagnostic. Never the credential itself.
 ///
 /// A rejected request and an unauthenticated one look identical from a status code, and they want
@@ -339,6 +346,26 @@ pub fn any_configured() -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn presented_agrees_with_what_describe_reports() {
+        // Both read the same loaded credentials, and a warning picks its wording from one while
+        // printing the other, so they must never disagree about whether anything was found.
+        for url in [
+            "https://conda.anaconda.org/conda-forge/noarch/x.conda",
+            "https://api.anaconda.org",
+            "https://files.pythonhosted.org/packages/ab/cd/x.whl",
+            "not a url",
+            "",
+        ] {
+            let described = super::describe(url);
+            assert_eq!(
+                super::presented(url),
+                !described.starts_with("no credentials"),
+                "{url} describes as {described:?}"
+            );
+        }
+    }
+
     use super::*;
 
     #[test]
