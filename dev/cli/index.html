@@ -2191,11 +2191,45 @@ program and shared library the environment installed (<code>bin/</code>, <code>s
 become components with <code>pkg:cargo</code> purls under the package that ships the binary, so <code>--vulnerabilities osv</code>
 covers them through RUSTSEC; crates that only built the program are left out.</p>
 <h2 id="configuration-file">Configuration file<a class="headerlink" href="#configuration-file" title="Permanent link">&para;</a></h2>
-<p>The settings that make CI invocations long can live with the project. Before the command line is applied,
-<code>pixi sbom</code> reads <code>[tool.pixi-sbom]</code> from the <code>pyproject.toml</code> next to the lockfile when that table exists, else a
-<code>pixi-sbom.toml</code> next to the lockfile; <code>--config &lt;PATH&gt;</code> names another file (either layout), <code>--no-config</code> reads
-none. Keys mirror the long flags:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># pixi-sbom.toml</span>
+<p>The settings that make CI invocations long can live with the project — and the ones that are true of a machine or
+a network rather than a project can live with the machine. Before the command line is applied, <code>pixi sbom</code> reads
+up to three layers, least specific first, from pixi's own configuration directories:</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>system</td>
+<td><code>/etc/pixi/pixi-sbom-config.toml</code>, or <code>%PROGRAMDATA%\pixi\pixi-sbom-config.toml</code> on Windows</td>
+</tr>
+<tr>
+<td>user</td>
+<td><code>$PIXI_HOME/pixi-sbom-config.toml</code>, else <code>~/.pixi/pixi-sbom-config.toml</code></td>
+</tr>
+<tr>
+<td>project</td>
+<td><code>&lt;workspace&gt;/.pixi/pixi-sbom-config.toml</code>, else <code>[tool.pixi-sbom]</code> in the <code>pyproject.toml</code> next to the lockfile, else <code>pixi-sbom.toml</code> there</td>
+</tr>
+</tbody>
+</table>
+<p>They merge per key: a layer overrides what a less specific one said and inherits what it did not mention, so a
+workspace never has to repeat its machine's settings to keep them. The command line still wins over all of them.
+<code>--config &lt;PATH&gt;</code> names one file instead and replaces the search entirely; <code>--no-config</code> reads none.</p>
+<p>The name is pixi's own word for what the file is — <code>pixi.toml</code> is a manifest, <code>config.toml</code> is settings — with a
+prefix because it shares those directories with pixi's <code>config.toml</code>. <code>pixi config edit --global</code> and
+<code>~/.pixi/pixi-sbom-config.toml</code> sit side by side.</p>
+<div class="admonition warning">
+<p class="admonition-title"><code>pixi-sbom.toml</code> at the workspace root is deprecated</p>
+<p>It is still read, and <code>--doctor</code> and the logs name it when it is, but it will not be read from 2.0. Move it
+to <code>.pixi/pixi-sbom-config.toml</code>. <code>[tool.pixi-sbom]</code> in <code>pyproject.toml</code> is <strong>not</strong> deprecated — keeping tool
+settings there is the normal Python convention, and it stays supported.</p>
+</div>
+<p>Keys mirror the long flags:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># .pixi/pixi-sbom-config.toml</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">format</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"cyclonedx"</span>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">spec-version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"1.6"</span>
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">pypi-mapping</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"prefix"</span><span class="w">          </span><span class="c1"># or pypi-mapping-file = "mirrors/mapping.json" (relative to this file)</span>
@@ -2217,7 +2251,8 @@ none. Keys mirror the long flags:</p>
 <a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a><span class="n">ignore-vuln</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"GHSA-2xpw-w6gg-jr37:streaming API is not used"</span><span class="p">]</span>
 </code></pre></div>
 <p>The command line wins wherever it says something, list flags included: <code>--deny-license MIT</code> replaces the file's
-<code>deny-license</code> list rather than extending it. Selection (<code>--environment</code>, <code>--platform</code>, the <code>--all-*</code> flags),
+<code>deny-license</code> list rather than extending it. <code>--doctor</code> lists every file that took part, in the order they were
+merged, so a setting arriving from a machine-wide file nobody can see in the repository is never a surprise. Selection (<code>--environment</code>, <code>--platform</code>, the <code>--all-*</code> flags),
 <code>--output</code> and <code>--report</code> are per invocation and have no file keys. An unknown key, a misspelt value or invalid
 TOML is an error (<code>pixi_sbom::config::parse</code>), never a silent default, and the relationships between settings
 (<code>fail-on-kev</code> needs <code>kev</code>, <code>license-texts</code> needs <code>fetch-licenses</code>, ...) are checked after the file applies.</p>
@@ -2460,8 +2495,9 @@ speaking the API this report expects:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--report<span class="w"> </span>outdated<span class="w"> </span>--conda-index-kind<span class="w"> </span>prefix
 </code></pre></div>
 <p>Which index a network can reach is the same for every run in a workspace and for everyone sharing it, so it is
-usually better written down once than typed each time:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># pixi-sbom.toml, next to pixi.lock</span>
+usually better written down once than typed each time — and because it is a property of the network rather than of
+any one project, the user-level file is usually the right place for it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># ~/.pixi/pixi-sbom-config.toml  (or .pixi/pixi-sbom-config.toml for just this workspace)</span>
 <a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="n">conda-index-kind</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"prefix"</span>
 </code></pre></div>
 <p>prefix.dev is asked with one GraphQL request per package, the same request count as the anaconda.org API: the

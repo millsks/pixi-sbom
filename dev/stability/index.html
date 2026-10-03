@@ -1181,9 +1181,38 @@ failing gate still leaves you the artifact.</p>
 rather than being filled by the next gate, so that a script testing for a specific code is never
 surprised by a number that used to mean nothing. A future gate takes 10 and upward.</p>
 <h2 id="configuration-keys">Configuration keys<a class="headerlink" href="#configuration-keys" title="Permanent link">&para;</a></h2>
-<p><code>[tool.pixi-sbom]</code> in <code>pyproject.toml</code>, or <code>pixi-sbom.toml</code>. A key is the flag's own name without
-the leading <code>--</code>, so <code>--fetch-licenses</code> is <code>fetch-licenses</code>. The command line always wins over the
-file.</p>
+<p>A key is the flag's own name without the leading <code>--</code>, so <code>--fetch-licenses</code> is <code>fetch-licenses</code>.
+The command line always wins over the files.</p>
+<p>Three layers are read, least specific first, and merged per key — a layer overrides what a less
+specific one said and inherits what it did not mention:</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>system</td>
+<td><code>/etc/pixi/pixi-sbom-config.toml</code>, or <code>%PROGRAMDATA%\pixi\pixi-sbom-config.toml</code> on Windows</td>
+</tr>
+<tr>
+<td>user</td>
+<td><code>$PIXI_HOME/pixi-sbom-config.toml</code>, else <code>~/.pixi/pixi-sbom-config.toml</code></td>
+</tr>
+<tr>
+<td>project</td>
+<td><code>&lt;workspace&gt;/.pixi/pixi-sbom-config.toml</code>, else <code>[tool.pixi-sbom]</code> in <code>pyproject.toml</code>, else <code>pixi-sbom.toml</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>--config &lt;PATH&gt;</code> replaces the search with one file; <code>--no-config</code> reads none. Both keep the
+meanings they have always had: ours differ from pixi's flags of similar name, which still read
+project-local files, and they are frozen as the broader meaning.</p>
+<p><strong><code>pixi-sbom.toml</code> at the workspace root is deprecated.</strong> It is read, and named as deprecated by
+<code>--doctor</code> and in the logs, until 2.0. <code>[tool.pixi-sbom]</code> in <code>pyproject.toml</code> is not deprecated and
+stays supported.</p>
 <table>
 <thead>
 <tr>
