@@ -5471,9 +5471,30 @@ fn the_number_of_jobs_at_once_is_configurable_and_never_changes_the_document() {
         log.contains("source=\"PIXI_SBOM_CONCURRENCY\""),
         "and which of the four sources chose it: {log}"
     );
-    assert!(
-        !log.contains("cpu=3"),
-        "the setting is requests only; local work still follows cores: {log}"
+    // The setting is requests only, and local work still follows the core count. Asserting on a
+    // literal would only prove the machine's core count differs from the value asked for, which on
+    // a three-core runner it does not: compare two runs instead, and the invariant holds anywhere.
+    let cpu_of = |value: &str| {
+        let assert = run(Some(value)).args(["-v"]).assert().success();
+        let log = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+        let line = log
+            .lines()
+            .find(|line| line.contains("concurrency network="))
+            .unwrap_or_default()
+            .to_string();
+        let cpu = line
+            .split("cpu=")
+            .nth(1)
+            .and_then(|rest| rest.split_whitespace().next())
+            .unwrap_or_default()
+            .to_string();
+        assert!(!cpu.is_empty(), "{log}");
+        cpu
+    };
+    assert_eq!(
+        cpu_of("2"),
+        cpu_of("16"),
+        "threads for local work do not move with the number of requests"
     );
 }
 
