@@ -502,10 +502,16 @@ Documents are cached for a day, so a second run is free.
 
 A package installed from a mirror is a case of its own. Its channel is named after the local repository, so no
 index has heard of it, and asking by name returns nothing. The lockfile records a sha256 and a proxying mirror
-serves the upstream bytes unchanged, so the channel is **confirmed rather than guessed**: the candidate channel is
-asked for that name, and its releases are used only when one of its builds has the recorded hash. A mirror that
-rebuilds its packages produces different bytes, and the package is reported as having nothing to compare against,
-which is the right answer rather than another channel's version history.
+serves the upstream bytes unchanged, so the channel is **confirmed rather than guessed**: its releases are used
+only when one of its builds has the recorded hash. A mirror that rebuilds its packages produces different bytes,
+and the package is reported as having nothing to compare against, which is the right answer rather than another
+channel's version history.
+
+Whether a channel is one the index knows is decided **once per channel**, not once per package: one probe, then
+every package in that channel is asked of the right place in the same pass. The hash is still checked per package,
+on the answer that pass already returned, so a package that merely shares a name with an upstream one is still
+refused. On a 74-package mirrored workspace that is 100 requests rather than 173, and five seconds rather than
+fifty.
 
 `PIXI_SBOM_CONDA_FALLBACK_CHANNEL` names the candidate, `conda-forge` by default; setting it empty turns the
 behaviour off.

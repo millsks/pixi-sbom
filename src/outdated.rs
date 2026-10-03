@@ -13,6 +13,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
 
+use std::collections::BTreeMap;
+
 use crate::http;
 use crate::model::{PackageKind, Sbom};
 
@@ -582,6 +584,108 @@ impl Lookup<'_> {
         )
     }
 
+    /// One job asking `channel` about `package`.
+    fn conda_job(&self, index: usize, package: &crate::model::Package, channel: &str, version: &str) -> Job {
+        match self.kind {
+            crate::cli::CondaIndexKind::Prefix => Job {
+                index,
+                display_name: package.name.clone(),
+                url: self.prefix_index_url.to_string(),
+                follow_up: Some((channel.to_string(), version.to_string())),
+                body: Some(prefix_versions_query(channel, &package.name, version)),
+                cache_file: self
+                    .cache_dir
+                    .join("outdated")
+                    .join(format!("prefix-{channel}-{}.json", package.name)),
+                kind: package.kind,
+            },
+            crate::cli::CondaIndexKind::Anaconda => Job {
+                index,
+                display_name: package.name.clone(),
+                url: format!(
+                    "{}/package/{channel}/{}",
+                    self.anaconda_url.trim_end_matches('/'),
+                    package.name
+                ),
+                follow_up: None,
+                body: None,
+                cache_file: self
+                    .cache_dir
+                    .join("outdated")
+                    .join(format!("conda-{channel}-{}.json", package.name)),
+                kind: package.kind,
+            },
+        }
+    }
+
+    /// Which channel to ask about each of the workspace's channels, decided once.
+    ///
+    /// A mirrored channel is named after the local repository, so no index knows it, and every
+    /// package in it would otherwise pay a doomed request before falling back. The answer is the
+    /// same for the whole channel, so it is worth one probe rather than one per package: ask about
+    /// a representative package, and if the channel is unknown, point the whole channel at the
+    /// candidate. Each package's own response is still hash-checked before its releases are used,
+    /// so a package that is not really from there is still refused.
+    fn channel_targets(&self, sbom: &Sbom, fetch: Fetch<'_>, now: SystemTime) -> BTreeMap<String, String> {
+        let mut representative: BTreeMap<String, &crate::model::Package> = BTreeMap::new();
+        for package in &sbom.packages {
+            if package.kind != PackageKind::CondaBinary {
+                continue;
+            }
+            if let Some(channel) = package.properties.get("pixi:channel") {
+                representative.entry(channel.clone()).or_insert(package);
+            }
+        }
+
+        let Some(candidate) = fallback_channel() else {
+            return representative.keys().map(|c| (c.clone(), c.clone())).collect();
+        };
+        let channels: Vec<(String, &crate::model::Package)> = representative.into_iter().collect();
+
+        let probes = crate::concurrency::map(
+            &channels,
+            None,
+            |(channel, _)| channel.clone(),
+            |(channel, package)| {
+                if channel == &candidate {
+                    return true;
+                }
+                let version = package.version.clone().unwrap_or_default();
+                let job = self.conda_job(0, package, channel, &version);
+                self.document(&job, fetch, now)
+                    .map(|document| !self.releases_of(&document, &version).is_empty())
+                    .unwrap_or(false)
+            },
+        );
+
+        channels
+            .into_iter()
+            .zip(probes)
+            .map(|((channel, _), known)| {
+                if !known {
+                    tracing::debug!(
+                        channel = %channel,
+                        candidate = %candidate,
+                        "the index does not know this channel; its packages are checked against the candidate by hash"
+                    );
+                }
+                let target = if known { channel.clone() } else { candidate.clone() };
+                (channel, target)
+            })
+            .collect()
+    }
+
+    /// The releases an index document describes, for whichever kind this run asks.
+    fn releases_of(&self, document: &str, installed: &str) -> Vec<Release> {
+        match self.kind {
+            crate::cli::CondaIndexKind::Prefix => prefix_releases(document),
+            crate::cli::CondaIndexKind::Anaconda => {
+                let _ = installed;
+                anaconda_releases(document)
+            }
+        }
+    }
+
     fn run_with(
         &self,
         sbom: &Sbom,
@@ -590,6 +694,7 @@ impl Lookup<'_> {
         progress: crate::progress::Progress,
     ) -> (Vec<Option<Status>>, Outcome) {
         let mut outcome = Outcome::default();
+        let targets = self.channel_targets(sbom, fetch, now);
         let mut jobs = Vec::new();
         for (index, package) in sbom.packages.iter().enumerate() {
             let job = match package.kind {
@@ -605,42 +710,13 @@ impl Lookup<'_> {
                         kind: package.kind,
                     })
                 }
-                PackageKind::CondaBinary => {
-                    anaconda_channel(package, self.index_is_configured).map(|channel| match self.kind {
-                        crate::cli::CondaIndexKind::Prefix => Job {
-                            index,
-                            display_name: package.name.clone(),
-                            url: self.prefix_index_url.to_string(),
-                            follow_up: Some((channel.clone(), package.version.clone().unwrap_or_default())),
-                            body: Some(prefix_versions_query(
-                                &channel,
-                                &package.name,
-                                package.version.as_deref().unwrap_or_default(),
-                            )),
-                            cache_file: self
-                                .cache_dir
-                                .join("outdated")
-                                .join(format!("prefix-{channel}-{}.json", package.name)),
-                            kind: package.kind,
-                        },
-                        crate::cli::CondaIndexKind::Anaconda => Job {
-                            index,
-                            display_name: package.name.clone(),
-                            url: format!(
-                                "{}/package/{channel}/{}",
-                                self.anaconda_url.trim_end_matches('/'),
-                                package.name
-                            ),
-                            follow_up: None,
-                            body: None,
-                            cache_file: self
-                                .cache_dir
-                                .join("outdated")
-                                .join(format!("conda-{channel}-{}.json", package.name)),
-                            kind: package.kind,
-                        },
-                    })
-                }
+                PackageKind::CondaBinary => anaconda_channel(package, self.index_is_configured).map(|channel| {
+                    // The whole channel was resolved once; a package whose channel the index knows
+                    // is asked about directly, one from a mirror goes straight to the candidate.
+                    let target = targets.get(&channel).cloned().unwrap_or(channel);
+                    let version = package.version.clone().unwrap_or_default();
+                    self.conda_job(index, package, &target, &version)
+                }),
                 _ => None,
             };
             match job {
@@ -678,25 +754,19 @@ impl Lookup<'_> {
             // normal case for a mirror: the channel is named after the local repository and the
             // upstream has never heard of it. The package's own hash says which channel it really
             // came from, so ask a candidate and believe it only if a build matches.
-            let releases = if releases.is_empty() && job.kind == PackageKind::CondaBinary {
-                match self.verified_against_fallback(&sbom.packages[job.index], &current, fetch) {
-                    Some((releases, channel)) => {
-                        tracing::debug!(
-                            package = %job.display_name,
-                            channel = %channel,
-                            "the recorded hash matches a build in this channel; using its releases"
-                        );
-                        releases
-                    }
-                    None => {
-                        outcome.unknown += 1;
-                        continue;
-                    }
-                }
-            } else {
-                releases
-            };
             if releases.is_empty() {
+                outcome.unknown += 1;
+                continue;
+            }
+            // A package whose channel the index did not know was asked of the candidate instead.
+            // Its releases are another channel's until the recorded hash says the build is the
+            // same one, so a package that merely shares a name is refused here.
+            let package = &sbom.packages[job.index];
+            if job.kind == PackageKind::CondaBinary
+                && let Some(asked) = package.properties.get("pixi:channel")
+                && targets.get(asked).is_some_and(|target| target != asked)
+                && !self.hash_vouches_for(&document, package, &current)
+            {
                 outcome.unknown += 1;
                 continue;
             }
@@ -747,68 +817,38 @@ impl Lookup<'_> {
         }
     }
 
-    /// The releases of a candidate channel, but only if it holds the exact build installed here.
+    /// Whether the package's recorded hash appears among this channel's builds of its version.
     ///
-    /// A mirrored channel is named after the local repository, so the index cannot be asked about
-    /// it by name. The sha256 the lockfile records identifies the build, and a proxying mirror
-    /// serves the upstream bytes unchanged, so a channel holding that hash *is* where the package
-    /// came from. A mirror that rebuilds produces different bytes and is correctly refused.
-    fn verified_against_fallback(
-        &self,
-        package: &crate::model::Package,
-        installed: &str,
-        fetch: Fetch<'_>,
-    ) -> Option<(Vec<Release>, String)> {
-        let sha256 = package.sha256.as_deref()?;
-        let channel = fallback_channel()?;
-        // Nothing to try when the package already claims the candidate channel.
-        if package.properties.get("pixi:channel").map(String::as_str) == Some(channel.as_str()) {
-            return None;
-        }
-
-        let (url, body) = match self.kind {
-            crate::cli::CondaIndexKind::Prefix => (
-                self.prefix_index_url.to_string(),
-                Some(prefix_versions_query(&channel, &package.name, installed)),
-            ),
-            crate::cli::CondaIndexKind::Anaconda => (
-                format!(
-                    "{}/package/{channel}/{}",
-                    self.anaconda_url.trim_end_matches('/'),
-                    package.name
-                ),
-                None,
-            ),
-        };
-        let document = fetch(&url, body.as_deref()).ok()?;
-
-        let (releases, hashes) = match self.kind {
-            crate::cli::CondaIndexKind::Prefix => {
-                let mut page = prefix_page(&document, installed);
-                let hashes = page.installed_hashes.clone();
-                // Only worth a second request once the hash has vouched for the channel.
-                if hashes.iter().any(|known| known.eq_ignore_ascii_case(sha256)) {
-                    self.date_the_newest(&mut page, &channel, &package.name, &url, fetch);
-                }
-                (prefix_releases(&serde_json::to_string(&page).ok()?), hashes)
-            }
-            crate::cli::CondaIndexKind::Anaconda => {
-                (anaconda_releases(&document), anaconda_hashes(&document, installed))
-            }
-        };
-        if releases.is_empty() {
-            return None;
-        }
-        if !hashes.iter().any(|known| known.eq_ignore_ascii_case(sha256)) {
+    /// This is what makes a channel substitution safe. A proxying mirror serves the upstream bytes
+    /// unchanged, so a matching hash proves the package came from the channel just asked. A mirror
+    /// that rebuilds produces different bytes and is refused, which is the right answer rather
+    /// than another channel's version history.
+    fn hash_vouches_for(&self, document: &Option<String>, package: &crate::model::Package, installed: &str) -> bool {
+        let Some(sha256) = package.sha256.as_deref() else {
             tracing::debug!(
                 package = %package.name,
-                channel = %channel,
-                builds = hashes.len(),
-                "no build in this channel has the recorded hash; the package is not a mirror of it"
+                "no recorded hash, so the channel cannot be confirmed"
             );
-            return None;
+            return false;
+        };
+        let Some(document) = document else { return false };
+        let hashes = match self.kind {
+            // The prefix response was normalised before it was cached, so the hashes are read
+            // back from that shape rather than from the GraphQL envelope they arrived in.
+            crate::cli::CondaIndexKind::Prefix => serde_json::from_str::<PrefixDocument>(document)
+                .map(|page| page.installed_hashes)
+                .unwrap_or_default(),
+            crate::cli::CondaIndexKind::Anaconda => anaconda_hashes(document, installed),
+        };
+        let vouched = hashes.iter().any(|known| known.eq_ignore_ascii_case(sha256));
+        if !vouched {
+            tracing::debug!(
+                package = %package.name,
+                builds = hashes.len(),
+                "no build in the candidate channel has the recorded hash; it is not a mirror of it"
+            );
         }
-        Some((releases, channel))
+        vouched
     }
 
     fn document(&self, job: &Job, fetch: Fetch<'_>, now: SystemTime) -> Option<String> {
