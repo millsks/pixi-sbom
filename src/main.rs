@@ -87,6 +87,10 @@ fn main() -> Result<()> {
     describe_input(&args, &lockfile, &cwd);
     tracing::debug!(?args, "effective arguments");
     // How many things may happen at once, before anything starts happening.
+    let requested_concurrency = std::env::var(concurrency::CONCURRENCY_ENV)
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .unwrap_or(0);
     let (limits, unusable_concurrency) = concurrency::Limits::from_env();
     concurrency::init(limits);
     if let Some(value) = unusable_concurrency {
@@ -97,6 +101,11 @@ fn main() -> Result<()> {
             cpu = limits.cpu,
             "not a positive number of jobs; using the machine's own limits"
         );
+    }
+    // A number far past what any upstream tolerates is honoured but not silently: the operator may
+    // have their own mirror, and may equally have typed an extra zero.
+    if let Some(concern) = concurrency::Limits::concern(requested_concurrency) {
+        tracing::warn!(variable = concurrency::CONCURRENCY_ENV, "{concern}");
     }
     // What the caches may do this run, before anything reads one.
     cache::init(cache::Policy::new(
@@ -318,6 +327,10 @@ fn main() -> Result<()> {
             );
             tracing::debug!(?excluded, ?orphans, "filtered package names");
         }
+        // Now that the package count is final, do not size the request pool past it: threads
+        // beyond the work can only park, and a machine-wide setting carried into a small
+        // workspace is how a pool gets asked for that the system may refuse.
+        concurrency::limit_to_work(sbom.packages.len());
         if let Some(mapping) = &pypi_mapping {
             let enriched = mapping::enrich(&mut sbom, mapping);
             tracing::info!(enriched, "added PyPI purls to conda packages");

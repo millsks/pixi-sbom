@@ -112,7 +112,7 @@ so they are not frozen here; they are honoured with the meanings rattler and cur
 | Variable | |
 |---|---|
 | `PIXI_SBOM_CACHE_DIR` | Where the caches live. |
-| `PIXI_SBOM_CONCURRENCY` | How many requests at once. |
+| `PIXI_SBOM_CONCURRENCY` | How many requests at once. Above 100 is honoured with a warning; above 1000 is clamped, and the run is never sized past the number of packages. |
 | `PIXI_SBOM_OFFLINE` | Make no network requests. |
 | `PIXI_SBOM_NO_PROGRESS` | No progress bars. |
 | `PIXI_SBOM_LOG_FORMAT` | `text` or `json`. |
