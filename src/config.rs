@@ -68,6 +68,7 @@ pub struct Config {
     pub pypi_mapping: Option<String>,
     pub pypi_mapping_file: Option<PathBuf>,
     pub conda_index_kind: Option<String>,
+    pub concurrency: Option<usize>,
     pub primary_purl: Option<String>,
     pub fetch_licenses: Option<bool>,
     pub license_texts: Option<bool>,
@@ -388,6 +389,7 @@ pub fn apply(loaded: &Loaded, args: &mut Args, matches: &ArgMatches) -> Result<(
             args.primary_purl = parse_enum::<PrimaryPurl>(path, "primary-purl", purl)?;
         }
     }
+    set!(concurrency, "concurrency", config.concurrency.map(Some));
     set!(fetch_licenses, "fetch_licenses", config.fetch_licenses);
     set!(license_texts, "license_texts", config.license_texts);
     set!(embedded_sboms, "embedded_sboms", config.embedded_sboms);
@@ -519,6 +521,7 @@ mod tests {
             spec-version = "3.0"
             pypi-mapping = "prefix"
             conda-index-kind = "prefix"
+            concurrency = 25
             primary-purl = "pypi"
             fetch-licenses = true
             deny-license = ["GPL-3.0-only", "AGPL-3.0-only"]
@@ -544,6 +547,7 @@ mod tests {
         assert_eq!(a.spec_version, Some(SpecVersion::V3_0));
         assert_eq!(a.pypi_mapping, PypiMappingSource::Prefix);
         assert_eq!(a.conda_index_kind, CondaIndexKind::Prefix);
+        assert_eq!(a.concurrency, Some(25));
         assert_eq!(a.primary_purl, PrimaryPurl::Pypi);
         assert!(a.fetch_licenses);
         assert_eq!(a.deny_license, ["GPL-3.0-only", "AGPL-3.0-only"]);

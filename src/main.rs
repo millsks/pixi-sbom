@@ -87,11 +87,27 @@ fn main() -> Result<()> {
     describe_input(&args, &lockfile, &cwd);
     tracing::debug!(?args, "effective arguments");
     // How many things may happen at once, before anything starts happening.
-    let requested_concurrency = std::env::var(concurrency::CONCURRENCY_ENV)
-        .ok()
-        .and_then(|value| value.trim().parse::<usize>().ok())
-        .unwrap_or(0);
-    let (limits, unusable_concurrency) = concurrency::Limits::from_env();
+    // Precedence: the command line, then the environment, then a configuration file, then the
+    // default. The variable beating the file is deliberate — a file is checked into a repository or
+    // sits on a machine, while the variable is set by whoever is running *this* invocation, and
+    // someone exporting it to get through a slow afternoon should not be overruled by a file they
+    // did not write.
+    let on_command_line = matches.value_source("concurrency") == Some(clap::parser::ValueSource::CommandLine);
+    let from_variable = std::env::var(concurrency::CONCURRENCY_ENV).ok();
+    let (requested, chosen) = match (on_command_line, from_variable.as_deref(), args.concurrency) {
+        (true, _, requested) => (requested, concurrency::Source::Flag),
+        (false, Some(value), _) => (value.trim().parse::<usize>().ok(), concurrency::Source::Variable),
+        // Not on the command line and no variable, so anything here came from a file.
+        (false, None, Some(requested)) => (Some(requested), concurrency::Source::File),
+        (false, None, None) => (None, concurrency::Source::Machine),
+    };
+    let unusable_concurrency = match (chosen, from_variable.as_deref()) {
+        (concurrency::Source::Variable, Some(value)) if requested.is_none_or(|n| n == 0) => Some(value.to_string()),
+        _ => None,
+    };
+    let requested_concurrency = requested.unwrap_or(0);
+    let cores = std::thread::available_parallelism().map_or(1, |cores| cores.get());
+    let limits = concurrency::Limits::with(requested, chosen, cores);
     concurrency::init(limits);
     if let Some(value) = unusable_concurrency {
         tracing::warn!(
@@ -99,7 +115,7 @@ fn main() -> Result<()> {
             value,
             network = limits.network,
             cpu = limits.cpu,
-            "not a positive number of jobs; using the machine's own limits"
+            "not a positive number of requests; using the default"
         );
     }
     // A number far past what any upstream tolerates is honoured but not silently: the operator may

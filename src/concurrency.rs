@@ -38,8 +38,34 @@ pub struct Limits {
     pub network: usize,
     /// Threads for work that is not waiting on anything.
     pub cpu: usize,
-    /// Whether `PIXI_SBOM_CONCURRENCY` chose this rather than the machine.
-    pub from_env: bool,
+    /// What chose it, which `-v` and `--doctor` report: with four possible sources, "the flag has
+    /// no effect" is otherwise unanswerable.
+    pub source: Source,
+}
+
+/// Where the number of requests came from, most specific first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Source {
+    /// `--concurrency`.
+    Flag,
+    /// `PIXI_SBOM_CONCURRENCY`.
+    Variable,
+    /// A `concurrency` key in a configuration file.
+    File,
+    /// Nothing said, so the default.
+    Machine,
+}
+
+impl Source {
+    /// What the logs and `--doctor` call it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Source::Flag => "--concurrency",
+            Source::Variable => CONCURRENCY_ENV,
+            Source::File => "the configuration file",
+            Source::Machine => "the default",
+        }
+    }
 }
 
 impl Limits {
@@ -57,25 +83,34 @@ impl Limits {
     /// returned so the caller can say so once logging exists. Refusing to run over a
     /// misspelled tuning knob would be the wrong trade.
     pub fn resolve(env: Option<&str>, cores: usize) -> (Self, Option<String>) {
-        let cores = cores.max(1);
-        let default = Self {
-            network: MAX_NETWORK,
-            cpu: cores,
-            from_env: false,
-        };
         let Some(value) = env.map(str::trim).filter(|value| !value.is_empty()) else {
-            return (default, None);
+            return (Self::with(None, Source::Machine, cores), None);
         };
         match value.parse::<usize>() {
-            Ok(requested) if requested > 0 => (
-                Self {
-                    network: requested.min(MAX_SANE_NETWORK),
-                    cpu: requested.min(MAX_SANE_NETWORK),
-                    from_env: true,
-                },
-                None,
-            ),
-            _ => (default, Some(value.to_string())),
+            Ok(requested) if requested > 0 => (Self::with(Some(requested), Source::Variable, cores), None),
+            _ => (Self::with(None, Source::Machine, cores), Some(value.to_string())),
+        }
+    }
+
+    /// The limits for a number that some source chose, or none at all.
+    ///
+    /// `requested` sets **requests in flight only**. `docs/stability.md` has always defined this
+    /// setting as "how many requests at once"; resizing the CPU pool with the same number was an
+    /// undocumented side effect, and one that punished anyone turning requests down — they gave up
+    /// local parallelism they had no reason to give up.
+    pub fn with(requested: Option<usize>, source: Source, cores: usize) -> Self {
+        let cores = cores.max(1);
+        match requested.filter(|requested| *requested > 0) {
+            Some(requested) => Self {
+                network: requested.min(MAX_SANE_NETWORK),
+                cpu: cores,
+                source,
+            },
+            None => Self {
+                network: MAX_NETWORK,
+                cpu: cores,
+                source: Source::Machine,
+            },
         }
     }
 
@@ -131,11 +166,7 @@ pub fn init(limits: Limits) {
     tracing::debug!(
         network = limits.network,
         cpu = limits.cpu,
-        source = if limits.from_env {
-            CONCURRENCY_ENV
-        } else {
-            "the machine"
-        },
+        source = limits.source.name(),
         "concurrency"
     );
 }
@@ -251,6 +282,29 @@ pub fn map<J: Sync, R: Send>(
 #[cfg(test)]
 mod tests {
     #[test]
+    fn asking_for_fewer_requests_does_not_give_up_local_parallelism() {
+        use super::{Limits, Source};
+        // One number used to size both pools, so turning requests down also shrank the thread pool
+        // for work that waits on nothing — parallelism nobody meant to give up. `stability.md` has
+        // always called this setting "how many requests at once"; now it only is that.
+        let gentle = Limits::with(Some(2), Source::Flag, 16);
+        assert_eq!(gentle.network, 2);
+        assert_eq!(gentle.cpu, 16, "every core is still available for local work");
+
+        // And the reverse: asking for more requests does not spawn worker threads doing nothing.
+        let eager = Limits::with(Some(50), Source::Flag, 2);
+        assert_eq!(eager.network, 50);
+        assert_eq!(eager.cpu, 2);
+
+        // Each source is carried through so a run can say which one won.
+        for source in [Source::Flag, Source::Variable, Source::File] {
+            assert_eq!(Limits::with(Some(7), source, 4).source, source);
+        }
+        // Nothing asked for, so nothing but the default could have chosen it.
+        assert_eq!(Limits::with(None, Source::Flag, 4).source, Source::Machine);
+    }
+
+    #[test]
     fn requests_in_flight_do_not_follow_the_core_count() {
         use super::{Limits, MAX_NETWORK};
         // Waiting on a socket costs no CPU, so the number of them owes nothing to the number of
@@ -259,7 +313,7 @@ mod tests {
             let (limits, _) = Limits::resolve(None, cores);
             assert_eq!(limits.network, MAX_NETWORK, "{cores} cores");
             assert_eq!(limits.cpu, cores, "work still scales with cores: {cores}");
-            assert!(!limits.from_env);
+            assert_eq!(limits.source, Source::Machine);
         }
         // Nothing here raises the ceiling: a big machine gets the same ten as a small one.
         let (big, _) = Limits::resolve(None, 128);
@@ -312,7 +366,10 @@ mod tests {
         );
         let (limits, unusable) = Limits::resolve(Some("20000"), 8);
         assert_eq!(limits.network, MAX_SANE_NETWORK);
-        assert_eq!(limits.cpu, MAX_SANE_NETWORK);
+        assert_eq!(
+            limits.cpu, 8,
+            "the setting is about requests; local work still follows cores"
+        );
         assert_eq!(unusable, None, "a clamped value is still a usable one");
     }
 
@@ -326,7 +383,7 @@ mod tests {
             Limits {
                 network: MAX_NETWORK,
                 cpu: 8,
-                from_env: false
+                source: Source::Machine
             }
         );
         assert_eq!(complaint, None);
@@ -344,8 +401,8 @@ mod tests {
             asked,
             Limits {
                 network: 3,
-                cpu: 3,
-                from_env: true
+                cpu: 64,
+                source: Source::Variable
             }
         );
         assert_eq!(complaint, None);
@@ -353,7 +410,7 @@ mod tests {
         // Nonsense is named and ignored: a misspelled tuning knob should not stop a run.
         for bad in ["0", "-1", "lots", "3.5"] {
             let (limits, complaint) = Limits::resolve(Some(bad), 8);
-            assert!(!limits.from_env, "{bad} is not a concurrency");
+            assert_eq!(limits.source, Source::Machine, "{bad} is not a concurrency");
             assert_eq!(complaint.as_deref(), Some(bad));
         }
         assert_eq!(

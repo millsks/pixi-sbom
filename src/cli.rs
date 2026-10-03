@@ -377,6 +377,15 @@ pub struct Args {
     #[arg(long)]
     pub all_platforms: bool,
 
+    /// How many requests may be in flight at once.
+    ///
+    /// The right number depends on the network between you and the index, not on this machine:
+    /// latency, a proxy, and whether the host is a public service or your own mirror. Ten by
+    /// default. Raise it on a high-latency link, lower it to be gentler; `1` makes requests
+    /// serial.
+    #[arg(long, value_name = "N")]
+    pub concurrency: Option<usize>,
+
     /// Which index `--report outdated` asks for conda versions.
     ///
     /// `prefix` answers with the same versions and release dates from a host that is reachable

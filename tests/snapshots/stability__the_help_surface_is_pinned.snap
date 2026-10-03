@@ -26,6 +26,7 @@ expression: "surface.join(\"\\n\")"
       --all-environments
   -p, --platform <PLATFORM>
       --all-platforms
+      --concurrency <N>
       --conda-index-kind <KIND>
           - anaconda: anaconda.org's package API. The default, and only anaconda.org serves it
           - prefix:   prefix.dev's GraphQL API, which serves the same data from a different host

@@ -3045,6 +3045,57 @@ fn the_user_layer_is_read_from_pixi_home_and_nothing_else() {
 }
 
 #[test]
+fn each_source_of_concurrency_beats_the_one_below_it() {
+    // Four sources now feed one setting, so "which one won?" has to be answerable. `-v` says, and
+    // this pins the order: command line, then the variable, then a file, then the default.
+    let dir = workspace("with-pypi");
+    std::fs::create_dir_all(dir.path().join(".pixi")).unwrap();
+    std::fs::write(
+        dir.path().join(".pixi").join("pixi-sbom-config.toml"),
+        "concurrency = 7\n",
+    )
+    .unwrap();
+
+    let run = |args: &[&str], variable: Option<&str>| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("RUST_LOG", "pixi_sbom::concurrency=debug")
+            .args(["-e", "web", "-p", "linux-64", "--output", "-"])
+            .args(args);
+        match variable {
+            Some(value) => command.env("PIXI_SBOM_CONCURRENCY", value),
+            None => command.env_remove("PIXI_SBOM_CONCURRENCY"),
+        };
+        String::from_utf8(command.assert().success().get_output().stderr.clone()).unwrap()
+    };
+
+    let all_three = run(&["--concurrency", "3"], Some("5"));
+    assert!(all_three.contains("network=3"), "the flag wins: {all_three}");
+    assert!(all_three.contains("--concurrency"), "and says so: {all_three}");
+
+    let variable_and_file = run(&[], Some("5"));
+    assert!(
+        variable_and_file.contains("network=5"),
+        "the variable beats the file: {variable_and_file}"
+    );
+    assert!(
+        variable_and_file.contains("PIXI_SBOM_CONCURRENCY"),
+        "{variable_and_file}"
+    );
+
+    let file_only = run(&[], None);
+    assert!(file_only.contains("network=7"), "the file applies: {file_only}");
+    assert!(file_only.contains("configuration file"), "{file_only}");
+
+    // And asking for fewer requests does not shrink the pool for local work.
+    let gentle = run(&["--concurrency", "1"], None);
+    assert!(gentle.contains("network=1"), "{gentle}");
+    assert!(!gentle.contains("cpu=1 "), "local work still follows cores: {gentle}");
+}
+
+#[test]
 fn configuration_file_is_read_before_the_command_line() {
     let dir = workspace("with-pypi");
     std::fs::write(
@@ -5407,7 +5458,7 @@ fn the_number_of_jobs_at_once_is_configurable_and_never_changes_the_document() {
     // A value that is not a number is named and ignored rather than stopping the run.
     let assert = run(Some("plenty")).assert().success();
     let log = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
-    assert!(log.contains("not a positive number of jobs"), "{log}");
+    assert!(log.contains("not a positive number of requests"), "{log}");
     assert!(log.contains("value=\"plenty\""), "{log}");
     assert_eq!(assert.get_output().stdout, default, "and the document is unchanged");
 
@@ -5415,9 +5466,35 @@ fn the_number_of_jobs_at_once_is_configurable_and_never_changes_the_document() {
     // checked against what it was allowed to do.
     let assert = run(Some("3")).args(["-v"]).assert().success();
     let log = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+    assert!(log.contains("concurrency") && log.contains("network=3"), "{log}");
     assert!(
-        log.contains("concurrency") && log.contains("network=3") && log.contains("cpu=3"),
-        "{log}"
+        log.contains("source=\"PIXI_SBOM_CONCURRENCY\""),
+        "and which of the four sources chose it: {log}"
+    );
+    // The setting is requests only, and local work still follows the core count. Asserting on a
+    // literal would only prove the machine's core count differs from the value asked for, which on
+    // a three-core runner it does not: compare two runs instead, and the invariant holds anywhere.
+    let cpu_of = |value: &str| {
+        let assert = run(Some(value)).args(["-v"]).assert().success();
+        let log = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+        let line = log
+            .lines()
+            .find(|line| line.contains("concurrency network="))
+            .unwrap_or_default()
+            .to_string();
+        let cpu = line
+            .split("cpu=")
+            .nth(1)
+            .and_then(|rest| rest.split_whitespace().next())
+            .unwrap_or_default()
+            .to_string();
+        assert!(!cpu.is_empty(), "{log}");
+        cpu
+    };
+    assert_eq!(
+        cpu_of("2"),
+        cpu_of("16"),
+        "threads for local work do not move with the number of requests"
     );
 }
 
