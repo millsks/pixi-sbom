@@ -511,7 +511,11 @@ Whether a channel is one the index knows is decided **once per channel**, not on
 every package in that channel is asked of the right place in the same pass. The hash is still checked per package,
 on the answer that pass already returned, so a package that merely shares a name with an upstream one is still
 refused. On a 74-package mirrored workspace that is 100 requests rather than 173, and five seconds rather than
-fifty.
+fifty; a 355-package workspace takes about twenty seconds cold and a tenth of a second warm.
+
+The hash is looked up by the installed build's own build string rather than searched for among the version's
+builds, because a page of them is capped and a popular package can have several pages: `pillow` has three. Asking
+for the one build is exact whatever the count.
 
 `PIXI_SBOM_CONDA_FALLBACK_CHANNEL` names the candidate, `conda-forge` by default; setting it empty turns the
 behaviour off.

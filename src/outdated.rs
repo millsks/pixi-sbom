@@ -273,16 +273,19 @@ struct AnacondaAttrs {
 /// the minimum of a page gives the earliest of the *newest* builds rather than the earliest build.
 /// Asking the server to sort and returning one row is exact in a single request, however many
 /// builds a version has.
-pub fn prefix_versions_query(channel: &str, name: &str, installed: &str) -> String {
-    let query = "query($c:String!,$n:String!,$v:String){ package(channelName:$c, name:$n) { \
+pub fn prefix_versions_query(channel: &str, name: &str, installed: &str, build: &str) -> String {
+    // `build` asks for the one build installed here rather than a page of the version's builds.
+    // A page is capped, so a version with more builds than fit could hide the installed one in
+    // the middle: pillow has three pages of them. Filtering by build string is exact whatever
+    // the count, and returns one row rather than a hundred.
+    let query = "query($c:String!,$n:String!,$v:String,$b:String){ package(channelName:$c, name:$n) { \
                  versions(limit:500) { page { version } } \
                  current: variants(limit:200, version:$v, orderBy:{byField:{field:CREATED_AT, direction:ASC}}) \
-                 { page { createdAt rawIndex sha256 } } \
-                 newest: variants(limit:200, version:$v, orderBy:{byField:{field:CREATED_AT, direction:DESC}}) \
-                 { page { sha256 } } } }";
+                 { page { createdAt rawIndex } } \
+                 build: variants(limit:5, version:$v, buildString:$b) { page { sha256 } } } }";
     serde_json::json!({
         "query": query,
-        "variables": { "c": channel, "n": name, "v": installed },
+        "variables": { "c": channel, "n": name, "v": installed, "b": build },
     })
     .to_string()
 }
@@ -318,10 +321,9 @@ struct PrefixPackage {
     /// The oldest builds of the installed version: the first of them is its release date.
     #[serde(default)]
     current: Option<PrefixVariantPage>,
-    /// The newest builds of the same version. A page is capped, so a version with more builds
-    /// than fit needs both ends to be sure the installed one is seen at all.
-    #[serde(default)]
-    newest: Option<PrefixVariantPage>,
+    /// The one build installed here, looked up by its build string.
+    #[serde(default, rename = "build")]
+    exact_build: Option<PrefixVariantPage>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -406,11 +408,11 @@ pub fn prefix_page(json: &str, installed: &str) -> PrefixDocument {
             .map(|entry| entry.version)
             .collect(),
         dates: Default::default(),
-        installed_hashes: [&package.current, &package.newest]
-            .into_iter()
-            .flatten()
-            .flat_map(|page| page.page.iter().filter_map(|v| v.sha256.clone()))
-            .collect(),
+        installed_hashes: package
+            .exact_build
+            .as_ref()
+            .map(|page| page.page.iter().filter_map(|v| v.sha256.clone()).collect())
+            .unwrap_or_default(),
     };
     if let Some(date) = prefix_first_date(&package.current) {
         document.dates.insert(installed.to_string(), date);
@@ -592,7 +594,12 @@ impl Lookup<'_> {
                 display_name: package.name.clone(),
                 url: self.prefix_index_url.to_string(),
                 follow_up: Some((channel.to_string(), version.to_string())),
-                body: Some(prefix_versions_query(channel, &package.name, version)),
+                body: Some(prefix_versions_query(
+                    channel,
+                    &package.name,
+                    version,
+                    package.properties.get("pixi:build").map_or("", String::as_str),
+                )),
                 cache_file: self
                     .cache_dir
                     .join("outdated")
@@ -1167,15 +1174,15 @@ mod tests {
     }
 
     #[test]
-    fn both_ends_of_the_build_list_contribute_hashes() {
-        // A version with more builds than a page holds: the installed one may be at either end,
-        // so the query asks for both and the hashes are the union.
+    fn the_hash_comes_from_the_exact_build_not_a_page() {
+        // A version with more builds than a page holds: the installed one is asked for by its
+        // build string, so it is found wherever it sits in the list.
         let json = r#"{"data":{"package":{
             "versions":{"page":[{"version":"3.14.7"}]},
-            "current":{"page":[{"createdAt":"2026-01-01T00:00:00Z","sha256":"oldest"}]},
-            "newest":{"page":[{"sha256":"newest"}]}}}}"#;
+            "current":{"page":[{"createdAt":"2026-01-01T00:00:00Z"}]},
+            "build":{"page":[{"sha256":"theinstalledone"}]}}}}"#;
         let document = prefix_page(json, "3.14.7");
-        assert_eq!(document.installed_hashes, ["oldest", "newest"]);
+        assert_eq!(document.installed_hashes, ["theinstalledone"]);
         // The date still comes from the oldest build only.
         assert_eq!(
             document.dates.get("3.14.7").map(String::as_str),
@@ -1227,7 +1234,7 @@ mod tests {
 
     #[test]
     fn the_queries_sort_oldest_first_and_ask_for_each_build_own_record() {
-        let body = prefix_versions_query("conda-forge", "zlib", "1.3.2");
+        let body = prefix_versions_query("conda-forge", "zlib", "1.3.2", "h25fd6f3_3");
         let parsed: serde_json::Value = serde_json::from_str(&body).unwrap();
         assert_eq!(parsed["variables"]["c"], "conda-forge");
         assert_eq!(parsed["variables"]["n"], "zlib");
@@ -1238,6 +1245,9 @@ mod tests {
         // rawIndex carries the build's own timestamp; createdAt is only when prefix.dev ingested
         // it, which for anything older than the mirror is years out.
         assert!(query.contains("rawIndex"), "{query}");
+        // The installed build is asked for by name, not hunted for in a capped page.
+        assert!(query.contains("buildString:$b"), "{query}");
+        assert_eq!(parsed["variables"]["b"], "h25fd6f3_3");
         assert!(query.contains("versions(limit:500)"), "{query}");
 
         let follow_up = prefix_version_date_query("conda-forge", "zlib", "1.4.0");
