@@ -70,9 +70,25 @@ surprised by a number that used to mean nothing. A future gate takes 10 and upwa
 
 ## Configuration keys
 
-`[tool.pixi-sbom]` in `pyproject.toml`, or `pixi-sbom.toml`. A key is the flag's own name without
-the leading `--`, so `--fetch-licenses` is `fetch-licenses`. The command line always wins over the
-file.
+A key is the flag's own name without the leading `--`, so `--fetch-licenses` is `fetch-licenses`.
+The command line always wins over the files.
+
+Three layers are read, least specific first, and merged per key — a layer overrides what a less
+specific one said and inherits what it did not mention:
+
+| Layer | Where |
+|---|---|
+| system | `/etc/pixi/pixi-sbom-config.toml`, or `%PROGRAMDATA%\pixi\pixi-sbom-config.toml` on Windows |
+| user | `$PIXI_HOME/pixi-sbom-config.toml`, else `~/.pixi/pixi-sbom-config.toml` |
+| project | `<workspace>/.pixi/pixi-sbom-config.toml`, else `[tool.pixi-sbom]` in `pyproject.toml`, else `pixi-sbom.toml` |
+
+`--config <PATH>` replaces the search with one file; `--no-config` reads none. Both keep the
+meanings they have always had: ours differ from pixi's flags of similar name, which still read
+project-local files, and they are frozen as the broader meaning.
+
+**`pixi-sbom.toml` at the workspace root is deprecated.** It is read, and named as deprecated by
+`--doctor` and in the logs, until 2.0. `[tool.pixi-sbom]` in `pyproject.toml` is not deprecated and
+stays supported.
 
 | | | | |
 |---|---|---|---|

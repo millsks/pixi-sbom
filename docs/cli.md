@@ -256,13 +256,33 @@ covers them through RUSTSEC; crates that only built the program are left out.
 
 ## Configuration file
 
-The settings that make CI invocations long can live with the project. Before the command line is applied,
-`pixi sbom` reads `[tool.pixi-sbom]` from the `pyproject.toml` next to the lockfile when that table exists, else a
-`pixi-sbom.toml` next to the lockfile; `--config <PATH>` names another file (either layout), `--no-config` reads
-none. Keys mirror the long flags:
+The settings that make CI invocations long can live with the project — and the ones that are true of a machine or
+a network rather than a project can live with the machine. Before the command line is applied, `pixi sbom` reads
+up to three layers, least specific first, from pixi's own configuration directories:
+
+| Layer | Where |
+|---|---|
+| system | `/etc/pixi/pixi-sbom-config.toml`, or `%PROGRAMDATA%\pixi\pixi-sbom-config.toml` on Windows |
+| user | `$PIXI_HOME/pixi-sbom-config.toml`, else `~/.pixi/pixi-sbom-config.toml` |
+| project | `<workspace>/.pixi/pixi-sbom-config.toml`, else `[tool.pixi-sbom]` in the `pyproject.toml` next to the lockfile, else `pixi-sbom.toml` there |
+
+They merge per key: a layer overrides what a less specific one said and inherits what it did not mention, so a
+workspace never has to repeat its machine's settings to keep them. The command line still wins over all of them.
+`--config <PATH>` names one file instead and replaces the search entirely; `--no-config` reads none.
+
+The name is pixi's own word for what the file is — `pixi.toml` is a manifest, `config.toml` is settings — with a
+prefix because it shares those directories with pixi's `config.toml`. `pixi config edit --global` and
+`~/.pixi/pixi-sbom-config.toml` sit side by side.
+
+!!! warning "`pixi-sbom.toml` at the workspace root is deprecated"
+    It is still read, and `--doctor` and the logs name it when it is, but it will not be read from 2.0. Move it
+    to `.pixi/pixi-sbom-config.toml`. `[tool.pixi-sbom]` in `pyproject.toml` is **not** deprecated — keeping tool
+    settings there is the normal Python convention, and it stays supported.
+
+Keys mirror the long flags:
 
 ```toml
-# pixi-sbom.toml
+# .pixi/pixi-sbom-config.toml
 format = "cyclonedx"
 spec-version = "1.6"
 pypi-mapping = "prefix"          # or pypi-mapping-file = "mirrors/mapping.json" (relative to this file)
@@ -285,7 +305,8 @@ ignore-vuln = ["GHSA-2xpw-w6gg-jr37:streaming API is not used"]
 ```
 
 The command line wins wherever it says something, list flags included: `--deny-license MIT` replaces the file's
-`deny-license` list rather than extending it. Selection (`--environment`, `--platform`, the `--all-*` flags),
+`deny-license` list rather than extending it. `--doctor` lists every file that took part, in the order they were
+merged, so a setting arriving from a machine-wide file nobody can see in the repository is never a surprise. Selection (`--environment`, `--platform`, the `--all-*` flags),
 `--output` and `--report` are per invocation and have no file keys. An unknown key, a misspelt value or invalid
 TOML is an error (`pixi_sbom::config::parse`), never a silent default, and the relationships between settings
 (`fail-on-kev` needs `kev`, `license-texts` needs `fetch-licenses`, ...) are checked after the file applies.
@@ -550,10 +571,11 @@ pixi sbom --report outdated --conda-index-kind prefix
 ```
 
 Which index a network can reach is the same for every run in a workspace and for everyone sharing it, so it is
-usually better written down once than typed each time:
+usually better written down once than typed each time — and because it is a property of the network rather than of
+any one project, the user-level file is usually the right place for it:
 
 ```toml
-# pixi-sbom.toml, next to pixi.lock
+# ~/.pixi/pixi-sbom-config.toml  (or .pixi/pixi-sbom-config.toml for just this workspace)
 conda-index-kind = "prefix"
 ```
 

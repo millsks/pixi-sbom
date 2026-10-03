@@ -1,7 +1,22 @@
-//! A configuration file for the settings that otherwise make CI invocations long, read before
-//! the command line with the command line winning: `[tool.pixi-sbom]` in `pyproject.toml` next
-//! to the lockfile when that table exists, else `pixi-sbom.toml` there, or wherever `--config`
-//! points. Keys mirror the long flags; unknown keys are errors so a typo cannot pass silently.
+//! Configuration files for the settings that otherwise make CI invocations long, read before the
+//! command line with the command line winning. Keys mirror the long flags; unknown keys are errors
+//! so a typo cannot pass silently.
+//!
+//! There are three layers, read least specific first and merged per key, so a machine can state
+//! what is true of its network once and a workspace need not repeat it:
+//!
+//! | Layer | Where |
+//! |---|---|
+//! | system | `/etc/pixi/pixi-sbom-config.toml`, or `%PROGRAMDATA%\pixi\` on Windows |
+//! | user | `$PIXI_HOME/pixi-sbom-config.toml`, else `~/.pixi/pixi-sbom-config.toml` |
+//! | project | `<workspace>/.pixi/pixi-sbom-config.toml`, else `[tool.pixi-sbom]` in `pyproject.toml`, else the deprecated `pixi-sbom.toml` |
+//!
+//! Those are pixi's own configuration directories, so `pixi config edit --global` and this file sit
+//! together. The name is pixi's word for what it is: `pixi.toml` is a manifest, `config.toml` is
+//! settings, and this is settings that need a prefix because they share a directory with pixi's.
+//!
+//! `--config` replaces the search rather than adding to it, and `--no-config` reads nothing at all
+//! (pixi's own `--no-config` keeps project-local files; ours is frozen as the broader meaning).
 
 use std::path::{Path, PathBuf};
 
@@ -13,8 +28,11 @@ use crate::cli::{
     VulnerabilitySource,
 };
 
-/// The file looked for next to the lockfile after `pyproject.toml`.
-pub const FILE_NAME: &str = "pixi-sbom.toml";
+/// The configuration file, in pixi's configuration directories and in `<workspace>/.pixi`.
+pub const FILE_NAME: &str = "pixi-sbom-config.toml";
+
+/// The workspace-root file this replaced. Still read, and warned about, until 2.0.
+pub const LEGACY_FILE_NAME: &str = "pixi-sbom.toml";
 
 /// Why the configuration could not be used.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -89,24 +107,111 @@ struct Tool {
     pixi_sbom: Option<toml::Value>,
 }
 
+/// Which location a layer was read from, least specific first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Source {
+    /// `/etc/pixi/pixi-sbom-config.toml`, or `%PROGRAMDATA%\pixi\` on Windows.
+    System,
+    /// `$PIXI_HOME/pixi-sbom-config.toml`, else `~/.pixi/pixi-sbom-config.toml`.
+    User,
+    /// `<workspace>/.pixi/pixi-sbom-config.toml`.
+    Project,
+    /// `[tool.pixi-sbom]` in the `pyproject.toml` next to the lockfile.
+    Pyproject,
+    /// `<workspace>/pixi-sbom.toml`, replaced by [`Source::Project`] and unread from 2.0.
+    Legacy,
+    /// Named by `--config`, which replaces the search rather than adding to it.
+    Explicit,
+}
+
+impl Source {
+    /// What the logs call it.
+    pub fn label(self) -> &'static str {
+        match self {
+            Source::System => "system",
+            Source::User => "user",
+            Source::Project => "project",
+            Source::Pyproject => "[tool.pixi-sbom] in pyproject.toml",
+            Source::Legacy => "project",
+            Source::Explicit => "--config",
+        }
+    }
+
+    /// Whether reading from here should warn.
+    pub fn deprecated(self) -> bool {
+        self == Source::Legacy
+    }
+}
+
 /// Where a configuration came from.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Loaded {
     pub config: Config,
     pub path: PathBuf,
-    /// `true` when read from `[tool.pixi-sbom]` in `pyproject.toml`.
-    pub from_pyproject: bool,
+    pub source: Source,
 }
 
-/// Find and parse the configuration: `explicit` when given, else the lockfile directory's
-/// `pyproject.toml` table or `pixi-sbom.toml`. `Ok(None)` when there is none.
-pub fn load(lockfile_dir: &Path, explicit: Option<&Path>) -> Result<Option<Loaded>, ConfigError> {
+/// pixi's own configuration directories, least specific first, so that this file sits beside the
+/// `config.toml` that `pixi config edit --system` and `--global` write.
+fn pixi_config_dirs(env: impl Fn(&str) -> Option<PathBuf>) -> Vec<(Source, PathBuf)> {
+    let mut dirs = Vec::new();
+    let system = if cfg!(windows) {
+        env("PROGRAMDATA").map(|dir| dir.join("pixi"))
+    } else {
+        Some(PathBuf::from("/etc/pixi"))
+    };
+    if let Some(dir) = system {
+        dirs.push((Source::System, dir));
+    }
+    // `PIXI_HOME` is what pixi itself honours; `~/.pixi` is where it puts the directory otherwise.
+    let user = env("PIXI_HOME")
+        .or_else(|| env(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).map(|home| home.join(".pixi")));
+    if let Some(dir) = user {
+        dirs.push((Source::User, dir));
+    }
+    dirs
+}
+
+/// Find and parse every configuration layer, least specific first: `explicit` alone when given,
+/// else the system and user files and the one project file. Empty when there is none.
+pub fn load(lockfile_dir: &Path, explicit: Option<&Path>) -> Result<Vec<Loaded>, ConfigError> {
+    let dirs = pixi_config_dirs(|name| std::env::var_os(name).map(PathBuf::from));
+    load_from(&dirs, lockfile_dir, explicit)
+}
+
+fn load_from(
+    dirs: &[(Source, PathBuf)],
+    lockfile_dir: &Path,
+    explicit: Option<&Path>,
+) -> Result<Vec<Loaded>, ConfigError> {
     if let Some(path) = explicit {
         let text = std::fs::read_to_string(path).map_err(|source| ConfigError::Read {
             path: path.to_path_buf(),
             source,
         })?;
-        return parse_file(path, &text).map(Some);
+        return Ok(vec![parse_file(path, &text, Source::Explicit)?]);
+    }
+    let mut layers = Vec::new();
+    for (source, dir) in dirs {
+        let path = dir.join(FILE_NAME);
+        // A directory that has no file for us is the normal case, not a problem to report.
+        if let Ok(text) = std::fs::read_to_string(&path) {
+            layers.push(parse_file(&path, &text, *source)?);
+        }
+    }
+    if let Some(project) = project_layer(lockfile_dir)? {
+        layers.push(project);
+    }
+    Ok(layers)
+}
+
+/// The one project-level file: the pixi-aligned location, else the `pyproject.toml` table, else
+/// the deprecated workspace-root file. First found wins rather than merging, because a workspace
+/// saying the same thing in two files is a mistake worth leaving visible.
+fn project_layer(lockfile_dir: &Path) -> Result<Option<Loaded>, ConfigError> {
+    let aligned = lockfile_dir.join(".pixi").join(FILE_NAME);
+    if let Ok(text) = std::fs::read_to_string(&aligned) {
+        return parse_file(&aligned, &text, Source::Project).map(Some);
     }
     let pyproject = lockfile_dir.join("pyproject.toml");
     if let Ok(text) = std::fs::read_to_string(&pyproject)
@@ -114,15 +219,31 @@ pub fn load(lockfile_dir: &Path, explicit: Option<&Path>) -> Result<Option<Loade
     {
         return Ok(Some(loaded));
     }
-    let file = lockfile_dir.join(FILE_NAME);
-    match std::fs::read_to_string(&file) {
-        Ok(text) => parse_file(&file, &text).map(Some),
+    let legacy = lockfile_dir.join(LEGACY_FILE_NAME);
+    match std::fs::read_to_string(&legacy) {
+        Ok(text) => {
+            tracing::warn!(
+                path = %legacy.display(),
+                move_to = %aligned.display(),
+                "`{LEGACY_FILE_NAME}` at the workspace root is deprecated and will not be read from 2.0"
+            );
+            parse_file(&legacy, &text, Source::Legacy).map(Some)
+        }
         Err(_) => Ok(None),
     }
 }
 
-fn parse_file(path: &Path, text: &str) -> Result<Loaded, ConfigError> {
-    // A `pixi-sbom.toml` may also use the pyproject layout, so both spellings work.
+/// Apply every layer in order, so a more specific one overwrites what a less specific one said and
+/// inherits what it did not mention.
+pub fn apply_all(layers: &[Loaded], args: &mut Args, matches: &ArgMatches) -> Result<(), ConfigError> {
+    for loaded in layers {
+        apply(loaded, args, matches)?;
+    }
+    Ok(())
+}
+
+fn parse_file(path: &Path, text: &str, source: Source) -> Result<Loaded, ConfigError> {
+    // A standalone file may also use the pyproject layout, so both spellings work.
     let value: toml::Value = toml::from_str(text).map_err(|err| ConfigError::Parse {
         path: path.to_path_buf(),
         message: err.message().to_string(),
@@ -139,7 +260,7 @@ fn parse_file(path: &Path, text: &str) -> Result<Loaded, ConfigError> {
     Ok(Loaded {
         config,
         path: path.to_path_buf(),
-        from_pyproject: false,
+        source,
     })
 }
 
@@ -159,7 +280,7 @@ fn parse_pyproject(path: &Path, text: &str) -> Result<Option<Loaded>, ConfigErro
     Ok(Some(Loaded {
         config,
         path: path.to_path_buf(),
-        from_pyproject: true,
+        source: Source::Pyproject,
     }))
 }
 
@@ -326,7 +447,7 @@ pub fn apply(loaded: &Loaded, args: &mut Args, matches: &ArgMatches) -> Result<(
     overridden.sort();
     tracing::debug!(
         path = %loaded.path.display(),
-        kind = if loaded.from_pyproject { "[tool.pixi-sbom] in pyproject.toml" } else { "pixi-sbom.toml" },
+        layer = loaded.source.label(),
         applied = applied.join(", "),
         overridden_on_the_command_line = overridden.join(", "),
         "configuration file"
@@ -363,7 +484,13 @@ mod tests {
     }
 
     fn loaded(text: &str) -> Loaded {
-        parse_file(Path::new("pixi-sbom.toml"), text).unwrap()
+        parse_file(Path::new("pixi-sbom-config.toml"), text, Source::Project).unwrap()
+    }
+
+    /// `load_from` with no pixi directories, so a real `~/.pixi/pixi-sbom-config.toml` on the
+    /// machine running the tests cannot reach them.
+    fn load_project(dir: &Path, explicit: Option<&Path>) -> Result<Vec<Loaded>, ConfigError> {
+        load_from(&[], dir, explicit)
     }
 
     #[test]
@@ -514,9 +641,9 @@ mod tests {
 
     #[test]
     fn unknown_keys_and_bad_values_are_errors() {
-        let err = parse_file(Path::new("x.toml"), "colour = \"spdx\"").unwrap_err();
+        let err = parse_file(Path::new("x.toml"), "colour = \"spdx\"", Source::Project).unwrap_err();
         assert!(err.to_string().contains("unknown field `colour`"), "{err}");
-        let err = parse_file(Path::new("x.toml"), "format = [1]").unwrap_err();
+        let err = parse_file(Path::new("x.toml"), "format = [1]", Source::Project).unwrap_err();
         assert!(matches!(err, ConfigError::Parse { .. }));
         let cfg = loaded("format = \"yaml\"");
         let (mut a, m) = args(&[]);
@@ -528,49 +655,118 @@ mod tests {
         );
         let cfg = loaded("exclude-kind = [\"wheel\"]");
         assert!(apply(&cfg, &mut a, &m).is_err());
-        assert!(parse_file(Path::new("x.toml"), "not = = toml").is_err());
+        assert!(parse_file(Path::new("x.toml"), "not = = toml", Source::Project).is_err());
     }
 
     #[test]
-    fn both_locations_and_the_pyproject_table() {
+    fn every_project_location_and_the_pyproject_table() {
         let dir = tempfile::tempdir().unwrap();
-        assert_eq!(load(dir.path(), None).unwrap(), None);
+        assert!(load_project(dir.path(), None).unwrap().is_empty());
 
-        std::fs::write(dir.path().join(FILE_NAME), "format = \"spdx\"").unwrap();
-        let found = load(dir.path(), None).unwrap().unwrap();
-        assert_eq!(found.config.format.as_deref(), Some("spdx"));
-        assert!(!found.from_pyproject);
+        // The deprecated workspace-root file is still read.
+        std::fs::write(dir.path().join(LEGACY_FILE_NAME), "format = \"spdx\"").unwrap();
+        let found = load_project(dir.path(), None).unwrap();
+        assert_eq!(found[0].config.format.as_deref(), Some("spdx"));
+        assert_eq!(found[0].source, Source::Legacy);
+        assert!(found[0].source.deprecated(), "and says so");
 
-        // A pyproject.toml without the table does not shadow pixi-sbom.toml...
+        // A pyproject.toml without the table does not shadow it...
         std::fs::write(dir.path().join("pyproject.toml"), "[project]\nname = \"x\"\n").unwrap();
-        assert!(!load(dir.path(), None).unwrap().unwrap().from_pyproject);
+        assert_eq!(load_project(dir.path(), None).unwrap()[0].source, Source::Legacy);
         // ...but one with it wins.
         std::fs::write(
             dir.path().join("pyproject.toml"),
             "[project]\nname = \"x\"\n[tool.pixi-sbom]\nformat = \"cyclonedx\"\nkev = true\n",
         )
         .unwrap();
-        let found = load(dir.path(), None).unwrap().unwrap();
-        assert!(found.from_pyproject);
-        assert_eq!(found.config.format.as_deref(), Some("cyclonedx"));
-        assert_eq!(found.config.kev, Some(true));
+        let found = load_project(dir.path(), None).unwrap();
+        assert_eq!(found[0].source, Source::Pyproject);
+        assert_eq!(found[0].config.format.as_deref(), Some("cyclonedx"));
+        assert_eq!(found[0].config.kev, Some(true));
+
+        // And the pixi-aligned location wins over both.
+        std::fs::create_dir_all(dir.path().join(".pixi")).unwrap();
+        std::fs::write(dir.path().join(".pixi").join(FILE_NAME), "format = \"spdx\"\n").unwrap();
+        let found = load_project(dir.path(), None).unwrap();
+        assert_eq!(found.len(), 1, "one project layer, not three");
+        assert_eq!(found[0].source, Source::Project);
+        assert_eq!(found[0].config.format.as_deref(), Some("spdx"));
+        assert!(!found[0].source.deprecated());
+
         // A bad table is reported, not skipped.
+        std::fs::remove_file(dir.path().join(".pixi").join(FILE_NAME)).unwrap();
         std::fs::write(dir.path().join("pyproject.toml"), "[tool.pixi-sbom]\nbogus = 1\n").unwrap();
-        let err = load(dir.path(), None).unwrap_err();
+        let err = load_project(dir.path(), None).unwrap_err();
         assert!(
             err.to_string().contains("[tool.pixi-sbom]: unknown field `bogus`"),
             "{err}"
         );
 
-        // --config: the file must exist, and may use either layout.
+        // --config: the file must exist, may use either layout, and replaces the search.
         let explicit = dir.path().join("ci.toml");
         std::fs::write(&explicit, "[tool.pixi-sbom]\nformat = \"spdx\"\n").unwrap();
-        let found = load(dir.path(), Some(&explicit)).unwrap().unwrap();
-        assert_eq!(found.config.format.as_deref(), Some("spdx"));
-        assert_eq!(found.path, explicit);
+        let found = load_project(dir.path(), Some(&explicit)).unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].config.format.as_deref(), Some("spdx"));
+        assert_eq!(found[0].path, explicit);
+        assert_eq!(found[0].source, Source::Explicit);
         assert!(matches!(
-            load(dir.path(), Some(Path::new("/missing.toml"))).unwrap_err(),
+            load_project(dir.path(), Some(Path::new("/missing.toml"))).unwrap_err(),
             ConfigError::Read { .. }
         ));
+    }
+
+    #[test]
+    fn a_machine_states_what_its_network_needs_and_a_workspace_inherits_it() {
+        // The case this hierarchy exists for: the index a network can reach is said once, on the
+        // machine, and every workspace on it gets the answer without repeating it.
+        let home = tempfile::tempdir().unwrap();
+        let etc = tempfile::tempdir().unwrap();
+        let ws = tempfile::tempdir().unwrap();
+        std::fs::write(etc.path().join(FILE_NAME), "fetch-licenses = true\nformat = \"spdx\"\n").unwrap();
+        std::fs::write(home.path().join(FILE_NAME), "conda-index-kind = \"prefix\"\n").unwrap();
+        std::fs::write(ws.path().join(LEGACY_FILE_NAME), "format = \"cyclonedx\"\n").unwrap();
+        let dirs = [
+            (Source::System, etc.path().to_path_buf()),
+            (Source::User, home.path().to_path_buf()),
+        ];
+
+        let layers = load_from(&dirs, ws.path(), None).unwrap();
+        assert_eq!(
+            layers.iter().map(|l| l.source).collect::<Vec<_>>(),
+            [Source::System, Source::User, Source::Legacy],
+            "least specific first"
+        );
+
+        let (mut a, m) = args(&[]);
+        apply_all(&layers, &mut a, &m).unwrap();
+        assert_eq!(a.conda_index_kind, CondaIndexKind::Prefix, "from the user layer");
+        assert!(a.fetch_licenses, "the system layer is inherited, not reset");
+        assert_eq!(a.format, Format::Cyclonedx, "the workspace overrides the system");
+
+        // The command line still beats every layer.
+        let (mut a, m) = args(&["--conda-index-kind", "anaconda"]);
+        apply_all(&layers, &mut a, &m).unwrap();
+        assert_eq!(a.conda_index_kind, CondaIndexKind::Anaconda);
+    }
+
+    #[test]
+    fn the_pixi_directories_are_the_ones_pixi_uses() {
+        let dirs = |vars: &[(&str, &str)]| {
+            let vars: Vec<(String, PathBuf)> = vars.iter().map(|(k, v)| (k.to_string(), PathBuf::from(v))).collect();
+            pixi_config_dirs(move |name| vars.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone()))
+        };
+        let home_var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
+
+        // `PIXI_HOME` wins over the home directory, as it does for pixi itself.
+        let found = dirs(&[(home_var, "/home/u"), ("PIXI_HOME", "/opt/pixi")]);
+        assert_eq!(found.last().unwrap(), &(Source::User, PathBuf::from("/opt/pixi")));
+        let found = dirs(&[(home_var, "/home/u")]);
+        assert_eq!(found.last().unwrap(), &(Source::User, PathBuf::from("/home/u/.pixi")));
+
+        // Least specific first, and no user layer at all when there is no home to find.
+        let found = dirs(&[]);
+        assert!(found.iter().all(|(source, _)| *source == Source::System));
+        assert!(found.windows(2).all(|pair| pair[0].0 < pair[1].0));
     }
 }

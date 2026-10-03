@@ -3009,10 +3009,14 @@ fn configuration_file_is_read_before_the_command_line() {
             .args(args)
             .assert()
     };
-    // The file decides the format and the filter; the policy it enables trips (exit 3).
+    // The file decides the format and the filter; the policy it enables trips (exit 3). The
+    // workspace-root spelling still works and says it is on its way out.
     let assert = run(&[])
         .code(3)
-        .stderr(predicate::str::contains("applied the configuration file"))
+        .stderr(predicate::str::contains("applied the configuration"))
+        .stderr(predicate::str::contains(
+            "`pixi-sbom.toml` at the workspace root is deprecated",
+        ))
         .stderr(predicate::str::contains("filtered packages excluded=1"));
     let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
     assert_valid(&spdx_validator(), &doc);
@@ -3067,6 +3071,23 @@ fn configuration_file_is_read_before_the_command_line() {
     run(&["--config", "missing.toml"])
         .code(1)
         .stderr(predicate::str::contains("cannot read the configuration file"));
+
+    // `.pixi/pixi-sbom-config.toml` outranks both older spellings, and is not deprecated.
+    std::fs::create_dir_all(dir.path().join(".pixi")).unwrap();
+    std::fs::write(
+        dir.path().join(".pixi").join("pixi-sbom-config.toml"),
+        "format = \"spdx\"\n",
+    )
+    .unwrap();
+    let assert = run(&[])
+        .success()
+        .stderr(predicate::str::contains("pixi-sbom-config.toml"))
+        .stderr(predicate::str::contains("deprecated").not());
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_eq!(
+        doc["spdxVersion"], "SPDX-2.3",
+        "the pixi-aligned file wins over pyproject.toml"
+    );
 }
 
 /// A copy of the prefix fixture whose python record points at an extracted package directory

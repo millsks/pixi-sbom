@@ -60,16 +60,29 @@ fn main() -> Result<()> {
         (None, None, None) => discover::resolve_lockfile(args.lockfile.as_deref(), &cwd)?,
     };
     let config_dir = lockfile.parent().unwrap_or(Path::new(".")).to_path_buf();
+    let config_layers: Vec<config::Loaded>;
     if args.no_config {
+        config_layers = Vec::new();
         tracing::debug!("configuration file: none, --no-config was given");
-    } else if let Some(loaded) = config::load(&config_dir, args.config.as_deref())? {
-        config::apply(&loaded, &mut args, &matches)?;
-        tracing::info!(path = %loaded.path.display(), "applied the configuration file");
     } else {
-        tracing::debug!(
-            dir = %config_dir.display(),
-            "configuration file: none found ([tool.pixi-sbom] in pyproject.toml, or pixi-sbom.toml)"
-        );
+        config_layers = config::load(&config_dir, args.config.as_deref())?;
+        let layers = &config_layers;
+        if layers.is_empty() {
+            tracing::debug!(
+                dir = %config_dir.display(),
+                "configuration file: none found (pixi's config directories, .pixi/, [tool.pixi-sbom] in pyproject.toml)"
+            );
+        } else {
+            config::apply_all(layers, &mut args, &matches)?;
+            // Every file that took part, least specific first: a setting arriving from a machine-wide
+            // file nobody can see in the repository should never be a surprise.
+            let paths = layers
+                .iter()
+                .map(|layer| format!("{} ({})", layer.path.display(), layer.source.label()))
+                .collect::<Vec<_>>()
+                .join(", ");
+            tracing::info!(paths, "applied the configuration");
+        }
     }
     describe_input(&args, &lockfile, &cwd);
     tracing::debug!(?args, "effective arguments");
@@ -119,7 +132,7 @@ fn main() -> Result<()> {
     if args.doctor {
         let palette = style::Palette::new(args.color.enabled());
         let mut stdout = std::io::stdout().lock();
-        let healthy = run_doctor(&network, &palette, &mut stdout)? && unusable_bundle.is_none();
+        let healthy = run_doctor(&network, &config_layers, &palette, &mut stdout)? && unusable_bundle.is_none();
         stdout.flush().into_diagnostic()?;
         std::process::exit(if healthy { 0 } else { DOCTOR_EXIT_CODE });
     }
@@ -1113,7 +1126,12 @@ const DOCTOR_EXIT_CODE: i32 = 1;
 
 /// Print how this run is set up, whether each upstream answers, and what the caches hold.
 /// Returns whether everything that was asked answered.
-fn run_doctor(network: &http::Configuration, palette: &style::Palette, out: &mut dyn Write) -> Result<bool> {
+fn run_doctor(
+    network: &http::Configuration,
+    config_layers: &[config::Loaded],
+    palette: &style::Palette,
+    out: &mut dyn Write,
+) -> Result<bool> {
     let write = |out: &mut dyn Write, line: String| -> Result<()> {
         writeln!(out, "{line}")
             .into_diagnostic()
@@ -1143,6 +1161,26 @@ fn run_doctor(network: &http::Configuration, palette: &style::Palette, out: &mut
             }
         ),
     )?;
+
+    write(out, String::new())?;
+    write(out, palette.header("Configuration files"))?;
+    if config_layers.is_empty() {
+        write(out, format!("  {}", palette.dim("none found")))?;
+    }
+    for layer in config_layers {
+        // Least specific first, the order they were merged in, so the last line shown is the one
+        // that won. A deprecated location says so here rather than only in a log nobody reads.
+        let note = if layer.source.deprecated() {
+            palette.severity(&format!(
+                "{}, deprecated: move to .pixi/{}",
+                layer.source.label(),
+                config::FILE_NAME
+            ))
+        } else {
+            palette.dim(layer.source.label())
+        };
+        write(out, format!("  {:<26} {}", layer.path.display(), note))?;
+    }
 
     let probes = doctor::probes(network, &doctor::request);
     write(out, String::new())?;
