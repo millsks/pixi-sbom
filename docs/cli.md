@@ -266,6 +266,7 @@ none. Keys mirror the long flags:
 format = "cyclonedx"
 spec-version = "1.6"
 pypi-mapping = "prefix"          # or pypi-mapping-file = "mirrors/mapping.json" (relative to this file)
+conda-index-kind = "prefix"      # which index `--report outdated` asks, where anaconda.org is blocked
 primary-purl = "pypi"
 fetch-licenses = true
 license-texts = false
@@ -546,6 +547,14 @@ speaking the API this report expects:
 
 ```sh
 pixi sbom --report outdated --conda-index-kind prefix
+```
+
+Which index a network can reach is the same for every run in a workspace and for everyone sharing it, so it is
+usually better written down once than typed each time:
+
+```toml
+# pixi-sbom.toml, next to pixi.lock
+conda-index-kind = "prefix"
 ```
 
 prefix.dev is asked with one GraphQL request per package, the same request count as the anaconda.org API: the

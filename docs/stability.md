@@ -83,7 +83,7 @@ file.
 | `vulnerabilities` | `kev` | `fail-on-kev` | `fail-on-severity` |
 | `ignore-vuln` | `ignore-license` | `scorecard` | `scorecard-min` |
 | `fail-on-scorecard` | `fail-on-diff` | `source` | `assume-used` |
-| `fail-on-phantom` | | | |
+| `fail-on-phantom` | `conda-index-kind` | | |
 
 An unknown key is an error, not a warning, and the diagnostic lists every key that is accepted — so
 a typo cannot pass silently and you are never left guessing at the spelling.

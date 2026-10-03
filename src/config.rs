@@ -9,7 +9,8 @@ use clap::{ArgMatches, ValueEnum, parser::ValueSource};
 use serde::Deserialize;
 
 use crate::cli::{
-    Args, DiffSection, FailOnSeverity, Format, Kind, PrimaryPurl, PypiMappingSource, SpecVersion, VulnerabilitySource,
+    Args, CondaIndexKind, DiffSection, FailOnSeverity, Format, Kind, PrimaryPurl, PypiMappingSource, SpecVersion,
+    VulnerabilitySource,
 };
 
 /// The file looked for next to the lockfile after `pyproject.toml`.
@@ -48,6 +49,7 @@ pub struct Config {
     pub spec_version: Option<String>,
     pub pypi_mapping: Option<String>,
     pub pypi_mapping_file: Option<PathBuf>,
+    pub conda_index_kind: Option<String>,
     pub primary_purl: Option<String>,
     pub fetch_licenses: Option<bool>,
     pub license_texts: Option<bool>,
@@ -253,6 +255,12 @@ pub fn apply(loaded: &Loaded, args: &mut Args, matches: &ArgMatches) -> Result<(
             note!("pypi_mapping");
         }
     }
+    if let Some(kind) = &config.conda_index_kind {
+        note!("conda_index_kind");
+        if !on_cli(matches, "conda_index_kind") {
+            args.conda_index_kind = parse_enum::<CondaIndexKind>(path, "conda-index-kind", kind)?;
+        }
+    }
     if let Some(purl) = &config.primary_purl {
         note!("primary_purl");
         if !on_cli(matches, "primary_purl") {
@@ -383,6 +391,7 @@ mod tests {
             format = "spdx"
             spec-version = "3.0"
             pypi-mapping = "prefix"
+            conda-index-kind = "prefix"
             primary-purl = "pypi"
             fetch-licenses = true
             deny-license = ["GPL-3.0-only", "AGPL-3.0-only"]
@@ -407,6 +416,7 @@ mod tests {
         assert_eq!(a.format, Format::Spdx);
         assert_eq!(a.spec_version, Some(SpecVersion::V3_0));
         assert_eq!(a.pypi_mapping, PypiMappingSource::Prefix);
+        assert_eq!(a.conda_index_kind, CondaIndexKind::Prefix);
         assert_eq!(a.primary_purl, PrimaryPurl::Pypi);
         assert!(a.fetch_licenses);
         assert_eq!(a.deny_license, ["GPL-3.0-only", "AGPL-3.0-only"]);
@@ -476,6 +486,29 @@ mod tests {
         assert_eq!(
             a.pypi_mapping_file.as_deref(),
             Some(Path::new("/etc/pixi-sbom/map.json"))
+        );
+    }
+
+    #[test]
+    fn the_index_a_network_can_reach_is_a_property_of_the_workspace() {
+        // Which index answers is fixed for everyone sharing a network, so it belongs in the
+        // file rather than on every `--report outdated` invocation.
+        let cfg = loaded("conda-index-kind = \"prefix\"");
+        let (mut a, m) = args(&[]);
+        apply(&cfg, &mut a, &m).unwrap();
+        assert_eq!(a.conda_index_kind, CondaIndexKind::Prefix);
+
+        let (mut a, m) = args(&["--conda-index-kind", "anaconda"]);
+        apply(&cfg, &mut a, &m).unwrap();
+        assert_eq!(a.conda_index_kind, CondaIndexKind::Anaconda, "the command line wins");
+
+        let cfg = loaded("conda-index-kind = \"artifactory\"");
+        let (mut a, m) = args(&[]);
+        let err = apply(&cfg, &mut a, &m).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("`conda-index-kind` must be one of \"anaconda\", \"prefix\", not \"artifactory\""),
+            "{err}"
         );
     }
 
