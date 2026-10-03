@@ -611,6 +611,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#a-rate-limited-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A rate-limited run
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#a-blocked-host" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -947,6 +958,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#a-rate-limited-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A rate-limited run
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#a-blocked-host" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1159,6 +1181,27 @@ names what this machine had for it, because a rejected credential and a missing 
 from the status code and want opposite fixes. A 403 means the host refused — usually a proxy or a
 policy — and credentials are only named when some were actually sent and refused anyway. A 403 from
 a host you have no credentials for is not a credentials problem, and is not reported as one.</p>
+<h3 id="a-rate-limited-run">A rate-limited run<a class="headerlink" href="#a-rate-limited-run" title="Permanent link">&para;</a></h3>
+<p>The indexes are free public services, and asking for more parallelism than one will tolerate gets
+<code>429 Too Many Requests</code> back. A request that is refused that way is retried a few times, waiting
+longer each time with a little jitter so a batch launched together does not retry together and
+reproduce the burst. <code>502</code>, <code>503</code> and <code>504</code> are treated the same way: a proxy saying an upstream is
+briefly out.</p>
+<p>Attempts and total waiting are both capped — this is a tool that has to finish, not a daemon — so a
+genuinely rate-limited run ends rather than sleeping indefinitely. Packages it could not ask about
+are then named in their own line:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>No releases to compare against (1): mylib
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Could not be checked (37), the index did not answer: numpy, pandas, ...
+</code></pre></div>
+<p><strong>Those two lines mean opposite things.</strong> The first is a fact about the packages: nothing upstream
+carries them, which is the normal answer for a private or source package. The second is a failure
+of the run: the packages have an upstream and we did not manage to ask. Reporting them together
+would make a rate-limited run look like a confident answer with packages quietly missing from it.</p>
+<p>If the second line appears, lower the concurrency (<code>PIXI_SBOM_CONCURRENCY</code>) and run again; the cache
+keeps whatever did answer, so a second run asks only for the rest.</p>
+<p>A timeout or a host that does not resolve is <strong>not</strong> retried. The first has already spent the whole
+request budget and the second will not resolve any sooner for being asked twice; retrying either
+would multiply the worst case rather than recover from it.</p>
 <h3 id="a-blocked-host">A blocked host<a class="headerlink" href="#a-blocked-host" title="Permanent link">&para;</a></h3>
 <p><code>pixi sbom --doctor</code> on its own probes every fixed upstream and names the ones that did not answer, so start
 there rather than guessing which flag reaches which host. <a href="../cli/#every-upstream-it-can-reach">Every upstream it can
@@ -1238,12 +1281,12 @@ another machine:</p>
 <p>Response headers are the thing to reach for when a request fails and the status does not say why. A proxy or a
 gateway that strips or rewrites <code>Authorization</code> is invisible from a status code and obvious from the headers.
 Values that carry a credential are masked by length rather than printed, so a log is safe to paste:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>TRACE pixi_sbom::http: response headers url="https://artifactory.corp/..."
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>      headers="server: Artifactory; set-cookie: &lt;32 chars&gt;; x-api-key: &lt;15 chars&gt;; content-length: 11"
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>TRACE pixi_sbom::http: response headers url="https://artifactory.corp/..."
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>      headers="server: Artifactory; set-cookie: &lt;32 chars&gt;; x-api-key: &lt;15 chars&gt;; content-length: 11"
 </code></pre></div>
 <p><code>Authorization</code>, <code>Proxy-Authorization</code>, <code>Cookie</code>, <code>Set-Cookie</code>, <code>X-JFrog-Art-Api</code> and <code>X-Api-Key</code> are masked
 everywhere they appear. A conda token changes the URL that is requested, and the original is what gets logged.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">RUST_LOG</span><span class="o">=</span>pixi_sbom::http<span class="o">=</span>debug,pixi_sbom<span class="o">=</span>info<span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">RUST_LOG</span><span class="o">=</span>pixi_sbom::http<span class="o">=</span>debug,pixi_sbom<span class="o">=</span>info<span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
 </code></pre></div>
 <p>Every request is logged with its URL, status, size and elapsed time, and every failure with its <strong>whole error
 chain</strong> — <code>invalid peer certificate</code>, <code>Connection refused</code>, the proxy's own message — rather than only the
@@ -1251,7 +1294,7 @@ outermost "request failed". <a href="../cli/#what-the-log-says-and-how-to-narrow
 targets and three worked recipes.</p>
 <h2 id="4-work-from-the-cache">4. Work from the cache<a class="headerlink" href="#4-work-from-the-cache" title="Permanent link">&para;</a></h2>
 <p>An unreachable upstream does not have to stop a run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">PIXI_SBOM_OFFLINE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">PIXI_SBOM_OFFLINE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
 </code></pre></div>
 <p>Nothing is requested; every cache is used where it has an answer and every skipped request is logged. Warm the
 caches on a machine that can reach the network, copy <code>PIXI_SBOM_CACHE_DIR</code> across, and the restricted machine
