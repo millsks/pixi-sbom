@@ -852,6 +852,55 @@ fn the_caches_can_be_bypassed_and_say_what_they_served() {
 }
 
 #[test]
+fn doctor_says_how_many_requests_and_which_index() {
+    // The diagnostic that was missing: a container whose cgroup quota throttles the run, or a
+    // configuration file nobody can see in the repository changing which index is asked. Both
+    // decide how a run behaves and neither appeared in the one command whose job is to say so.
+    let dir = workspace("with-pypi");
+    let home = tempfile::tempdir().unwrap();
+    let run = |args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir.path())
+            .env("PIXI_HOME", home.path())
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "160")
+            .args(["--doctor", "--color", "never"])
+            .args(args);
+        String::from_utf8(command.assert().get_output().stdout.clone()).unwrap()
+    };
+
+    let plain = run(&[]);
+    assert!(plain.contains("requests   10 at once (the default)"), "{plain}");
+    assert!(plain.contains("index      anaconda.org"), "{plain}");
+    assert!(plain.contains("(the default)"), "{plain}");
+
+    // Each source names itself, which is the half that makes it a diagnostic rather than a number.
+    let flagged = run(&["--concurrency", "42", "--conda-index-kind", "prefix"]);
+    assert!(flagged.contains("requests   42 at once (--concurrency)"), "{flagged}");
+    assert!(flagged.contains("index      prefix.dev"), "{flagged}");
+
+    let mut command = pixi_sbom();
+    let varied = String::from_utf8(
+        command
+            .current_dir(dir.path())
+            .env("PIXI_HOME", home.path())
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("PIXI_SBOM_CONCURRENCY", "7")
+            .args(["--doctor", "--color", "never"])
+            .assert()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(
+        varied.contains("requests   7 at once (PIXI_SBOM_CONCURRENCY)"),
+        "{varied}"
+    );
+}
+
+#[test]
 fn doctor_probes_every_upstream_and_fails_when_one_is_unreachable() {
     let dir = workspace("with-pypi");
     let run = |args: &[&str], envs: &[(&str, &str)]| {

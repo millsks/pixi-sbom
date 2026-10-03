@@ -157,7 +157,14 @@ fn main() -> Result<()> {
     if args.doctor {
         let palette = style::Palette::new(args.color.enabled());
         let mut stdout = std::io::stdout().lock();
-        let healthy = run_doctor(&network, &config_layers, &palette, &mut stdout)? && unusable_bundle.is_none();
+        let healthy = run_doctor(
+            &network,
+            &config_layers,
+            limits,
+            args.conda_index_kind,
+            &palette,
+            &mut stdout,
+        )? && unusable_bundle.is_none();
         stdout.flush().into_diagnostic()?;
         std::process::exit(if healthy { 0 } else { DOCTOR_EXIT_CODE });
     }
@@ -1165,6 +1172,8 @@ const DOCTOR_EXIT_CODE: i32 = 1;
 fn run_doctor(
     network: &http::Configuration,
     config_layers: &[config::Loaded],
+    limits: concurrency::Limits,
+    conda_index_kind: cli::CondaIndexKind,
     palette: &style::Palette,
     out: &mut dyn Write,
 ) -> Result<bool> {
@@ -1183,6 +1192,29 @@ fn run_doctor(
             network.no_proxy.as_deref().unwrap_or("none"),
             network.tls_roots,
             network.timeout.as_secs()
+        ),
+    )?;
+    write(
+        out,
+        format!(
+            // Two settings that decide how a run behaves and were nowhere in this report. The
+            // source matters as much as the number: with four places concurrency can come from,
+            // "which one won?" is otherwise only answerable with -v.
+            "  requests   {} at once ({})\n  index      {} ({})",
+            limits.network,
+            limits.source.name(),
+            match conda_index_kind {
+                cli::CondaIndexKind::Anaconda => "anaconda.org's package API",
+                cli::CondaIndexKind::Prefix => "prefix.dev's GraphQL API",
+            },
+            if config_layers
+                .iter()
+                .any(|layer| layer.config.conda_index_kind.is_some())
+            {
+                "a configuration file"
+            } else {
+                "the default"
+            },
         ),
     )?;
     write(

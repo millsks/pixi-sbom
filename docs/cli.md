@@ -1211,6 +1211,15 @@ A lockfile naming several channels yields one row per host.
 `files.pythonhosted.org` answers 404. The probe asked "is this host reachable and speaking HTTP", and both of
 those say yes. Only the transport failures at the bottom of the report count against it.
 
+The `requests` and `index` lines each name **where the value came from**, which is the half that
+makes them a diagnostic rather than a number. A run that is mysteriously slow in CI, or asking an
+index you did not expect, says so here instead of needing `-v`:
+
+```
+  requests   7 at once (PIXI_SBOM_CONCURRENCY)
+  index      prefix.dev's GraphQL API (a configuration file)
+```
+
 Notes that matter on a restricted network:
 
 - **`--kev` implies `--vulnerabilities`**, so enabling the KEV catalog also reaches OSV.
@@ -1238,6 +1247,8 @@ Configuration
   no-proxy   none
   TLS roots  the platform verifier (the operating system trust store)
   timeout    120s
+  requests   10 at once (the default)
+  index      anaconda.org's package API (the default)
   cache      /home/u/.cache/rattler/pixi-sbom (exists)
 
 Upstreams
