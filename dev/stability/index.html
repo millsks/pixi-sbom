@@ -1292,7 +1292,7 @@ so they are not frozen here; they are honoured with the meanings rattler and cur
 </tr>
 <tr>
 <td><code>PIXI_SBOM_CONCURRENCY</code></td>
-<td>How many requests at once.</td>
+<td>How many requests at once. Above 100 is honoured with a warning; above 1000 is clamped, and the run is never sized past the number of packages.</td>
 </tr>
 <tr>
 <td><code>PIXI_SBOM_OFFLINE</code></td>
