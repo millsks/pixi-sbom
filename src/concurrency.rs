@@ -43,8 +43,15 @@ pub struct Limits {
 }
 
 impl Limits {
-    /// `PIXI_SBOM_CONCURRENCY` if it is a positive number, else the machine: one thread per
-    /// core for work, and no more than [`MAX_NETWORK`] requests in flight.
+    /// `PIXI_SBOM_CONCURRENCY` if it is a positive number, else the machine: one thread per core
+    /// for work, and [`MAX_NETWORK`] requests in flight **whatever the core count**.
+    ///
+    /// Those are different resources and only one of them is cores. A request in flight is a
+    /// thread blocked on a socket, costing no CPU at all, so a two-core laptop can hold ten
+    /// connections as easily as a workstation — every browser on it holds far more. Tying the two
+    /// together throttled the machines least able to afford it: `available_parallelism` reports
+    /// cgroup quotas, so a container limited to one CPU made **one request at a time**, turning a
+    /// half-minute run into several minutes with nothing in the output to say why.
     ///
     /// A value that is not a positive number is ignored rather than fatal, with the text
     /// returned so the caller can say so once logging exists. Refusing to run over a
@@ -52,7 +59,7 @@ impl Limits {
     pub fn resolve(env: Option<&str>, cores: usize) -> (Self, Option<String>) {
         let cores = cores.max(1);
         let default = Self {
-            network: cores.min(MAX_NETWORK),
+            network: MAX_NETWORK,
             cpu: cores,
             from_env: false,
         };
@@ -244,6 +251,29 @@ pub fn map<J: Sync, R: Send>(
 #[cfg(test)]
 mod tests {
     #[test]
+    fn requests_in_flight_do_not_follow_the_core_count() {
+        use super::{Limits, MAX_NETWORK};
+        // Waiting on a socket costs no CPU, so the number of them owes nothing to the number of
+        // cores. A one-core container used to make one request at a time, which is the whole bug.
+        for cores in [1, 2, 4, 8, 10, 32, 128] {
+            let (limits, _) = Limits::resolve(None, cores);
+            assert_eq!(limits.network, MAX_NETWORK, "{cores} cores");
+            assert_eq!(limits.cpu, cores, "work still scales with cores: {cores}");
+            assert!(!limits.from_env);
+        }
+        // Nothing here raises the ceiling: a big machine gets the same ten as a small one.
+        let (big, _) = Limits::resolve(None, 128);
+        let (small, _) = Limits::resolve(None, 1);
+        assert_eq!(big.network, small.network);
+
+        // And the escape hatch goes both ways, which matters most for a machine this does not suit.
+        let (down, _) = Limits::resolve(Some("2"), 1);
+        assert_eq!(down.network, 2, "a machine that wants fewer can ask for fewer");
+        let (up, _) = Limits::resolve(Some("50"), 1);
+        assert_eq!(up.network, 50, "and one core is no longer a reason to refuse more");
+    }
+
+    #[test]
     fn work_only_ever_lowers_the_number_of_requests() {
         use super::capped;
         // Fewer packages than configured: no thread is created that could only park.
@@ -294,7 +324,7 @@ mod tests {
         assert_eq!(
             eight,
             Limits {
-                network: 8,
+                network: MAX_NETWORK,
                 cpu: 8,
                 from_env: false
             }

@@ -1052,6 +1052,24 @@ outdated        8.42 s  52 fetched, 0 cached
 total           8.46 s  of which 8.42 s waiting on the network
 ```
 
+### Requests in flight are not a function of cores
+
+Ten at once, whatever the machine. Waiting on a socket costs no CPU, so the number of them owes
+nothing to the number of cores — a one-core container holds ten connections as easily as a
+workstation, and every browser on it holds far more.
+
+This matters most in CI, because `available_parallelism` reports **cgroup quotas**: a container
+limited to one CPU used to make one request at a time, with nothing in the output to say why. On a
+52-package workspace, cold cache, inside `docker run --cpus=1`:
+
+| requests in flight | run 1 | run 2 | run 3 |
+|---|---|---|---|
+| 1 (what one core used to give) | 3589 ms | 3869 ms | 3737 ms |
+| 10 (the default) | **461 ms** | **477 ms** | **473 ms** |
+
+Set `PIXI_SBOM_CONCURRENCY` to ask for more on a fast link, or fewer to be gentler — a value of `1`
+restores serial requests exactly.
+
 ## Which certificates TLS is verified against
 
 Every HTTPS request — the PyPI index, OSV, the KEV catalog, the Scorecard API, each wheel and conda archive — is
@@ -1366,7 +1384,7 @@ To narrow the log to the part of the tool you are chasing — the requests, one 
 | `PIXI_CACHE_DIR` / `RATTLER_CACHE_DIR` | Where pixi keeps its package cache; `--fetch-licenses` reads extracted conda packages from its `pkgs/` directory. Default: the platform cache directory's `rattler/cache` (`~/.cache/rattler/cache`, `~/Library/Caches/rattler/cache`, `%LOCALAPPDATA%\rattler\cache`). |
 | `PIXI_SBOM_OFFLINE` | Set to `1` to forbid every network request: the mapping, wheel, archive, OSV and KEV caches are used when present and everything else is skipped with a warning. The run still succeeds. |
 | `PIXI_SBOM_OSV_URL` | Base of the OSV API queried by `--vulnerabilities osv` (default `https://api.osv.dev`). |
-| `PIXI_SBOM_CONCURRENCY` | How many jobs run at once: requests in flight and threads for local work. Default: one thread per core, and no more than ten requests in flight however many cores there are. A value that is not a positive number is named in the log and ignored. |
+| `PIXI_SBOM_CONCURRENCY` | How many jobs run at once: requests in flight and threads for local work. Default: **ten requests in flight whatever the core count**, and one thread per core for local work. Above 100 is honoured with a warning, above 1000 is clamped, and the run is never sized past the number of packages. A value that is not a positive number is named in the log and ignored. |
 | `PIXI_SBOM_NO_PROGRESS` | Set to `1` to turn the progress bars off even on a terminal. |
 | `PIXI_SBOM_ANACONDA_URL` | Base of the anaconda.org API used by `--report outdated` for conda packages (default `https://api.anaconda.org`). |
 | `PIXI_SBOM_PREFIX_INDEX_URL` | prefix.dev's GraphQL endpoint used by `--report outdated` for conda packages (default `https://prefix.dev/api/graphql`). |
