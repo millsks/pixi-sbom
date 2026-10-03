@@ -56,21 +56,6 @@ impl Phase {
             Phase::Write => "write",
         }
     }
-
-    /// Whether the phase waits on the network, which is the number that decides whether a slow
-    /// run is the tool or the link.
-    pub fn is_network(self) -> bool {
-        matches!(
-            self,
-            Phase::Mapping
-                | Phase::Wheels
-                | Phase::Archives
-                | Phase::Pypi
-                | Phase::Vulnerabilities
-                | Phase::Scorecard
-                | Phase::Outdated
-        )
-    }
 }
 
 /// What one phase cost.
@@ -79,6 +64,9 @@ pub struct Timing {
     pub elapsed: Duration,
     /// What it covered, in the phase's own words: `38 fetched, 4 cached`.
     pub detail: String,
+    /// Requests this phase actually sent. Zero means it was served entirely from the cache, and
+    /// none of its time was spent waiting on an upstream however much it could have been.
+    pub requests: u64,
 }
 
 static TIMINGS: OnceLock<Mutex<BTreeMap<Phase, Timing>>> = OnceLock::new();
@@ -90,9 +78,12 @@ fn timings() -> &'static Mutex<BTreeMap<Phase, Timing>> {
 /// Time `work`, adding what it took to `phase`. Phases that run more than once (a batch of
 /// documents) add up, which is what the table should show.
 pub fn time<T>(phase: Phase, work: impl FnOnce() -> T) -> T {
+    let before = crate::http::requests_made();
     let started = Instant::now();
     let out = work();
-    add(phase, started.elapsed(), String::new());
+    let elapsed = started.elapsed();
+    add(phase, elapsed, String::new());
+    note_requests(phase, crate::http::requests_made().saturating_sub(before));
     out
 }
 
@@ -104,6 +95,13 @@ pub fn add(phase: Phase, elapsed: Duration, detail: String) {
         if !detail.is_empty() {
             entry.detail = detail;
         }
+    }
+}
+
+/// Record how many requests a phase sent. Phases that run more than once add up, as their times do.
+fn note_requests(phase: Phase, requests: u64) {
+    if let Ok(mut timings) = timings().lock() {
+        timings.entry(phase).or_default().requests += requests;
     }
 }
 
@@ -144,9 +142,12 @@ fn table_of(tally: Vec<(Phase, Timing)>, total: Duration) -> Vec<String> {
             timing.detail
         ));
     }
+    // The time of phases that actually sent a request. A phase that *could* reach the network but
+    // was served from the cache waited on nothing, and saying otherwise answers the one question
+    // this line exists for — "was it the tool or the link" — with the wrong half.
     let network: Duration = tally
         .iter()
-        .filter(|(phase, _)| phase.is_network())
+        .filter(|(_, timing)| timing.requests > 0)
         .map(|(_, timing)| timing.elapsed)
         .sum();
     lines.push(format!(
@@ -200,11 +201,24 @@ mod tests {
         assert_eq!(timing.detail, "12 files");
     }
 
+    /// A phase as the table sees it.
+    fn phase(elapsed_ms: u64, detail: &str, requests: u64) -> Timing {
+        Timing {
+            elapsed: Duration::from_millis(elapsed_ms),
+            detail: detail.into(),
+            requests,
+        }
+    }
+
     #[test]
     fn the_table_separates_waiting_on_the_network_from_working() {
-        add(Phase::Pypi, Duration::from_secs(12), "38 fetched".into());
-        add(Phase::Input, Duration::from_millis(40), "240 packages".into());
-        let lines = table(Duration::from_secs(13));
+        let lines = table_of(
+            vec![
+                (Phase::Input, phase(40, "240 packages", 0)),
+                (Phase::Pypi, phase(12_000, "38 fetched", 38)),
+            ],
+            Duration::from_secs(13),
+        );
         assert!(lines[0].starts_with("Phase"), "{lines:?}");
         assert!(
             lines
@@ -219,19 +233,56 @@ mod tests {
             "{:?}",
             lines.last()
         );
-        // Phases that do not touch the network are not counted as waiting.
-        assert!(!Phase::Input.is_network() && Phase::Pypi.is_network());
+    }
+
+    #[test]
+    fn a_phase_served_from_the_cache_did_not_wait_on_the_network() {
+        // The reported bug: the outdated phase can reach an index, so it was counted as network
+        // wait even on a run that fetched nothing. What decides it is whether a request was sent,
+        // not whether one could have been.
+        let warm = vec![
+            (Phase::Input, phase(40, "240 packages", 0)),
+            (Phase::Outdated, phase(340, "0 fetched, 52 cached", 0)),
+        ];
+        let lines = table_of(warm, Duration::from_millis(400));
+        assert!(
+            lines.last().unwrap().contains("none of it waiting on the network"),
+            "a phase that sent no request waited on nothing: {:?}",
+            lines.last()
+        );
+        assert!(
+            lines.iter().any(|line| line.contains("0 fetched, 52 cached")),
+            "and the row still says what it covered: {lines:?}"
+        );
+
+        // One request is enough to make the phase's time network wait again.
+        let cold = vec![(Phase::Outdated, phase(340, "1 fetched, 51 cached", 1))];
+        assert!(
+            table_of(cold, Duration::from_millis(400))
+                .last()
+                .unwrap()
+                .contains("of which 0.34 s waiting on the network")
+        );
+    }
+
+    #[test]
+    fn timing_a_phase_records_the_requests_it_sent() {
+        // Nothing in this test reaches the network, so the phase must be charged none.
+        let before = tally()
+            .into_iter()
+            .find(|(phase, _)| *phase == Phase::Scorecard)
+            .map_or(0, |(_, timing)| timing.requests);
+        time(Phase::Scorecard, || ());
+        let after = tally()
+            .into_iter()
+            .find(|(phase, _)| *phase == Phase::Scorecard)
+            .map_or(0, |(_, timing)| timing.requests);
+        assert_eq!(after, before, "no request was sent, so none was counted");
     }
 
     #[test]
     fn a_run_that_never_waited_says_so_rather_than_leaving_the_line_out() {
-        let offline = vec![(
-            Phase::Input,
-            Timing {
-                elapsed: Duration::from_millis(40),
-                detail: "240 packages".into(),
-            },
-        )];
+        let offline = vec![(Phase::Input, phase(40, "240 packages", 0))];
         let lines = table_of(offline, Duration::from_millis(50));
         assert!(
             lines.last().unwrap().contains("none of it waiting on the network"),
@@ -241,13 +292,7 @@ mod tests {
 
         // And the same when a network phase ran but took no measurable time, which is what an
         // offline run with a warm cache looks like.
-        let cached = vec![(
-            Phase::Pypi,
-            Timing {
-                elapsed: Duration::ZERO,
-                detail: String::new(),
-            },
-        )];
+        let cached = vec![(Phase::Pypi, phase(0, "", 0))];
         assert!(
             table_of(cached, Duration::from_millis(10))
                 .last()

@@ -1035,6 +1035,23 @@ The last line is the one that decides what to do about a slow run: time spent wa
 problem, and time spent anywhere else is the tool's. A phase appears only when it ran, so the table doubles as a
 record of what the flags actually did.
 
+**It counts requests actually sent, not phases that could have sent one.** A second run served from the cache
+reaches no upstream, and the table says so rather than attributing the time to a network it never touched:
+
+```
+Phase             Time  Detail
+input           0.04 s
+outdated        0.45 s  0 fetched, 52 cached
+total           0.49 s  none of it waiting on the network
+```
+
+Against the same run with a cold cache:
+
+```
+outdated        8.42 s  52 fetched, 0 cached
+total           8.46 s  of which 8.42 s waiting on the network
+```
+
 ## Which certificates TLS is verified against
 
 Every HTTPS request — the PyPI index, OSV, the KEV catalog, the Scorecard API, each wheel and conda archive — is

@@ -245,6 +245,15 @@ fn how_old(age: Duration) -> String {
     }
 }
 
+/// What one service's cache did this run, in the words the timings table uses. `None` when that
+/// cache was never consulted, so a phase that did no caching says nothing rather than `0 cached`.
+pub fn describe(service: Service) -> Option<String> {
+    let counts = tally()
+        .into_iter()
+        .find_map(|(found, counts)| (found == service).then_some(counts))?;
+    Some(format!("{} fetched, {} cached", counts.misses, counts.hits))
+}
+
 /// What every cache did this run, for the log.
 pub fn tally() -> Vec<(Service, Counts)> {
     counts()
@@ -274,6 +283,13 @@ pub fn age(path: &std::path::Path, now: std::time::SystemTime) -> Option<Duratio
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_cache_that_was_never_consulted_describes_as_nothing() {
+        // `0 fetched, 0 cached` on a phase that does no caching would be a statement about work
+        // that never happened; saying nothing is the honest row.
+        assert_eq!(super::describe(super::Service::Kev), None);
+    }
+
     use super::*;
 
     #[test]

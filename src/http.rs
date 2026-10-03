@@ -384,7 +384,18 @@ fn trace_response(url: &str, response: &ureq::http::Response<ureq::Body>) {
     }
 }
 
+/// How many requests this run has actually sent. A cache hit never reaches [`starting`], so this
+/// counts trips to the network and nothing else — which is what lets the timings table tell a
+/// phase that waited on an upstream from one that was served entirely from disk.
+static REQUESTS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// How many requests have been sent so far. Monotonic for the life of the process.
+pub fn requests_made() -> u64 {
+    REQUESTS.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 fn starting(method: &str, url: &str, detail: &str) {
+    REQUESTS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     tracing::debug!(
         method,
         url,

@@ -464,6 +464,11 @@ fn main() -> Result<()> {
                 cache_dir: &cache_dir,
             };
             let (statuses, outcome) = timings::time(timings::Phase::Outdated, || lookup.run(&sbom, progress));
+            // What the phase covered belongs in its row, not only in the cache log beside it: it is
+            // the number that separates a 27 s cold run from a 0.4 s warm one.
+            if let Some(detail) = cache::describe(cache::Service::Outdated) {
+                timings::describe(timings::Phase::Outdated, detail);
+            }
             tracing::info!(
                 checked = outcome.checked,
                 outdated = outcome.outdated,
