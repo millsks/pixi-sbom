@@ -1154,6 +1154,11 @@ them without a platform dependency that would not help a CI runner anyway. Expor
 file and point <code>RATTLER_AUTH_FILE</code> at it.</p>
 <p><strong>S3 and OAuth credentials are recognised but not used.</strong> A host configured with either is
 requested unauthenticated, with a warning naming the host, rather than failing silently.</p>
+<p><strong>401 and 403 are different problems.</strong> A 401 means the host wants authentication, and the warning
+names what this machine had for it, because a rejected credential and a missing one look identical
+from the status code and want opposite fixes. A 403 means the host refused — usually a proxy or a
+policy — and credentials are only named when some were actually sent and refused anyway. A 403 from
+a host you have no credentials for is not a credentials problem, and is not reported as one.</p>
 <h3 id="a-blocked-host">A blocked host<a class="headerlink" href="#a-blocked-host" title="Permanent link">&para;</a></h3>
 <p><code>pixi sbom --doctor</code> on its own probes every fixed upstream and names the ones that did not answer, so start
 there rather than guessing which flag reaches which host. <a href="../cli/#every-upstream-it-can-reach">Every upstream it can

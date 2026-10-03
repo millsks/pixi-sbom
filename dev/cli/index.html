@@ -3084,6 +3084,10 @@ a public host it never touches:</p>
 </code></pre></div>
 <p>With no lockfile to read it falls back to <code>conda.anaconda.org</code> and <code>files.pythonhosted.org</code>, marked <code>(default)</code>.
 A lockfile naming several channels yields one row per host.</p>
+<p><strong>A status in that column is an answer, not a fault.</strong> An archive host serves packages at
+<code>/&lt;channel&gt;/&lt;subdir&gt;/&lt;file&gt;</code>; its root is not an endpoint, so <code>conda.anaconda.org</code> answers 403 to everyone and
+<code>files.pythonhosted.org</code> answers 404. The probe asked "is this host reachable and speaking HTTP", and both of
+those say yes. Only the transport failures at the bottom of the report count against it.</p>
 <p>Notes that matter on a restricted network:</p>
 <ul>
 <li><strong><code>--kev</code> implies <code>--vulnerabilities</code></strong>, so enabling the KEV catalog also reaches OSV.</li>
