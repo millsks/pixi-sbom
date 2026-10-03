@@ -240,6 +240,27 @@ fn network_pool() -> Option<&'static rayon::ThreadPool> {
         .as_ref()
 }
 
+/// Run `work` over `jobs` with at most `at_once` of them in flight, for work where each job is
+/// itself several requests' worth and the ordinary limit would multiply what an upstream sees.
+pub fn map_with<J: Sync, R: Send>(at_once: usize, jobs: &[J], work: impl Fn(&J) -> R + Sync) -> Vec<R> {
+    if jobs.is_empty() {
+        return Vec::new();
+    }
+    let run = || jobs.par_iter().map(&work).collect();
+    match rayon::ThreadPoolBuilder::new()
+        .num_threads(at_once.max(1).min(jobs.len()))
+        .thread_name(|index| format!("pixi-sbom-batch-{index}"))
+        .build()
+    {
+        Ok(pool) => pool.install(run),
+        // The pool is a throttle, not a requirement; without it the work still has to happen.
+        Err(err) => {
+            tracing::debug!(%err, "cannot build a pool for batched work; running it one at a time");
+            jobs.iter().map(&work).collect()
+        }
+    }
+}
+
 /// Run `work` over `jobs` on the network pool; results come back in job order however the
 /// threads interleave, because a document that changed with the scheduler would not be
 /// reproducible. Each finished job is counted on `bar`, named with `label`.
