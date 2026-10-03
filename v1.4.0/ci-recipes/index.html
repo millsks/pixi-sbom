@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://millsks.github.io/pixi-sbom/latest/troubleshooting/">
+        <link rel="canonical" href="https://millsks.github.io/pixi-sbom/latest/ci-recipes/">
       
       
-        <link rel="prev" href="../stability/">
+        <link rel="prev" href="../github-action/">
       
       
-        <link rel="next" href="../security/">
+        <link rel="next" href="../formats/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Troubleshooting - pixi-sbom</title>
+        <title>CI recipes - pixi-sbom</title>
       
     
     
@@ -91,7 +91,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#troubleshooting-results-on-one-network-none-on-another" class="md-skip">
+        <a href="#ci-recipes" class="md-skip">
           Skip to content
         </a>
       
@@ -131,7 +131,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Troubleshooting
+              CI recipes
             
           </span>
         </div>
@@ -384,10 +384,37 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../ci-recipes/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI recipes
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -403,6 +430,103 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#consuming-the-output-with-other-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consuming the output with other tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#failing-the-build-on-license-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failing the build on license policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-license-table-in-a-pull-request-comment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A license table in a pull request comment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-changed-in-the-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What changed in the environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#does-the-image-still-match-the-lockfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does the image still match the lockfile?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diffing-sboms-between-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diffing SBOMs between commits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#air-gapped-runners" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Air-gapped runners
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -492,37 +616,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Troubleshooting
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
         
   
   
@@ -538,131 +635,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#1-ask-the-tool-what-it-sees" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Ask the tool what it sees
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-the-three-usual-causes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. The three usual causes
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="2. The three usual causes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#proxies" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Proxies
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#a-private-certificate-authority" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        A private certificate authority
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#a-channel-that-needs-credentials" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        A channel that needs credentials
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#a-blocked-host" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        A blocked host
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-read-the-requests" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Read the requests
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-work-from-the-cache" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Work from the cache
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reporting-it" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reporting it
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -891,10 +863,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-ask-the-tool-what-it-sees" class="md-nav__link">
+  <a href="#consuming-the-output-with-other-tools" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Ask the tool what it sees
+        Consuming the output with other tools
       
     </span>
   </a>
@@ -902,71 +874,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-the-three-usual-causes" class="md-nav__link">
+  <a href="#failing-the-build-on-license-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. The three usual causes
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="2. The three usual causes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#proxies" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Proxies
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#a-private-certificate-authority" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        A private certificate authority
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#a-channel-that-needs-credentials" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        A channel that needs credentials
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#a-blocked-host" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        A blocked host
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-read-the-requests" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Read the requests
+        Failing the build on license policy
       
     </span>
   </a>
@@ -974,10 +885,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-work-from-the-cache" class="md-nav__link">
+  <a href="#a-license-table-in-a-pull-request-comment" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Work from the cache
+        A license table in a pull request comment
       
     </span>
   </a>
@@ -985,10 +896,43 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#reporting-it" class="md-nav__link">
+  <a href="#what-changed-in-the-environment" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Reporting it
+        What changed in the environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#does-the-image-still-match-the-lockfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does the image still match the lockfile?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diffing-sboms-between-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diffing SBOMs between commits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#air-gapped-runners" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Air-gapped runners
       
     </span>
   </a>
@@ -1012,7 +956,7 @@
 
 
   
-    <a href="https://github.com/millsks/pixi-sbom/edit/main/docs/troubleshooting.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/millsks/pixi-sbom/edit/main/docs/ci-recipes.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1020,249 +964,88 @@
   
 
 
-<h1 id="troubleshooting-results-on-one-network-none-on-another">Troubleshooting: results on one network, none on another<a class="headerlink" href="#troubleshooting-results-on-one-network-none-on-another" title="Permanent link">&para;</a></h1>
-<p>The same command, the same <code>pixi.lock</code>, a different network — and the vulnerability table is empty, or every
-license is missing. Nothing in the output says why, because from the tool's point of view nothing went wrong: it
-asked, it did not get an answer, it carried on and wrote a document.</p>
-<p>This page is the order to check things in. Every step is a command you can paste.</p>
-<h2 id="1-ask-the-tool-what-it-sees">1. Ask the tool what it sees<a class="headerlink" href="#1-ask-the-tool-what-it-sees" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">$ </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--doctor<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">Configuration</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">  offline    false</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">  proxy      HTTPS_PROXY=http://user:***@proxy.corp:8080</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">  no-proxy   NO_PROXY=.corp,localhost</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">  TLS roots  the platform verifier (the operating system trust store)</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="go">  timeout    120s</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="go">  cache      /home/u/.cache/rattler/pixi-sbom (exists)</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="go">Upstreams</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="go">  PyPI index         https://pypi.org/pypi            ok 200, 184 ms</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="go">  OSV                https://api.osv.dev              failed: io: invalid peer certificate: UnknownIssuer</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="go">  package archives   each package's own download URL  ok 200, 96 ms</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="go">1 of 3 upstream(s) could not be reached: OSV.</span>
+<h1 id="ci-recipes">CI recipes<a class="headerlink" href="#ci-recipes" title="Permanent link">&para;</a></h1>
+<h2 id="consuming-the-output-with-other-tools">Consuming the output with other tools<a class="headerlink" href="#consuming-the-output-with-other-tools" title="Permanent link">&para;</a></h2>
+<p>The documents validate against the official JSON schemas and load in the usual tooling. Examples:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Convert between formats or inspect</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>syft<span class="w"> </span>convert<span class="w"> </span>sbom.cdx.json<span class="w"> </span>-o<span class="w"> </span>spdx-json
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>cyclonedx-cli<span class="w"> </span>validate<span class="w"> </span>--input-file<span class="w"> </span>sbom.cdx.json<span class="w"> </span>--input-format<span class="w"> </span>json
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Vulnerability scan</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>grype<span class="w"> </span>sbom:sbom.cdx.json
 </code></pre></div>
-<p><code>--doctor</code> needs no lockfile and no workspace. Give it the flags of the run you are diagnosing, so it probes the
-same upstreams that run would. It exits 1 when anything is unreachable, which makes it usable as a CI pre-flight.</p>
-<p>The three lines that answer most questions are <code>proxy</code>, <code>TLS roots</code> and the failure text beside each upstream.
-<code>pixi sbom --version-details</code> prints the same configuration plus what the binary was built with.</p>
-<h2 id="2-the-three-usual-causes">2. The three usual causes<a class="headerlink" href="#2-the-three-usual-causes" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Symptom in <code>--doctor</code></th>
-<th>Cause</th>
-<th>Fix</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>failed: io: invalid peer certificate: UnknownIssuer</code></td>
-<td>A TLS-intercepting appliance re-signs traffic with a CA the tool does not trust</td>
-<td>Install the CA system-wide, or point <code>--ca-bundle</code> at it (below)</td>
-</tr>
-<tr>
-<td><code>failed: io: Connection refused</code> / a timeout, with <code>proxy none</code></td>
-<td>The network needs a proxy and none is configured</td>
-<td>Set <code>HTTPS_PROXY</code> (and <code>NO_PROXY</code> for internal hosts)</td>
-</tr>
-<tr>
-<td><code>failed: ...</code> with a <code>socks5://</code> proxy set</td>
-<td>—</td>
-<td>Supported; if it still fails, check <code>pixi sbom --version-details</code> says <code>socks-proxy</code></td>
-</tr>
-<tr>
-<td><code>ok 200</code> for everything, but the report is still empty</td>
-<td>Nothing was asked, rather than nothing found</td>
-<td>See <a href="../cli/#when-something-comes-back-empty">when something comes back empty</a></td>
-</tr>
-</tbody>
-</table>
-<h3 id="proxies">Proxies<a class="headerlink" href="#proxies" title="Permanent link">&para;</a></h3>
-<p>Every request honours <code>ALL_PROXY</code>, <code>HTTPS_PROXY</code>, <code>HTTP_PROXY</code> and <code>NO_PROXY</code> (either case), including
-<code>socks5://</code> and <code>socks5h://</code> addresses. On Windows, a proxy configured only in the system settings, with no
-environment variable at all, is used as well.</p>
-<p>The configuration block prints the variable in effect with the password replaced, so it is safe to paste into an
-issue — internal host names are not, so read it first.</p>
-<h3 id="a-private-certificate-authority">A private certificate authority<a class="headerlink" href="#a-private-certificate-authority" title="Permanent link">&para;</a></h3>
-<p>Trust comes from the operating system's store by default, which is right wherever the appliance's CA is installed
-system-wide. Where it is not — a container, a CI image, a machine where only Python was ever configured — point
-the tool at the bundle:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--ca-bundle<span class="w"> </span>/etc/ssl/certs/corp-ca.pem<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PIXI_SBOM_CA_BUNDLE</span><span class="o">=</span>/etc/ssl/certs/corp-ca.pem<span class="w">     </span><span class="c1"># the same, for a CI job</span>
+<p>Conda packages are identified by <code>pkg:conda/...</code> purls with <code>channel</code>, <code>subdir</code>, <code>build</code> and <code>type</code> qualifiers; PyPI
+packages by <code>pkg:pypi/...</code>.</p>
+<p>Scanners have no conda vulnerability data, so by default a conda-only Python environment scans as clean no matter
+what it contains. To get real results, give conda-forge Python packages their PyPI identity and make it the primary
+purl:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--primary-purl<span class="w"> </span>pypi<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
 </code></pre></div>
-<p><code>SSL_CERT_FILE</code> is honoured when neither is given, which is the variable the rest of the Python and conda world
-already sets in such an image, so a correctly configured container usually needs nothing at all.</p>
-<p>The trust anchors are resolved once, before the first request, and the first of these that is set wins:</p>
-<ol>
-<li><code>--ca-bundle &lt;FILE&gt;</code></li>
-<li><code>PIXI_SBOM_CA_BUNDLE</code></li>
-<li><code>SSL_CERT_FILE</code></li>
-<li>the platform verifier — the operating system's own trust store, which is the default when none of the three
-   is set, and which is what every earlier release used</li>
-</ol>
-<p><code>--doctor</code> and <code>pixi sbom --version-details</code> both print which one is in play, as the <code>TLS roots</code> line. Nothing is
-compiled into the binary: there is no vendored root store to go stale.</p>
-<p>The file must be PEM; a bundle that is missing or holds no certificate is
-reported before the first request, naming the file and the flag that gave it, rather than arriving later as a
-handshake failure:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gp">$ </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--ca-bundle<span class="w"> </span>./corp.der<span class="w"> </span>--fetch-licenses
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">Error: pixi_sbom::http::ca_bundle</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="go">  × no certificate in the CA bundle at ./corp.der</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="go">  help: the file given by --ca-bundle must be PEM, with at least one -----BEGIN CERTIFICATE----- block;</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="go">        a DER file must be converted first (openssl x509 -inform der -in ca.der -out ca.pem)</span>
+<p><code>--pypi-mapping prefix</code> consults the same conda-forge mapping pixi uses (downloaded once a day into a cache);
+<code>--pypi-mapping-file</code> takes an offline copy. On a typical conda-forge Python environment this gives roughly 60% of the
+components a <code>pkg:pypi</code> purl. See <a href="../output-format/#pypi-identities-for-conda-packages">output-format.md</a> for exactly
+what is recorded.</p>
+<h2 id="failing-the-build-on-license-policy">Failing the build on license policy<a class="headerlink" href="#failing-the-build-on-license-policy" title="Permanent link">&para;</a></h2>
+<p>Any of <code>--allow-license</code>, <code>--deny-license</code> and <code>--require-license</code> turns the run into a gate: the document is still
+written, the violations are listed, and the exit code is 3. In the <a href="../github-action/">action</a> that fails the step
+unless <code>fail-on-policy</code> is <code>false</code>; anywhere else, let the non-zero exit propagate:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--deny-license<span class="w"> </span>GPL-3.0-only<span class="w"> </span>--deny-license<span class="w"> </span>AGPL-3.0-only<span class="w"> </span>--require-license
 </code></pre></div>
-<h3 id="a-channel-that-needs-credentials">A channel that needs credentials<a class="headerlink" href="#a-channel-that-needs-credentials" title="Permanent link">&para;</a></h3>
-<p>A private channel or index answers 401, usually on <code>--fetch-licenses</code>, which reads each archive
-from the host the lockfile names. pixi-sbom reads the credentials the conda ecosystem already
-keeps, in the order <code>rattler</code> consults them:</p>
-<table>
-<thead>
-<tr>
-<th>Source</th>
-<th></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>RATTLER_AUTH_FILE</code></td>
-<td>a credentials file named by the environment</td>
-</tr>
-<tr>
-<td><code>~/.rattler/credentials.json</code></td>
-<td>where <code>pixi auth login</code> writes</td>
-</tr>
-<tr>
-<td><code>~/.netrc</code></td>
-<td><code>NETRC</code> overrides the path; <code>_netrc</code> on Windows</td>
-</tr>
-</tbody>
-</table>
-<p>So a host already set up for pixi needs nothing further:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pixi<span class="w"> </span>auth<span class="w"> </span>login<span class="w"> </span>artifactory.corp<span class="w"> </span>--token<span class="w"> </span><span class="s2">"</span><span class="nv">$TOKEN</span><span class="s2">"</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses
+<p>See <a href="../cli/#enforcing-a-license-policy">the policy semantics</a> for how expressions such as <code>MIT OR GPL-3.0-only</code> are
+evaluated.</p>
+<h2 id="a-license-table-in-a-pull-request-comment">A license table in a pull request comment<a class="headerlink" href="#a-license-table-in-a-pull-request-comment" title="Permanent link">&para;</a></h2>
+<p><code>--report licenses --report-format markdown</code> prints a per-license summary with unlicensed and non-SPDX packages
+called out, ready to paste:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">License report</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi sbom --fetch-licenses --report licenses --report-format markdown &gt; report.md</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">marocchino/sticky-pull-request-comment@v2</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">report.md</span>
 </code></pre></div>
-<p>Entries are matched by exact host first, then <code>*.domain</code> walking up the labels, so
-<code>*.corp.example</code> covers <code>artifactory.corp.example</code>. A <code>.netrc</code> <code>default</code> entry applies to any host
-with no better match.</p>
-<p>Bearer tokens, basic auth and conda tokens are all used; a conda token goes in the path as
-<code>/t/&lt;token&gt;/</code> the way conda does it. Credentials never appear in a log line, a cache key or a
-produced document.</p>
-<p><strong>The platform keyring is not read.</strong> pixi can keep credentials there, and pixi-sbom cannot reach
-them without a platform dependency that would not help a CI runner anyway. Export the entry into a
-file and point <code>RATTLER_AUTH_FILE</code> at it.</p>
-<p><strong>S3 and OAuth credentials are recognised but not used.</strong> A host configured with either is
-requested unauthenticated, with a warning naming the host, rather than failing silently.</p>
-<p><strong>401 and 403 are different problems.</strong> A 401 means the host wants authentication, and the warning
-names what this machine had for it, because a rejected credential and a missing one look identical
-from the status code and want opposite fixes. A 403 means the host refused — usually a proxy or a
-policy — and credentials are only named when some were actually sent and refused anyway. A 403 from
-a host you have no credentials for is not a credentials problem, and is not reported as one.</p>
-<h3 id="a-blocked-host">A blocked host<a class="headerlink" href="#a-blocked-host" title="Permanent link">&para;</a></h3>
-<p><code>pixi sbom --doctor</code> on its own probes every fixed upstream and names the ones that did not answer, so start
-there rather than guessing which flag reaches which host. <a href="../cli/#every-upstream-it-can-reach">Every upstream it can
-reach</a> lists all eight addresses and the option that brings each one in.</p>
-<p>Where the host itself is unreachable and no proxy or CA will change that, point the tool at whatever the network
-does allow:</p>
-<table>
-<thead>
-<tr>
-<th>Variable</th>
-<th>What it replaces</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>PIXI_SBOM_PYPI_URL</code></td>
-<td>The PyPI JSON API — a devpi or Artifactory mirror</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_OSV_URL</code></td>
-<td>The OSV API</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_ANACONDA_URL</code></td>
-<td>The anaconda.org API used by <code>--report outdated</code>; naming one also lets it be asked about channels the lockfile fetched from elsewhere</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_PREFIX_INDEX_URL</code></td>
-<td>prefix.dev's GraphQL endpoint, which <code>--report outdated</code> uses by default</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_SCORECARD_URL</code></td>
-<td>The OpenSSF Scorecard API</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_KEV_URL</code></td>
-<td>The CISA KEV catalog</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_MAPPING_URL</code></td>
-<td>The conda-to-PyPI name mapping</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_CONDA_ARCHIVE_URL</code></td>
-<td>Base for conda package archives, replacing each package's own host</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_WHEEL_ARCHIVE_URL</code></td>
-<td>Base for PyPI wheel archives, replacing each wheel's host and keeping its path</td>
-</tr>
-</tbody>
-</table>
-<p><code>--pypi-mapping-file &lt;FILE&gt;</code> takes the conda → PyPI name mapping from disk instead of downloading it, for a run
-with no network at all. That mapping is what an air-gapped run of <code>--vulnerabilities osv</code> over conda packages
-cannot do without.</p>
-<h2 id="3-read-the-requests">3. Read the requests<a class="headerlink" href="#3-read-the-requests" title="Permanent link">&para;</a></h2>
-<p><code>-v</code> turns on the per-request lines; <code>-vv</code> adds the detail that matters when a run cannot be reproduced on
-another machine:</p>
-<table>
-<thead>
-<tr>
-<th>Level</th>
-<th></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>-v</code> (debug)</td>
-<td>every request and its outcome, which credentials file was loaded, cache hits and misses</td>
-</tr>
-<tr>
-<td><code>-vv</code> (trace)</td>
-<td>per-request credential attribution, the hosts credentials exist for, and <strong>response headers</strong></td>
-</tr>
-</tbody>
-</table>
-<p>Response headers are the thing to reach for when a request fails and the status does not say why. A proxy or a
-gateway that strips or rewrites <code>Authorization</code> is invisible from a status code and obvious from the headers.
-Values that carry a credential are masked by length rather than printed, so a log is safe to paste:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>TRACE pixi_sbom::http: response headers url="https://artifactory.corp/..."
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>      headers="server: Artifactory; set-cookie: &lt;32 chars&gt;; x-api-key: &lt;15 chars&gt;; content-length: 11"
+<p><code>--report-format csv</code> and <code>json</code> feed spreadsheets and scripts the same way; see
+<a href="../cli/#looking-instead-of-writing">looking instead of writing</a>.</p>
+<h2 id="what-changed-in-the-environment">What changed in the environment<a class="headerlink" href="#what-changed-in-the-environment" title="Permanent link">&para;</a></h2>
+<p><code>--report diff --against &lt;previous&gt;</code> answers the pull-request question directly: which packages were added,
+removed or bumped since the document on <code>main</code>, as a Markdown table ready for a comment.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/download-artifact@v4</span><span class="w">   </span><span class="c1"># the sboms artifact the main branch uploaded</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">sboms</span><span class="p p-Indicator">,</span><span class="nt"> path</span><span class="p">:</span><span class="w"> </span><span class="nv">previous</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Environment changes</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi sbom --report diff --against previous/sbom-default.cdx.json --report-format markdown &gt; diff.md</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">marocchino/sticky-pull-request-comment@v2</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> path</span><span class="p">:</span><span class="w"> </span><span class="nv">diff.md</span><span class="w"> </span><span class="p p-Indicator">}</span>
 </code></pre></div>
-<p><code>Authorization</code>, <code>Proxy-Authorization</code>, <code>Cookie</code>, <code>Set-Cookie</code>, <code>X-JFrog-Art-Api</code> and <code>X-Api-Key</code> are masked
-everywhere they appear. A conda token changes the URL that is requested, and the original is what gets logged.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">RUST_LOG</span><span class="o">=</span>pixi_sbom::http<span class="o">=</span>debug,pixi_sbom<span class="o">=</span>info<span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+<p>To gate on it instead of only reporting it, add <code>--fail-on-diff</code> (exit code 6), or let the action do both — it puts
+the comparison in the job summary:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/download-artifact@v4</span><span class="w">   </span><span class="c1"># the sboms artifact the main branch uploaded</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">sboms</span><span class="p p-Indicator">,</span><span class="nt"> path</span><span class="p">:</span><span class="w"> </span><span class="nv">previous</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">millsks/pixi-sbom@v1</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="nt">diff-against</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">previous/sbom-default.cdx.json</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="nt">fail-on-diff</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">removed version</span><span class="w">    </span><span class="c1"># adding a package is fine; losing or bumping one is not</span>
 </code></pre></div>
-<p>Every request is logged with its URL, status, size and elapsed time, and every failure with its <strong>whole error
-chain</strong> — <code>invalid peer certificate</code>, <code>Connection refused</code>, the proxy's own message — rather than only the
-outermost "request failed". <a href="../cli/#what-the-log-says-and-how-to-narrow-it">What the log says</a> has the module
-targets and three worked recipes.</p>
-<h2 id="4-work-from-the-cache">4. Work from the cache<a class="headerlink" href="#4-work-from-the-cache" title="Permanent link">&para;</a></h2>
-<p>An unreachable upstream does not have to stop a run:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">PIXI_SBOM_OFFLINE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+<h2 id="does-the-image-still-match-the-lockfile">Does the image still match the lockfile?<a class="headerlink" href="#does-the-image-still-match-the-lockfile" title="Permanent link">&para;</a></h2>
+<p>The check for a container built earlier, or one whose base image was rebuilt: compare what is installed with what
+was locked. <code>pip</code> installs into the conda environment and packages rebuilt at the same version are sections of
+their own, so they are not lost among ordinary additions.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Drift check</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="no">pixi sbom --prefix /opt/conda/envs/app --against pixi.lock       --report diff --report-format markdown --fail-on-diff &gt;&gt; "$GITHUB_STEP_SUMMARY"</span>
 </code></pre></div>
-<p>Nothing is requested; every cache is used where it has an answer and every skipped request is logged. Warm the
-caches on a machine that can reach the network, copy <code>PIXI_SBOM_CACHE_DIR</code> across, and the restricted machine
-produces the same document.</p>
-<p>What such a run could <strong>not</strong> finish is recorded in the document itself — <code>pixi:incomplete</code>,
-<code>pixi:incomplete-detail</code> and <code>pixi:stale-cache</code> (see
-<a href="../output-format/#incomplete-enrichment">incomplete enrichment</a>) — so an SBOM built on a restricted network does
-not read as "no known vulnerabilities" months later.</p>
-<h2 id="reporting-it">Reporting it<a class="headerlink" href="#reporting-it" title="Permanent link">&para;</a></h2>
-<p>If none of this explains it, open an issue with the output of <code>pixi sbom --version-details</code>, the command, and the
-same command with <code>-vv</code>. The bug report form asks for exactly those three.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Locally, against a running container</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">:/w"</span><span class="w"> </span>-w<span class="w"> </span>/w<span class="w"> </span>myimage<span class="w">   </span>pixi-sbom<span class="w"> </span>--prefix<span class="w"> </span>/opt/conda/envs/app<span class="w"> </span>--against<span class="w"> </span>pixi.lock<span class="w"> </span>--report<span class="w"> </span>diff<span class="w"> </span>--fail-on-diff<span class="w"> </span>pip<span class="w"> </span>build
+</code></pre></div>
+<h2 id="diffing-sboms-between-commits">Diffing SBOMs between commits<a class="headerlink" href="#diffing-sboms-between-commits" title="Permanent link">&para;</a></h2>
+<p>With <code>SOURCE_DATE_EPOCH</code> set, two runs over the same lockfile are byte-identical (the serial number is derived from
+the lockfile contents and the timestamp is pinned), so a plain <code>diff</code> shows exactly which packages changed:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">SOURCE_DATE_EPOCH</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>sbom.cdx.json
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>git<span class="w"> </span>diff<span class="w"> </span>--no-index<span class="w"> </span>--<span class="w"> </span>sbom-previous.cdx.json<span class="w"> </span>sbom.cdx.json
+</code></pre></div>
+<p>See <a href="../output-format/#reproducibility">reproducibility</a> for what the guarantee covers.</p>
+<h2 id="air-gapped-runners">Air-gapped runners<a class="headerlink" href="#air-gapped-runners" title="Permanent link">&para;</a></h2>
+<p><code>PIXI_SBOM_OFFLINE=1</code> forbids every network request; the PyPI mapping, wheel and archive caches are used when present
+and everything else is skipped with a warning, and the run still succeeds. Pair it with <code>--pypi-mapping-file</code> pointing
+at a saved copy of the conda-forge mapping and a warm <code>PIXI_SBOM_CACHE_DIR</code> from an online run. The
+<a href="../cli/#environment-variables">environment variables</a> page lists every knob, including the PyPI mirror URL.</p>
 
 
 
@@ -1298,7 +1081,7 @@ same command with <code>-vv</code>. The bug report form asks for exactly those t
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../stability/" class="md-footer__link md-footer__link--prev" aria-label="Previous: What 1.0 freezes">
+          <a href="../github-action/" class="md-footer__link md-footer__link--prev" aria-label="Previous: GitHub Action">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1308,20 +1091,20 @@ same command with <code>-vv</code>. The bug report form asks for exactly those t
                 Previous
               </span>
               <div class="md-ellipsis">
-                What 1.0 freezes
+                GitHub Action
               </div>
             </div>
           </a>
         
         
           
-          <a href="../security/" class="md-footer__link md-footer__link--next" aria-label="Next: Security policy">
+          <a href="../formats/" class="md-footer__link md-footer__link--next" aria-label="Next: Which format to pick">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Security policy
+                Which format to pick
               </div>
             </div>
             <div class="md-footer__button md-icon">
