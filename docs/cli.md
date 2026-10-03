@@ -287,6 +287,7 @@ format = "cyclonedx"
 spec-version = "1.6"
 pypi-mapping = "prefix"          # or pypi-mapping-file = "mirrors/mapping.json" (relative to this file)
 conda-index-kind = "prefix"      # which index `--report outdated` asks, where anaconda.org is blocked
+concurrency = 25                 # requests in flight; a property of the network, not of the project
 primary-purl = "pypi"
 fetch-licenses = true
 license-texts = false
@@ -1067,8 +1068,25 @@ limited to one CPU used to make one request at a time, with nothing in the outpu
 | 1 (what one core used to give) | 3589 ms | 3869 ms | 3737 ms |
 | 10 (the default) | **461 ms** | **477 ms** | **473 ms** |
 
-Set `PIXI_SBOM_CONCURRENCY` to ask for more on a fast link, or fewer to be gentler — a value of `1`
-restores serial requests exactly.
+Three ways to change it, most specific first: `--concurrency <N>`, `PIXI_SBOM_CONCURRENCY`, and a
+`concurrency` key in a configuration file. A value of `1` restores serial requests exactly.
+
+The variable beats the file deliberately: a file is checked into a repository or sits on a machine,
+while the variable is set by whoever is running *this* invocation, and someone exporting it to get
+through a slow afternoon should not be overruled by a file they did not write. `-v` names which
+source won.
+
+Because the right value depends on the network rather than the project, the user-level file is often
+where it belongs:
+
+```toml
+# ~/.pixi/pixi-sbom-config.toml
+concurrency = 50
+```
+
+**It sets requests in flight only.** Threads for local work still follow the core count, so asking
+for fewer requests does not cost you local parallelism, and asking for more does not spawn workers
+with nothing to do.
 
 ## Which certificates TLS is verified against
 

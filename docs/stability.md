@@ -14,26 +14,26 @@ this page fails the build, and so does a line on this page for something that do
 
 ## Command-line flags
 
-All 66. Their meanings are in [cli.md](cli.md); what this page promises is that none of them
+All 67. Their meanings are in [cli.md](cli.md); what this page promises is that none of them
 disappears or changes shape before 2.0.
 
 | `--against` | `--all-environments` | `--all-platforms` | `--allow-license` |
-| `--assume-used` | `--ca-bundle` | `--color` | `--conda-index-kind` |
-| `--config` | `--deny-license` | `--depth` | `--doctor` |
-| `--embedded-sboms` | `--environment` | `--exclude` | `--exclude-kind` |
-| `--explain` | `--fail-on-diff` | `--fail-on-kev` | `--fail-on-phantom` |
-| `--fail-on-scorecard` | `--fail-on-severity` | `--fail-on-yanked` | `--fetch-licenses` |
-| `--format` | `--from-sbom` | `--group-by` | `--help` |
-| `--ignore-license` | `--ignore-vuln` | `--include` | `--keep-orphans` |
-| `--kev` | `--license-texts` | `--lockfile` | `--log-format` |
-| `--no-cache` | `--no-config` | `--outdated-min` | `--output` |
-| `--platform` | `--prefix` | `--primary-purl` | `--pypi-mapping` |
-| `--pypi-mapping-file` | `--quiet` | `--refresh` | `--report` |
-| `--report-format` | `--require-license` | `--root-name` | `--root-version` |
-| `--scan` | `--scan-depth` | `--scorecard` | `--scorecard-min` |
-| `--source` | `--spec-version` | `--timings` | `--tree` |
-| `--verbose` | `--version` | `--version-details` | `--vex` |
-| `--vex-open` | `--vulnerabilities` |
+| `--assume-used` | `--ca-bundle` | `--color` | `--concurrency` |
+| `--conda-index-kind` | `--config` | `--deny-license` | `--depth` |
+| `--doctor` | `--embedded-sboms` | `--environment` | `--exclude` |
+| `--exclude-kind` | `--explain` | `--fail-on-diff` | `--fail-on-kev` |
+| `--fail-on-phantom` | `--fail-on-scorecard` | `--fail-on-severity` | `--fail-on-yanked` |
+| `--fetch-licenses` | `--format` | `--from-sbom` | `--group-by` |
+| `--help` | `--ignore-license` | `--ignore-vuln` | `--include` |
+| `--keep-orphans` | `--kev` | `--license-texts` | `--lockfile` |
+| `--log-format` | `--no-cache` | `--no-config` | `--outdated-min` |
+| `--output` | `--platform` | `--prefix` | `--primary-purl` |
+| `--pypi-mapping` | `--pypi-mapping-file` | `--quiet` | `--refresh` |
+| `--report` | `--report-format` | `--require-license` | `--root-name` |
+| `--root-version` | `--scan` | `--scan-depth` | `--scorecard` |
+| `--scorecard-min` | `--source` | `--spec-version` | `--timings` |
+| `--tree` | `--verbose` | `--version` | `--version-details` |
+| `--vex` | `--vex-open` | `--vulnerabilities` |  |
 
 ### Spellings that answer to an older name
 
@@ -99,7 +99,7 @@ stays supported.
 | `vulnerabilities` | `kev` | `fail-on-kev` | `fail-on-severity` |
 | `ignore-vuln` | `ignore-license` | `scorecard` | `scorecard-min` |
 | `fail-on-scorecard` | `fail-on-diff` | `source` | `assume-used` |
-| `fail-on-phantom` | `conda-index-kind` | | |
+| `fail-on-phantom` | `conda-index-kind` | `concurrency` | |
 
 An unknown key is an error, not a warning, and the diagnostic lists every key that is accepted — so
 a typo cannot pass silently and you are never left guessing at the spelling.
@@ -112,7 +112,7 @@ so they are not frozen here; they are honoured with the meanings rattler and cur
 | Variable | |
 |---|---|
 | `PIXI_SBOM_CACHE_DIR` | Where the caches live. |
-| `PIXI_SBOM_CONCURRENCY` | How many requests at once. Above 100 is honoured with a warning; above 1000 is clamped, and the run is never sized past the number of packages. |
+| `PIXI_SBOM_CONCURRENCY` | How many requests at once; `--concurrency` and the `concurrency` key say the same thing, and the command line beats the variable, which beats the file. Requests only: threads for local work follow the core count. Above 100 is honoured with a warning; above 1000 is clamped, and the run is never sized past the number of packages. |
 | `PIXI_SBOM_OFFLINE` | Make no network requests. |
 | `PIXI_SBOM_NO_PROGRESS` | No progress bars. |
 | `PIXI_SBOM_LOG_FORMAT` | `text` or `json`. |
