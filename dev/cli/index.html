@@ -722,6 +722,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Where the time went">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#requests-in-flight-are-not-a-function-of-cores" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Requests in flight are not a function of cores
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1556,6 +1573,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Where the time went">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#requests-in-flight-are-not-a-function-of-cores" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Requests in flight are not a function of cores
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2923,6 +2957,39 @@ reaches no upstream, and the table says so rather than attributing the time to a
 <div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>outdated        8.42 s  52 fetched, 0 cached
 <a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a>total           8.46 s  of which 8.42 s waiting on the network
 </code></pre></div>
+<h3 id="requests-in-flight-are-not-a-function-of-cores">Requests in flight are not a function of cores<a class="headerlink" href="#requests-in-flight-are-not-a-function-of-cores" title="Permanent link">&para;</a></h3>
+<p>Ten at once, whatever the machine. Waiting on a socket costs no CPU, so the number of them owes
+nothing to the number of cores — a one-core container holds ten connections as easily as a
+workstation, and every browser on it holds far more.</p>
+<p>This matters most in CI, because <code>available_parallelism</code> reports <strong>cgroup quotas</strong>: a container
+limited to one CPU used to make one request at a time, with nothing in the output to say why. On a
+52-package workspace, cold cache, inside <code>docker run --cpus=1</code>:</p>
+<table>
+<thead>
+<tr>
+<th>requests in flight</th>
+<th>run 1</th>
+<th>run 2</th>
+<th>run 3</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 (what one core used to give)</td>
+<td>3589 ms</td>
+<td>3869 ms</td>
+<td>3737 ms</td>
+</tr>
+<tr>
+<td>10 (the default)</td>
+<td><strong>461 ms</strong></td>
+<td><strong>477 ms</strong></td>
+<td><strong>473 ms</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Set <code>PIXI_SBOM_CONCURRENCY</code> to ask for more on a fast link, or fewer to be gentler — a value of <code>1</code>
+restores serial requests exactly.</p>
 <h2 id="which-certificates-tls-is-verified-against">Which certificates TLS is verified against<a class="headerlink" href="#which-certificates-tls-is-verified-against" title="Permanent link">&para;</a></h2>
 <p>Every HTTPS request — the PyPI index, OSV, the KEV catalog, the Scorecard API, each wheel and conda archive — is
 verified against the <strong>operating system's trust store</strong> by default, through the platform verifier. No root store
@@ -3311,7 +3378,7 @@ prints for it.</p>
 </tr>
 <tr>
 <td><code>PIXI_SBOM_CONCURRENCY</code></td>
-<td>How many jobs run at once: requests in flight and threads for local work. Default: one thread per core, and no more than ten requests in flight however many cores there are. A value that is not a positive number is named in the log and ignored.</td>
+<td>How many jobs run at once: requests in flight and threads for local work. Default: <strong>ten requests in flight whatever the core count</strong>, and one thread per core for local work. Above 100 is honoured with a warning, above 1000 is clamped, and the run is never sized past the number of packages. A value that is not a positive number is named in the log and ignored.</td>
 </tr>
 <tr>
 <td><code>PIXI_SBOM_NO_PROGRESS</code></td>
