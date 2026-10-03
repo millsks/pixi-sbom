@@ -463,7 +463,8 @@ fn main() -> Result<()> {
                 prefix_index_url: &outdated::prefix_index_url(),
                 cache_dir: &cache_dir,
             };
-            let (statuses, outcome) = timings::time(timings::Phase::Outdated, || lookup.run(&sbom, progress));
+            let (statuses, unavailable, outcome) =
+                timings::time(timings::Phase::Outdated, || lookup.run(&sbom, progress));
             // What the phase covered belongs in its row, not only in the cache log beside it: it is
             // the number that separates a 27 s cold run from a 0.4 s warm one.
             if let Some(detail) = cache::describe(cache::Service::Outdated) {
@@ -473,9 +474,10 @@ fn main() -> Result<()> {
                 checked = outcome.checked,
                 outdated = outcome.outdated,
                 unknown = outcome.unknown,
+                unavailable = outcome.unavailable,
                 "checked how far behind the packages are"
             );
-            let mut report = report::Report::outdated(&sbom, &statuses, std::time::SystemTime::now());
+            let mut report = report::Report::outdated(&sbom, &statuses, &unavailable, std::time::SystemTime::now());
             if let Some(only) = args.outdated_min {
                 report.keep_outdated(only);
             }

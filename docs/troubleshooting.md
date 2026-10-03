@@ -128,6 +128,35 @@ from the status code and want opposite fixes. A 403 means the host refused — u
 policy — and credentials are only named when some were actually sent and refused anyway. A 403 from
 a host you have no credentials for is not a credentials problem, and is not reported as one.
 
+### A rate-limited run
+
+The indexes are free public services, and asking for more parallelism than one will tolerate gets
+`429 Too Many Requests` back. A request that is refused that way is retried a few times, waiting
+longer each time with a little jitter so a batch launched together does not retry together and
+reproduce the burst. `502`, `503` and `504` are treated the same way: a proxy saying an upstream is
+briefly out.
+
+Attempts and total waiting are both capped — this is a tool that has to finish, not a daemon — so a
+genuinely rate-limited run ends rather than sleeping indefinitely. Packages it could not ask about
+are then named in their own line:
+
+```
+No releases to compare against (1): mylib
+Could not be checked (37), the index did not answer: numpy, pandas, ...
+```
+
+**Those two lines mean opposite things.** The first is a fact about the packages: nothing upstream
+carries them, which is the normal answer for a private or source package. The second is a failure
+of the run: the packages have an upstream and we did not manage to ask. Reporting them together
+would make a rate-limited run look like a confident answer with packages quietly missing from it.
+
+If the second line appears, lower the concurrency (`PIXI_SBOM_CONCURRENCY`) and run again; the cache
+keeps whatever did answer, so a second run asks only for the rest.
+
+A timeout or a host that does not resolve is **not** retried. The first has already spent the whole
+request budget and the second will not resolve any sooner for being asked twice; retrying either
+would multiply the worst case rather than recover from it.
+
 ### A blocked host
 
 `pixi sbom --doctor` on its own probes every fixed upstream and names the ones that did not answer, so start

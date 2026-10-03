@@ -264,6 +264,11 @@ pub struct OutdatedSummary {
     pub by_step: Vec<(String, usize)>,
     /// Packages no index could be asked about (private channels, source packages).
     pub unknown: Vec<String>,
+    /// Packages whose index could not be reached — rate limited, refused or down. Kept apart from
+    /// `unknown` because the two look identical in a report and mean opposite things: one has no
+    /// upstream, the other has one we failed to ask.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unavailable: Vec<String>,
 }
 
 /// One finding for one affected package, as the vulnerabilities report sees it.
@@ -713,18 +718,29 @@ impl Report {
     }
 
     /// The outdated report for `sbom`, given what each index said (by package position).
-    pub fn outdated(sbom: &Sbom, statuses: &[Option<crate::outdated::Status>], now: SystemTime) -> Self {
+    pub fn outdated(
+        sbom: &Sbom,
+        statuses: &[Option<crate::outdated::Status>],
+        unavailable: &[bool],
+        now: SystemTime,
+    ) -> Self {
         let mut report = Self::new(ReportKind::Outdated, sbom);
         let mut rows = Vec::new();
         let mut unknown = Vec::new();
+        let mut could_not_ask = Vec::new();
         let mut by_step: BTreeMap<&str, usize> = BTreeMap::new();
-        for (package, status) in sbom
+        for (index, (package, status)) in sbom
             .packages
             .iter()
             .zip(statuses.iter().chain(std::iter::repeat(&None)))
+            .enumerate()
         {
             let Some(status) = status else {
-                unknown.push(package.name.clone());
+                if unavailable.get(index).copied().unwrap_or(false) {
+                    could_not_ask.push(package.name.clone());
+                } else {
+                    unknown.push(package.name.clone());
+                }
                 continue;
             };
             if status.behind > 0 {
@@ -759,6 +775,7 @@ impl Report {
                 .filter_map(|step| by_step.get(step).map(|count| (step.to_string(), *count)))
                 .collect(),
             unknown,
+            unavailable: could_not_ask,
         });
         report.outdated = Some(rows);
         report
@@ -1651,6 +1668,20 @@ pub fn render_with_width(
                             "No releases to compare against ({}): {}",
                             summary.unknown.len(),
                             summary.unknown.join(", ")
+                        )?;
+                    }
+                    // Said separately and after, because this is a failure of the run rather than
+                    // a fact about the packages: the same line would otherwise claim they have no
+                    // upstream when the index simply never answered.
+                    if !summary.unavailable.is_empty() {
+                        writeln!(
+                            out,
+                            "{}",
+                            palette.severity(&format!(
+                                "Could not be checked ({}), the index did not answer: {}",
+                                summary.unavailable.len(),
+                                summary.unavailable.join(", ")
+                            ))
                         )?;
                     }
                 }
@@ -3178,7 +3209,7 @@ mod tests {
             status(0, Step::Patch, "2026-09-01T00:00:00Z", "1.17.0"),
         ];
         let now = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_800_000_000);
-        Report::outdated(&sbom, &statuses, now)
+        Report::outdated(&sbom, &statuses, &[], now)
     }
 
     #[test]

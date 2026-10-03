@@ -540,6 +540,9 @@ pub struct Outcome {
     pub outdated: usize,
     /// Packages the indexes could not answer for (private channels, source packages).
     pub unknown: usize,
+    /// Packages whose index could not be reached at all, as distinct from packages no index
+    /// carries. A rate limit or an outage lands here; a private package lands in `unknown`.
+    pub unavailable: usize,
 }
 
 /// Configuration for a pass.
@@ -574,7 +577,7 @@ struct Job {
 
 impl Lookup<'_> {
     /// Fill `statuses` with what each index says, keyed by the package's position in `sbom`.
-    pub fn run(&self, sbom: &Sbom, progress: crate::progress::Progress) -> (Vec<Option<Status>>, Outcome) {
+    pub fn run(&self, sbom: &Sbom, progress: crate::progress::Progress) -> (Vec<Option<Status>>, Vec<bool>, Outcome) {
         self.run_with(
             sbom,
             &|url, body| match body {
@@ -659,7 +662,10 @@ impl Lookup<'_> {
                 }
                 let version = package.version.clone().unwrap_or_default();
                 let job = self.conda_job(0, package, channel, &version);
-                self.document(&job, fetch, now)
+                // Probing a candidate channel: whether it could be reached is not this question,
+                // only whether it carries the package.
+                let (document, _) = self.document(&job, fetch, now);
+                document
                     .map(|document| !self.releases_of(&document, &version).is_empty())
                     .unwrap_or(false)
             },
@@ -699,7 +705,7 @@ impl Lookup<'_> {
         fetch: Fetch<'_>,
         now: SystemTime,
         progress: crate::progress::Progress,
-    ) -> (Vec<Option<Status>>, Outcome) {
+    ) -> (Vec<Option<Status>>, Vec<bool>, Outcome) {
         let mut outcome = Outcome::default();
         let targets = self.channel_targets(sbom, fetch, now);
         let mut jobs = Vec::new();
@@ -742,7 +748,15 @@ impl Lookup<'_> {
         bar.finish();
 
         let mut statuses = vec![None; sbom.packages.len()];
-        for (job, document) in jobs.iter().zip(documents) {
+        let mut unavailable = vec![false; sbom.packages.len()];
+        for (job, (document, unreachable)) in jobs.iter().zip(documents) {
+            if unreachable {
+                // Asked and not answered. Counting this as "no releases to compare against" would
+                // report a package as having no upstream when the truth is we never got to ask.
+                unavailable[job.index] = true;
+                outcome.unavailable += 1;
+                continue;
+            }
             let current = sbom.packages[job.index].version.clone().unwrap_or_default();
             // A channel the index does not know answers two ways: prefix.dev returns a document
             // saying nothing, anaconda.org returns 404 and no document at all. Both mean the same
@@ -784,7 +798,7 @@ impl Lookup<'_> {
             }
             statuses[job.index] = Some(status);
         }
-        (statuses, outcome)
+        (statuses, unavailable, outcome)
     }
 
     /// One project document, from the cache when young enough (or offline), else fetched.
@@ -858,7 +872,10 @@ impl Lookup<'_> {
         vouched
     }
 
-    fn document(&self, job: &Job, fetch: Fetch<'_>, now: SystemTime) -> Option<String> {
+    /// Returns the document and whether the upstream could not be reached at all. The second
+    /// half matters because "we could not ask" and "there is nothing to compare against" are
+    /// different answers that look identical in a report, and want opposite responses.
+    fn document(&self, job: &Job, fetch: Fetch<'_>, now: SystemTime) -> (Option<String>, bool) {
         let cached = std::fs::read_to_string(&job.cache_file).ok();
         let age = std::fs::metadata(&job.cache_file)
             .and_then(|meta| meta.modified())
@@ -869,7 +886,7 @@ impl Lookup<'_> {
             && crate::cache::may_read(crate::cache::Service::Outdated)
         {
             crate::cache::hit(crate::cache::Service::Outdated, age);
-            return Some(json.clone());
+            return (Some(json.clone()), false);
         }
         crate::cache::miss(crate::cache::Service::Outdated);
         match fetch(&job.url, job.body.as_deref()).map(|json| self.resolve(job, json, fetch)) {
@@ -883,7 +900,7 @@ impl Lookup<'_> {
                 {
                     tracing::warn!(path = %job.cache_file.display(), %err, "cannot cache the project document");
                 }
-                Some(json)
+                (Some(json), false)
             }
             Err(err) => {
                 tracing::warn!(
@@ -892,7 +909,12 @@ impl Lookup<'_> {
                     cause = crate::http::error_chain(err.as_ref()),
                     "cannot read the project's releases"
                 );
-                cached
+                // Stale is still an answer; only an empty hand means the upstream went unasked.
+                // Offline is not a failure to reach anything — nothing was attempted, by choice —
+                // so it keeps the plain "nothing to compare against" reading rather than reporting
+                // every package as an index that would not answer.
+                let unreachable = cached.is_none() && !http::offline();
+                (cached, unreachable)
             }
         }
     }
@@ -1004,6 +1026,59 @@ mod tests {
     }
 
     #[test]
+    fn an_index_that_never_answered_is_not_a_package_without_releases() {
+        use crate::format::testing::sample_sbom;
+        let dir = tempfile::tempdir().unwrap();
+        let mut sbom = sample_sbom();
+        for package in &mut sbom.packages {
+            if package.kind == PackageKind::CondaBinary {
+                package.properties.insert(
+                    "pixi:channel-url".into(),
+                    "https://conda.anaconda.org/conda-forge/".into(),
+                );
+            }
+        }
+        // Everything is rate limited, and nothing is cached to stand in for it.
+        let fetch = |_url: &str, _body: Option<&str>| Err(Box::new(ureq::Error::StatusCode(429)));
+        let lookup = Lookup {
+            index_url: "https://index.example/pypi",
+            anaconda_url: "https://anaconda.example",
+            index_is_configured: false,
+            kind: crate::cli::CondaIndexKind::Anaconda,
+            prefix_index_url: "https://prefix.example/api/graphql",
+            cache_dir: dir.path(),
+        };
+        let (statuses, unavailable, outcome) =
+            lookup.run_with(&sbom, &fetch, SystemTime::now(), crate::progress::Progress::default());
+
+        assert!(statuses.iter().all(Option::is_none), "nothing could be checked");
+        assert!(outcome.unavailable > 0, "and it is counted as unreachable");
+        assert_eq!(outcome.checked, 0);
+
+        // The distinction the report depends on: a package we could not ask about is not a package
+        // that has no upstream. `mylib` is a source package no index carries, so it stays unknown
+        // however the network behaves.
+        let named: Vec<&str> = sbom
+            .packages
+            .iter()
+            .zip(&unavailable)
+            .filter_map(|(package, &out)| out.then_some(package.name.as_str()))
+            .collect();
+        assert!(named.contains(&"zlib"), "{named:?}");
+        assert!(
+            !named.contains(&"mylib"),
+            "a source package was never asked of an index: {named:?}"
+        );
+
+        // And the report keeps them in separate lists rather than one misleading one.
+        let report = crate::report::Report::outdated(&sbom, &statuses, &unavailable, SystemTime::now());
+        let summary = report.outdated_summary.as_ref().unwrap();
+        assert!(summary.unavailable.contains(&"zlib".to_string()), "{summary:?}");
+        assert!(summary.unknown.contains(&"mylib".to_string()), "{summary:?}");
+        assert!(!summary.unknown.contains(&"zlib".to_string()), "{summary:?}");
+    }
+
+    #[test]
     fn a_pass_asks_each_index_once_and_reports_the_unaskable() {
         use crate::format::testing::sample_sbom;
         let dir = tempfile::tempdir().unwrap();
@@ -1046,13 +1121,15 @@ mod tests {
             cache_dir: dir.path(),
         };
         let now = SystemTime::now();
-        let (statuses, outcome) = lookup.run_with(&sbom, &fetch, now, crate::progress::Progress::default());
+        let (statuses, _unavailable, outcome) =
+            lookup.run_with(&sbom, &fetch, now, crate::progress::Progress::default());
         assert_eq!(
             outcome,
             Outcome {
                 checked: 3,
                 outdated: 3,
-                unknown: 1
+                unknown: 1,
+                unavailable: 0
             },
             "the source package has no index"
         );
@@ -1092,7 +1169,7 @@ mod tests {
         );
 
         // The documents are cached: a second pass asks nothing.
-        let (again, _) = lookup.run_with(
+        let (again, _, _) = lookup.run_with(
             &sbom,
             &|url, _body| panic!("must not fetch {url}"),
             now,
