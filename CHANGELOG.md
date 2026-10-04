@@ -6,24 +6,6 @@ All notable changes to this project are documented here. The format follows
 
 ## 1.5.0 - 2026-10-04
 
-### Bug Fixes
-
-- **ci:** Release the version that was asked for, even with no new commits (#315) ([3134602](https://github.com/millsks/pixi-sbom/commit/3134602f986fd6cacda7e5618e6f789cc4437443))
-
-## 1.5.0-rc.3 - 2026-10-04
-
-### Bug Fixes
-
-- Count a batched fetch as a fetch, not as a cache hit (#314) ([e8e7b75](https://github.com/millsks/pixi-sbom/commit/e8e7b755b9269020b06dafb72650563ba3f53516))
-
-## 1.5.0-rc.2 - 2026-10-04
-
-### Bug Fixes
-
-- Date a batch's newer releases in parallel, not one after another (#313) ([4bdd2f2](https://github.com/millsks/pixi-sbom/commit/4bdd2f2be37d83209b59528b459e34d6c48c3719))
-
-## 1.5.0-rc.1 - 2026-10-03
-
 ### Features
 
 - Retry a rate limit, and stop reporting an unasked index as no upstream (#304) ([c3b352b](https://github.com/millsks/pixi-sbom/commit/c3b352b590d538ebbc0a083863ce924faeb1aa0e))
@@ -36,6 +18,9 @@ All notable changes to this project are documented here. The format follows
 - Keep the machine's own configuration out of the test suite (#303) ([3bd9dfe](https://github.com/millsks/pixi-sbom/commit/3bd9dfeb1c8bc5f39a48db86acf23382ea54fdd4))
 - Stop a mistyped concurrency from hanging the run and then panicking (#305) ([a46c1bc](https://github.com/millsks/pixi-sbom/commit/a46c1bc9305e576cd246e110aba3ea4e4092674d))
 - Stop tying requests in flight to the core count (#306) ([07eefcc](https://github.com/millsks/pixi-sbom/commit/07eefcc4682d6d642d3b358b13e80c1c98148ea2))
+- Date a batch's newer releases in parallel, not one after another (#313) ([4bdd2f2](https://github.com/millsks/pixi-sbom/commit/4bdd2f2be37d83209b59528b459e34d6c48c3719))
+- Count a batched fetch as a fetch, not as a cache hit (#314) ([e8e7b75](https://github.com/millsks/pixi-sbom/commit/e8e7b755b9269020b06dafb72650563ba3f53516))
+- **ci:** Release the version that was asked for, even with no new commits (#315) ([3134602](https://github.com/millsks/pixi-sbom/commit/3134602f986fd6cacda7e5618e6f789cc4437443))
 
 ### Performance
 
@@ -51,25 +36,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Bug Fixes
 
-- Stop blaming credentials for an answer the probe asked for (#290) ([f428509](https://github.com/millsks/pixi-sbom/commit/f428509c031523118260e0bb6d7379d406687eb6))
-
-## 1.3.1-rc.3 - 2026-10-03
-
-### Bug Fixes
-
+- Confirm a mirrored package's channel by its hash, not its name (#281) ([82df2d1](https://github.com/millsks/pixi-sbom/commit/82df2d1c9acc9a10a6ebe0456f31905470c6f280))
 - Match the installed build by its build string, not by scanning a page (#283) ([e0c1f19](https://github.com/millsks/pixi-sbom/commit/e0c1f1999412ad0d3527c9f37f7a5dffec05c56d))
-
-## 1.3.1-rc.2 - 2026-10-03
+- Stop blaming credentials for an answer the probe asked for (#290) ([f428509](https://github.com/millsks/pixi-sbom/commit/f428509c031523118260e0bb6d7379d406687eb6))
 
 ### Performance
 
 - Resolve a mirrored channel once, not once per package (#282) ([c05ed68](https://github.com/millsks/pixi-sbom/commit/c05ed6889e52ec4939bbf94d1dcee7fa101679e3))
-
-## 1.3.1-rc.1 - 2026-10-02
-
-### Bug Fixes
-
-- Confirm a mirrored package's channel by its hash, not its name (#281) ([82df2d1](https://github.com/millsks/pixi-sbom/commit/82df2d1c9acc9a10a6ebe0456f31905470c6f280))
 
 ## 1.3.0 - 2026-10-02
 
