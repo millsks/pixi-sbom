@@ -830,14 +830,19 @@ impl Lookup<'_> {
 
         // One request per ten packages instead of one each, before the ordinary pass reads them
         // back out of the cache.
-        self.warm_in_batches(&jobs, fetch, now);
+        let prefetched = self.warm_in_batches(&jobs, fetch, now);
 
         let bar = progress.bar("releases", jobs.len());
         let documents = crate::concurrency::map(
             &jobs,
             Some(&bar),
             |job| job.display_name.clone(),
-            |job| self.document(job, fetch, now),
+            |job| match prefetched.get(&job.index) {
+                // Already asked for, in a batch, moments ago. Going back to disk for it would be
+                // slower and would report the answer as cached when it was fetched this run.
+                Some(document) => (Some(document.clone()), false),
+                None => self.document(job, fetch, now),
+            },
         );
         bar.finish();
 
@@ -985,16 +990,21 @@ impl Lookup<'_> {
     /// through [`Self::document`] afterwards and finds its answer already there; if a batch fails,
     /// is rejected, or comes back missing an alias, nothing is lost and that package is simply
     /// fetched on its own as before.
-    fn warm_in_batches(&self, jobs: &[Job], fetch: Fetch<'_>, now: SystemTime) {
+    /// Returns what it managed to answer, keyed by the package's position in the SBOM.
+    ///
+    /// The answers are handed back rather than left for [`Self::document`] to find on disk. Reading
+    /// them back would count a fetch this run just made as a cache hit, and the cache counters are
+    /// how anyone tells a cold run from a warm one — including the `--timings` detail.
+    fn warm_in_batches(&self, jobs: &[Job], fetch: Fetch<'_>, now: SystemTime) -> BTreeMap<usize, String> {
         if self.kind != crate::cli::CondaIndexKind::Prefix || http::offline() {
-            return;
+            return BTreeMap::new();
         }
         let wanted: Vec<&Job> = jobs
             .iter()
             .filter(|job| job.body.is_some() && job.follow_up.is_some() && !Self::cache_is_usable(job, now))
             .collect();
         if wanted.len() < 2 {
-            return;
+            return BTreeMap::new();
         }
         let chunks: Vec<&[&Job]> = wanted.chunks(PREFIX_BATCH).collect();
 
@@ -1042,11 +1052,14 @@ impl Lookup<'_> {
         // in one batch became five round trips one after another, which on a high-latency link was
         // slower than not batching at all. These are ordinary single-package requests and belong on
         // the ordinary request pool, where they ran before batching existed.
-        crate::concurrency::map(
+        let resolved: Vec<(usize, String)> = crate::concurrency::map(
             &answers,
             None,
             |(job, _)| job.display_name.clone(),
             |(job, single)| {
+                // Every package here was a cache miss — that is why it was in the batch — so the
+                // tally records the fetch. Without this a cold run reports itself as fully cached.
+                crate::cache::miss(crate::cache::Service::Outdated);
                 let resolved = self.resolve(job, single.clone(), fetch);
                 if crate::cache::may_write(crate::cache::Service::Outdated)
                     && let Err(err) = job
@@ -1057,6 +1070,7 @@ impl Lookup<'_> {
                 {
                     tracing::debug!(path = %job.cache_file.display(), %err, "cannot cache a batched answer");
                 }
+                (job.index, resolved)
             },
         );
         tracing::debug!(
@@ -1064,6 +1078,7 @@ impl Lookup<'_> {
             requests = asked,
             "asked the index about several packages per request"
         );
+        resolved.into_iter().collect()
     }
 
     fn document(&self, job: &Job, fetch: Fetch<'_>, now: SystemTime) -> (Option<String>, bool) {
