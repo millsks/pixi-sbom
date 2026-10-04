@@ -101,10 +101,16 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # A version given by hand is a decision, not a guess, so it is never skipped. Cutting a
+      # stable release from the same commit as its last release candidate is the normal end of an
+      # rc cycle, and "no changes since the last tag" is true and beside the point there.
       - name: Decide whether to skip
         id: should_skip
         run: |
-          if [ "${{ steps.check_changes.outputs.changed }}" = "false" ] && [ "${{ inputs.force_recreate }}" != "true" ]; then
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "::notice::Version ${{ inputs.version }} was asked for explicitly - releasing it"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.check_changes.outputs.changed }}" = "false" ] && [ "${{ inputs.force_recreate }}" != "true" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
@@ -210,7 +216,10 @@ jobs:
       # The handover. A tag pushed with the App token does start a workflow, but if that ever
       # stops being true the release would end here looking successful, with no binaries and no
       # crate — so the run does not finish green until the next one has actually started.
+      # Guarded like every other step after the decision: a run that deliberately released nothing
+      # has no tag to confirm, and without this it fails claiming a tag was pushed that never was.
       - name: Confirm release-artifacts.yml picked the tag up
+        if: steps.should_skip.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
