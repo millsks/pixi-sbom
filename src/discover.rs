@@ -10,19 +10,73 @@ use crate::cli::Format;
 /// Name of the lockfile pixi writes next to its manifest.
 pub const LOCKFILE_NAME: &str = "pixi.lock";
 
-/// The lockfiles the upward search looks for, in the order it prefers them within one directory:
-/// a pixi workspace that also has a `uv.lock` (pixi uses uv underneath) is a pixi workspace.
-pub const UPWARD_NAMES: [&str; 5] = [LOCKFILE_NAME, "uv.lock", "poetry.lock", "pdm.lock", "pylock.toml"];
+/// The lockfiles the upward search and `--scan` look for, in the order they prefer them within one
+/// directory: `pixi.lock` first, as the most complete (a pixi workspace that also has a `uv.lock`
+/// is a pixi workspace), then the Python lockfiles, then conda-lock. `pylock.toml` also stands
+/// for its named form, `pylock.<name>.toml`. An explicit conda spec file has no fixed name, so it
+/// is only ever read through `--lockfile`.
+pub const LOCKFILE_KINDS: [&str; 6] = [
+    LOCKFILE_NAME,
+    "uv.lock",
+    "pylock.toml",
+    "poetry.lock",
+    "pdm.lock",
+    "conda-lock.yml",
+];
+
+/// [`LOCKFILE_KINDS`] for a message: `pixi.lock, uv.lock, ... or conda-lock.yml`.
+const KINDS_TEXT: &str = "pixi.lock, uv.lock, pylock.toml, poetry.lock, pdm.lock or conda-lock.yml";
+
+/// The lockfiles of [`LOCKFILE_KINDS`] in `dir`, in that order; named `pylock.<name>.toml` files
+/// follow `pylock.toml`, sorted.
+fn lockfiles_in(dir: &Path) -> Vec<PathBuf> {
+    let mut found = Vec::new();
+    for kind in LOCKFILE_KINDS {
+        let path = dir.join(kind);
+        if path.is_file() {
+            found.push(path);
+        }
+        if kind == "pylock.toml" {
+            let mut named: Vec<PathBuf> = std::fs::read_dir(dir)
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|e| e.path())
+                .filter(|p| p.is_file() && crate::pylock::is_pylock_name(p) && p.file_name() != Some(kind.as_ref()))
+                .collect();
+            named.sort();
+            found.extend(named);
+        }
+    }
+    found
+}
+
+/// The one lockfile to read in `dir`, and a log line when there were several to choose from.
+pub fn lockfile_in(dir: &Path) -> Option<PathBuf> {
+    let found = lockfiles_in(dir);
+    let chosen = found.first()?.clone();
+    if found.len() > 1 {
+        let others: Vec<String> = found[1..].iter().map(|p| lockfile_name(p)).collect();
+        tracing::info!(
+            dir = %dir.display(),
+            chosen = %lockfile_name(&chosen),
+            also = %others.join(", "),
+            "several lockfiles in one directory; reading the first in the order {KINDS_TEXT} (pass --lockfile for another)"
+        );
+    }
+    Some(chosen)
+}
 
 /// Errors raised while locating input and output files.
 #[derive(Debug, Error, Diagnostic)]
 pub enum DiscoverError {
     /// No lockfile found walking up from the start directory.
-    #[error("no pixi.lock, uv.lock, poetry.lock, pdm.lock or pylock.toml found in {start} or any parent directory")]
+    #[error("no {KINDS_TEXT} found in {start} or any parent directory")]
     #[diagnostic(
         code(pixi_sbom::discover::not_found),
         help(
-            "run `pixi lock` (or `uv lock`, `poetry lock`, `pdm lock`) in your project, or pass --lockfile with the path to one"
+            "write one with your project's tool (`pixi lock`, `uv lock`, `poetry lock`, `pdm lock`, `pip lock`, \
+             `conda-lock`), or pass --lockfile with the path to one; an explicit conda spec file is only read that way"
         )
     )]
     NotFound {
@@ -50,7 +104,7 @@ pub enum DiscoverError {
     },
 
     /// `--scan` walked the tree and came back with nothing.
-    #[error("no {LOCKFILE_NAME} anywhere under {dir}")]
+    #[error("no {KINDS_TEXT} anywhere under {dir}")]
     #[diagnostic(
         code(pixi_sbom::discover::none_found),
         help(
@@ -70,10 +124,10 @@ pub enum DiscoverError {
 /// other ecosystems. Hidden directories (`.pixi`, `.git`, `.venv`) are skipped by their dot.
 pub const SCAN_SKIPPED_DIRS: &[&str] = &["node_modules", "target", "build", "dist", "venv", "__pycache__"];
 
-/// Every `pixi.lock` under `dir`, sorted by path so a scan is reproducible.
+/// One lockfile per project under `dir`, sorted by path so a scan is reproducible.
 ///
-/// A pixi workspace has exactly one lockfile next to its manifest, so one lockfile is one
-/// workspace. Hidden directories and [`SCAN_SKIPPED_DIRS`] are never entered, symlinked
+/// A project keeps its lockfile next to its manifest, so one directory is one project, and the
+/// lockfile read for it is the one [`lockfile_in`] picks. Hidden directories and [`SCAN_SKIPPED_DIRS`] are never entered, symlinked
 /// directories are not followed (a cycle would never end), and `depth` caps how far below
 /// `dir` the walk goes (`0` is `dir` itself).
 pub fn scan(dir: &Path, depth: Option<usize>) -> Result<Vec<PathBuf>, DiscoverError> {
@@ -95,8 +149,7 @@ pub fn scan(dir: &Path, depth: Option<usize>) -> Result<Vec<PathBuf>, DiscoverEr
 }
 
 fn walk(dir: &Path, level: usize, max: usize, found: &mut Vec<PathBuf>) {
-    let lockfile = dir.join(LOCKFILE_NAME);
-    if lockfile.is_file() {
+    if let Some(lockfile) = lockfile_in(dir) {
         found.push(lockfile);
     }
     if level >= max {
@@ -123,8 +176,8 @@ fn walk(dir: &Path, level: usize, max: usize, found: &mut Vec<PathBuf>) {
     }
 }
 
-/// Resolve the lockfile to read: an explicit path if given, otherwise the nearest
-/// `pixi.lock` found by walking upward from `start`.
+/// Resolve the lockfile to read: an explicit path if given, otherwise the nearest lockfile
+/// found by walking upward from `start`.
 pub fn resolve_lockfile(explicit: Option<&Path>, start: &Path) -> Result<PathBuf, DiscoverError> {
     match explicit {
         Some(path) if path.is_file() => Ok(path.to_path_buf()),
@@ -138,14 +191,9 @@ pub fn resolve_lockfile(explicit: Option<&Path>, start: &Path) -> Result<PathBuf
 }
 
 /// The nearest lockfile at or above `start`: the closest directory wins, and within a directory
-/// the first of [`UPWARD_NAMES`] it has.
+/// the one [`lockfile_in`] picks.
 fn find_upward(start: &Path) -> Option<PathBuf> {
-    start.ancestors().find_map(|dir| {
-        UPWARD_NAMES
-            .iter()
-            .map(|name| dir.join(name))
-            .find(|candidate| candidate.is_file())
-    })
+    start.ancestors().find_map(lockfile_in)
 }
 
 /// The `--output` spelling that selects standard output.
@@ -216,6 +264,83 @@ fn lockfile_dir(lockfile: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn one_lockfile_per_directory_in_the_documented_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let touch = |name: &str| std::fs::write(dir.path().join(name), "").unwrap();
+        assert_eq!(lockfile_in(dir.path()), None);
+        touch("spec.txt");
+        assert_eq!(
+            lockfile_in(dir.path()),
+            None,
+            "an explicit spec file is never discovered"
+        );
+        for name in [
+            "conda-lock.yml",
+            "pdm.lock",
+            "poetry.lock",
+            "pylock.dev.toml",
+            "pylock.toml",
+            "uv.lock",
+            "pixi.lock",
+        ] {
+            touch(name);
+            assert_eq!(
+                lockfile_in(dir.path()),
+                Some(dir.path().join(name)),
+                "{name} goes before the ones so far"
+            );
+        }
+        let names: Vec<String> = lockfiles_in(dir.path()).iter().map(|p| lockfile_name(p)).collect();
+        assert_eq!(
+            names,
+            [
+                "pixi.lock",
+                "uv.lock",
+                "pylock.toml",
+                "pylock.dev.toml",
+                "poetry.lock",
+                "pdm.lock",
+                "conda-lock.yml"
+            ]
+        );
+        let named = tempfile::tempdir().unwrap();
+        std::fs::write(named.path().join("pylock.web.toml"), "").unwrap();
+        std::fs::write(named.path().join("pylock.api.toml"), "").unwrap();
+        assert_eq!(
+            lockfile_in(named.path()),
+            Some(named.path().join("pylock.api.toml")),
+            "named ones, sorted"
+        );
+    }
+
+    #[test]
+    fn a_scan_finds_every_kind_once_per_project() {
+        let dir = tempfile::tempdir().unwrap();
+        for (sub, name) in [
+            ("a", "pixi.lock"),
+            ("a", "uv.lock"),
+            ("b", "uv.lock"),
+            ("c/d", "poetry.lock"),
+            ("e", "conda-lock.yml"),
+        ] {
+            std::fs::create_dir_all(dir.path().join(sub)).unwrap();
+            std::fs::write(dir.path().join(sub).join(name), "").unwrap();
+        }
+        let found: Vec<PathBuf> = scan(dir.path(), None)
+            .unwrap()
+            .into_iter()
+            .map(|p| p.strip_prefix(dir.path()).unwrap().to_path_buf())
+            .collect();
+        let found: Vec<&str> = found.iter().map(|p| p.to_str().unwrap()).collect();
+        let expected = ["a/pixi.lock", "b/uv.lock", "c/d/poetry.lock", "e/conda-lock.yml"]
+            .map(|p| p.replace('/', std::path::MAIN_SEPARATOR_STR));
+        assert_eq!(found, expected);
+        let empty = tempfile::tempdir().unwrap();
+        let err = scan(empty.path(), None).unwrap_err().to_string();
+        assert!(err.contains("conda-lock.yml anywhere under"), "{err}");
+    }
 
     #[test]
     fn the_nearest_lockfile_wins_and_pixi_lock_first_within_a_directory() {

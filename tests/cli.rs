@@ -172,7 +172,7 @@ fn no_lockfile_in_tree_fails_with_help() {
         .assert()
         .failure()
         .stderr(predicate::str::contains(
-            "no pixi.lock, uv.lock, poetry.lock, pdm.lock or pylock.toml found",
+            "no pixi.lock, uv.lock, pylock.toml, poetry.lock, pdm.lock or conda-lock.yml found",
         ))
         .stderr(predicate::str::contains("--lockfile"));
 }
@@ -707,7 +707,7 @@ fn the_run_says_which_input_and_which_settings_it_chose() {
             .clone(),
     )
     .unwrap();
-    assert!(scan.contains("every pixi.lock under this directory"), "{scan}");
+    assert!(scan.contains("one lockfile per project under this directory"), "{scan}");
     assert!(scan.contains("not from each workspace"), "{scan}");
 }
 
@@ -7879,4 +7879,68 @@ fn infer_extras_is_opt_in_and_labelled() {
         .assert()
         .code(2)
         .stderr(predicate::str::contains("--prefix"));
+}
+
+#[test]
+fn a_scan_reads_every_kind_of_lockfile_once_per_project() {
+    // #339: a monorepo of pixi, uv and Poetry projects; one directory has pixi.lock and uv.lock.
+    let tree = tempfile::tempdir().unwrap();
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/projects");
+    let place = |dir: &str, from: &Path, files: &[&str]| {
+        let target = tree.path().join(dir);
+        std::fs::create_dir_all(&target).unwrap();
+        for file in files {
+            std::fs::copy(from.join(file), target.join(file)).unwrap();
+        }
+    };
+    place(
+        "services/pixi-app",
+        &tests_dir().join("fixtures/conda-only"),
+        &["pixi.toml", "pixi.lock"],
+    );
+    place(
+        "services/uv-app",
+        &examples.join("uv/01-django"),
+        &["pyproject.toml", "uv.lock"],
+    );
+    place(
+        "libs/poetry-lib",
+        &examples.join("poetry/01-django"),
+        &["pyproject.toml", "poetry.lock"],
+    );
+    place(
+        "both",
+        &tests_dir().join("fixtures/conda-only"),
+        &["pixi.toml", "pixi.lock"],
+    );
+    place("both", &examples.join("uv/01-django"), &["uv.lock"]);
+
+    let assert = pixi_sbom()
+        .current_dir(tree.path())
+        .env("PIXI_CACHE_DIR", tree.path().join(".empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", tree.path().join(".cache"))
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args(["-p", "linux-64", "--scan", "."])
+        .assert()
+        .success();
+    let stderr = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+    assert!(
+        stderr.contains("several lockfiles in one directory") && stderr.contains("chosen=pixi.lock"),
+        "{stderr}"
+    );
+    for (dir, lockfile) in [
+        ("services/pixi-app", "pixi.lock"),
+        ("services/uv-app", "uv.lock"),
+        ("libs/poetry-lib", "poetry.lock"),
+        ("both", "pixi.lock"),
+    ] {
+        let doc = read_json(&tree.path().join(dir).join("sbom.cdx.json"));
+        let recorded = doc["metadata"]["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == "pixi:lockfile")
+            .map(|p| p["value"].as_str().unwrap().to_string());
+        assert_eq!(recorded.as_deref(), Some(lockfile), "{dir}");
+    }
 }

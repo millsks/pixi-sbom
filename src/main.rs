@@ -197,66 +197,7 @@ fn main() -> Result<()> {
             },
         }),
         (None, Some(_)) => None,
-        // A PEP 751 lockfile, recognised by its name; anything else given as --lockfile is read as pixi.lock.
-        (None, None) if condalock::is_conda_lock_name(&lockfile) => {
-            let condalock::Loaded { lock, contents } =
-                timings::time(timings::Phase::Input, || condalock::load(&lockfile))?;
-            Some(Input::CondaLock {
-                lock,
-                contents,
-                manifest: timings::time(timings::Phase::Manifest, || manifest::read(&lockfile)),
-            })
-        }
-        (None, None) if pdm::is_pdm_lock_name(&lockfile) => {
-            let pdm::Loaded { lock, contents } = timings::time(timings::Phase::Input, || pdm::load(&lockfile))?;
-            Some(Input::Pdm {
-                lock,
-                contents,
-                manifest: timings::time(timings::Phase::Manifest, || manifest::read(&lockfile)),
-            })
-        }
-        (None, None) if poetry::is_poetry_lock_name(&lockfile) => {
-            let poetry::Loaded { lock, contents } = timings::time(timings::Phase::Input, || poetry::load(&lockfile))?;
-            Some(Input::Poetry {
-                lock,
-                contents,
-                manifest: timings::time(timings::Phase::Manifest, || manifest::read(&lockfile)),
-            })
-        }
-        (None, None) if uv::is_uv_lock_name(&lockfile) => {
-            let uv::Loaded { lock, contents } = timings::time(timings::Phase::Input, || uv::load(&lockfile))?;
-            Some(Input::Uv {
-                lock,
-                contents,
-                manifest: timings::time(timings::Phase::Manifest, || manifest::read(&lockfile)),
-            })
-        }
-        (None, None) if pylock::is_pylock_name(&lockfile) => {
-            let pylock::Loaded { lock, contents } = timings::time(timings::Phase::Input, || pylock::load(&lockfile))?;
-            Some(Input::Pylock {
-                lock,
-                contents,
-                manifest: timings::time(timings::Phase::Manifest, || manifest::read(&lockfile)),
-            })
-        }
-        // An explicit spec file is recognised by its @EXPLICIT line; its name says nothing.
-        (None, None) if explicit::is_explicit(&lockfile) => {
-            let explicit::Loaded { explicit, contents } =
-                timings::time(timings::Phase::Input, || explicit::load(&lockfile))?;
-            Some(Input::Explicit {
-                explicit,
-                contents,
-                manifest: timings::time(timings::Phase::Manifest, || manifest::read(&lockfile)),
-            })
-        }
-        (None, None) => {
-            let lock::LoadedLock { lock, contents } = timings::time(timings::Phase::Input, || lock::load(&lockfile))?;
-            Some(Input::Lock {
-                lock,
-                contents,
-                manifest: timings::time(timings::Phase::Manifest, || manifest::read(&lockfile)),
-            })
-        }
+        (None, None) => Some(read_input(&lockfile)?),
     };
 
     let spec_version = resolve_spec_version(&args);
@@ -1259,7 +1200,7 @@ fn describe_input(args: &cli::Args, lockfile: &Path, cwd: &Path) {
         (_, _, Some(file)) => (file.display().to_string(), "--from-sbom: an existing document"),
         (_, Some(dir), _) => (
             dir.display().to_string(),
-            "--scan: every pixi.lock under this directory",
+            "--scan: one lockfile per project under this directory",
         ),
         (None, None, None) => (
             lockfile.display().to_string(),
@@ -1657,25 +1598,105 @@ struct Workspace {
     targets: Vec<Target>,
 }
 
+/// Read the lockfile at `lockfile`, whichever kind it is: by name for the kinds that have one,
+/// by its `@EXPLICIT` line for an explicit spec file, and as `pixi.lock` otherwise.
+fn read_input(lockfile: &Path) -> Result<Input> {
+    let manifest = || timings::time(timings::Phase::Manifest, || manifest::read(lockfile));
+    if condalock::is_conda_lock_name(lockfile) {
+        let condalock::Loaded { lock, contents } = timings::time(timings::Phase::Input, || condalock::load(lockfile))?;
+        return Ok(Input::CondaLock {
+            lock,
+            contents,
+            manifest: manifest(),
+        });
+    }
+    if pdm::is_pdm_lock_name(lockfile) {
+        let pdm::Loaded { lock, contents } = timings::time(timings::Phase::Input, || pdm::load(lockfile))?;
+        return Ok(Input::Pdm {
+            lock,
+            contents,
+            manifest: manifest(),
+        });
+    }
+    if poetry::is_poetry_lock_name(lockfile) {
+        let poetry::Loaded { lock, contents } = timings::time(timings::Phase::Input, || poetry::load(lockfile))?;
+        return Ok(Input::Poetry {
+            lock,
+            contents,
+            manifest: manifest(),
+        });
+    }
+    if uv::is_uv_lock_name(lockfile) {
+        let uv::Loaded { lock, contents } = timings::time(timings::Phase::Input, || uv::load(lockfile))?;
+        return Ok(Input::Uv {
+            lock,
+            contents,
+            manifest: manifest(),
+        });
+    }
+    if pylock::is_pylock_name(lockfile) {
+        let pylock::Loaded { lock, contents } = timings::time(timings::Phase::Input, || pylock::load(lockfile))?;
+        return Ok(Input::Pylock {
+            lock,
+            contents,
+            manifest: manifest(),
+        });
+    }
+    // An explicit spec file is recognised by its @EXPLICIT line; its name says nothing.
+    if explicit::is_explicit(lockfile) {
+        let explicit::Loaded { explicit, contents } =
+            timings::time(timings::Phase::Input, || explicit::load(lockfile))?;
+        return Ok(Input::Explicit {
+            explicit,
+            contents,
+            manifest: manifest(),
+        });
+    }
+    let lock::LoadedLock { lock, contents } = timings::time(timings::Phase::Input, || lock::load(lockfile))?;
+    Ok(Input::Lock {
+        lock,
+        contents,
+        manifest: manifest(),
+    })
+}
+
 /// One workspace a `--scan` found: its lockfile read, and its documents placed under the
 /// output directory at the same relative path, so two workspaces never collide.
+///
+/// A pixi workspace gets its environments and platforms as a single run would; any other kind of
+/// lockfile describes one environment, so it gets one document, whatever `--all-environments`
+/// or `--all-platforms` asked of the pixi workspaces beside it.
 fn scanned_workspace(args: &cli::Args, scanned: &Path, lockfile: std::path::PathBuf) -> Result<Workspace> {
-    let lock::LoadedLock { lock, contents } = lock::load(&lockfile)?;
+    let input = read_input(&lockfile)?;
     let dir = lockfile.parent().unwrap_or(Path::new(".")).to_path_buf();
     let relative = dir.strip_prefix(scanned).unwrap_or(Path::new(""));
     let output_dir = match &args.output {
         Some(output) => output.join(relative),
         None => dir.clone(),
     };
-    let targets = resolve_targets(args, &lock, &lockfile, Some(&output_dir))?;
-    let manifest = timings::time(timings::Phase::Manifest, || manifest::read(&lockfile));
+    let targets = match &input {
+        Input::Lock { lock, .. } => resolve_targets(args, lock, &lockfile, Some(&output_dir))?,
+        _ => {
+            if args.all_environments || args.all_platforms || args.environment != "default" {
+                tracing::debug!(
+                    lockfile = %lockfile.display(),
+                    "the environment and platform flags choose among a pixi workspace's; this lockfile gets one document"
+                );
+            }
+            let environment = match &input {
+                Input::Pylock { .. } => pylock::environment_name(&lockfile),
+                _ => "default".to_string(),
+            };
+            vec![Target {
+                environment,
+                platform: args.platform.clone(),
+                output: discover::Output::File(output_dir.join(args.format.default_file_name())),
+            }]
+        }
+    };
     Ok(Workspace {
         lockfile,
-        input: Input::Lock {
-            lock,
-            contents,
-            manifest,
-        },
+        input,
         targets,
     })
 }

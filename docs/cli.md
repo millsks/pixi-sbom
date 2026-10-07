@@ -18,7 +18,7 @@ With no options this means:
 
 | Option | Default | Effect |
 |---|---|---|
-| `--lockfile <PATH>` | upward search from cwd | Lockfile to read: a `pixi.lock`, a `uv.lock` (see [Reading uv.lock](#reading-uvlock)), a `poetry.lock` (see [Reading poetry.lock](#reading-poetrylock)), a `pdm.lock` (see [Reading pdm.lock](#reading-pdmlock)), a `conda-lock.yml` (see [Reading conda-lock.yml](#reading-conda-lockyml)), an explicit conda spec file (see [Reading an explicit spec file](#reading-an-explicit-spec-file)), or a PEP 751 `pylock.toml` / `pylock.<name>.toml` (see [Reading pylock.toml](#reading-pylocktoml)). The file must exist; there is no fallback search when this is given. Without it, the nearest directory at or above the current one that has `pixi.lock`, `uv.lock`, `poetry.lock`, `pdm.lock` or `pylock.toml` is used, in that order of preference within a directory. |
+| `--lockfile <PATH>` | upward search from cwd | Lockfile to read: a `pixi.lock`, a `uv.lock` (see [Reading uv.lock](#reading-uvlock)), a `poetry.lock` (see [Reading poetry.lock](#reading-poetrylock)), a `pdm.lock` (see [Reading pdm.lock](#reading-pdmlock)), a `conda-lock.yml` (see [Reading conda-lock.yml](#reading-conda-lockyml)), an explicit conda spec file (see [Reading an explicit spec file](#reading-an-explicit-spec-file)), or a PEP 751 `pylock.toml` / `pylock.<name>.toml` (see [Reading pylock.toml](#reading-pylocktoml)). The file must exist; there is no fallback search when this is given. Without it, the nearest directory at or above the current one that has a lockfile is used, and within a directory the first in the order of [Which lockfile is found](#which-lockfile-is-found). |
 | `--prefix <DIR>` | | Describe an installed environment instead of a lockfile: a conda environment, a venv or a Python installation (see below). Cannot be combined with `--lockfile` or the `--all-*` flags; `--environment` only names the lockfile side of `--against`. |
 | `--root-name <NAME>`, `--root-version <VERSION>` | directory name, none | With `--prefix`: what the described application is called. |
 | `--config <PATH>` | see below | Configuration file to read before the command line. |
@@ -84,7 +84,7 @@ Nothing in this table is scheduled for removal; dropping any of it would be a ma
 | `--assume-used <GLOB>` | | With `--report phantom`: packages matching this are never reported as unused or undeclared (repeatable). |
 | `--fail-on-phantom` | off | With `--report phantom`: exit **8** when the workspace imports a package it never declared. |
 | `--from-sbom <FILE>` | | Read an existing document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON) instead of a lockfile and run the reports, the license policy and the vulnerability gate on it. |
-| `--scan <DIR>` | | Describe every pixi workspace under the directory: one document per `pixi.lock` found. Cannot be combined with `--lockfile`, `--prefix`, `--against` or `--output -`. |
+| `--scan <DIR>` | | Describe every project under the directory: one document per directory with a lockfile of any kind it finds (see [Which lockfile is found](#which-lockfile-is-found)). Cannot be combined with `--lockfile`, `--prefix`, `--against` or `--output -`. |
 | `--scan-depth <N>` | unlimited | With `--scan`: how far below the directory to walk (`0` is the directory itself). |
 | `--against <PATH>` | | With `--report diff`: what to compare with — a document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON), a `pixi.lock`, or the directory of an installed environment. |
 | `--fail-on-diff [<SECTION>...]` | off | With `--report diff`: exit **6** when the named sections (`added`, `removed`, `version`, `license`, `build`, `pip`) are not empty. The bare flag means any change. |
@@ -116,6 +116,32 @@ executables, which is what makes `pixi sbom` work; before that the binary is sti
 by its own name.
 
 Dropping support for a lockfile version would be a breaking change, and after 1.0 that means a major version.
+
+### Which lockfile is found
+
+Without `--lockfile`, the search walks up from the working directory and reads the lockfile of the nearest
+directory that has one; `--scan` reads one per directory under the one it is given. Both know the same names, and
+when a directory has several, both take the first in this order and log which one they chose and what else was
+there:
+
+1. `pixi.lock`: the most complete, and a pixi workspace that also has a `uv.lock` (pixi uses uv underneath) is a
+   pixi workspace
+2. `uv.lock`
+3. `pylock.toml`, then the named `pylock.<name>.toml` files, sorted
+4. `poetry.lock`
+5. `pdm.lock`
+6. `conda-lock.yml`
+
+One directory is one project, so a project with both a `pixi.lock` and a `uv.lock` gets one document, not two; pass
+`--lockfile` to read the other. An explicit conda spec file has no fixed name, so it is never discovered and only
+read through `--lockfile`. When nothing is found, `pixi_sbom::discover::not_found` (or `none_found` for `--scan`)
+lists the names it looked for:
+
+```text
+  × no pixi.lock, uv.lock, pylock.toml, poetry.lock, pdm.lock or conda-lock.yml found in /work/app or any parent directory
+  help: write one with your project's tool (`pixi lock`, `uv lock`, `poetry lock`, `pdm lock`, `pip lock`, `conda-lock`),
+        or pass --lockfile with the path to one; an explicit conda spec file is only read that way
+```
 
 ## What the log says, and how to narrow it
 
@@ -1282,9 +1308,11 @@ environment.
 
 ## A monorepo: every workspace in one run
 
-A pixi workspace has exactly one lockfile next to its manifest, so several lockfiles in a tree mean several
-workspaces. `--scan <DIR>` describes them all in one run, in sorted order, instead of a shell loop that everyone
-writes slightly differently:
+A project keeps its lockfile next to its manifest, so several lockfiles in a tree mean several projects, of any
+mix of kinds: pixi workspaces, uv, Poetry and PDM projects, conda-lock environments. `--scan <DIR>` describes them
+all in one run, in sorted order, one lockfile per directory chosen as in
+[Which lockfile is found](#which-lockfile-is-found), instead of a shell loop that everyone writes slightly
+differently:
 
 ```sh
 # One document per workspace, mirroring the tree under sboms/
@@ -1302,7 +1330,8 @@ lockfile is never mistaken for a workspace. `--scan-depth <N>` caps the recursio
 
 With `--output <DIR>` each document lands at `<DIR>/<the workspace's path in the tree>/<the usual file name>`, so
 two workspaces never collide; without it each lands next to its own lockfile. `--all-environments` and
-`--all-platforms` combine with it and keep their file naming inside each workspace's directory. Every document is
+`--all-platforms` combine with it and keep their file naming inside each pixi workspace's directory; any other kind
+of lockfile describes one environment and gets one document. Every document is
 byte-identical to what `--lockfile <that file>` would have written: the workspace name still comes from that
 workspace's manifest, `pixi:lockfile` stays relative to its own root, and the document identity is unchanged.
 
