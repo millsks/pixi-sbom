@@ -1,0 +1,14 @@
+name: 06-deep-learning
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pytorch=2.9.1
+  - torchvision
+  - transformers=4.46.0
+  - accelerate
+  - datasets
+  - safetensors
+platforms:
+  - linux-64
+  - osx-arm64

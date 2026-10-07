@@ -1,0 +1,16 @@
+name: 10-dev-tooling
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - attrs>=23
+  - ruff
+  - mypy
+  - pylint
+  - black=24.1.0
+  - pytest
+  - pytest-cov
+  - hypothesis
+platforms:
+  - linux-64
+  - osx-arm64

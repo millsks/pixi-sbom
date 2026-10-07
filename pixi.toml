@@ -95,8 +95,39 @@ mike = ">=2.1"
 docs-serve = "mkdocs serve"
 docs-build = "mkdocs build --strict"
 
+# The tools that write examples/projects (#362). Dev-only: pixi-sbom never resolves, these do, and
+# `pixi run examples` regenerates every example lockfile from its manifest. Each example declares its
+# own Python floor (3.14 by default, older where a scenario shows old, vulnerable pins); uv, Poetry,
+# PDM and conda-lock lock for what a manifest declares whatever they run on. They run on 3.13
+# because dulwich (Poetry, conda-lock) has no 3.14 build yet.
+[feature.examples.dependencies]
+python = "3.13.*"
+uv = "*"
+poetry = ">=2"
+pdm = "*"
+# findpython 0.7.0 and 0.7.1 on conda-forge ship a link.json whose entry point is quoted twice
+# ("\"findpython.__main__"), which pixi refuses to link; pdm needs >=0.7, and 0.8 is packaged cleanly.
+findpython = ">=0.8"
+conda-lock = "*"
+# conda-lock's solver. Without it, conda-lock downloads a standalone conda and one scenario took 26
+# minutes; with it, seconds. Below 2: conda-lock clears host virtual packages by setting
+# CONDA_OVERRIDE_OSX="" and micromamba 2 reads that as macOS version "", so every osx-arm64 Python
+# 3.13+ (which needs __osx >=11.0) becomes unsolvable.
+micromamba = "<2"
+
+# `pip lock` locks for the interpreter running it, so the pylock examples it writes use 3.14.
+[feature.examples-pip.dependencies]
+python = "3.14.*"
+pip = ">=25.1"
+
+[feature.examples.tasks]
+examples = { cmd = "python scripts/examples.py", description = "regenerate every example lockfile under examples/projects with the real tools" }
+examples-test = { cmd = "python -m unittest discover -s scripts -p 'test_examples.py' -v", description = "the example generator's own tests" }
+
 [environments]
 default = ["lint", "cov", "dev"]
 lint = { features = ["lint"], no-default-feature = true }
 docs = { features = ["docs"], no-default-feature = true }
 msrv = { features = ["msrv"], no-default-feature = true }
+examples = { features = ["examples"], no-default-feature = true }
+examples-pip = { features = ["examples-pip"], no-default-feature = true }

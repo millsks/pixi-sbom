@@ -1,0 +1,11 @@
+[project]
+name = "streamlit-dashboard-example"
+version = "0.1.0"
+description = "A Streamlit dashboard on Python 3.14"
+requires-python = ">=3.14"
+dependencies = [
+    "streamlit==1.36.0",
+    "pandas>=2.3",
+    "altair>=5",
+    "plotly>=5.22",
+]

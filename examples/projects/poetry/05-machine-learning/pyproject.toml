@@ -1,0 +1,19 @@
+[project]
+name = "machine-learning-example"
+version = "0.1.0"
+description = "Classical machine learning with an experiment tracker"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "scikit-learn==1.2.1",
+    "joblib==1.1.1",
+    "numpy==1.24.4",
+    "scipy==1.10.1",
+    "pandas==1.5.3",
+    "mlflow==2.9.2",
+]
+
+[tool.poetry.group.notebook.dependencies]
+ipykernel = "==6.21.0"
+
+[tool.poetry]
+package-mode = false

@@ -1,0 +1,17 @@
+[project]
+name = "async-worker-example"
+version = "0.1.0"
+description = "Celery workers and an aiohttp client"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "celery[redis]==5.2.3",
+    "redis==4.3.4",
+    "aiohttp==3.8.4",
+    "flower==1.0.0",
+]
+
+[dependency-groups]
+test = [
+    "pytest==7.2.0",
+    "pytest-asyncio==0.20.3",
+]

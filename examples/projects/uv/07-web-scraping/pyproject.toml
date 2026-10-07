@@ -1,0 +1,14 @@
+[project]
+name = "web-scraping-example"
+version = "0.1.0"
+description = "Scrapers with Scrapy, lxml and a GPL converter"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "Scrapy==2.6.1",
+    "lxml==4.9.2",
+    "beautifulsoup4==4.11.1",
+    "requests==2.28.1",
+    "urllib3==1.26.12",
+    "html2text==2020.1.16",
+    "selenium==4.8.0",
+]

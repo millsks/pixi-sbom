@@ -1,0 +1,13 @@
+[project]
+name = "deep-learning-example"
+version = "0.1.0"
+description = "PyTorch and Hugging Face on Python 3.14"
+requires-python = ">=3.14"
+dependencies = [
+    "torch==2.9.0",
+    "torchvision==0.24.0",
+    "transformers==4.46.0",
+    "accelerate>=1.0",
+    "datasets>=3.0",
+    "safetensors>=0.4",
+]

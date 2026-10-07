@@ -1,0 +1,19 @@
+[project]
+name = "data-analysis-example"
+version = "0.1.0"
+description = "Data analysis notebooks on Python 3.14"
+requires-python = ">=3.14"
+dependencies = [
+    "numpy==2.3.4",
+    "pandas==2.3.3",
+    "scipy==1.16.3",
+    "matplotlib==3.10.7",
+    "seaborn==0.13.2",
+    "openpyxl==3.1.2",
+    "notebook==7.2.1",
+]
+
+[project.optional-dependencies]
+excel = [
+    "xlsxwriter>=3.1",
+]

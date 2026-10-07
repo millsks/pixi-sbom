@@ -1,0 +1,29 @@
+[project]
+name = "django-upgraded-example"
+version = "0.1.0"
+description = "01-django after the upgrade: Django 4.2 LTS and fixed pins"
+requires-python = ">=3.14"
+dependencies = [
+    "Django[argon2]>=4.2.24,<5",
+    "djangorestframework>=3.15.2",
+    "sqlparse>=0.5",
+    "psycopg[binary]>=3.2",
+    "gunicorn>=23",
+    "Pillow>=11",
+    "django-environ>=0.11",
+    "internal-utils @ file:///${PROJECT_ROOT}/libs/internal-utils",
+]
+
+[project.optional-dependencies]
+s3 = [
+    "django-storages[s3]>=1.14",
+]
+
+[dependency-groups]
+dev = [
+    "django-debug-toolbar>=4.4",
+]
+test = [
+    "pytest-django>=4.9",
+    "factory-boy>=3.3",
+]

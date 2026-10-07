@@ -1,0 +1,12 @@
+name: 09-async-worker
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - celery=5.2.7
+  - redis-py=4.3.4
+  - aiohttp=3.8.4
+  - flower=1.2.0
+platforms:
+  - linux-64
+  - osx-arm64

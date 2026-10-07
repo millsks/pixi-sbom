@@ -7,12 +7,12 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
-      # The exported decks are generated files: whatever the exporter wrote is what should be
-      # in git, or the copy here stops being the copy that was exported.
+      # The exported decks and the example lockfiles are generated files: whatever the exporter or
+      # the lock tool wrote is what should be in git, or the copy here stops being that tool's.
       - id: end-of-file-fixer
-        exclude: ^docs/presentations/.*\.(html|pdf|pptx)$
+        exclude: ^(docs/presentations/.*\.(html|pdf|pptx)|examples/projects/.*)$
       - id: trailing-whitespace
-        exclude: ^docs/presentations/.*\.(html|pdf|pptx)$
+        exclude: ^(docs/presentations/.*\.(html|pdf|pptx)|examples/projects/.*)$
       - id: check-yaml
       - id: check-toml
       - id: check-merge-conflict
@@ -35,6 +35,8 @@ repos:
         entry: pixi run taplo format
         language: system
         types: [toml]
+        # uv, Poetry and PDM wrote these; reformatting them would make them not theirs.
+        exclude: ^examples/projects/
       - id: typos
         name: typos
         entry: pixi run typos

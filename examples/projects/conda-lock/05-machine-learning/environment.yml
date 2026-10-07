@@ -1,0 +1,16 @@
+name: 05-machine-learning
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - scikit-learn=1.2.1
+  - joblib=1.1.1
+  - numpy=1.24.4
+  - scipy=1.10.1
+  - pandas=1.5.3
+  - pip
+  - pip:
+      - mlflow==2.9.2
+platforms:
+  - linux-64
+  - osx-arm64

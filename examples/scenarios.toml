@@ -1,0 +1,287 @@
+# The scenarios behind examples/projects (#362). `pixi run examples` turns each one into a small
+# project for every reader and locks it with that reader's own tool.
+#
+#   python        requires-python for the Python readers; >=3.14 unless the scenario shows old pins
+#   conda_python  python= for the conda readers; 3.14 unless the scenario shows old pins
+#   dependencies  PEP 508 requirements for the Python readers (pylock, uv, poetry, pdm)
+#   optional      the project's own extras ([project.optional-dependencies])
+#   groups        dependency groups (PEP 735 for uv/pdm, [tool.poetry.group] for Poetry)
+#   local         also depend on examples/shared/internal-utils by path (Python readers only)
+#   pdm_python    a narrower Python range for `pdm lock --python`, where PDM will not lock around an exclusion
+#   poetry_python requires-python for the Poetry manifest only, where a dependency caps the range
+#   pylock_tool   "pip" to write pylock.toml with `pip lock` instead of `uv export`
+#   conda         conda-forge specs for the conda readers
+#   conda_pip     a pip section for conda-lock.yml (explicit specs cannot carry one)
+#   shows         what the scenario is there to demonstrate, for the README
+
+[[scenario]]
+id = "01-django"
+title = "Django web application on an old LTS"
+python = ">=3.11,<3.12"
+conda_python = "3.11"
+shows = ["vulnerabilities", "outdated", "licenses", "local path", "VCS", "extras", "groups"]
+dependencies = [
+  "Django[argon2]==3.2.12",
+  "djangorestframework==3.12.4",
+  "sqlparse==0.4.2",
+  "psycopg2-binary==2.9.5",
+  "gunicorn==20.1.0",
+  "Pillow==9.3.0",
+  "django-environ==0.9.0",
+]
+optional = { s3 = ["django-storages[s3]==1.13.2"] }
+groups = { dev = [
+  "django-debug-toolbar @ git+https://github.com/django-commons/django-debug-toolbar@3.2.4",
+], test = [
+  "pytest-django==4.5.2",
+  "factory-boy==3.2.1",
+] }
+local = true
+conda = [
+  "django=3.2.12",
+  "djangorestframework=3.12.4",
+  "sqlparse=0.4.2",
+  "psycopg2=2.9.6",
+  "gunicorn=20.1.0",
+  "pillow=9.4.0",
+]
+conda_pip = ["django-environ==0.9.0"]
+
+[[scenario]]
+id = "02-flask"
+title = "Flask API with a 2021-era stack"
+python = ">=3.11,<3.12"
+conda_python = "3.11"
+shows = ["vulnerabilities", "outdated", "extras", "groups"]
+dependencies = [
+  "Flask[async]==2.0.1",
+  "Werkzeug==2.0.2",
+  "Jinja2==3.0.1",
+  "itsdangerous==2.0.1",
+  "Flask-Cors==3.0.10",
+  "Flask-SQLAlchemy==2.5.1",
+  "SQLAlchemy==1.4.46",
+  "requests==2.25.1",
+  "urllib3==1.26.4",
+]
+groups = { test = ["pytest==7.0.0", "pytest-flask==1.2.0"] }
+conda = [
+  "flask=2.0.1",
+  "werkzeug=2.0.2",
+  "jinja2=3.0.1",
+  "itsdangerous=2.0.1",
+  "flask-cors=3.0.10",
+  "flask-sqlalchemy=2.5.1",
+  "sqlalchemy=1.4.46",
+  "requests=2.25.1",
+  "urllib3=1.26.4",
+]
+
+[[scenario]]
+id = "03-fastapi"
+conda_python = "3.12" # conda-forge builds these pins only for Pythons before 3.14
+title = "FastAPI service on Python 3.14"
+pylock_tool = "pip"
+shows = ["vulnerabilities", "outdated", "extras", "pip lock"]
+dependencies = [
+  "fastapi==0.114.0",
+  "starlette==0.38.6",
+  "uvicorn[standard]==0.30.6",
+  "python-multipart==0.0.9",
+  "python-jose[cryptography]==3.3.0",
+  "httpx==0.27.0",
+  "pydantic-settings>=2.4",
+]
+groups = { test = ["pytest>=8", "pytest-asyncio>=0.23"] }
+conda = [
+  "fastapi=0.114.1",
+  "starlette=0.38.6",
+  "uvicorn=0.30.6",
+  "python-multipart=0.0.9",
+  "python-jose=3.3.0",
+  "httpx=0.27.0",
+  "pydantic-settings",
+]
+
+[[scenario]]
+id = "04-data-analysis"
+conda_python = "3.12" # conda-forge builds these pins only for Pythons before 3.14
+title = "Data analysis notebooks on Python 3.14"
+shows = ["outdated", "vulnerabilities", "licenses"]
+dependencies = [
+  "numpy==2.3.4",
+  "pandas==2.3.3",
+  "scipy==1.16.3",
+  "matplotlib==3.10.7",
+  "seaborn==0.13.2",
+  "openpyxl==3.1.2",
+  "notebook==7.2.1",
+]
+optional = { excel = ["xlsxwriter>=3.1"] }
+conda = [
+  "numpy=2.3.4",
+  "pandas=2.3.3",
+  "scipy=1.16.3",
+  "matplotlib-base=3.10.7",
+  "seaborn=0.13.2",
+  "openpyxl=3.1.2",
+  "notebook=7.2.1",
+]
+
+[[scenario]]
+id = "05-machine-learning"
+title = "Classical machine learning with an experiment tracker"
+python = ">=3.11,<3.12"
+conda_python = "3.11"
+shows = ["vulnerabilities", "outdated", "licenses", "large graph"]
+dependencies = [
+  "scikit-learn==1.2.1",
+  "joblib==1.1.1",
+  "numpy==1.24.4",
+  "scipy==1.10.1",
+  "pandas==1.5.3",
+  "mlflow==2.9.2",
+]
+groups = { notebook = ["ipykernel==6.21.0"] }
+conda = ["scikit-learn=1.2.1", "joblib=1.1.1", "numpy=1.24.4", "scipy=1.10.1", "pandas=1.5.3"]
+conda_pip = ["mlflow==2.9.2"]
+
+[[scenario]]
+id = "06-deep-learning"
+poetry_python = ">=3.14,<3.15" # triton needs <3.15, and Poetry checks the whole range
+pdm_python = ">=3.14,!=3.14.1,<3.15" # networkx excludes 3.14.1 and triton 3.15+; PDM will not lock around either
+conda_python = "3.12" # conda-forge builds these pins only for Pythons before 3.14
+title = "PyTorch and Hugging Face on Python 3.14"
+shows = ["vulnerabilities", "outdated", "large graph"]
+dependencies = [
+  "torch==2.9.0",
+  "torchvision==0.24.0",
+  "transformers==4.46.0",
+  "accelerate>=1.0",
+  "datasets>=3.0",
+  "safetensors>=0.4",
+]
+conda = ["pytorch=2.9.1", "torchvision", "transformers=4.46.0", "accelerate", "datasets", "safetensors"]
+
+[[scenario]]
+id = "07-web-scraping"
+title = "Scrapers with Scrapy, lxml and a GPL converter"
+python = ">=3.11,<3.12"
+conda_python = "3.11"
+shows = ["vulnerabilities", "outdated", "licenses (GPL-3.0)"]
+dependencies = [
+  "Scrapy==2.6.1",
+  "lxml==4.9.2",
+  "beautifulsoup4==4.11.1",
+  "requests==2.28.1",
+  "urllib3==1.26.12",
+  "html2text==2020.1.16",
+  "selenium==4.8.0",
+]
+conda = [
+  "scrapy=2.7.1",
+  "lxml=4.9.2",
+  "beautifulsoup4=4.11.1",
+  "requests=2.28.1",
+  "urllib3=1.26.13",
+  "html2text=2020.1.16",
+  "selenium=4.8.2",
+]
+
+[[scenario]]
+id = "08-cli-tool"
+title = "A small, current command-line tool"
+pylock_tool = "pip"
+shows = ["a clean report", "pip lock"]
+dependencies = ["click>=8.1", "rich>=13.7", "typer>=0.12", "httpx>=0.27", "platformdirs>=4"]
+groups = { test = ["pytest>=8"] }
+conda = ["click>=8.1", "rich>=13.7", "typer>=0.12", "httpx>=0.27", "platformdirs>=4"]
+
+[[scenario]]
+id = "09-async-worker"
+title = "Celery workers and an aiohttp client"
+python = ">=3.11,<3.12"
+conda_python = "3.11"
+shows = ["vulnerabilities", "outdated", "extras"]
+dependencies = ["celery[redis]==5.2.3", "redis==4.3.4", "aiohttp==3.8.4", "flower==1.0.0"]
+groups = { test = ["pytest==7.2.0", "pytest-asyncio==0.20.3"] }
+conda = ["celery=5.2.7", "redis-py=4.3.4", "aiohttp=3.8.4", "flower=1.2.0"]
+
+[[scenario]]
+id = "10-dev-tooling"
+conda_python = "3.12" # conda-forge builds these pins only for Pythons before 3.14
+title = "A library whose dependencies are almost all dev groups"
+shows = ["groups", "licenses (GPL-2.0)", "vulnerabilities"]
+dependencies = ["attrs>=23"]
+groups = { lint = [
+  "ruff>=0.6",
+  "mypy>=1.11",
+  "pylint>=3.2",
+  "black==24.1.0",
+], test = [
+  "pytest>=8",
+  "pytest-cov>=5",
+  "hypothesis>=6.100",
+], docs = [
+  "mkdocs-material>=9.5",
+], release = [
+  "build>=1.2",
+  "twine>=5",
+] }
+conda = ["attrs>=23", "ruff", "mypy", "pylint", "black=24.1.0", "pytest", "pytest-cov", "hypothesis"]
+
+[[scenario]]
+id = "11-streamlit-dashboard"
+conda_python = "3.12"                                                            # conda-forge builds these pins only for Pythons before 3.14
+title = "A Streamlit dashboard on Python 3.14"
+shows = ["vulnerabilities", "outdated"]
+dependencies = ["streamlit==1.36.0", "pandas>=2.3", "altair>=5", "plotly>=5.22"]
+conda = ["streamlit=1.36.0", "pandas>=2.3", "altair>=5", "plotly>=5.22"]
+
+[[scenario]]
+id = "12-aws-cloud"
+title = "AWS automation with boto3 and SSH"
+shows = ["vulnerabilities", "outdated", "licenses (LGPL-2.1)"]
+dependencies = ["boto3==1.40.50", "paramiko==3.3.1", "PyJWT==2.3.0", "requests==2.31.0", "urllib3==2.0.6"]
+optional = { cli = ["awscli>=1.36"] }
+conda = ["boto3=1.40.50", "paramiko=3.3.1", "pyjwt=2.3.0", "requests=2.31.0", "urllib3=2.0.6"]
+
+[[scenario]]
+id = "13-genai-llm"
+conda_python = "3.12" # conda-forge builds these pins only for Pythons before 3.14
+title = "An LLM application with LangChain and transformers"
+shows = ["vulnerabilities", "outdated", "large graph"]
+dependencies = [
+  "langchain==0.3.0",
+  "langchain-community==0.3.0",
+  "openai==1.30.0",
+  "tiktoken>=0.8",
+  "transformers==4.46.0",
+]
+conda = ["langchain=0.3.0", "langchain-community=0.3.0", "openai=1.30.1", "tiktoken", "transformers=4.46.0"]
+
+[[scenario]]
+id = "14-django-upgraded"
+title = "01-django after the upgrade: Django 4.2 LTS and fixed pins"
+shows = ["the other side of a diff against 01-django", "far fewer findings than 01-django"]
+dependencies = [
+  "Django[argon2]>=4.2.24,<5",
+  "djangorestframework>=3.15.2",
+  "sqlparse>=0.5",
+  "psycopg[binary]>=3.2",
+  "gunicorn>=23",
+  "Pillow>=11",
+  "django-environ>=0.11",
+]
+optional = { s3 = ["django-storages[s3]>=1.14"] }
+groups = { dev = ["django-debug-toolbar>=4.4"], test = ["pytest-django>=4.9", "factory-boy>=3.3"] }
+local = true
+conda = [
+  "django>=4.2.24,<5",
+  "djangorestframework>=3.15.2",
+  "sqlparse>=0.5",
+  "psycopg>=3.2",
+  "gunicorn>=23",
+  "pillow>=11",
+]
+conda_pip = ["django-environ>=0.11"]
