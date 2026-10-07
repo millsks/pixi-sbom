@@ -228,3 +228,37 @@ sha256/md5); making modules public turns on clippy's `len_without_is_empty`; `ca
 
 Also fixed here: the `--timings` e2e test was flaky because the "waiting on the network" line was omitted when
 the total was zero. The line is now always printed.
+
+## 1.6.0 (2026-10-06): maintenance, plus the prefix default
+
+Eight issues merged or closed, worked serially under the issue delivery loop in the order the user approved:
+#312 (PR #320, `--vex` with `--format spdx` is a usage error), #310 (PR #338, `ID:not_affected:JUSTIFICATION:TEXT`
+→ `analysis.justification`, SPDX 3 `security_justificationType` where an equivalent exists), #311 (PR #350,
+`analysis.response` as a comma list after the state/justification), #318 (PR #351, `tests/support/` std-only HTTP
+server + `tests/network.rs`), #319 (closed, not reproduced), #317 (PR #352, docs), #354 (PR #355) and #353 (PR #356).
+
+User decisions:
+- #310: a justification after a state other than `not_affected` is a usage error, not ignored. Justification and
+  response are recognised only after an explicit state, and a segment only when every word is a known value, so
+  every older `--ignore-vuln` entry keeps its meaning (`docs/stability.md` "Values with a structure").
+- #311: `firstIssued` / `lastUpdated` are deliberately not written (no history, so the only date is the run's,
+  which means "re-asserted"); #349 tracks an assessments file that could carry real dates.
+- #353 was added mid-milestone: `--conda-index-kind` defaults to `prefix`, `anaconda` stays selectable. The help
+  snapshot rule says a changed default needs a major version; the user chose 1.6.0 and **no exception note** in
+  `docs/stability.md` (see the `maintainer-overrides-contract` memory).
+- #132 (withdrawn conda builds) and #96 (CEP 27/50 attestations) deferred, milestone removed, findings on each
+  issue. #132: anaconda.org labels withdrawn builds `broken`, prefix.dev shows withdrawal only by absence,
+  `yankedReason`/`hidden` unset for conda-forge. #96: CEP 50 merged, `rattler_sigstore` 0.2.2 published, but
+  conda-forge serves no `.sigs` sidecars yet; revisit when `<pkg>.sigs` answers 200.
+
+Lessons:
+- Every upstream already had a `PIXI_SBOM_*_URL` override, so `tests/network.rs` runs the real binary against
+  the local server with no product changes. Mutation-check each network test: the batch-equality test first
+  compared only name/latest/step and missed a batch that dropped dates.
+- Flipping the default exposed #354: batches ran on a fixed 4-thread pool regardless of `--concurrency`. A
+  default change can make a dormant path the main one; run the network tests against the new default.
+- This repo's own effective index was anaconda.org because both user and project `.pixi/pixi-sbom-config.toml`
+  set `conda-index-kind`; check `-v` for the effective arguments before trusting an issue's premise (#319).
+- `prefix` and `anaconda` reports differ by minutes on dates and, for releases under ~an hour old, on
+  `latest`/`behind` (prefix.dev's mirror lags); documented in `docs/cli.md` (#317).
+- A config test that sets the default value and asserts it proves nothing; set the non-default.
