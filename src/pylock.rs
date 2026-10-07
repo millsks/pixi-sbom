@@ -471,6 +471,7 @@ pub fn build_sbom(
         excluded: Vec::new(),
         declared_missing: Vec::new(),
         incomplete: crate::model::Incomplete::default(),
+        lifecycles: vec![crate::model::PHASE_LOCKFILE.into()],
     })
 }
 

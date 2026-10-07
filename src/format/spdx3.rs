@@ -365,12 +365,7 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
             created: Some(created),
             created_by: Some(created_by),
             created_using: Some(vec![tool_id]),
-            comment: Some(format!(
-                "Generated from the pixi {} (environment {}, platform {}) before any build",
-                sbom.input_description(),
-                sbom.environment,
-                sbom.platform
-            )),
+            comment: Some(super::generation_comment(sbom, true)),
             ..Node::default()
         },
     );
@@ -630,7 +625,13 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
     // The SBOM and the document that carries it.
     let (sbom_id, mut bom) = b.element("software_Sbom", "sbom");
     bom.name = Some(name.clone());
-    bom.sbom_type = Some(vec!["build"]);
+    let mut sbom_types: Vec<&'static str> = sbom
+        .lifecycles
+        .iter()
+        .filter_map(|p| super::phase_to_spdx3(p))
+        .collect();
+    sbom_types.dedup();
+    bom.sbom_type = (!sbom_types.is_empty()).then_some(sbom_types);
     bom.root_element = Some(vec![root_id]);
     bom.element = Some(elements);
     bom.profile_conformance = Some(profiles.clone());

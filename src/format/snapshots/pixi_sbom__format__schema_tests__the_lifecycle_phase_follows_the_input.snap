@@ -1,0 +1,71 @@
+---
+source: src/format/mod.rs
+expression: seen
+---
+{
+  "lockfile": {
+    "cyclonedx-1.6 lifecycles": [
+      {
+        "phase": "pre-build"
+      }
+    ],
+    "cyclonedx-1.7 lifecycles": [
+      {
+        "phase": "pre-build"
+      }
+    ],
+    "spdx-2.3 comment": "Generated from the lockfile pixi.lock (resolved dependencies) before any build; lifecycle phase: pre-build",
+    "spdx-3.0 software_sbomType": [
+      "build"
+    ],
+    "spdx-3.0 comment": "Generated from the lockfile pixi.lock (environment default, platform linux-64), its resolved dependencies before any build; lifecycle phase: pre-build"
+  },
+  "installed": {
+    "cyclonedx-1.6 lifecycles": [
+      {
+        "phase": "operations"
+      }
+    ],
+    "cyclonedx-1.7 lifecycles": [
+      {
+        "phase": "operations"
+      }
+    ],
+    "spdx-2.3 comment": "Generated from the installed environment app; lifecycle phase: operations",
+    "spdx-3.0 software_sbomType": [
+      "deployed"
+    ],
+    "spdx-3.0 comment": "Generated from the installed environment app (environment default, platform linux-64); lifecycle phase: operations"
+  },
+  "document with phases": {
+    "cyclonedx-1.6 lifecycles": [
+      {
+        "phase": "build"
+      },
+      {
+        "phase": "operations"
+      }
+    ],
+    "cyclonedx-1.7 lifecycles": [
+      {
+        "phase": "build"
+      },
+      {
+        "phase": "operations"
+      }
+    ],
+    "spdx-2.3 comment": "Generated from the document urn:uuid:aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee; lifecycle phase: build, operations",
+    "spdx-3.0 software_sbomType": [
+      "build",
+      "deployed"
+    ],
+    "spdx-3.0 comment": "Generated from the document urn:uuid:aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee (environment default, platform linux-64); lifecycle phase: build, operations"
+  },
+  "document without phases": {
+    "cyclonedx-1.6 lifecycles": null,
+    "cyclonedx-1.7 lifecycles": null,
+    "spdx-2.3 comment": "Generated from the document urn:uuid:aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "spdx-3.0 software_sbomType": null,
+    "spdx-3.0 comment": "Generated from the document urn:uuid:aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee (environment default, platform linux-64)"
+  }
+}

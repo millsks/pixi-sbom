@@ -11,9 +11,6 @@ use crate::model::{Author, Package, PackageKind, Sbom, Supplier};
 const DOCUMENT_ID: &str = "SPDXRef-DOCUMENT";
 const ROOT_ID: &str = "SPDXRef-Package-root";
 const NOASSERTION: &str = "NOASSERTION";
-/// Generation context, the SPDX 2.3 counterpart of a CycloneDX lifecycle phase.
-const CREATOR_COMMENT: &str =
-    "Generated from the pixi lockfile (resolved dependencies) before any build; lifecycle phase: pre-build";
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -34,7 +31,8 @@ pub(crate) struct Document {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CreationInfo {
-    comment: &'static str,
+    /// Generation context, the SPDX 2.3 counterpart of a CycloneDX lifecycle phase.
+    comment: String,
     created: String,
     creators: Vec<String>,
 }
@@ -146,7 +144,7 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
         ),
         name,
         creation_info: CreationInfo {
-            comment: CREATOR_COMMENT,
+            comment: super::generation_comment(sbom, false),
             created: ctx.timestamp.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
             creators: std::iter::once(format!("Tool: pixi-sbom-{}", ctx.tool_version))
                 .chain(sbom.root.authors.iter().map(person))

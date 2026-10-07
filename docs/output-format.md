@@ -13,13 +13,30 @@ specifications list them, followed by a trailing newline.
 | Timestamp (UTC, seconds) | `metadata.timestamp` | `creationInfo.created` |
 | Generator | `metadata.tools.components[]`: `pixi-sbom` with version and repository link | `creationInfo.creators[]`: `Tool: pixi-sbom-<version>` |
 | Author | `metadata.authors[]` (`name`, `email`) from the manifest's `authors` | `creationInfo.creators[]`: `Person: <name> (<email>)` |
-| Generation context | `metadata.lifecycles[]`: `phase: pre-build` (derived from resolved inputs, before any build) | `creationInfo.comment` saying the same |
+| Generation context | `metadata.lifecycles[]`: the phase the input describes (see [Lifecycle phase](#lifecycle-phase)) | `creationInfo.comment` naming the input and the same phase |
 | Data origin (1.7 only) | `citations[]`: one entry attributing `/metadata/component`, `/components` and `/dependencies` to the pixi-sbom tool component, with a note naming the lockfile, environment and platform | (none) |
 | Document name | (none; the root component carries it) | `name: <workspace>-<environment>-<platform>` |
 | What was described | `metadata.properties[]`: `pixi:environment`, `pixi:platform`, `pixi:lockfile` | root package `sourceInfo` |
 
 `pixi:lockfile` is the lockfile's name relative to the workspace root (normally `pixi.lock`), never the absolute path
 it was read from, so a document does not reveal or depend on the layout of the machine that generated it.
+
+### Lifecycle phase
+
+What moment in a project's life the document describes depends on what it was made from:
+
+| Input | CycloneDX `metadata.lifecycles[].phase` | SPDX 3 `software_sbomType` | SPDX 2.3 `creationInfo.comment` |
+|---|---|---|---|
+| A lockfile (`pixi.lock`, `pylock.toml`) | `pre-build`: resolved, nothing built | `build` | "Generated from the lockfile … before any build; lifecycle phase: pre-build" |
+| `--prefix` | `operations`: what is installed | `deployed` | "Generated from the installed environment …; lifecycle phase: operations" |
+| `--from-sbom` | the source document's phases | the same, mapped | "Generated from the document …", with its phases |
+| `--from-sbom`, source names none | none (`lifecycles` is left out) | none | no phase |
+
+A source document's phases are read from its `metadata.lifecycles` (CycloneDX), its `software_sbomType` (SPDX 3),
+or the creator comment of an SPDX 2.3 document pixi-sbom wrote. SPDX 3 has one `build` type for CycloneDX's
+`pre-build`, `build` and `post-build`, so a lockfile's document read back from SPDX 3 is `build`; `decommission`
+has no SPDX 3 counterpart and is left out there. Before 1.7.0 every document claimed `pre-build`, which was wrong for
+`--prefix` and `--from-sbom`.
 
 ### Reproducibility
 
@@ -400,7 +417,7 @@ text, and only where one of SPDX's five values means the same thing:
 |---|---|
 | `CreationInfo` | `specVersion: 3.0.1`, `created`, `createdBy` (a `SoftwareAgent` for pixi-sbom plus a `Person` per manifest author), `createdUsing` (the `Tool`), a comment naming the lockfile, environment and platform |
 | `SpdxDocument` | `rootElement` = the `software_Sbom`; `dataLicense` = a `CC0-1.0` license element; profile conformance `core`, `software`, `simpleLicensing` |
-| `software_Sbom` | `software_sbomType: [build]`, `rootElement` = the workspace package, `element` = every package, relationship and license element |
+| `software_Sbom` | `software_sbomType` for the input's phase (see [Lifecycle phase](#lifecycle-phase)), `rootElement` = the workspace package, `element` = every package, relationship and license element |
 | `software_Package` (workspace) | `software_primaryPurpose: application`, name, version, homepage, repository as download location, `software_sourceInfo` |
 | `software_Package` (each locked package) | `software_primaryPurpose: library`, name, version, `software_packageUrl`, `software_downloadLocation` (or `software_sourceInfo` for local paths), `software_homePage`, `summary`, `suppliedBy` (an `Organization` per channel or index), `verifiedUsing` (`Hash` sha256 / md5), `externalIdentifier` (extra purls, repository URL), and the `pixi:*` properties as `comment` lines |
 | `simplelicensing_LicenseExpression` / `simplelicensing_SimpleLicensingText` | one element per distinct license expression, or per free-text license (carrying the license file text when fetched); packages point at them with `hasDeclaredLicense` relationships |

@@ -169,6 +169,7 @@ pub fn union(documents: &[Sbom]) -> Sbom {
         excluded: Vec::new(),
         declared_missing: Vec::new(),
         incomplete: Incomplete::default(),
+        lifecycles: Vec::new(),
     });
     union.environment = "<every environment>".to_string();
     union.platform = "<every platform>".to_string();
@@ -234,6 +235,7 @@ mod tests {
             excluded: Vec::new(),
             declared_missing: Vec::new(),
             incomplete: Incomplete::default(),
+            lifecycles: vec![crate::model::PHASE_LOCKFILE.into()],
         }
     }
 

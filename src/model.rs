@@ -42,7 +42,17 @@ pub struct Sbom {
     /// everything answered — licenses are simply absent, `vulnerabilities` is simply empty —
     /// and it outlives the terminal that carried the warnings.
     pub incomplete: Incomplete,
+    /// The lifecycle phases the document describes, in CycloneDX's vocabulary (`pre-build`,
+    /// `operations`, ...): set by whatever read the input, since a lockfile, an installed
+    /// environment and somebody else's document are different moments in a project's life.
+    /// Empty when nothing says, which is written as no phase rather than a guess.
+    pub lifecycles: Vec<String>,
 }
+
+/// The CycloneDX lifecycle phase of a document made from a lockfile: resolved, nothing built.
+pub const PHASE_LOCKFILE: &str = "pre-build";
+/// The phase of a document made from an installed environment: what is there, in operation.
+pub const PHASE_INSTALLED: &str = "operations";
 
 /// What a run could not finish, recorded in the document it wrote.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

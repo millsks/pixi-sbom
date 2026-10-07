@@ -136,6 +136,61 @@ pub fn write(format: Format, sbom: &Sbom, ctx: &WriteContext, out: &mut dyn Writ
     Ok(())
 }
 
+/// The SPDX 3 `software_sbomType` for a CycloneDX lifecycle phase. SPDX has six types to
+/// CycloneDX's seven phases; `decommission` has no counterpart and is left out rather than forced.
+pub fn phase_to_spdx3(phase: &str) -> Option<&'static str> {
+    Some(match phase {
+        "design" => "design",
+        "pre-build" | "build" | "post-build" => "build",
+        "operations" => "deployed",
+        "discovery" => "analyzed",
+        _ => return None,
+    })
+}
+
+/// The CycloneDX phase for an SPDX 3 `software_sbomType`, for a document read with `--from-sbom`.
+pub fn phase_from_spdx3(sbom_type: &str) -> Option<&'static str> {
+    Some(match sbom_type {
+        "design" => "design",
+        "source" => "pre-build",
+        "build" => "build",
+        "deployed" | "runtime" => "operations",
+        "analyzed" => "discovery",
+        _ => return None,
+    })
+}
+
+/// What a document was generated from and at which phase, for the creator comment SPDX uses in
+/// place of a lifecycle field: `Generated from the lockfile pixi.lock (resolved dependencies)
+/// before any build; lifecycle phase: pre-build`. `with_target` adds the environment and platform.
+pub fn generation_comment(sbom: &Sbom, with_target: bool) -> String {
+    let target = if with_target {
+        format!(" (environment {}, platform {})", sbom.environment, sbom.platform)
+    } else {
+        String::new()
+    };
+    let what = if let Some(prefix) = &sbom.prefix {
+        format!("the installed environment {prefix}{target}")
+    } else if sbom.document.is_some() {
+        format!("the {}{target}", sbom.input_description())
+    } else if with_target {
+        format!(
+            "the {}{target}, its resolved dependencies before any build",
+            sbom.input_description()
+        )
+    } else {
+        format!(
+            "the {} (resolved dependencies) before any build",
+            sbom.input_description()
+        )
+    };
+    if sbom.lifecycles.is_empty() {
+        format!("Generated from {what}")
+    } else {
+        format!("Generated from {what}; lifecycle phase: {}", sbom.lifecycles.join(", "))
+    }
+}
+
 /// Build the standalone CycloneDX VEX for `sbom`: its findings with an analysis each, linked
 /// back to the document `ctx` identifies.
 pub fn vex_to_value(
@@ -357,6 +412,7 @@ pub(crate) mod testing {
             excluded: Vec::new(),
             declared_missing: Vec::new(),
             incomplete: crate::model::Incomplete::default(),
+            lifecycles: vec![crate::model::PHASE_LOCKFILE.into()],
         }
     }
 }
@@ -521,6 +577,86 @@ mod schema_tests {
             .offline()
             .build(&schema(&format!("bom-{version}.schema.json")))
             .unwrap()
+    }
+
+    #[test]
+    fn the_lifecycle_phase_follows_the_input() {
+        // #329: a lockfile is pre-build, an installed environment is in operation, and somebody
+        // else's document keeps the phases it claimed (or claims none, rather than a guess).
+        let lockfile = sample_sbom();
+        let installed = Sbom {
+            lockfile: String::new(),
+            prefix: Some("app".into()),
+            lifecycles: vec![crate::model::PHASE_INSTALLED.into()],
+            ..sample_sbom()
+        };
+        let document = |phases: &[&str]| Sbom {
+            lockfile: String::new(),
+            document: Some("urn:uuid:aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee".into()),
+            lifecycles: phases.iter().map(|p| p.to_string()).collect(),
+            ..sample_sbom()
+        };
+        let cases = [
+            ("lockfile", lockfile),
+            ("installed", installed),
+            ("document with phases", document(&["build", "operations"])),
+            ("document without phases", document(&[])),
+        ];
+        let spdx2 = jsonschema::options()
+            .offline()
+            .build(&schema("spdx-2.3.schema.json"))
+            .unwrap();
+        let spdx3 = jsonschema::options()
+            .offline()
+            .build(&schema("spdx-3.0.1.schema.json"))
+            .unwrap();
+        let mut seen = serde_json::Map::new();
+        for (name, sbom) in &cases {
+            let cdx16 = to_value(Format::Cyclonedx, sbom, &fixed_context()).unwrap();
+            let cdx17 = to_value(Format::Cyclonedx, sbom, &crate::format::testing::fixed_context_1_7()).unwrap();
+            let spdx23 = to_value(Format::Spdx, sbom, &fixed_context()).unwrap();
+            let spdx30 = to_value(Format::Spdx, sbom, &crate::format::testing::fixed_context_3_0()).unwrap();
+            assert_valid(&cyclonedx_validator("1.6"), &cdx16);
+            assert_valid(&cyclonedx_validator("1.7"), &cdx17);
+            assert_valid(&spdx2, &spdx23);
+            assert_valid(&spdx3, &spdx30);
+            let graph = spdx30["@graph"].as_array().unwrap();
+            let node = |kind: &str| graph.iter().find(|n| n["type"] == kind).cloned().unwrap_or_default();
+            seen.insert(
+                (*name).to_string(),
+                serde_json::json!({
+                    "cyclonedx-1.6 lifecycles": cdx16["metadata"]["lifecycles"],
+                    "cyclonedx-1.7 lifecycles": cdx17["metadata"]["lifecycles"],
+                    "spdx-2.3 comment": spdx23["creationInfo"]["comment"],
+                    "spdx-3.0 software_sbomType": node("software_Sbom")["software_sbomType"],
+                    "spdx-3.0 comment": node("CreationInfo")["comment"],
+                }),
+            );
+        }
+        insta::assert_json_snapshot!(seen);
+    }
+
+    #[test]
+    fn phases_map_between_cyclonedx_and_spdx_3() {
+        for (phase, spdx) in [
+            ("design", "design"),
+            ("pre-build", "build"),
+            ("operations", "deployed"),
+            ("discovery", "analyzed"),
+        ] {
+            assert_eq!(phase_to_spdx3(phase), Some(spdx), "{phase}");
+        }
+        assert_eq!(phase_to_spdx3("decommission"), None, "no SPDX counterpart");
+        for (spdx, phase) in [
+            ("source", "pre-build"),
+            ("build", "build"),
+            ("deployed", "operations"),
+            ("runtime", "operations"),
+            ("analyzed", "discovery"),
+        ] {
+            assert_eq!(phase_from_spdx3(spdx), Some(phase), "{spdx}");
+        }
+        assert_eq!(phase_from_spdx3("unknown"), None);
     }
 
     #[test]

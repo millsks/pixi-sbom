@@ -50,6 +50,39 @@ pub struct Loaded {
     pub format: String,
 }
 
+/// The lifecycle phases the source document claims, in CycloneDX's vocabulary: its
+/// `metadata.lifecycles` (CycloneDX), its `software_sbomType` (SPDX 3), or the phase pixi-sbom writes
+/// into its own SPDX 2.3 creator comment. Empty when the document does not say.
+pub fn phases_of(value: &serde_json::Value) -> Vec<String> {
+    if let Some(lifecycles) = value["metadata"]["lifecycles"].as_array() {
+        return lifecycles
+            .iter()
+            .filter_map(|l| l["phase"].as_str().map(str::to_string))
+            .collect();
+    }
+    if let Some(graph) = value["@graph"].as_array() {
+        return graph
+            .iter()
+            .filter(|node| node["type"] == "software_Sbom")
+            .filter_map(|node| node["software_sbomType"].as_array())
+            .flatten()
+            .filter_map(|t| t.as_str().and_then(crate::format::phase_from_spdx3))
+            .map(str::to_string)
+            .collect();
+    }
+    value["creationInfo"]["comment"]
+        .as_str()
+        .and_then(|comment| comment.split("lifecycle phase: ").nth(1))
+        .map(|phases| {
+            phases
+                .split(',')
+                .map(|p| p.trim().trim_end_matches('.').to_string())
+                .filter(|p| !p.is_empty())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// Read `path` into the model. `root` carries what the command line said about the described
 /// application; what it leaves empty comes from the document's own root component.
 pub fn read(path: &Path, root: Root, platform: Option<&str>) -> Result<Loaded, FromSbomError> {
@@ -84,6 +117,7 @@ pub fn read(path: &Path, root: Root, platform: Option<&str>) -> Result<Loaded, F
         excluded: Vec::new(),
         declared_missing: Vec::new(),
         incomplete: crate::model::Incomplete::default(),
+        lifecycles: phases_of(&value),
     };
     sbom.packages.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
     Ok(Loaded { sbom, contents, format })
@@ -379,6 +413,57 @@ mod tests {
     use super::*;
     use crate::cli::{Format, SpecVersion};
     use crate::format::testing::{fixed_context, sample_sbom};
+
+    #[test]
+    fn a_source_documents_phases_are_read_from_whichever_format_carries_them() {
+        // #329: CycloneDX says so directly, SPDX 3 in software_sbomType, and an SPDX 2.3 document
+        // pixi-sbom wrote in its creator comment. Anything else claims nothing.
+        let cdx = serde_json::json!({"metadata": {"lifecycles": [{"phase": "operations"}, {"name": "custom"}]}});
+        assert_eq!(
+            phases_of(&cdx),
+            ["operations"],
+            "a custom lifecycle has a name, not a phase"
+        );
+        let spdx3 = serde_json::json!({"@graph": [
+            {"type": "CreationInfo"},
+            {"type": "software_Sbom", "software_sbomType": ["deployed", "source"]}
+        ]});
+        assert_eq!(phases_of(&spdx3), ["operations", "pre-build"]);
+        let ours = serde_json::json!({"creationInfo": {"comment": "Generated from the lockfile pixi.lock (resolved dependencies) before any build; lifecycle phase: pre-build"}});
+        assert_eq!(phases_of(&ours), ["pre-build"]);
+        let theirs = serde_json::json!({"creationInfo": {"comment": "Created by some other tool"}});
+        assert!(phases_of(&theirs).is_empty());
+        assert!(phases_of(&serde_json::json!({})).is_empty());
+    }
+
+    #[test]
+    fn a_document_written_from_a_document_keeps_its_phase() {
+        // Round trip through every format: an installed environment's document, read back, is still
+        // in operation; a lockfile's is still pre-build.
+        let installed = Sbom {
+            lockfile: String::new(),
+            prefix: Some("app".into()),
+            lifecycles: vec![crate::model::PHASE_INSTALLED.into()],
+            ..sample_sbom()
+        };
+        for (sbom, expected) in [(installed, "operations"), (sample_sbom(), "pre-build")] {
+            for (format, ctx) in [(Format::Cyclonedx, fixed_context()), (Format::Spdx, fixed_context())] {
+                let value = crate::format::to_value(format, &sbom, &ctx).unwrap();
+                assert_eq!(phases_of(&value), [expected], "{format:?}");
+            }
+        }
+        let spdx3 = crate::format::to_value(
+            Format::Spdx,
+            &sample_sbom(),
+            &crate::format::WriteContext {
+                spec_version: SpecVersion::V3_0,
+                ..fixed_context()
+            },
+        )
+        .unwrap();
+        // SPDX 3 has one "build" type for CycloneDX's pre-build, build and post-build.
+        assert_eq!(phases_of(&spdx3), ["build"]);
+    }
 
     #[test]
     fn every_error_carries_a_code_and_a_next_step() {

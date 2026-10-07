@@ -3892,6 +3892,11 @@ fn prefix_describes_an_installed_environment_in_every_format() {
     let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
     assert_valid(&cyclonedx_validator(), &doc);
     assert_eq!(doc["metadata"]["component"]["name"], "demo");
+    // What is installed is in operation, not before a build (#329).
+    assert_eq!(
+        doc["metadata"]["lifecycles"],
+        serde_json::json!([{"phase": "operations"}])
+    );
     let props = doc["metadata"]["properties"].as_array().unwrap();
     assert!(props.iter().any(|p| p["name"] == "pixi:prefix" && p["value"] == "demo"));
     assert!(props.iter().all(|p| p["name"] != "pixi:lockfile"));

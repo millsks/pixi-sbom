@@ -209,6 +209,7 @@ pub fn sbom_from_lock(
         excluded: Vec::new(),
         declared_missing: Vec::new(),
         incomplete: crate::model::Incomplete::default(),
+        lifecycles: vec![crate::model::PHASE_LOCKFILE.into()],
     })
 }
 

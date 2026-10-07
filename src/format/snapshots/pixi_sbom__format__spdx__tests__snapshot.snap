@@ -9,7 +9,7 @@ expression: json()
   "name": "demo-default-linux-64",
   "documentNamespace": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555",
   "creationInfo": {
-    "comment": "Generated from the pixi lockfile (resolved dependencies) before any build; lifecycle phase: pre-build",
+    "comment": "Generated from the lockfile pixi.lock (resolved dependencies) before any build; lifecycle phase: pre-build",
     "created": "2026-09-18T12:00:00Z",
     "creators": [
       "Tool: pixi-sbom-0.0.0-test",
