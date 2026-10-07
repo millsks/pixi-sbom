@@ -1,0 +1,18 @@
+# pixi-sbom hooks for pre-commit. The binary comes from the pixi-sbom wheel on PyPI, pinned by
+# this repository's tag, so nothing is compiled.
+- id: pixi-sbom
+  name: pixi-sbom (write the SBOM)
+  description: Write the SBOM next to the lockfile whenever a lockfile changes.
+  entry: pixi-sbom
+  language: python
+  files: &lockfiles (^|/)(pixi\.lock|uv\.lock|pylock(\.[^/.]+)?\.toml|poetry\.lock|pdm\.lock|conda-lock\.yml)$
+  pass_filenames: false
+  require_serial: true
+- id: pixi-sbom-policy
+  name: pixi-sbom (license policy)
+  description: Check every package's license against the policy whenever a lockfile changes; writes no file.
+  entry: pixi-sbom --fetch-licenses --require-license --report licenses
+  language: python
+  files: *lockfiles
+  pass_filenames: false
+  require_serial: true

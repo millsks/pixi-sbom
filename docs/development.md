@@ -361,6 +361,15 @@ What the two do, in order:
    (`pypi` job), through trusted publishing: no token, PyPI checks the run's OIDC identity. There is no sdist,
    which would need a Rust toolchain and the crates.io index at install time.
 
+10. **pre-commit mirror.** After a final release's wheels are on PyPI, the `pre-commit-mirror` job renders
+    `pre-commit-mirror/` (the hooks, and a `pyproject.toml` pinning `pixi-sbom==X.Y.Z`) into
+    [`millsks/pixi-sbom-pre-commit`](https://github.com/millsks/pixi-sbom-pre-commit), commits and tags it `vX.Y.Z`.
+    The hooks cannot live here: pre-commit installs a `language: python` hook by `pip install .` of its repository,
+    which here would compile the binary. The mirror repository must exist with the release GitHub App installed on
+    it. To try the hooks before a release: `pre-commit-mirror/render.sh 1.7.0 /tmp/mirror`, commit that in a git
+    repository, and `PIP_FIND_LINKS=<dir with a locally built wheel> pre-commit try-repo /tmp/mirror pixi-sbom` in a
+    project.
+
 **PyPI's side of trusted publishing** is set up once per index, by the maintainer, under the project's
 *Publishing* settings (or as a *pending publisher* before the first upload creates the project):
 

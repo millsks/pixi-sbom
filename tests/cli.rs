@@ -8045,3 +8045,41 @@ fn walkdir(dir: &Path) -> Vec<PathBuf> {
     }
     files
 }
+
+#[test]
+fn a_rerun_that_would_change_only_the_timestamp_leaves_the_file_alone() {
+    // #342: what lets a pre-commit hook pass until the SBOM really changes.
+    let dir = workspace("conda-only");
+    let run = |epoch: &str| {
+        let output = pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("SOURCE_DATE_EPOCH", epoch)
+            .args(["-p", "linux-64"])
+            .assert()
+            .success()
+            .get_output()
+            .stderr
+            .clone();
+        String::from_utf8(output).unwrap()
+    };
+    assert!(run("1700000000").contains("wrote SBOM"));
+    let first = std::fs::read(dir.path().join("sbom.cdx.json")).unwrap();
+    let again = run("1800000000");
+    assert!(again.contains("left as it was"), "{again}");
+    assert_eq!(
+        std::fs::read(dir.path().join("sbom.cdx.json")).unwrap(),
+        first,
+        "byte for byte, old timestamp kept"
+    );
+
+    // A real change is written, with the new timestamp.
+    let lock = std::fs::read_to_string(dir.path().join("pixi.toml")).unwrap();
+    std::fs::write(
+        dir.path().join("pixi.toml"),
+        lock.replacen("name = \"", "name = \"renamed-", 1),
+    )
+    .unwrap();
+    assert!(run("1800000000").contains("wrote SBOM"));
+    assert_ne!(std::fs::read(dir.path().join("sbom.cdx.json")).unwrap(), first);
+}

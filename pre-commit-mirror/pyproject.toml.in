@@ -1,0 +1,14 @@
+# Generated from pixi-sbom's pre-commit-mirror/ on each release; edit it there, not here.
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pixi-sbom-pre-commit"
+version = "@VERSION@"
+description = "pre-commit hooks for pixi-sbom"
+requires-python = ">=3.8"
+dependencies = ["pixi-sbom==@VERSION@"]
+
+[tool.setuptools]
+py-modules = []

@@ -113,6 +113,34 @@ git diff --no-index -- sbom-previous.cdx.json sbom.cdx.json
 
 See [reproducibility](output-format.md#reproducibility) for what the guarantee covers.
 
+## pre-commit
+
+Two hooks, from the mirror repository [`millsks/pixi-sbom-pre-commit`](https://github.com/millsks/pixi-sbom-pre-commit):
+each of its tags installs the pixi-sbom wheel of the same version from PyPI, so nothing is compiled.
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/millsks/pixi-sbom-pre-commit
+    rev: v1.7.0
+    hooks:
+      # Write sbom.cdx.json next to the lockfile whenever a lockfile changes.
+      - id: pixi-sbom
+      # The license gate with your policy; writes no file.
+      - id: pixi-sbom-policy
+        args: [--deny-license, GPL-3.0-only, --deny-license, AGPL-3.0-only]
+```
+
+Both run when `pixi.lock`, `uv.lock`, `pylock.toml` (or `pylock.<name>.toml`), `poetry.lock`, `pdm.lock` or
+`conda-lock.yml` changes, from the repository root, where the [usual search](cli.md#which-lockfile-is-found) finds
+the lockfile; `args:` adds any other flag (`--scan .` for a monorepo, `--format spdx`). `pixi-sbom-policy` runs
+`--fetch-licenses --require-license --report licenses`, so it needs the network to fetch licenses.
+
+pre-commit fails a hook that modifies a tracked file, and an SBOM is deterministic except for its timestamp: a rerun
+that would change nothing but the timestamp leaves the file alone, so the hook passes until the SBOM really changes.
+Commit the SBOM the first time it is written; after that a lockfile change that changes the SBOM fails the hook once,
+with the new SBOM ready to stage.
+
 ## Air-gapped runners
 
 `PIXI_SBOM_OFFLINE=1` forbids every network request; the PyPI mapping, wheel and archive caches are used when present

@@ -397,3 +397,58 @@ jobs:
         with:
           attestations: true
           skip-existing: true
+
+  # The pre-commit hooks live in a mirror repository, millsks/pixi-sbom-pre-commit, the way ruff's
+  # do: pre-commit installs a `language: python` hook by `pip install .` of the hook repository,
+  # which here would compile pixi-sbom from Rust. The mirror holds only the hooks and a
+  # pyproject.toml pinning the wheel of the same version, rendered from pre-commit-mirror/ and
+  # tagged once that wheel is on PyPI. The release App must be installed on the mirror repository.
+  pre-commit-mirror:
+    name: Update the pre-commit mirror
+    needs: [tag, pypi]
+    if: needs.tag.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.tag.outputs.tag }}
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: pixi-sbom-pre-commit
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+          path: source
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/pixi-sbom-pre-commit
+          token: ${{ steps.app-token.outputs.token }}
+          path: mirror
+      - name: Render, commit and tag
+        working-directory: mirror
+        run: |
+          set -euo pipefail
+          ../source/pre-commit-mirror/render.sh "${TAG#v}" .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "::notice::the mirror already has ${TAG}"
+          else
+            git commit -m "chore: pixi-sbom ${TAG}"
+          fi
+          if git rev-parse -q --verify "refs/tags/${TAG}" > /dev/null; then
+            echo "::notice::the mirror is already tagged ${TAG}"
+          else
+            git tag "${TAG}"
+          fi
+          git push origin HEAD "refs/tags/${TAG}"
+          {
+            echo "### pre-commit mirror"
+            echo
+            echo "\`millsks/pixi-sbom-pre-commit\` is at \`${TAG}\`: \`rev: ${TAG}\` installs the wheel of the same version."
+          } >> "$GITHUB_STEP_SUMMARY"

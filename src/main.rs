@@ -732,14 +732,15 @@ fn main() -> Result<()> {
             );
         }
         let ctx = format::WriteContext::for_document(&contents, &sbom, args.format, spec_version);
-        timings::time(timings::Phase::Write, || write_output(output, args.format, &sbom, &ctx))?;
+        let written = timings::time(timings::Phase::Write, || write_output(output, args.format, &sbom, &ctx))?;
         tracing::info!(
             output = %output,
             format = ?args.format,
             packages = sbom.packages.len(),
             environment = %sbom.environment,
             platform = %sbom.platform,
-            "wrote SBOM"
+            "{}",
+            if written { "wrote SBOM" } else { "SBOM unchanged but for the timestamp; left as it was" }
         );
         if let Some(path) = &args.vex {
             let value = format::vex_to_value(&sbom, &ctx, args.vex_open.state())?;
@@ -2165,7 +2166,7 @@ fn write_output(
     format: cli::Format,
     sbom: &model::Sbom,
     ctx: &format::WriteContext,
-) -> Result<()> {
+) -> Result<bool> {
     let output = match output {
         discover::Output::Stdout => {
             // Buffered, as the file path already is. The writers serialize straight out in
@@ -2175,10 +2176,13 @@ fn write_output(
             let mut stdout = std::io::BufWriter::new(std::io::stdout().lock());
             format::write(format, sbom, ctx, &mut stdout)?;
             stdout.flush().into_diagnostic().wrap_err("cannot write to stdout")?;
-            return Ok(());
+            return Ok(true);
         }
         discover::Output::File(path) => path,
     };
+    if format::unchanged_but_for_timestamp(format, sbom, ctx, output) {
+        return Ok(false);
+    }
     if let Some(parent) = output.parent().filter(|p| !p.as_os_str().is_empty()) {
         std::fs::create_dir_all(parent)
             .into_diagnostic()
@@ -2189,7 +2193,7 @@ fn write_output(
         .wrap_err_with(|| format!("cannot create {}", output.display()))?;
     let mut writer = std::io::BufWriter::new(file);
     format::write(format, sbom, ctx, &mut writer)?;
-    Ok(())
+    Ok(true)
 }
 
 /// Write a JSON document to a path, creating its directory.

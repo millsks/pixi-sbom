@@ -119,6 +119,81 @@ pub enum WriteError {
     Io(#[from] std::io::Error),
 }
 
+/// Whether the document already at `path` is the one `format::write` would write now, but for
+/// its timestamp: rendered with the existing file's own timestamp, it is the same bytes. A rerun
+/// that changes nothing then leaves the file alone, which is what a pre-commit hook needs (a hook
+/// that rewrites a file every time fails every time) and what keeps a diff to real changes.
+///
+/// The comparison streams: the render is checked against the file as it is produced, so no copy
+/// of a large document is held. `false` when there is no such file, or its timestamp is not
+/// where this tool writes it (near the top), or any byte differs.
+pub fn unchanged_but_for_timestamp(format: Format, sbom: &Sbom, ctx: &WriteContext, path: &std::path::Path) -> bool {
+    use std::io::{BufRead, BufReader, Read};
+    let Ok(file) = std::fs::File::open(path) else {
+        return false;
+    };
+    let mut reader = BufReader::with_capacity(64 * 1024, file);
+    let Ok(head) = reader.fill_buf() else {
+        return false;
+    };
+    let Some(timestamp) = existing_timestamp(&String::from_utf8_lossy(&head[..head.len().min(8192)])) else {
+        return false;
+    };
+    let pinned = WriteContext {
+        timestamp,
+        uuid: ctx.uuid,
+        tool_version: ctx.tool_version.clone(),
+        spec_version: ctx.spec_version,
+    };
+    let mut comparer = Comparer {
+        existing: reader,
+        same: true,
+        theirs: Vec::new(),
+    };
+    if write(format, sbom, &pinned, &mut comparer).is_err() || !comparer.same {
+        return false;
+    }
+    // Everything rendered matched; the file must also end where the render did.
+    let mut rest = [0u8; 1];
+    matches!(comparer.existing.read(&mut rest), Ok(0))
+}
+
+/// The timestamp a document this tool wrote carries near its top: CycloneDX `"timestamp"`,
+/// SPDX 2.3 and 3.0.1 `"created"`.
+pub fn existing_timestamp(head: &str) -> Option<DateTime<Utc>> {
+    ["\"timestamp\": \"", "\"created\": \""].iter().find_map(|key| {
+        let start = head.find(key)? + key.len();
+        let end = head[start..].find('"')? + start;
+        DateTime::parse_from_rfc3339(&head[start..end])
+            .ok()
+            .map(|t| t.with_timezone(&Utc))
+    })
+}
+
+/// A writer that checks what is written against an existing file instead of storing it.
+struct Comparer<R: std::io::Read> {
+    existing: R,
+    same: bool,
+    /// Reused for each piece, since the serializer writes in many small ones.
+    theirs: Vec<u8>,
+}
+
+impl<R: std::io::Read> Write for Comparer<R> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        if self.same {
+            self.theirs.resize(buf.len(), 0);
+            if self.existing.read_exact(&mut self.theirs).is_err() || self.theirs != buf {
+                self.same = false;
+            }
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 /// Serialize `sbom` in `format` to `out` as pretty-printed JSON.
 ///
 /// Straight from the writer's own structs to the output. Going through a
@@ -427,6 +502,56 @@ pub(crate) mod testing {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_rerun_that_changes_only_the_timestamp_leaves_the_file_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let sbom = testing::sample_sbom();
+        for (format, spec) in [
+            (Format::Cyclonedx, SpecVersion::V1_6),
+            (Format::Spdx, SpecVersion::default()),
+            (Format::Spdx, SpecVersion::V3_0),
+        ] {
+            let path = dir.path().join(format!("{format:?}-{spec:?}.json"));
+            let mut ctx = testing::fixed_context();
+            ctx.spec_version = spec;
+            assert!(!unchanged_but_for_timestamp(format, &sbom, &ctx, &path), "no file yet");
+            let mut file = std::fs::File::create(&path).unwrap();
+            write(format, &sbom, &ctx, &mut file).unwrap();
+            drop(file);
+
+            let mut later = ctx.clone();
+            later.timestamp += chrono::Duration::hours(3);
+            assert!(
+                unchanged_but_for_timestamp(format, &sbom, &later, &path),
+                "{format:?} {spec:?}"
+            );
+
+            let mut changed = sbom.clone();
+            changed.packages[0].version = Some("9.9.9".into());
+            assert!(
+                !unchanged_but_for_timestamp(format, &changed, &later, &path),
+                "a real change"
+            );
+
+            let mut longer = std::fs::read(&path).unwrap();
+            longer.extend_from_slice(b"\n");
+            std::fs::write(&path, &longer).unwrap();
+            assert!(
+                !unchanged_but_for_timestamp(format, &sbom, &later, &path),
+                "trailing bytes"
+            );
+        }
+        std::fs::write(dir.path().join("other.json"), "{\"name\": \"not ours\"}").unwrap();
+        assert!(!unchanged_but_for_timestamp(
+            Format::Cyclonedx,
+            &sbom,
+            &testing::fixed_context(),
+            &dir.path().join("other.json")
+        ));
+        assert_eq!(existing_timestamp("no timestamp here"), None);
+        assert_eq!(existing_timestamp("\"created\": \"not a date\""), None);
+    }
 
     #[test]
     fn writing_straight_out_produces_the_same_bytes_as_building_a_tree_first() {
