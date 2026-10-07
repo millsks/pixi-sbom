@@ -159,6 +159,17 @@ partly-failed batches producing the same report, and which statuses are retried.
 A behaviour that is about requests (how many, on how many connections, in what order or overlap, retried or not)
 gets its test here rather than a stopwatch reading in the PR description.
 
+### Every report on every input (`tests/matrix.rs`)
+
+One table-driven test runs each input kind — `pixi.lock`, `uv.lock`, `pylock.toml`, `poetry.lock`, `pdm.lock`,
+`conda-lock.yml`, an explicit spec, a conda prefix, a venv and `--from-sbom` — through every report, `--explain` and
+every gate, against one local upstream (the [`support::Server`](#network-tests-testsnetworkrs)) that answers for any
+package: an advisory, a KEV entry, a newer release, a license, a wheel naming a repository, a scorecard. Each cell is
+reduced to its exit code and row count (and, for licenses and scorecard, how many rows the enrichment reached), and
+the whole grid is one insta snapshot with notes on every limited cell. A reader that stops passing a field to some
+report changes the table, which is the point: such a gap shows as an empty column, never as a failure. Nothing leaves
+the machine; the test asserts the upstream saw every service's requests.
+
 ### Schema validation
 
 `tests/schemas/` contains the official CycloneDX 1.6 and 1.7 schemas (with the `spdx.schema.json`,

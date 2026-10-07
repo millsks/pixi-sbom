@@ -6,7 +6,7 @@
 //! `127.0.0.1` and records what it saw, so those become assertions instead of stopwatch readings.
 //!
 //! It is deliberately small: HTTP/1.1 with keep-alive, `Content-Length` or chunked request bodies,
-//! and `Content-Length` responses. No dependency, because the thing under test is the shape of the
+//! and `Content-Length` responses, with byte bodies served by `Range` (206) for the zip reader. No dependency, because the thing under test is the shape of the
 //! traffic, which a client-side mock cannot see.
 
 use std::io::{BufRead, BufReader, Read, Write};
@@ -21,6 +21,8 @@ pub struct Request {
     pub method: String,
     pub path: String,
     pub body: String,
+    /// The `Range` header, when the client asked for part of a body.
+    pub range: Option<String>,
     /// Which TCP connection carried it, numbered from 0 in the order they were accepted.
     pub connection: usize,
     pub started: Instant,
@@ -39,6 +41,8 @@ impl Request {
 pub struct Response {
     pub status: u16,
     pub body: String,
+    /// A binary body, sliced to the request's `Range` when it has one; `body` is then unused.
+    pub bytes: Option<Vec<u8>>,
     pub delay: Duration,
 }
 
@@ -47,6 +51,17 @@ impl Response {
         Self {
             status: 200,
             body: body.to_string(),
+            bytes: None,
+            delay: Duration::ZERO,
+        }
+    }
+
+    /// A file, served whole or by `Range` (`bytes=-N` or `bytes=A-B`) as a 206.
+    pub fn bytes(data: Vec<u8>) -> Self {
+        Self {
+            status: 200,
+            body: String::new(),
+            bytes: Some(data),
             delay: Duration::ZERO,
         }
     }
@@ -55,6 +70,7 @@ impl Response {
         Self {
             status,
             body: String::new(),
+            bytes: None,
             delay: Duration::ZERO,
         }
     }
@@ -137,7 +153,7 @@ fn serve(stream: TcpStream, connection: usize, state: &State) {
     let mut writer = stream.try_clone().expect("clone the stream");
     let mut reader = BufReader::new(stream);
     loop {
-        let Some((method, path, body)) = read_request(&mut reader) else {
+        let Some((method, path, body, range)) = read_request(&mut reader) else {
             return;
         };
         let started = Instant::now();
@@ -145,6 +161,7 @@ fn serve(stream: TcpStream, connection: usize, state: &State) {
             method,
             path,
             body,
+            range,
             connection,
             started,
             finished: started,
@@ -158,16 +175,32 @@ fn serve(stream: TcpStream, connection: usize, state: &State) {
             .count();
         let response = (state.script)(&request, earlier);
         std::thread::sleep(response.delay);
+        let (status, content_type, extra, payload) = match &response.bytes {
+            Some(data) => match request.range.as_deref().and_then(|r| byte_range(r, data.len())) {
+                Some((start, end)) => (
+                    206,
+                    "application/octet-stream",
+                    format!("Content-Range: bytes {start}-{end}/{}\r\n", data.len()),
+                    data[start..=end].to_vec(),
+                ),
+                None => (response.status, "application/octet-stream", String::new(), data.clone()),
+            },
+            None => (
+                response.status,
+                "application/json",
+                String::new(),
+                response.body.clone().into_bytes(),
+            ),
+        };
         let head = format!(
-            "HTTP/1.1 {} Scripted\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",
-            response.status,
-            response.body.len()
+            "HTTP/1.1 {status} Scripted\r\nContent-Type: {content_type}\r\n{extra}Content-Length: {}\r\n\r\n",
+            payload.len()
         );
         request.finished = Instant::now();
         // Recorded before the bytes go out, so a test that reads the log after the client has its
         // answer always finds the request in it.
         state.requests.lock().unwrap().push(request);
-        if writer.write_all(head.as_bytes()).is_err() || writer.write_all(response.body.as_bytes()).is_err() {
+        if writer.write_all(head.as_bytes()).is_err() || writer.write_all(&payload).is_err() {
             return;
         }
         let _ = writer.flush();
@@ -176,7 +209,27 @@ fn serve(stream: TcpStream, connection: usize, state: &State) {
 
 /// Read one request: the request line, the headers, and a body by `Content-Length` or chunked.
 /// `None` when the connection closed or sent something that is not HTTP.
-fn read_request(reader: &mut BufReader<TcpStream>) -> Option<(String, String, String)> {
+/// `bytes=-N` (the last N) or `bytes=A-B` as an inclusive `(start, end)` within `len`.
+fn byte_range(header: &str, len: usize) -> Option<(usize, usize)> {
+    let spec = header.trim().strip_prefix("bytes=")?;
+    let (from, to) = spec.split_once('-')?;
+    if len == 0 {
+        return None;
+    }
+    if from.is_empty() {
+        let count: usize = to.parse().ok()?;
+        return Some((len.saturating_sub(count), len - 1));
+    }
+    let start: usize = from.parse().ok()?;
+    let end: usize = if to.is_empty() {
+        len - 1
+    } else {
+        to.parse::<usize>().ok()?.min(len - 1)
+    };
+    (start <= end).then_some((start, end))
+}
+
+fn read_request(reader: &mut BufReader<TcpStream>) -> Option<(String, String, String, Option<String>)> {
     let mut line = String::new();
     if reader.read_line(&mut line).ok()? == 0 {
         return None;
@@ -186,6 +239,7 @@ fn read_request(reader: &mut BufReader<TcpStream>) -> Option<(String, String, St
     let path = parts.next()?.to_string();
     let mut length = 0usize;
     let mut chunked = false;
+    let mut range = None;
     loop {
         let mut header = String::new();
         if reader.read_line(&mut header).ok()? == 0 {
@@ -199,6 +253,7 @@ fn read_request(reader: &mut BufReader<TcpStream>) -> Option<(String, String, St
         match name.trim().to_ascii_lowercase().as_str() {
             "content-length" => length = value.trim().parse().ok()?,
             "transfer-encoding" => chunked = value.to_ascii_lowercase().contains("chunked"),
+            "range" => range = Some(value.trim().to_string()),
             _ => {}
         }
     }
@@ -219,5 +274,5 @@ fn read_request(reader: &mut BufReader<TcpStream>) -> Option<(String, String, St
         body.resize(length, 0);
         reader.read_exact(&mut body).ok()?;
     }
-    Some((method, path, String::from_utf8_lossy(&body).into_owned()))
+    Some((method, path, String::from_utf8_lossy(&body).into_owned(), range))
 }

@@ -4,6 +4,8 @@
 //! These run the real binary with every upstream pointed at [`support::Server`], so they test the
 //! requests the program actually issues, not a stub of the client.
 
+// Shared with matrix.rs, which uses the parts this suite does not (byte bodies by range).
+#[allow(dead_code)]
 mod support;
 
 use std::path::{Path, PathBuf};

@@ -1,0 +1,34 @@
+---
+source: tests/matrix.rs
+expression: table
+---
+| input | packages | licenses | vulnerabilities | diff | outdated | python | phantom | scorecard | explain | license gate | severity gate | KEV gate | yanked gate | scorecard gate |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| pixi.lock | 0: 30 rows | 0: 30 rows, 30 with license | 0: 6 rows | 0: 30 unchanged | 0: 30 rows | 0: 6 rows | 0: 2 rows | 0: 30 rows, 6 with score | 0 | 3 | 4 | 4 | 7 | 9 |
+| uv.lock | 0: 27 rows | 0: 27 rows, 27 with license | 0: 25 rows | 0: 27 unchanged | 0: 27 rows | 0: 27 rows | 0: 12 rows | 0: 27 rows, 25 with score | 0 | 3 | 4 | 4 | 7 | 9 |
+| pylock.toml | 0: 27 rows | 0: 27 rows, 26 with license | 0: 25 rows | 0: 27 unchanged | 0: 26 rows | 0: 27 rows | 0: 27 rows | 0: 27 rows, 25 with score | 0 | 3 | 4 | 4 | 7 | 9 |
+| poetry.lock | 0: 27 rows | 0: 27 rows, 27 with license | 0: 25 rows | 0: 27 unchanged | 0: 27 rows | 0: 27 rows | 0: 12 rows | 0: 27 rows, 0 with score | 0 | 3 | 4 | 4 | 7 | 0 |
+| pdm.lock | 0: 27 rows | 0: 27 rows, 27 with license | 0: 25 rows | 0: 27 unchanged | 0: 27 rows | 0: 27 rows | 0: 12 rows | 0: 27 rows, 0 with score | 0 | 3 | 4 | 4 | 7 | 0 |
+| conda-lock.yml | 0: 66 rows | 0: 66 rows, 1 with license | 0: 1 rows | 0: 66 unchanged | 0: 66 rows | 0: 1 rows | 0: 1 rows | 0: 66 rows, 1 with score | 0 | 3 | 4 | 4 | 0 | 9 |
+| explicit spec | 0: 65 rows | 0: 65 rows, 0 with license | 0: 0 rows | 0: 65 unchanged | 0: 65 rows | 0: 0 rows | 0: 58 rows | 0: 65 rows, 0 with score | 0 | 0 | 0 | 0 | 0 | 0 |
+| --prefix (conda) | 0: 4 rows | 0: 4 rows, 4 with license | 0: 1 rows | 0: 4 unchanged | 0: 4 rows | 0: 1 rows | 0: 0 rows | 0: 4 rows, 0 with score | 0 | 3 | 4 | 4 | 7 | 0 |
+| --prefix (venv) | 0: 6 rows | 0: 6 rows, 6 with license | 0: 6 rows | 0: 6 unchanged | 0: 6 rows | 0: 6 rows | 0: 2 rows | 0: 6 rows, 0 with score | 0 | 3 | 4 | 4 | 0 | 0 |
+| --from-sbom | 0: 30 rows | 0: 30 rows, 30 with license | 0: 6 rows | 0: 30 unchanged | 0: 30 rows | 0: 6 rows | 0: 2 rows | 0: 30 rows, 6 with score | 0 | 3 | 4 | 4 | 7 | 9 |
+
+Exit codes: 0 ok, 3 license policy, 4 vulnerability gate (severity or KEV), 7 yanked, 9 scorecard gate.
+The upstream gives every PyPI package a critical, KEV-listed advisory, a newer release, an MIT license, a
+repository with a 4.2 scorecard, and yanks six; conda packages get no advisory (OSV has no conda ecosystem).
+
+- vulnerabilities, severity and KEV gates on conda-only inputs (explicit spec): nothing to find, since OSV has
+  no conda ecosystem; conda-lock.yml and the conda prefix find their one PyPI package.
+- python on the explicit spec: no rows, since the format records no dependencies and so no package that pins
+  an interpreter.
+- phantom on pylock.toml and the explicit spec: the inputs record no graph (uv export writes no per-package
+  dependencies; an explicit spec none at all), so every transitive package is a root and counts as undeclared.
+- licenses on conda-lock.yml and the explicit spec: neither records a conda package's license, and the conda
+  archives --fetch-licenses would read them from are not reachable here, so only conda-lock's PyPI package has
+  one. The license gate (an allow-list) has nothing to refuse on the explicit spec; --require-license is what
+  gates unknown licenses.
+- scorecard on poetry.lock and pdm.lock: they record file names and hashes, not URLs, so no wheel is read and
+  no repository is known; the gate has nothing to fail on. The prefixes' dist-info name no repository.
+- yanked gate: six is the yanked one; inputs without it pass.
