@@ -583,8 +583,31 @@ behaviour off.
 Both answer with a version list and the first build time of a version, which is where `Latest`, `Behind`, `Step`,
 `Released` and `Age` come from.
 
-Compared across the 52 conda packages of this workspace, both freshly fetched, the two reports are identical:
-every `Latest`, `Released`, `Age`, `Behind` and `Step` matches.
+**The two kinds are two services' records of the same channel, not one record served twice**, so diffing their
+reports finds differences that are not bugs. Compared across the 52 conda packages of this workspace, both freshly
+fetched, back to back (2026-10-07, around 03:00 UTC):
+
+| Field | Packages that differ |
+|---|---|
+| `version`, `step`, `age_days` | 0 |
+| `published` (the installed release) | 2: `python` by 484 s, `libpython` by 391 s |
+| `latest_published` | 4: `python` by 321 s, `libpython` by 310 s, and the two below |
+| `latest`, `behind` | 2: `typos` and `libcxx` |
+
+Two causes, both expected:
+
+- **Build times recorded twice.** anaconda.org reports each file's upload time (`files[].attrs.timestamp`);
+  prefix.dev reports the timestamp in the build's own `index.json`. A version with several build files has several
+  times, and the first build is not always the same file on both sides. That moves `Released` by seconds to
+  minutes, and `Age`, which is in whole days, practically never.
+- **A release newer than prefix.dev's mirror.** `typos` 1.51.1 and `libcxx` 23.1.3 had been on anaconda.org for
+  about 80 minutes and were not yet in prefix.dev's index, so `prefix` reported the release before them as the
+  newest: `Behind` one lower, and an older `Released`. `Step` happened to agree. Run again later, the two converge.
+
+So for anything published more than a short while ago, the two agree on what is outdated and by how much, and may
+differ by minutes on when it was published. Neither is wrong, and preferring one's timestamps over the other's
+would not be better information, so pixi-sbom reports what the chosen index says. When the newest few hours matter,
+`anaconda` is the closer of the two to what conda-forge has just published.
 
 Getting there needs two details that are easy to get wrong. A version's date is the first build of it, and
 prefix.dev reports a build two ways: `createdAt` is when prefix.dev ingested it, and the build's own `index.json`
