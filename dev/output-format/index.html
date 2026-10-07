@@ -725,6 +725,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Dependency graph">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#runtime-development-and-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime, development and optional
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1297,6 +1314,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Dependency graph">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#runtime-development-and-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime, development and optional
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2089,6 +2123,49 @@ to the graph instead of floating as extra roots.</p>
 the usual example — is on the root where it belongs. The other half is the graph-root heuristic: packages nothing
 else depends on. Without a readable manifest (<code>--prefix</code>, a lockfile on its own) the heuristic is the whole answer,
 and nothing is marked direct.</p>
+<h3 id="runtime-development-and-optional">Runtime, development and optional<a class="headerlink" href="#runtime-development-and-optional" title="Permanent link">&para;</a></h3>
+<p>When the input tells what the project needs to run apart from what it needs for development or an extra, each
+format says so in its own field. Everything reachable from the default dependencies is required, shared packages
+included. What only a dependency group reaches is for development, and what only one of the project's extras
+reaches is optional; a package both reach counts as optional.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>CycloneDX</th>
+<th>SPDX 2.3</th>
+<th>SPDX 3.0.1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Required</td>
+<td><code>scope: required</code></td>
+<td><code>DEPENDS_ON</code></td>
+<td><code>dependsOn</code></td>
+</tr>
+<tr>
+<td>Development</td>
+<td><code>scope: optional</code></td>
+<td><code>&lt;package&gt; DEV_DEPENDENCY_OF &lt;dependent&gt;</code></td>
+<td><code>LifecycleScopedRelationship</code>, <code>dependsOn</code>, <code>scope: development</code></td>
+</tr>
+<tr>
+<td>Optional</td>
+<td><code>scope: optional</code></td>
+<td><code>&lt;package&gt; OPTIONAL_DEPENDENCY_OF &lt;dependent&gt;</code></td>
+<td><code>dependsOn</code> (3.0.1 has no optional scope)</td>
+</tr>
+</tbody>
+</table>
+<p>The SPDX edges change only where the graph crosses from what is required into a group or extra, usually at the
+root: <code>pytest DEV_DEPENDENCY_OF my-app</code>. Inside a group the edges stay <code>DEPENDS_ON</code> (<code>pytest</code> depends on <code>pluggy</code>).
+<code>pixi:declared-in</code> still names the group or extra.</p>
+<p>The scopes come from the manifest beside a lockfile other than <code>pixi.lock</code>, when it declares dependency groups or
+extras (see <a href="../cli/#what-a-project-without-pixi-declared">What a project without pixi declared</a>), and from the
+categories of a <code>conda-lock.yml</code> when there are others than <code>main</code> (<code>dev</code> is development, any other optional). A
+<code>pixi.lock</code> environment is already one selection of features, so its documents carry no scope, and neither does an
+input with nothing to tell apart.</p>
 <h2 id="vulnerabilities">Vulnerabilities<a class="headerlink" href="#vulnerabilities" title="Permanent link">&para;</a></h2>
 <p>With <code>--vulnerabilities osv</code> the CycloneDX document carries a <code>vulnerabilities[]</code> array (1.6 and 1.7 alike) and an
 SPDX 3.0.1 document carries the same findings through its <a href="#spdx-301-security-profile">security profile</a>. <strong>SPDX 2.3

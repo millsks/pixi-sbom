@@ -2527,6 +2527,9 @@ turn into a claim that the project depends directly on everything. The project's
 come from <code>[project]</code> (or the <code>name:</code> of <code>environment.yml</code>).</p>
 <p>When there is no manifest beside the lockfile, the document is written without declarations, as for a bare
 lockfile before.</p>
+<p>Groups and extras also decide what each package is there for: required at run time, for development (a group), or
+optional (an extra). CycloneDX writes it as the component's <code>scope</code>, SPDX as <code>DEV_DEPENDENCY_OF</code> and
+<code>OPTIONAL_DEPENDENCY_OF</code> relationships; see <a href="../output-format/#runtime-development-and-optional">Runtime, development and optional</a>.</p>
 <h2 id="python-extras">Python extras<a class="headerlink" href="#python-extras" title="Permanent link">&para;</a></h2>
 <p>An extra pulls in more code: <code>requests[socks]</code> installs <code>pysocks</code> as well. Wherever the input says which extras
 were asked for, two properties record it.</p>
