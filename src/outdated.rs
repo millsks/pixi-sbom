@@ -943,14 +943,7 @@ impl Lookup<'_> {
     /// Shared with the fallback path: a package rescued by its hash deserves the same `Released`
     /// column as one whose channel the index recognised.
     fn date_the_newest(&self, document: &mut PrefixDocument, channel: &str, name: &str, url: &str, fetch: Fetch<'_>) {
-        let newest = document
-            .versions
-            .iter()
-            .filter(|version| !is_prerelease(version))
-            .max_by(|a, b| compare(a, b))
-            .cloned();
-        if let Some(newest) = newest
-            && !document.dates.contains_key(&newest)
+        if let Some(newest) = undated_newest(document)
             && let Ok(answer) = fetch(url, Some(&prefix_version_date_query(channel, name, &newest)))
             && let Some(date) = prefix_date(&answer)
         {
@@ -1037,7 +1030,7 @@ impl Lookup<'_> {
 
         // Phase one: ask. Throttled, because one batched query is several packages' worth of work
         // for the index, and ten of those at once would be a tenfold spike in what it handles.
-        let fetched: Vec<Vec<(&Job, String)>> = crate::concurrency::map_with(
+        let fetched: Vec<Vec<(&Job, String, bool)>> = crate::concurrency::map_with(
             PREFIX_BATCHES_AT_ONCE.min(crate::concurrency::network()),
             &chunks,
             |chunk| {
@@ -1065,15 +1058,26 @@ impl Lookup<'_> {
                 };
                 // An alias may be null where the rest of the document is good: one package failing
                 // is not the batch failing, and that package falls through to its own request.
+                //
+                // A package already on its newest release is final the moment its batch lands, so it
+                // is counted now rather than after every other batch has answered (#358). One that
+                // needs its newest release dated is counted when that answer comes back.
                 chunk
                     .iter()
                     .enumerate()
-                    .filter_map(|(index, job)| prefix_alias(&answer, index).map(|single| (*job, single)))
+                    .filter_map(|(index, job)| {
+                        let single = prefix_alias(&answer, index)?;
+                        let dating = needs_dating(job, &single);
+                        if !dating {
+                            bar.advance(&job.display_name);
+                        }
+                        Some((*job, single, dating))
+                    })
                     .collect()
             },
         );
         let asked = fetched.iter().filter(|answers| !answers.is_empty()).count();
-        let answers: Vec<(&Job, String)> = fetched.into_iter().flatten().collect();
+        let answers: Vec<(&Job, String, bool)> = fetched.into_iter().flatten().collect();
 
         // Phase two: make sense of each answer, which for anything behind means one more request to
         // date its newest release.
@@ -1084,9 +1088,9 @@ impl Lookup<'_> {
         // the ordinary request pool, where they ran before batching existed.
         let resolved: Vec<(usize, String)> = crate::concurrency::map(
             &answers,
-            Some(bar),
-            |(job, _)| job.display_name.clone(),
-            |(job, single)| {
+            None,
+            |(job, _, _)| job.display_name.clone(),
+            |(job, single, dating)| {
                 // Every package here was a cache miss — that is why it was in the batch — so the
                 // tally records the fetch. Without this a cold run reports itself as fully cached.
                 crate::cache::miss(crate::cache::Service::Outdated);
@@ -1099,6 +1103,10 @@ impl Lookup<'_> {
                         .and_then(|()| std::fs::write(&job.cache_file, &resolved))
                 {
                     tracing::debug!(path = %job.cache_file.display(), %err, "cannot cache a batched answer");
+                }
+                // The rest were counted when their batch landed.
+                if *dating {
+                    bar.advance(&job.display_name);
                 }
                 (job.index, resolved)
             },
@@ -1154,6 +1162,25 @@ impl Lookup<'_> {
             }
         }
     }
+}
+
+/// The newest release whose date a document does not have yet: the one a second request is needed
+/// for. `None` when the package is on its newest release, which is most packages.
+fn undated_newest(document: &PrefixDocument) -> Option<String> {
+    document
+        .versions
+        .iter()
+        .filter(|version| !is_prerelease(version))
+        .max_by(|a, b| compare(a, b))
+        .filter(|newest| !document.dates.contains_key(*newest))
+        .cloned()
+}
+
+/// Whether a batched answer still needs its newest release dated before it is final.
+fn needs_dating(job: &Job, single: &str) -> bool {
+    job.follow_up
+        .as_ref()
+        .is_some_and(|(_, installed)| undated_newest(&prefix_page(single, installed)).is_some())
 }
 
 /// How old a publication date is, in whole days, at `now`.
@@ -1298,6 +1325,82 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn a_landed_batch_is_counted_while_another_is_still_in_flight() {
+        // #358, second half: phase one collects every batch before phase two runs, so counting
+        // only in phase two left the bar at zero for the whole batch phase. A package already on
+        // its newest release is final when its batch lands and is counted there. The second
+        // batch is held back; by the time it answers, the first batch's ten must be on the bar.
+        use crate::format::testing::sample_sbom;
+        let mut sbom = sample_sbom();
+        let template = sbom
+            .packages
+            .iter()
+            .find(|p| p.kind == PackageKind::CondaBinary)
+            .cloned()
+            .expect("the sample has a conda package");
+        sbom.packages = (0..PREFIX_BATCH + 2)
+            .map(|i| {
+                let mut package = template.clone();
+                package.name = format!("c{i}");
+                package.id = format!("conda:c{i}");
+                package.version = Some("1.0.0".into());
+                package.properties.insert(
+                    "pixi:channel-url".into(),
+                    "https://conda.anaconda.org/conda-forge/".into(),
+                );
+                package
+            })
+            .collect();
+
+        let bar: std::sync::Mutex<Option<crate::progress::Bar>> = std::sync::Mutex::new(None);
+        let seen_by_held_batch = std::sync::Mutex::new(None);
+        let held_back = format!("c{PREFIX_BATCH}");
+        let fetch = |_url: &str, body: Option<&str>| {
+            let body: serde_json::Value = serde_json::from_str(body.unwrap_or("{}")).unwrap();
+            let variables = &body["variables"];
+            if variables["n0"] == held_back.as_str() {
+                std::thread::sleep(Duration::from_millis(300));
+                *seen_by_held_batch.lock().unwrap() = bar.lock().unwrap().as_ref().map(crate::progress::Bar::position);
+            }
+            // Every package is on its newest release, already dated: nothing needs a second request.
+            let current = serde_json::json!({
+                "versions": {"page": [{"version": "1.0.0"}]},
+                "current": {"page": [{"createdAt": "2026-01-01T00:00:00Z"}]}
+            });
+            let data: serde_json::Map<String, serde_json::Value> = (0..PREFIX_BATCH)
+                .map(|i| (format!("p{i}"), current.clone()))
+                .chain([("package".to_string(), current.clone())])
+                .collect();
+            Ok(serde_json::json!({ "data": data }).to_string())
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let lookup = Lookup {
+            index_url: "https://index.example/pypi",
+            anaconda_url: "https://anaconda.example",
+            index_is_configured: false,
+            kind: crate::cli::CondaIndexKind::Prefix,
+            prefix_index_url: "https://prefix.example/api/graphql",
+            cache_dir: dir.path(),
+        };
+        lookup.run_counted(&sbom, &fetch, SystemTime::now(), &|total| {
+            let made = crate::progress::Progress::default().bar("releases", total);
+            *bar.lock().unwrap() = Some(made.clone());
+            made
+        });
+
+        assert_eq!(
+            *seen_by_held_batch.lock().unwrap(),
+            Some(PREFIX_BATCH as u64),
+            "the first batch's packages were on the bar while the second batch was still out"
+        );
+        assert_eq!(
+            bar.lock().unwrap().as_ref().map(crate::progress::Bar::position),
+            Some((PREFIX_BATCH + 2) as u64),
+            "and every package is counted once"
+        );
     }
 
     #[test]
