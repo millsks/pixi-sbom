@@ -1,9 +1,11 @@
 # pixi-sbom
 
-A [pixi](https://pixi.sh) extension that writes a Software Bill of Materials from `pixi.lock`: every conda and PyPI
+A [pixi](https://pixi.sh) extension that writes a Software Bill of Materials from a lockfile: every conda and PyPI
 package of one environment on one platform, with purls, licenses and the dependency graph, as
 [CycloneDX](https://cyclonedx.org) 1.6 / 1.7 or [SPDX](https://spdx.dev) 2.3 / 3.0.1 JSON that validates against the
-official schemas. It reads the lockfile only, so it needs neither an installed environment nor pixi itself.
+official schemas. It reads `pixi.lock`, `uv.lock`, `pylock.toml`, `poetry.lock`, `pdm.lock`, `conda-lock.yml` and
+explicit conda specs, or an installed conda environment or venv, and needs neither an installed environment nor pixi
+itself: a uv or Poetry project runs it as `uvx pixi-sbom` ([Using pixi-sbom without pixi](without-pixi.md)).
 
 ```sh
 pixi global install pixi-sbom

@@ -8083,3 +8083,66 @@ fn a_rerun_that_would_change_only_the_timestamp_leaves_the_file_alone() {
     assert!(run("1800000000").contains("wrote SBOM"));
     assert_ne!(std::fs::read(dir.path().join("sbom.cdx.json")).unwrap(), first);
 }
+
+#[test]
+fn the_without_pixi_page_runs_and_shows_the_tested_matrix() {
+    // #345: every `pixi-sbom` line in the page's shell blocks runs as written, in a project that
+    // has each file it names, and its table is the one tests/matrix.rs produces.
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let page = std::fs::read_to_string(root.join("docs/without-pixi.md")).unwrap();
+    let project = tempfile::tempdir().unwrap();
+    let examples = root.join("examples/projects");
+    for (from, files) in [
+        ("uv/01-django", &["pyproject.toml", "uv.lock"][..]),
+        ("pylock/01-django", &["pylock.toml"]),
+        ("poetry/01-django", &["poetry.lock"]),
+        ("pdm/01-django", &["pdm.lock"]),
+        ("conda-lock/01-django", &["conda-lock.yml", "environment.yml"]),
+        ("conda-explicit/01-django", &["explicit-linux-64.txt"]),
+    ] {
+        for file in files {
+            std::fs::copy(examples.join(from).join(file), project.path().join(file)).unwrap();
+        }
+    }
+    let venv = root.join("tests/fixtures/venv-posix");
+    for entry in walkdir(&venv) {
+        let target = project.path().join(".venv").join(entry.strip_prefix(&venv).unwrap());
+        std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+        std::fs::copy(&entry, &target).unwrap();
+    }
+
+    let mut ran = 0;
+    let mut in_shell = false;
+    for line in page.lines() {
+        if line.starts_with("```") {
+            in_shell = line == "```sh";
+            continue;
+        }
+        let Some(command) = line.strip_prefix("pixi-sbom ").filter(|_| in_shell) else {
+            continue;
+        };
+        let args: Vec<&str> = command.split('#').next().unwrap().split_whitespace().collect();
+        pixi_sbom()
+            .current_dir(project.path())
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("PIXI_CACHE_DIR", project.path().join(".empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", project.path().join(".cache"))
+            .args(&args)
+            .assert()
+            .success();
+        ran += 1;
+    }
+    assert!(ran >= 8, "the page's examples were found and run ({ran})");
+
+    let snapshot =
+        std::fs::read_to_string(root.join("tests/snapshots/matrix__every_report_and_gate_on_every_input.snap"))
+            .unwrap();
+    let grid: Vec<&str> = snapshot.lines().filter(|l| l.starts_with('|')).collect();
+    assert!(grid.len() > 10, "the snapshot has the grid");
+    for row in grid {
+        assert!(
+            page.lines().any(|line| line == row),
+            "docs/without-pixi.md is behind tests/matrix.rs; copy the grid from the snapshot. Missing: {row}"
+        );
+    }
+}

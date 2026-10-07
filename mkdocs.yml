@@ -23,6 +23,7 @@ validation:
 nav:
   - Overview: index.md
   - Installation: installation.md
+  - Without pixi: without-pixi.md
   - Command-line reference: cli.md
   - GitHub Action: github-action.md
   - CI recipes: ci-recipes.md
