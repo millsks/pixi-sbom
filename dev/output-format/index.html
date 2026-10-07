@@ -1774,6 +1774,16 @@ entry).</p>
 <td><code>Requires-Python</code> of the distribution</td>
 </tr>
 <tr>
+<td><code>pixi:python-extras</code></td>
+<td>PyPI (<code>pixi.lock</code>, <code>uv.lock</code>, <code>poetry.lock</code>, <code>pdm.lock</code>)</td>
+<td>The extras the package was installed with, comma separated, e.g. <code>socks,security</code>: what the manifest and the other packages asked of it</td>
+</tr>
+<tr>
+<td><code>pixi:via-extra</code></td>
+<td>PyPI (<code>pixi.lock</code>, <code>uv.lock</code>, <code>poetry.lock</code>, <code>pdm.lock</code>, <code>pylock.toml</code>)</td>
+<td>The extras the package is in the document for, as <code>package[extra]</code>, comma separated, e.g. <code>requests[socks]</code>. Set only when nothing else needs the package; what such a package depends on carries the same label</td>
+</tr>
+<tr>
 <td><code>pixi:source</code></td>
 <td>PyPI</td>
 <td><code>true</code> for sdists / source trees</td>

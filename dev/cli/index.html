@@ -537,6 +537,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#python-extras" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python extras
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#reading-pylocktoml" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1459,6 +1470,17 @@
     <span class="md-ellipsis">
       
         What a project without pixi declared
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-extras" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python extras
       
     </span>
   </a>
@@ -2505,6 +2527,56 @@ turn into a claim that the project depends directly on everything. The project's
 come from <code>[project]</code> (or the <code>name:</code> of <code>environment.yml</code>).</p>
 <p>When there is no manifest beside the lockfile, the document is written without declarations, as for a bare
 lockfile before.</p>
+<h2 id="python-extras">Python extras<a class="headerlink" href="#python-extras" title="Permanent link">&para;</a></h2>
+<p>An extra pulls in more code: <code>requests[socks]</code> installs <code>pysocks</code> as well. Wherever the input says which extras
+were asked for, two properties record it.</p>
+<ul>
+<li><strong><code>pixi:python-extras</code></strong> on a package installed with extras: <code>socks,security</code>.</li>
+<li><strong><code>pixi:via-extra</code></strong> on a package that is there only because of an extra: <code>requests[socks]</code>, or <code>my-app[s3]</code> for
+  one of the project's own extras. The packages it depends on carry the same label, until one is reached that is
+  needed anyway. A package something else needs as well gets no label.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Input</th>
+<th>Which extras were asked for</th>
+<th>What each extra brings in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pixi.lock</code></td>
+<td>the manifest's <code>extras = [...]</code> on a <code>pypi-dependencies</code> entry, and the other packages' requirements</td>
+<td><code>requires_dist</code> entries marked <code>extra == '...'</code></td>
+</tr>
+<tr>
+<td><code>uv.lock</code></td>
+<td>the <code>extra = [...]</code> on each dependency</td>
+<td><code>[package.optional-dependencies]</code></td>
+</tr>
+<tr>
+<td><code>poetry.lock</code></td>
+<td>the <code>extras</code> on each dependency entry</td>
+<td>optional entries marked <code>extra == "..."</code>, and package markers for the project's own</td>
+</tr>
+<tr>
+<td><code>pdm.lock</code></td>
+<td>the <code>extras</code> of each <code>name[extra]</code> entry</td>
+<td>that entry's dependencies</td>
+</tr>
+<tr>
+<td><code>pylock.toml</code></td>
+<td>not recorded per package</td>
+<td><code>'name' in extras</code> markers, for the project's own extras</td>
+</tr>
+</tbody>
+</table>
+<p><code>pdm.lock</code> does not say which of the project's groups are extras, so a package there for one of the project's own
+extras is labelled only through <code>pixi:declared-in</code>. An installed environment (<code>--prefix</code>) records no extras.
+<code>--explain &lt;package&gt;</code> shows both: <em>installed with extras</em> and <em>brought in by</em>.</p>
+<p>A <code>pylock.toml</code> whose markers name extras or dependency groups (<code>'s3' in extras</code>) is read with every extra and
+group it lists counted as chosen, because the document describes all of them.</p>
 <h2 id="reading-pylocktoml">Reading pylock.toml<a class="headerlink" href="#reading-pylocktoml" title="Permanent link">&para;</a></h2>
 <p>A Python project that locks with the PEP 751 standard lockfile can be described without converting it to pixi.
 <code>uv export --format pylock.toml</code>, <code>pip lock</code> and other tools write it:</p>
