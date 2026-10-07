@@ -262,3 +262,9 @@ Lessons:
 - `prefix` and `anaconda` reports differ by minutes on dates and, for releases under ~an hour old, on
   `latest`/`behind` (prefix.dev's mirror lags); documented in `docs/cli.md` (#317).
 - A config test that sets the default value and asserts it proves nothing; set the non-default.
+- rc.1 → rc.2: the `prefix` default left `--report outdated` with no visible progress (#358). The first fix
+  (#359) made the bar appear but it sat at 0/N for the whole batch phase; its test checked a proxy (count before
+  the ordinary pass) rather than the symptom. Caught by timing the bar on a pseudo-terminal before tagging, and the
+  rc.2 run was cancelled during its gate. #360 counts a package when its batch lands. Lesson: for a UI symptom,
+  measure the symptom on the real surface (a pty; `scratchpad` helper reads `N/M` frames with timestamps) and
+  write the test against "while still in flight", not "before the next phase".
