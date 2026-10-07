@@ -1516,6 +1516,11 @@ release containing them exists; keep <code>action.yml</code> inputs and the CLI 
 <td>all five release platforms</td>
 <td>The repository's own action against its own lockfile; SARIF and the attestation from the linux-64 leg only. See <a href="#the-github-action">The GitHub Action</a></td>
 </tr>
+<tr>
+<td>Action on a uv project, without pixi</td>
+<td>ubuntu-latest</td>
+<td>The action on <code>examples/projects/uv/01-django/uv.lock</code> and on a venv built in the job (<code>prefix</code>), on a runner with no pixi; refuses <code>lockfile</code> with <code>prefix</code>. It runs the head binary, built by <code>action-head-binary</code> and placed where the action reuses an install, so it tests what the next release does rather than what the last one did</td>
+</tr>
 </tbody>
 </table>
 <p><code>.github/workflows/supply-chain.yml</code> runs that same dependency check on a schedule (Mondays, and on demand).
