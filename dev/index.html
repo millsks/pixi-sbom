@@ -400,6 +400,33 @@
   
   
     <li class="md-nav__item">
+      <a href="without-pixi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Without pixi
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="cli/" class="md-nav__link">
         
   
@@ -629,10 +656,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
         
           
-          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="">
             
   
   
@@ -650,8 +677,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_11">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -853,10 +880,12 @@
 
 
 <h1 id="pixi-sbom">pixi-sbom<a class="headerlink" href="#pixi-sbom" title="Permanent link">&para;</a></h1>
-<p>A <a href="https://pixi.sh">pixi</a> extension that writes a Software Bill of Materials from <code>pixi.lock</code>: every conda and PyPI
+<p>A <a href="https://pixi.sh">pixi</a> extension that writes a Software Bill of Materials from a lockfile: every conda and PyPI
 package of one environment on one platform, with purls, licenses and the dependency graph, as
 <a href="https://cyclonedx.org">CycloneDX</a> 1.6 / 1.7 or <a href="https://spdx.dev">SPDX</a> 2.3 / 3.0.1 JSON that validates against the
-official schemas. It reads the lockfile only, so it needs neither an installed environment nor pixi itself.</p>
+official schemas. It reads <code>pixi.lock</code>, <code>uv.lock</code>, <code>pylock.toml</code>, <code>poetry.lock</code>, <code>pdm.lock</code>, <code>conda-lock.yml</code> and
+explicit conda specs, or an installed conda environment or venv, and needs neither an installed environment nor pixi
+itself: a uv or Poetry project runs it as <code>uvx pixi-sbom</code> (<a href="without-pixi/">Using pixi-sbom without pixi</a>).</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pixi<span class="w"> </span>global<span class="w"> </span>install<span class="w"> </span>pixi-sbom
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>pixi<span class="w"> </span>sbom<span class="w">                                   </span><span class="c1"># sbom.cdx.json next to pixi.lock</span>
