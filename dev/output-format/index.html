@@ -1745,7 +1745,7 @@ entry).</p>
 <tr>
 <td><code>pixi:direct</code></td>
 <td>any</td>
-<td><code>true</code> when the workspace manifest declares this package itself, rather than it coming along as somebody else's dependency. For a lockfile other than <code>pixi.lock</code>, the manifest is the <code>pyproject.toml</code> or <code>environment.yml</code> beside it (see <a href="../cli/#what-a-project-without-pixi-declared">What a project without pixi declared</a>)</td>
+<td><code>true</code> when the workspace manifest declares this package itself, rather than it coming along as somebody else's dependency. For a lockfile other than <code>pixi.lock</code>, the manifest is the <code>pyproject.toml</code> or <code>environment.yml</code> beside it (see <a href="../cli/#what-a-project-without-pixi-declared">What a project without pixi declared</a>) With <code>--prefix</code>, set on what the user asked for by name (<code>REQUESTED</code>, <code>conda-meta/history</code>), with <code>pixi:declared-in = requested</code></td>
 </tr>
 <tr>
 <td><code>pixi:declared-in</code></td>
@@ -2136,7 +2136,7 @@ to the graph instead of floating as extra roots.</p>
 </tr>
 <tr>
 <td>Root → packages</td>
-<td><code>dependencies[0]</code> (<code>ref: root</code>) lists what the workspace declared, plus the packages nothing else depends on; beside a lockfile that is not <code>pixi.lock</code>, with a manifest that declares something, only what it declared</td>
+<td><code>dependencies[0]</code> (<code>ref: root</code>) lists what the workspace declared, plus the packages nothing else depends on; beside a lockfile that is not <code>pixi.lock</code>, with a manifest that declares something, only what it declared; for an installed environment that recorded it, what was requested by name</td>
 <td><code>SPDXRef-Package-root DEPENDS_ON ...</code> for the same set</td>
 </tr>
 </tbody>

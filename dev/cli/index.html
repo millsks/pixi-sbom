@@ -2666,6 +2666,13 @@ the <code>pythonX.Y</code> of the site-packages path. <code>--fetch-licenses</co
 package was extracted to (<code>extracted_package_dir</code>, the package cache), so it needs no network on the machine
 that installed the environment. The default output is <code>sbom.cdx.json</code> in the working directory, and the
 configuration file is looked up there too.</p>
+<p>An installed environment has no manifest, but it may remember what was asked for by name. pip and uv leave an
+empty <code>REQUESTED</code> file (PEP 376) in the <code>dist-info</code> of each package the user installed by name, and conda records
+the specs of every <code>install</code> and <code>remove</code> in <code>conda-meta/history</code> (<code># update specs</code> / <code># remove specs</code>). Those
+packages are marked as for a manifest: <code>pixi:direct = true</code>, <code>pixi:declared-in = requested</code>, the <em>Declared</em> column of
+<code>--report packages</code> says <code>requested</code>, its summary counts them ("6 packages, 1 requested by name when installed"),
+and the root of the document depends on them alone. When the environment recorded nothing, nothing is marked and
+the root depends on the packages nothing else needs, as before.</p>
 <p>With <code>--embedded-sboms</code> the binaries themselves are read too: conda-forge builds its Rust packages with
 <code>cargo auditable</code>, which embeds the resolved crate graph in the program's <code>.dep-v0</code> section, and that is the only
 record of what went into <code>ripgrep</code> or <code>fd</code> — the lockfile knows the conda package and nothing below it. Every
