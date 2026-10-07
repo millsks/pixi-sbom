@@ -2054,7 +2054,7 @@
 <tr>
 <td><code>--output &lt;PATH&gt;</code></td>
 <td><code>&lt;lockfile dir&gt;/sbom.cdx.json</code> or <code>sbom.spdx.json</code></td>
-<td>File to write; parent directories are created. <code>-</code> writes the document to stdout (logs stay on stderr). With <code>--all-environments</code> / <code>--all-platforms</code> this is a directory instead, and <code>-</code> is rejected.</td>
+<td>File to write; parent directories are created. <code>-</code> writes the document to stdout (logs stay on stderr). With <code>--all-environments</code> / <code>--all-platforms</code> this is a directory instead, and <code>-</code> is rejected. An existing file that the run would change only in its timestamp is left as it was.</td>
 </tr>
 <tr>
 <td><code>-e, --environment &lt;NAME&gt;</code></td>

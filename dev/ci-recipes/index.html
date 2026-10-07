@@ -513,6 +513,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#pre-commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pre-commit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#air-gapped-runners" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -929,6 +940,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#pre-commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pre-commit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#air-gapped-runners" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1041,6 +1063,28 @@ the lockfile contents and the timestamp is pinned), so a plain <code>diff</code>
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>git<span class="w"> </span>diff<span class="w"> </span>--no-index<span class="w"> </span>--<span class="w"> </span>sbom-previous.cdx.json<span class="w"> </span>sbom.cdx.json
 </code></pre></div>
 <p>See <a href="../output-format/#reproducibility">reproducibility</a> for what the guarantee covers.</p>
+<h2 id="pre-commit">pre-commit<a class="headerlink" href="#pre-commit" title="Permanent link">&para;</a></h2>
+<p>Two hooks, from the mirror repository <a href="https://github.com/millsks/pixi-sbom-pre-commit"><code>millsks/pixi-sbom-pre-commit</code></a>:
+each of its tags installs the pixi-sbom wheel of the same version from PyPI, so nothing is compiled.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># .pre-commit-config.yaml</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nt">repos</span><span class="p">:</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">repo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/millsks/pixi-sbom-pre-commit</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nt">rev</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1.7.0</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="nt">hooks</span><span class="p">:</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">      </span><span class="c1"># Write sbom.cdx.json next to the lockfile whenever a lockfile changes.</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi-sbom</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">      </span><span class="c1"># The license gate with your policy; writes no file.</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi-sbom-policy</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">        </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">--deny-license</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">GPL-3.0-only</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">--deny-license</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">AGPL-3.0-only</span><span class="p p-Indicator">]</span>
+</code></pre></div>
+<p>Both run when <code>pixi.lock</code>, <code>uv.lock</code>, <code>pylock.toml</code> (or <code>pylock.&lt;name&gt;.toml</code>), <code>poetry.lock</code>, <code>pdm.lock</code> or
+<code>conda-lock.yml</code> changes, from the repository root, where the <a href="../cli/#which-lockfile-is-found">usual search</a> finds
+the lockfile; <code>args:</code> adds any other flag (<code>--scan .</code> for a monorepo, <code>--format spdx</code>). <code>pixi-sbom-policy</code> runs
+<code>--fetch-licenses --require-license --report licenses</code>, so it needs the network to fetch licenses.</p>
+<p>pre-commit fails a hook that modifies a tracked file, and an SBOM is deterministic except for its timestamp: a rerun
+that would change nothing but the timestamp leaves the file alone, so the hook passes until the SBOM really changes.
+Commit the SBOM the first time it is written; after that a lockfile change that changes the SBOM fails the hook once,
+with the new SBOM ready to stage.</p>
 <h2 id="air-gapped-runners">Air-gapped runners<a class="headerlink" href="#air-gapped-runners" title="Permanent link">&para;</a></h2>
 <p><code>PIXI_SBOM_OFFLINE=1</code> forbids every network request; the PyPI mapping, wheel and archive caches are used when present
 and everything else is skipped with a warning, and the run still succeeds. Pair it with <code>--pypi-mapping-file</code> pointing
