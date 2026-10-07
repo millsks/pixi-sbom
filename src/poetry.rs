@@ -347,6 +347,7 @@ pub fn build_sbom(
         incomplete: crate::model::Incomplete::default(),
         lifecycles: vec![crate::model::PHASE_LOCKFILE.into()],
         declared_roots: false,
+        scopes: std::collections::BTreeMap::new(),
     })
 }
 

@@ -418,6 +418,7 @@ pub(crate) mod testing {
             incomplete: crate::model::Incomplete::default(),
             lifecycles: vec![crate::model::PHASE_LOCKFILE.into()],
             declared_roots: false,
+            scopes: std::collections::BTreeMap::new(),
         }
     }
 }
@@ -594,6 +595,7 @@ mod schema_tests {
             prefix: Some("app".into()),
             lifecycles: vec![crate::model::PHASE_INSTALLED.into()],
             declared_roots: false,
+            scopes: std::collections::BTreeMap::new(),
             ..sample_sbom()
         };
         let document = |phases: &[&str]| Sbom {
@@ -601,6 +603,7 @@ mod schema_tests {
             document: Some("urn:uuid:aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee".into()),
             lifecycles: phases.iter().map(|p| p.to_string()).collect(),
             declared_roots: false,
+            scopes: std::collections::BTreeMap::new(),
             ..sample_sbom()
         };
         let cases = [

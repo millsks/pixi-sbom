@@ -188,6 +188,9 @@ struct Component {
     supplier: Option<Entity>,
     #[serde(skip_serializing_if = "Option::is_none")]
     purl: Option<String>,
+    /// `required` or `optional`, when the input says which (see `crate::scope`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scope: Option<&'static str>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     hashes: Vec<Hash>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -311,7 +314,14 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Bom {
             .chain(incomplete_properties(&sbom.incomplete))
             .collect(),
         },
-        components: sbom.packages.iter().map(component).collect(),
+        components: sbom
+            .packages
+            .iter()
+            .map(|package| Component {
+                scope: sbom.scopes.get(&package.id).map(|scope| scope.cyclonedx()),
+                ..component(package)
+            })
+            .collect(),
         dependencies,
         vulnerabilities: sbom.vulnerabilities.iter().map(|v| vulnerability(v, sbom)).collect(),
         citations,
@@ -508,6 +518,7 @@ fn tool_component(ctx: &WriteContext) -> Component {
         description: None,
         supplier: None,
         purl: None,
+        scope: None,
         hashes: vec![],
         licenses: vec![],
         external_references: vec![ExternalReference {
@@ -528,6 +539,7 @@ fn root_component(sbom: &Sbom) -> Component {
         description: None,
         supplier: None,
         purl: None,
+        scope: None,
         hashes: vec![],
         licenses: root.license.as_deref().and_then(license_choice).into_iter().collect(),
         external_references: project_references(root.homepage.as_deref(), root.repository.as_deref(), None),
@@ -606,6 +618,7 @@ fn component(package: &Package) -> Component {
         description: package.description.clone(),
         supplier: package.supplier.as_ref().map(entity),
         purl: Some(package.purl.clone()),
+        scope: None,
         hashes,
         licenses,
         // A package may have no known location: Poetry records file names and hashes, not URLs.

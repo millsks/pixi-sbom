@@ -96,6 +96,7 @@ pub mod pyversion;
 #[doc(hidden)]
 pub mod report;
 #[doc(hidden)]
+pub mod scope;
 pub mod scorecard;
 #[doc(hidden)]
 pub mod stdlib;

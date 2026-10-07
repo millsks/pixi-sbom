@@ -389,6 +389,10 @@ come from `[project]` (or the `name:` of `environment.yml`).
 When there is no manifest beside the lockfile, the document is written without declarations, as for a bare
 lockfile before.
 
+Groups and extras also decide what each package is there for: required at run time, for development (a group), or
+optional (an extra). CycloneDX writes it as the component's `scope`, SPDX as `DEV_DEPENDENCY_OF` and
+`OPTIONAL_DEPENDENCY_OF` relationships; see [Runtime, development and optional](output-format.md#runtime-development-and-optional).
+
 ## Python extras
 
 An extra pulls in more code: `requests[socks]` installs `pysocks` as well. Wherever the input says which extras

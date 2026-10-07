@@ -229,6 +229,20 @@ pub fn build_sbom(
         deps.dedup();
         package.dependencies = deps;
     }
+    // Categories other than `main` say what each package is for; all `main` says nothing.
+    let categories: Vec<Option<&str>> = entries.iter().map(|e| e.category.as_deref()).collect();
+    let scopes = if categories.iter().flatten().any(|c| *c != "main") {
+        entries
+            .iter()
+            .zip(&packages)
+            .filter_map(|(entry, package)| {
+                let category = entry.category.as_deref()?;
+                Some((package.id.clone(), crate::scope::Scope::from_category(category)))
+            })
+            .collect()
+    } else {
+        std::collections::BTreeMap::new()
+    };
     packages.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
     tracing::info!(platform = %platform, packages = packages.len(), "read conda-lock.yml");
 
@@ -246,6 +260,7 @@ pub fn build_sbom(
         incomplete: crate::model::Incomplete::default(),
         lifecycles: vec![crate::model::PHASE_LOCKFILE.into()],
         declared_roots: false,
+        scopes,
     })
 }
 
@@ -457,6 +472,27 @@ package:
             "conda-lock.yml",
         )
         .unwrap()
+    }
+
+    #[test]
+    fn categories_other_than_main_set_each_packages_scope() {
+        use crate::scope::Scope;
+        assert!(sbom("linux-64").scopes.is_empty(), "all main: nothing to tell apart");
+        let text = LOCK.replacen("category: main", "category: dev", 1);
+        let doc = build_sbom(
+            &parse(&text, "conda-lock.yml").unwrap(),
+            Some("linux-64"),
+            Root::default(),
+            "conda-lock.yml",
+        )
+        .unwrap();
+        let scopes: Vec<Scope> = doc
+            .packages
+            .iter()
+            .filter_map(|p| doc.scopes.get(&p.id).copied())
+            .collect();
+        assert!(scopes.contains(&Scope::Development));
+        assert!(scopes.contains(&Scope::Required));
     }
 
     fn package<'a>(sbom: &'a Sbom, name: &str) -> &'a Package {

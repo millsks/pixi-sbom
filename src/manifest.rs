@@ -64,6 +64,9 @@ pub struct Manifest {
     /// pixi's (a plain `pyproject.toml`, an `environment.yml`): its lockfile has no environments,
     /// and the readers describe all of its extras and groups.
     pub every_feature: bool,
+    /// The features that are the project's extras (`[project.optional-dependencies]`); every
+    /// other feature but `default` of such a manifest is a dependency group.
+    pub extras: BTreeSet<String>,
 }
 
 /// The `[workspace]` / `[project]` table of a pixi manifest.
@@ -273,6 +276,7 @@ pub fn read(lockfile: &Path) -> Manifest {
             manifest.environments = pyproject.environments;
         }
         manifest.every_feature = pyproject.every_feature;
+        manifest.extras = pyproject.extras;
     }
     // A conda environment locked outside pixi declares itself in environment.yml.
     if manifest.declared.is_empty()
@@ -406,6 +410,35 @@ impl Manifest {
         // A manifest that is not pixi's, beside a lockfile that is not pixi's, says what the
         // project asked for and nothing else does: the root depends on exactly that.
         sbom.declared_roots = self.every_feature && !matched.is_empty();
+        if sbom.declared_roots && sbom.scopes.is_empty() {
+            self.assign_scopes(sbom);
+        }
+    }
+
+    /// Scopes from what each feature declared: `default` is required, an extra optional, a
+    /// group development. Nothing is assigned when the manifest declares only `default`, since
+    /// then there is nothing to tell apart.
+    fn assign_scopes(&self, sbom: &mut Sbom) {
+        if self.declared.iter().all(|d| d.feature == DEFAULT_FEATURE) {
+            return;
+        }
+        let (mut required, mut optional, mut development) = (BTreeSet::new(), BTreeSet::new(), BTreeSet::new());
+        for package in &sbom.packages {
+            let Some(features) = package.properties.get(DECLARED_IN_PROPERTY) else {
+                continue;
+            };
+            for feature in features.split(',') {
+                let roots = if feature == DEFAULT_FEATURE {
+                    &mut required
+                } else if self.extras.contains(feature) {
+                    &mut optional
+                } else {
+                    &mut development
+                };
+                roots.insert(package.id.clone());
+            }
+        }
+        sbom.scopes = crate::scope::assign(&sbom.packages, &required, &optional, &development);
     }
 }
 
@@ -497,6 +530,9 @@ fn read_pyproject(path: &Path) -> Option<Manifest> {
             .extend(declared_requirement(requirement, DEFAULT_FEATURE));
     }
     for (extra, requirements) in &project.optional_dependencies {
+        if manifest.every_feature {
+            manifest.extras.insert(extra.clone());
+        }
         for requirement in requirements {
             manifest.declared.extend(declared_requirement(requirement, extra));
         }
@@ -592,6 +628,7 @@ fn read_environment_yml(path: &Path) -> Option<Manifest> {
         declared,
         environments: BTreeMap::new(),
         every_feature: true,
+        extras: BTreeSet::new(),
     })
 }
 
@@ -610,6 +647,7 @@ fn manifest_from_pixi(file: PixiToml) -> Manifest {
             .map(|(name, spec)| (name.clone(), spec.environment()))
             .collect(),
         every_feature: false,
+        extras: BTreeSet::new(),
     }
 }
 
@@ -872,6 +910,35 @@ celery = { version = "^5", extras = ["redis"] }
         );
         assert!(sbom.declared_roots);
         assert_eq!(crate::format::top_level_ids(&sbom), ["pkg:pypi/six@1.17.0"]);
+        assert_eq!(
+            sbom.scopes.get("pkg:pypi/six@1.17.0"),
+            Some(&crate::scope::Scope::Development),
+            "a group that is not an extra"
+        );
+
+        // Only `default` declared: nothing to tell apart, so no scopes.
+        let plain = Manifest {
+            declared: vec![Declared {
+                feature: DEFAULT_FEATURE.into(),
+                ..manifest.declared[0].clone()
+            }],
+            ..manifest.clone()
+        };
+        let mut sbom = crate::format::testing::sample_sbom();
+        plain.apply(&mut sbom);
+        assert!(sbom.declared_roots && sbom.scopes.is_empty());
+
+        // An extra is optional.
+        let extra = Manifest {
+            extras: ["test".to_string()].into(),
+            ..manifest.clone()
+        };
+        let mut sbom = crate::format::testing::sample_sbom();
+        extra.apply(&mut sbom);
+        assert_eq!(
+            sbom.scopes.get("pkg:pypi/six@1.17.0"),
+            Some(&crate::scope::Scope::Optional)
+        );
 
         // A pixi manifest keeps its environments: the group is not in the default environment.
         let pixi = Manifest {

@@ -100,6 +100,9 @@ struct Node {
     from: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     relationship_type: Option<&'static str>,
+    // LifecycleScopedRelationship
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scope: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     to: Option<Vec<String>>,
 
@@ -378,6 +381,7 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
         .collect();
     let mut elements: Vec<String> = Vec::new();
     let mut relationships: Vec<(String, &'static str, Vec<String>, String)> = Vec::new();
+    let mut dev_edges: Vec<(String, Vec<String>, String)> = Vec::new();
 
     let (root_id, mut root) = b.element("software_Package", "package-root");
     root.name = Some(sbom.root.name.clone());
@@ -474,28 +478,47 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
                 format!("{fragment}-license"),
             ));
         }
-        if !package.dependencies.is_empty() {
+        let (development, plain): (Vec<&String>, Vec<&String>) = package.dependencies.iter().partition(|dep| {
+            crate::scope::crossing(&sbom.scopes, Some(&package.id), dep) == Some(crate::scope::Scope::Development)
+        });
+        if !plain.is_empty() {
             relationships.push((
                 iri.clone(),
                 "dependsOn",
-                package
-                    .dependencies
-                    .iter()
-                    .map(|dep| iri_of[dep.as_str()].clone())
-                    .collect(),
+                plain.iter().map(|dep| iri_of[dep.as_str()].clone()).collect(),
                 format!("{fragment}-depends"),
             ));
+        }
+        if !development.is_empty() {
+            let to = development.iter().map(|dep| iri_of[dep.as_str()].clone()).collect();
+            dev_edges.push((iri.clone(), to, format!("{fragment}-depends-development")));
         }
         b.push(node);
         elements.push(iri);
     }
-    let top: Vec<String> = top_level_ids(sbom).into_iter().map(|id| iri_of[id].clone()).collect();
+    let (development, top): (Vec<&str>, Vec<&str>) = top_level_ids(sbom)
+        .into_iter()
+        .partition(|id| crate::scope::crossing(&sbom.scopes, None, id) == Some(crate::scope::Scope::Development));
     if !top.is_empty() {
+        let top = top.into_iter().map(|id| iri_of[id].clone()).collect();
         relationships.push((root_id.clone(), "dependsOn", top, "root-depends".into()));
+    }
+    if !development.is_empty() {
+        let to = development.into_iter().map(|id| iri_of[id].clone()).collect();
+        dev_edges.push((root_id.clone(), to, "root-depends-development".into()));
     }
     for (from, kind, to, fragment) in relationships {
         let id = b.relationship(&format!("relationship-{fragment}"), &from, kind, to);
         elements.push(id);
+    }
+    // What only development needs: the same edge, scoped to the development lifecycle.
+    for (from, to, fragment) in dev_edges {
+        let (_, mut node) = b.element("LifecycleScopedRelationship", &format!("relationship-{fragment}"));
+        node.from = Some(from);
+        node.relationship_type = Some("dependsOn");
+        node.to = Some(to);
+        node.scope = Some("development");
+        elements.push(b.push(node));
     }
 
     // The security profile. Before this, `--vulnerabilities` findings reached CycloneDX only and

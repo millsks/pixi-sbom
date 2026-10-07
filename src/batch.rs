@@ -171,6 +171,7 @@ pub fn union(documents: &[Sbom]) -> Sbom {
         incomplete: Incomplete::default(),
         lifecycles: Vec::new(),
         declared_roots: false,
+        scopes: std::collections::BTreeMap::new(),
     });
     union.environment = "<every environment>".to_string();
     union.platform = "<every platform>".to_string();
@@ -238,6 +239,7 @@ mod tests {
             incomplete: Incomplete::default(),
             lifecycles: vec![crate::model::PHASE_LOCKFILE.into()],
             declared_roots: false,
+            scopes: std::collections::BTreeMap::new(),
         }
     }
 

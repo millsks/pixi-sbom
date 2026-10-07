@@ -344,6 +344,29 @@ the usual example — is on the root where it belongs. The other half is the gra
 else depends on. Without a readable manifest (`--prefix`, a lockfile on its own) the heuristic is the whole answer,
 and nothing is marked direct.
 
+### Runtime, development and optional
+
+When the input tells what the project needs to run apart from what it needs for development or an extra, each
+format says so in its own field. Everything reachable from the default dependencies is required, shared packages
+included. What only a dependency group reaches is for development, and what only one of the project's extras
+reaches is optional; a package both reach counts as optional.
+
+| | CycloneDX | SPDX 2.3 | SPDX 3.0.1 |
+|---|---|---|---|
+| Required | `scope: required` | `DEPENDS_ON` | `dependsOn` |
+| Development | `scope: optional` | `<package> DEV_DEPENDENCY_OF <dependent>` | `LifecycleScopedRelationship`, `dependsOn`, `scope: development` |
+| Optional | `scope: optional` | `<package> OPTIONAL_DEPENDENCY_OF <dependent>` | `dependsOn` (3.0.1 has no optional scope) |
+
+The SPDX edges change only where the graph crosses from what is required into a group or extra, usually at the
+root: `pytest DEV_DEPENDENCY_OF my-app`. Inside a group the edges stay `DEPENDS_ON` (`pytest` depends on `pluggy`).
+`pixi:declared-in` still names the group or extra.
+
+The scopes come from the manifest beside a lockfile other than `pixi.lock`, when it declares dependency groups or
+extras (see [What a project without pixi declared](cli.md#what-a-project-without-pixi-declared)), and from the
+categories of a `conda-lock.yml` when there are others than `main` (`dev` is development, any other optional). A
+`pixi.lock` environment is already one selection of features, so its documents carry no scope, and neither does an
+input with nothing to tell apart.
+
 ## Vulnerabilities
 
 With `--vulnerabilities osv` the CycloneDX document carries a `vulnerabilities[]` array (1.6 and 1.7 alike) and an

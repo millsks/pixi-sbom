@@ -7523,3 +7523,102 @@ fn python_extras_say_what_was_asked_for_and_what_came_with_it() {
         "the pyproject.toml beside uv.lock was read: {uv}"
     );
 }
+
+#[test]
+fn dependency_groups_and_extras_set_the_scope_in_every_format() {
+    // #331: what only a dependency group needs is development, what only an extra needs is
+    // optional, and the rest, shared ones included, is required; each format says so its way.
+    let work = tempfile::tempdir().unwrap();
+    let project = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/projects/uv/01-django");
+    let document = |args: &[&str]| -> Value {
+        let output = pixi_sbom()
+            .current_dir(&project)
+            .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(["-p", "linux-64", "--output", "-"])
+            .args(args)
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        serde_json::from_slice(&output).unwrap()
+    };
+
+    let cdx = document(&[]);
+    assert_valid(&cyclonedx_validator(), &cdx);
+    let scope = |name: &str| {
+        cdx["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == name)
+            .unwrap_or_else(|| panic!("{name}"))["scope"]
+            .clone()
+    };
+    for name in ["django", "sqlparse", "asgiref", "argon2-cffi"] {
+        assert_eq!(scope(name), "required", "{name}");
+    }
+    for name in [
+        "pytest",
+        "pluggy",
+        "django-debug-toolbar",
+        "django-storages",
+        "factory-boy",
+    ] {
+        assert_eq!(scope(name), "optional", "{name}");
+    }
+
+    let spdx = document(&["--format", "spdx"]);
+    assert_valid(&spdx_validator(), &spdx);
+    let names: std::collections::BTreeMap<&str, &str> = spdx["packages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| (p["SPDXID"].as_str().unwrap(), p["name"].as_str().unwrap()))
+        .collect();
+    let edges: Vec<(&str, &str, &str)> = spdx["relationships"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|r| r["relationshipType"] != "DESCRIBES")
+        .map(|r| {
+            (
+                names[r["spdxElementId"].as_str().unwrap()],
+                r["relationshipType"].as_str().unwrap(),
+                names[r["relatedSpdxElement"].as_str().unwrap()],
+            )
+        })
+        .collect();
+    assert!(edges.contains(&("pytest-django", "DEV_DEPENDENCY_OF", "django-example")));
+    assert!(edges.contains(&("django-storages", "OPTIONAL_DEPENDENCY_OF", "django-example")));
+    assert!(edges.contains(&("django-example", "DEPENDS_ON", "django")));
+    assert!(
+        edges.contains(&("pytest-django", "DEPENDS_ON", "pytest")),
+        "inside the group the edge is plain"
+    );
+
+    let spdx3 = document(&["--format", "spdx", "--spec-version", "3.0"]);
+    assert_valid(&spdx3_validator(), &spdx3);
+    let scoped: Vec<&Value> = spdx3["@graph"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|n| n["type"] == "LifecycleScopedRelationship")
+        .collect();
+    assert_eq!(scoped.len(), 1, "{scoped:?}");
+    assert_eq!(scoped[0]["scope"], "development");
+    assert_eq!(scoped[0]["to"].as_array().unwrap().len(), 3);
+
+    // pixi.lock: an environment is already a selection of features, so no scope is written.
+    let multi = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/multi-env/pixi.lock");
+    let pixi = document(&["--lockfile", multi.to_str().unwrap(), "--environment", "alpha"]);
+    assert!(
+        pixi["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|c| c.get("scope").is_none())
+    );
+}

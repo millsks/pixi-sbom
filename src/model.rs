@@ -52,6 +52,9 @@ pub struct Sbom {
     /// also depends on every package nothing else does, which is how a lockfile with no manifest,
     /// or a pixi workspace, has always been described.
     pub declared_roots: bool,
+    /// What each package is there for, by id, when the input says (see [`crate::scope`]); empty
+    /// when it does not, and then the writers say nothing about it.
+    pub scopes: std::collections::BTreeMap<String, crate::scope::Scope>,
 }
 
 /// The CycloneDX lifecycle phase of a document made from a lockfile: resolved, nothing built.

@@ -116,17 +116,35 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
         relationship_type: "DESCRIBES",
         related_spdx_element: ROOT_ID.into(),
     }];
-    relationships.extend(top_level_ids(sbom).into_iter().map(|id| Relationship {
-        spdx_element_id: ROOT_ID.into(),
-        relationship_type: "DEPENDS_ON",
-        related_spdx_element: ids[id].clone(),
-    }));
+    // An edge into a development or optional package, from what is not, is written from the
+    // dependency's side, as SPDX 2.3 has it: `pytest DEV_DEPENDENCY_OF root`.
+    let edge = |from: Option<&str>, from_id: &str, to: &str| {
+        let kind = match crate::scope::crossing(&sbom.scopes, from, to) {
+            Some(crate::scope::Scope::Development) => "DEV_DEPENDENCY_OF",
+            Some(crate::scope::Scope::Optional) => "OPTIONAL_DEPENDENCY_OF",
+            Some(crate::scope::Scope::Required) | None => {
+                return Relationship {
+                    spdx_element_id: from_id.to_string(),
+                    relationship_type: "DEPENDS_ON",
+                    related_spdx_element: ids[to].clone(),
+                };
+            }
+        };
+        Relationship {
+            spdx_element_id: ids[to].clone(),
+            relationship_type: kind,
+            related_spdx_element: from_id.to_string(),
+        }
+    };
+    relationships.extend(top_level_ids(sbom).into_iter().map(|id| edge(None, ROOT_ID, id)));
     for package in &sbom.packages {
-        relationships.extend(package.dependencies.iter().map(|dep| Relationship {
-            spdx_element_id: ids[package.id.as_str()].clone(),
-            relationship_type: "DEPENDS_ON",
-            related_spdx_element: ids[dep.as_str()].clone(),
-        }));
+        let from = ids[package.id.as_str()].clone();
+        relationships.extend(
+            package
+                .dependencies
+                .iter()
+                .map(|dep| edge(Some(package.id.as_str()), &from, dep.as_str())),
+        );
     }
 
     let name = format!("{}-{}-{}", sbom.root.name, sbom.environment, sbom.platform);

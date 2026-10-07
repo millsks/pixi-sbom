@@ -119,6 +119,7 @@ pub fn read(path: &Path, root: Root, platform: Option<&str>) -> Result<Loaded, F
         incomplete: crate::model::Incomplete::default(),
         lifecycles: phases_of(&value),
         declared_roots: false,
+        scopes: std::collections::BTreeMap::new(),
     };
     sbom.packages.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
     Ok(Loaded { sbom, contents, format })
@@ -446,6 +447,7 @@ mod tests {
             prefix: Some("app".into()),
             lifecycles: vec![crate::model::PHASE_INSTALLED.into()],
             declared_roots: false,
+            scopes: std::collections::BTreeMap::new(),
             ..sample_sbom()
         };
         for (sbom, expected) in [(installed, "operations"), (sample_sbom(), "pre-build")] {
