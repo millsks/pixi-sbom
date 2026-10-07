@@ -191,10 +191,10 @@ passes anything through.
 `attest-subject`, `config`, `deny-license`, `diff-against`, `embedded-sboms`, `environment`,
 `extra-args`, `fail-on-diff`, `fail-on-kev`, `fail-on-policy`, `fail-on-scorecard`,
 `fail-on-severity`, `fail-on-vulnerabilities`, `fail-on-yanked`, `fetch-licenses`, `format`,
-`ignore-license`, `ignore-vuln`, `kev`, `license-texts`, `lockfile`, `output`, `platform`,
-`primary-purl`, `pypi-mapping`, `require-license`, `sarif-category`, `scan`, `scorecard`,
-`scorecard-min`, `spec-version`, `upload-artifact`, `upload-sarif`, `version`, `vex`, `vex-open`,
-`vulnerabilities`.
+`from-sbom`, `ignore-license`, `ignore-vuln`, `kev`, `license-texts`, `lockfile`, `output`,
+`platform`, `prefix`, `primary-purl`, `pypi-mapping`, `require-license`, `sarif-category`, `scan`,
+`scorecard`, `scorecard-min`, `spec-version`, `upload-artifact`, `upload-sarif`, `version`, `vex`,
+`vex-open`, `vulnerabilities`.
 
 **Outputs:** `attestation-url`, `diff-changed`, `document`, `output`, `policy-violated`, `sarif`,
 `version`, `vulnerabilities-found`.

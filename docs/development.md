@@ -237,6 +237,7 @@ release containing them exists; keep `action.yml` inputs and the CLI in step at 
 | Build | same three | `pixi run build` and `--version` smoke test |
 | Docs | ubuntu | `pixi run docs-build`: the site must build with `--strict` |
 | SBOM via action | all five release platforms | The repository's own action against its own lockfile; SARIF and the attestation from the linux-64 leg only. See [The GitHub Action](#the-github-action) |
+| Action on a uv project, without pixi | ubuntu-latest | The action on `examples/projects/uv/01-django/uv.lock` and on a venv built in the job (`prefix`), on a runner with no pixi; refuses `lockfile` with `prefix`. It runs the head binary, built by `action-head-binary` and placed where the action reuses an install, so it tests what the next release does rather than what the last one did |
 
 `.github/workflows/supply-chain.yml` runs that same dependency check on a schedule (Mondays, and on demand).
 The per-pull-request run cannot see an advisory published after a merge, and the weekly one is what catches it:

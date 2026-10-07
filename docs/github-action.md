@@ -23,11 +23,42 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 installs the binary of the release the tag points at. For a build that never changes underneath you, pin an exact
 release (`@v1.0.0`) or a commit sha and let Dependabot bump it.
 
+### Without pixi: uv, Poetry, PDM, pylock and venvs
+
+Nothing about the action needs pixi, so a project that does not use it needs nothing else on the runner. `lockfile`,
+`scan`, `prefix` and `from-sbom` say what to describe; give at most one (two at once fail the step).
+
+```yaml
+- uses: actions/checkout@v4
+# A uv project: the lockfile is found by the upward search, or named.
+- uses: millsks/pixi-sbom@v1
+  with:
+    lockfile: uv.lock
+    fetch-licenses: "true"
+    vulnerabilities: osv
+# What is actually installed: the venv this job built, checked against the lock.
+- run: uv sync --frozen
+- uses: millsks/pixi-sbom@v1
+  with:
+    prefix: .venv
+    output: sbom-installed
+    artifact-name: sbom-installed
+    diff-against: uv.lock
+    fail-on-diff: "true"
+```
+
+The second step documents the environment the job built and fails if it drifted from `uv.lock` (see
+[Does this venv still match its lock?](cli.md#does-this-venv-still-match-its-lock)). CI runs both shapes, on a uv
+project and a venv, on a runner with no pixi installed.
+
 | Input | Default | Meaning |
 |---|---|---|
 | `version` | the action's own tag (`@v1`: the newest 1.x.y), else the latest release | pixi-sbom version to run |
-| `lockfile`, `format`, `spec-version`, `environment`, `platform`, `all-environments`, `all-platforms` | as the CLI | Selection and format, see the options above |
-| `scan` | | Describe every pixi workspace under this directory instead of one lockfile; the documents land under `output` at the same relative path, so a monorepo job uploads one artifact holding all of them |
+| `lockfile` | upward search | The lockfile to describe: any kind pixi-sbom reads (`pixi.lock`, `uv.lock`, `pylock.toml`, `poetry.lock`, `pdm.lock`, `conda-lock.yml`, an explicit spec file). The action downloads its own binary, so pixi is not needed on the runner |
+| `format`, `spec-version`, `environment`, `platform`, `all-environments`, `all-platforms` | as the CLI | Selection and format, see the options above |
+| `scan` | | Describe every project under this directory, one document per directory with a lockfile of any supported kind, under `output` at the same relative path |
+| `prefix` | | Describe an installed environment instead: a conda or pixi environment, a venv, or a Python installation |
+| `from-sbom` | | Read an existing CycloneDX or SPDX document instead, and write it again with the other inputs applied |
 | `config` | | Configuration file; the `pyproject.toml` table or `pixi-sbom.toml` next to the lockfile are read by default, `none` reads nothing. `format` is always passed and wins over the file; the other inputs are passed only when set |
 | `output` | `sboms` | Output file (`*.json`, or `-` for the log) or directory; a single document lands in the directory as `sbom.cdx.json` / `sbom.spdx.json` |
 | `fetch-licenses`, `license-texts`, `embedded-sboms`, `pypi-mapping`, `primary-purl` | as the CLI | Enrichment |

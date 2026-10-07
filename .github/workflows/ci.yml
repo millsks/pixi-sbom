@@ -219,3 +219,96 @@ jobs:
           deny-license: "AGPL-3.0-only"
           require-license: "true"
           upload-artifact: "false"
+
+  # The action on a uv project and a venv, on a runner with no pixi: what a uv user's workflow
+  # looks like. Until a release reads uv.lock, the action cannot download a binary that does,
+  # so this builds the head binary here and puts it where the action keeps an install it has
+  # already made (the reuse path it takes when it runs twice in one job), under a version no
+  # release has. Everything after the download is the action exactly as a user runs it.
+  action-head-binary:
+    name: Build the binary for the action tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          environments: default
+          cache: true
+      - run: pixi run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: action-head-binary
+          path: target/release/pixi-sbom
+
+  action-uv:
+    name: Action on a uv project, without pixi
+    needs: action-head-binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No pixi on this runner
+        run: "! command -v pixi"
+      - name: Install the head binary where the action reuses an install
+        uses: actions/download-artifact@v4
+        with:
+          name: action-head-binary
+          path: ${{ runner.temp }}/pixi-sbom-install/pixi-sbom-v0.0.0-head-linux-64/bin
+      - run: chmod +x "$RUNNER_TEMP/pixi-sbom-install/pixi-sbom-v0.0.0-head-linux-64/bin/pixi-sbom"
+
+      - name: SBOM of a uv.lock
+        id: uv
+        uses: ./
+        with:
+          version: 0.0.0-head
+          lockfile: examples/projects/uv/01-django/uv.lock
+          platform: linux-64
+          output: sbom-uv
+          upload-artifact: "false"
+      - name: The document describes the uv project
+        env:
+          DOCUMENT: ${{ steps.uv.outputs.document }}
+        run: |
+          set -euo pipefail
+          test "$DOCUMENT" = sbom-uv/sbom.cdx.json
+          jq -e '.metadata.properties[] | select(.name == "pixi:lockfile") | .value == "uv.lock"' "$DOCUMENT"
+          jq -e '[.components[] | select(.name == "django")] | length == 1' "$DOCUMENT"
+          jq -e '.components | length >= 20' "$DOCUMENT"
+
+      - name: A venv built in this job
+        run: |
+          python3 -m venv venv
+          venv/bin/pip install --quiet requests==2.32.3
+      - name: SBOM of the venv
+        id: venv
+        uses: ./
+        with:
+          version: 0.0.0-head
+          prefix: venv
+          output: sbom-venv
+          upload-artifact: "false"
+      - name: The document describes the venv
+        env:
+          DOCUMENT: ${{ steps.venv.outputs.document }}
+        run: |
+          set -euo pipefail
+          jq -e '.metadata.properties[] | select(.name == "pixi:prefix") | .value == "venv"' "$DOCUMENT"
+          jq -e '[.components[] | select(.name == "requests" and .version == "2.32.3")] | length == 1' "$DOCUMENT"
+          # pip marks what was asked for by name (REQUESTED), and the root depends on that, not on
+          # urllib3 and the rest that came along. ensurepip may mark pip itself as well.
+          jq -e '[.dependencies[] | select(.ref == "root") | .dependsOn[]] | index("pkg:pypi/requests@2.32.3") != null' "$DOCUMENT"
+          jq -e '[.dependencies[] | select(.ref == "root") | .dependsOn[]] | all(startswith("pkg:pypi/urllib3@") | not)' "$DOCUMENT"
+
+      - name: Two sources at once are refused
+        id: both
+        continue-on-error: true
+        uses: ./
+        with:
+          version: 0.0.0-head
+          lockfile: examples/projects/uv/01-django/uv.lock
+          prefix: venv
+          upload-artifact: "false"
+      - name: It failed, as it should
+        if: steps.both.outcome != 'failure'
+        run: |
+          echo "::error::lockfile and prefix together should have failed"
+          exit 1

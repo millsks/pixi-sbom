@@ -15,13 +15,32 @@ inputs:
     required: false
     default: ""
   lockfile:
-    description: Path to pixi.lock. Defaults to searching upward from the working directory.
+    description: >-
+      Path to the lockfile to describe: any kind pixi-sbom reads (`pixi.lock`, `uv.lock`,
+      `pylock.toml`, `poetry.lock`, `pdm.lock`, `conda-lock.yml`, an explicit spec file). The
+      action downloads its own binary, so pixi is not needed on the runner. Defaults to searching
+      upward from the working directory.
     required: false
     default: ""
   scan:
     description: >-
-      Describe every pixi workspace under this directory: one document per `pixi.lock` found,
-      written under `output` at the same relative path. Cannot be combined with `lockfile`.
+      Describe every project under this directory: one document per directory with a lockfile
+      of any supported kind, written under `output` at the same relative path. Cannot be combined
+      with `lockfile`, `prefix` or `from-sbom`.
+    required: false
+    default: ""
+  prefix:
+    description: >-
+      Describe an installed environment instead of a lockfile: a conda or pixi environment, a
+      venv, or a Python installation (the directory holding `pyvenv.cfg`, `conda-meta/` or
+      `lib/`). Cannot be combined with `lockfile`, `scan` or `from-sbom`.
+    required: false
+    default: ""
+  from-sbom:
+    description: >-
+      Read an existing CycloneDX or SPDX document instead of a lockfile, and write it again with
+      everything else the action does (licenses, vulnerabilities, a policy). Cannot be combined
+      with `lockfile`, `scan` or `prefix`.
     required: false
     default: ""
   config:
@@ -297,6 +316,8 @@ runs:
       env:
         IN_LOCKFILE: ${{ inputs.lockfile }}
         IN_SCAN: ${{ inputs.scan }}
+        IN_PREFIX: ${{ inputs.prefix }}
+        IN_FROM_SBOM: ${{ inputs.from-sbom }}
         IN_CONFIG: ${{ inputs.config }}
         IN_FORMAT: ${{ inputs.format }}
         IN_SPEC_VERSION: ${{ inputs.spec-version }}
@@ -339,9 +360,21 @@ runs:
         done <<< "$IN_IGNORE_VULN"
         # ${arr[@]+"${arr[@]}"} keeps an empty array from tripping `set -u` on older bash.
         printf '%s\n' ${vuln[@]+"${vuln[@]}"} > "$RUNNER_TEMP/pixi-sbom-vuln-args"
+        # One input, as the CLI has it: say so here, in the inputs' own names, before running.
+        sources=()
+        [ -n "$IN_LOCKFILE" ] && sources+=(lockfile)
+        [ -n "$IN_SCAN" ] && sources+=(scan)
+        [ -n "$IN_PREFIX" ] && sources+=(prefix)
+        [ -n "$IN_FROM_SBOM" ] && sources+=(from-sbom)
+        if [ "${#sources[@]}" -gt 1 ]; then
+          echo "::error::the inputs ${sources[*]} cannot be combined: give one of lockfile, scan, prefix or from-sbom"
+          exit 2
+        fi
         args=()
         [ -n "$IN_LOCKFILE" ] && args+=(--lockfile "$IN_LOCKFILE")
         [ -n "$IN_SCAN" ] && args+=(--scan "$IN_SCAN")
+        [ -n "$IN_PREFIX" ] && args+=(--prefix "$IN_PREFIX")
+        [ -n "$IN_FROM_SBOM" ] && args+=(--from-sbom "$IN_FROM_SBOM")
         # `format` is always passed (the output file is named after it) and so wins over the
         # configuration file; the other inputs are passed only when set.
         case "$IN_CONFIG" in
@@ -424,6 +457,8 @@ runs:
       shell: bash
       env:
         IN_LOCKFILE: ${{ inputs.lockfile }}
+        IN_PREFIX: ${{ inputs.prefix }}
+        IN_FROM_SBOM: ${{ inputs.from-sbom }}
         IN_CONFIG: ${{ inputs.config }}
         IN_ENVIRONMENT: ${{ inputs.environment }}
         IN_ALL_ENVIRONMENTS: ${{ inputs.all-environments }}
@@ -435,6 +470,8 @@ runs:
         set -uo pipefail
         args=(--report diff --against "$IN_DIFF_AGAINST" --report-format markdown)
         [ -n "$IN_LOCKFILE" ] && args+=(--lockfile "$IN_LOCKFILE")
+        [ -n "$IN_PREFIX" ] && args+=(--prefix "$IN_PREFIX")
+        [ -n "$IN_FROM_SBOM" ] && args+=(--from-sbom "$IN_FROM_SBOM")
         case "$IN_CONFIG" in
           "") ;;
           none) args+=(--no-config) ;;
@@ -474,6 +511,8 @@ runs:
       env:
         IN_LOCKFILE: ${{ inputs.lockfile }}
         IN_SCAN: ${{ inputs.scan }}
+        IN_PREFIX: ${{ inputs.prefix }}
+        IN_FROM_SBOM: ${{ inputs.from-sbom }}
         IN_CONFIG: ${{ inputs.config }}
         IN_ENVIRONMENT: ${{ inputs.environment }}
         IN_ALL_ENVIRONMENTS: ${{ inputs.all-environments }}
@@ -486,6 +525,8 @@ runs:
         args=(--report vulnerabilities --report-format sarif)
         [ -n "$IN_LOCKFILE" ] && args+=(--lockfile "$IN_LOCKFILE")
         [ -n "$IN_SCAN" ] && args+=(--scan "$IN_SCAN")
+        [ -n "$IN_PREFIX" ] && args+=(--prefix "$IN_PREFIX")
+        [ -n "$IN_FROM_SBOM" ] && args+=(--from-sbom "$IN_FROM_SBOM")
         case "$IN_CONFIG" in
           "") ;;
           none) args+=(--no-config) ;;
