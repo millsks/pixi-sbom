@@ -319,9 +319,10 @@ pub struct Args {
     pub scan_depth: Option<usize>,
 
     /// Describe an installed environment instead of a lockfile: a `pixi global` environment
-    /// (~/.pixi/envs/<name>), a conda / mamba environment, or one inside a container. Conda
-    /// packages come from its conda-meta records, pip-installed ones from site-packages.
-    #[arg(long, value_name = "DIR", conflicts_with_all = ["environment", "all_environments", "all_platforms"])]
+    /// (~/.pixi/envs/<name>), a conda / mamba environment, a venv, or a Python installation
+    /// inside a container. Conda packages come from its conda-meta records, pip-installed ones
+    /// from site-packages. With `--against <lockfile>`, `--environment` names the lock's side.
+    #[arg(long, value_name = "DIR", conflicts_with_all = ["all_environments", "all_platforms"])]
     pub prefix: Option<PathBuf>,
 
     /// With --prefix: the name recorded for the described application (default: the

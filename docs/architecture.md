@@ -10,7 +10,7 @@ once no matter how many output formats exist.
                  │             │       └──▶ format/spdx3.rs     ──▶ sbom.spdx.json (3.0.1)
    purl.rs ──────┘             │
    manifest.rs ────────────────┘   (workspace metadata and declared dependencies)
-   prefix.rs ───── --prefix: conda-meta records + site-packages dist-info into the same model
+   prefix.rs ───── --prefix: conda-meta records + site-packages dist-info (conda env, venv, plain Python)
    fromsbom.rs ─── --from-sbom: an existing CycloneDX / SPDX document into the same model
    auditable.rs ── --prefix: the cargo auditable crate list inside installed binaries
    config.rs ───── pixi-sbom.toml / [tool.pixi-sbom]: fills what the command line did not say
@@ -48,7 +48,7 @@ once no matter how many output formats exist.
 | `discover.rs` | Locating `pixi.lock` (explicit path, upward search, or the `--scan` walk over a tree) and resolving output paths for single-, all-environment and per-workspace runs. Pure path logic; the only I/O is reading directories. | — |
 | `manifest.rs` | Reading `pixi.toml` or `pyproject.toml`: the workspace metadata into `model::Root`, and the dependency tables of every feature, which mark the packages an environment declared (`pixi:direct`). Never fails: problems are logged and the directory name is used. | toml, serde |
 | `lock.rs` | Parsing the lockfile with `rattler_lock`, selecting an environment and platform, converting each locked package into `model::Package`, and resolving the dependency graph. All lockfile-shape knowledge lives here. | rattler_lock, rattler_conda_types, purl.rs |
-| `prefix.rs` | `--prefix`: reads `conda-meta/*.json` into conda packages (purl, channel, hashes, license, `pixi:extracted-package-dir`) and `site-packages/*.dist-info` into PyPI packages (`METADATA` through `wheel::info_from_metadata`, `direct_url.json`, `INSTALLER` to skip conda-installed ones), then links dependencies with `lock::link_dependencies`. | serde_json, lock.rs, wheel.rs, purl.rs |
+| `prefix.rs` | `--prefix`: reads `conda-meta/*.json` into conda packages (purl, channel, hashes, license, `pixi:extracted-package-dir`) and `site-packages/*.dist-info` into PyPI packages (`METADATA` through `wheel::info_from_metadata`, `direct_url.json`, `INSTALLER` to skip conda-installed ones when there are conda records), detects the layout (`Layout`: conda, venv, plain Python) and a venv's interpreter and platform, then links dependencies with `lock::link_dependencies`. | serde_json, lock.rs, wheel.rs, purl.rs |
 | `purl.rs` | Building `pkg:conda` and `pkg:pypi` purls, PEP 503 name normalization, channel-name and archive-type helpers. | packageurl |
 | `mapping.rs` | PyPI identity enrichment: loading the conda-forge conda-to-PyPI mapping (offline file, or downloaded and cached), adding `pkg:pypi` purls to conda-forge packages the lockfile says nothing about, and optionally swapping the primary purl. Also owns the cache directory rule. | serde_json, purl.rs, http.rs |
 | `zipread.rs` | Reads single members out of zip archives (`.conda`, wheels) by range: the central directory from the tail, then the member. Works over HTTP ranges, `file://` URLs and paths. Hand-rolled: EOCD, zip64, stored and deflated members. | flate2, http.rs |

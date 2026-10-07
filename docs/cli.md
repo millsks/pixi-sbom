@@ -19,7 +19,7 @@ With no options this means:
 | Option | Default | Effect |
 |---|---|---|
 | `--lockfile <PATH>` | upward search from cwd | Lockfile to read: a `pixi.lock`, a `uv.lock` (see [Reading uv.lock](#reading-uvlock)), a `poetry.lock` (see [Reading poetry.lock](#reading-poetrylock)), a `pdm.lock` (see [Reading pdm.lock](#reading-pdmlock)), a `conda-lock.yml` (see [Reading conda-lock.yml](#reading-conda-lockyml)), an explicit conda spec file (see [Reading an explicit spec file](#reading-an-explicit-spec-file)), or a PEP 751 `pylock.toml` / `pylock.<name>.toml` (see [Reading pylock.toml](#reading-pylocktoml)). The file must exist; there is no fallback search when this is given. Without it, the nearest directory at or above the current one that has `pixi.lock`, `uv.lock`, `poetry.lock`, `pdm.lock` or `pylock.toml` is used, in that order of preference within a directory. |
-| `--prefix <DIR>` | | Describe an installed environment instead of a lockfile (see below). Cannot be combined with `--lockfile`, `--environment` or the `--all-*` flags. |
+| `--prefix <DIR>` | | Describe an installed environment instead of a lockfile: a conda environment, a venv or a Python installation (see below). Cannot be combined with `--lockfile` or the `--all-*` flags; `--environment` only names the lockfile side of `--against`. |
 | `--root-name <NAME>`, `--root-version <VERSION>` | directory name, none | With `--prefix`: what the described application is called. |
 | `--config <PATH>` | see below | Configuration file to read before the command line. |
 | `--no-config` | off | Ignore any configuration file. |
@@ -469,20 +469,40 @@ from a PyPI purl (licenses, vulnerabilities, outdated, scorecard, diff) runs unc
 ## Describing an installed environment
 
 Not every environment has a lockfile: `pixi global` environments, plain conda / mamba / micromamba environments,
-environments inside containers. `--prefix <DIR>` describes one of those from what it keeps on disk:
+venvs, environments inside containers. `--prefix <DIR>` describes one of those from what it keeps on disk:
 
 ```sh
 pixi sbom --prefix ~/.pixi/envs/pixi-sbom
 pixi sbom --prefix /opt/conda/envs/app --root-name app --root-version 1.4.0 --fetch-licenses
+pixi sbom --prefix .venv
+pixi sbom --prefix /usr/local --platform linux-64
+```
+
+What the directory holds decides how it is read:
+
+| Found in the directory | Read as |
+|---|---|
+| `conda-meta/` | A conda environment: its conda records, plus what pip installed beside them |
+| `pyvenv.cfg`, no `conda-meta/` | A venv (`python -m venv`, `uv venv`, `virtualenv`): its site-packages |
+| Neither, but `lib/python3.*/site-packages` or `Lib/site-packages` | A Python installation, such as a container's `/usr/local`: its site-packages |
+
+A directory with none of these is refused with `pixi_sbom::prefix::not_an_environment`, which lists what it looked
+for and what the directory holds instead:
+
+```text
+  × src is not an environment: looked for conda-meta/, pyvenv.cfg, lib/python3.*/site-packages and Lib/site-packages, found auditable.rs, auth.rs, ...
 ```
 
 Conda packages come from `conda-meta/<name>-<version>-<build>.json`, which carries the same facts as a lock record
 (name, version, build, channel, subdir, hashes, license, dependencies); pip-installed packages come from the
 `site-packages/*.dist-info` directories (`METADATA` for name, version, license, summary and requirements;
 `direct_url.json` for VCS installs), skipping the ones whose `INSTALLER` is `conda`, since their conda package is
-already listed. The dependency graph is resolved as for a lockfile. The environment is named after the directory,
-the platform is the one the records name (`--platform` overrides it), and the document records `pixi:prefix`
-instead of `pixi:lockfile`. `--fetch-licenses` reads the license files from the directory each record says the
+already listed. Without conda records nothing else lists what conda put there, so every `dist-info` is a package
+whatever its `INSTALLER` says. The dependency graph is resolved as for a lockfile. The environment is named after
+the directory, the platform is the one the records name, or for a venv the one most of its wheels were built for
+(their `WHEEL` tags), and `--platform` overrides it. The document records `pixi:prefix` instead of
+`pixi:lockfile`, and for a venv or a Python installation `pixi:python-version`: the Python from `pyvenv.cfg`, or
+the `pythonX.Y` of the site-packages path. `--fetch-licenses` reads the license files from the directory each record says the
 package was extracted to (`extracted_package_dir`, the package cache), so it needs no network on the machine
 that installed the environment. The default output is `sbom.cdx.json` in the working directory, and the
 configuration file is looked up there too.

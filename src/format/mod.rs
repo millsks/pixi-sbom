@@ -419,6 +419,7 @@ pub(crate) mod testing {
             lifecycles: vec![crate::model::PHASE_LOCKFILE.into()],
             declared_roots: false,
             scopes: std::collections::BTreeMap::new(),
+            interpreter: None,
         }
     }
 }
@@ -596,6 +597,7 @@ mod schema_tests {
             lifecycles: vec![crate::model::PHASE_INSTALLED.into()],
             declared_roots: false,
             scopes: std::collections::BTreeMap::new(),
+            interpreter: None,
             ..sample_sbom()
         };
         let document = |phases: &[&str]| Sbom {
@@ -604,6 +606,7 @@ mod schema_tests {
             lifecycles: phases.iter().map(|p| p.to_string()).collect(),
             declared_roots: false,
             scopes: std::collections::BTreeMap::new(),
+            interpreter: None,
             ..sample_sbom()
         };
         let cases = [

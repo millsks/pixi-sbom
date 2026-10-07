@@ -311,6 +311,11 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Bom {
             ]
             .into_iter()
             .chain((!sbom.excluded.is_empty()).then(|| property("pixi:excluded", &sbom.excluded.join(", "))))
+            .chain(
+                sbom.interpreter
+                    .as_deref()
+                    .map(|python| property("pixi:python-version", python)),
+            )
             .chain(incomplete_properties(&sbom.incomplete))
             .collect(),
         },

@@ -3985,7 +3985,9 @@ fn prefix_describes_an_installed_environment_in_every_format() {
         .arg(dir.path())
         .assert()
         .code(1)
-        .stderr(predicate::str::contains("not a conda environment"));
+        .stderr(predicate::str::contains(
+            "is not an environment: looked for conda-meta/",
+        ));
     pixi_sbom()
         .current_dir(dir.path())
         .arg("--prefix")
@@ -7621,4 +7623,98 @@ fn dependency_groups_and_extras_set_the_scope_in_every_format() {
             .iter()
             .all(|c| c.get("scope").is_none())
     );
+}
+
+#[test]
+fn prefix_reads_venvs_and_plain_site_packages() {
+    // #323: a venv (POSIX and Windows layouts) and a plain site-packages are environments too.
+    let work = tempfile::tempdir().unwrap();
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    let run = |args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(work.path())
+            .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(args);
+        command
+    };
+    for (dir, platform, python, count) in [
+        ("venv-posix", "linux-64", "3.12.7", 6),
+        ("venv-windows", "win-64", "3.13.5", 2),
+        ("site-packages", "osx-arm64", "3.11", 2),
+    ] {
+        let prefix = fixtures.join(dir);
+        let output = run(&["--prefix", prefix.to_str().unwrap(), "--output", "-"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        let doc: Value = serde_json::from_slice(&output).unwrap();
+        assert_valid(&cyclonedx_validator(), &doc);
+        assert_eq!(doc["components"].as_array().unwrap().len(), count, "{dir}");
+        let property = |name: &str| {
+            doc["metadata"]["properties"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|p| p["name"] == name)
+                .map(|p| p["value"].as_str().unwrap().to_string())
+        };
+        assert_eq!(property("pixi:platform").as_deref(), Some(platform), "{dir}");
+        assert_eq!(property("pixi:python-version").as_deref(), Some(python), "{dir}");
+
+        let output = run(&[
+            "--prefix",
+            prefix.to_str().unwrap(),
+            "--format",
+            "spdx",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+        let spdx: Value = serde_json::from_slice(&output).unwrap();
+        assert_valid(&spdx_validator(), &spdx);
+    }
+
+    // The drift check: a venv against the lockfile environment it was meant to match.
+    let venv = fixtures.join("venv-posix");
+    let lockfile = fixtures.join("with-pypi/pixi.lock");
+    let output = run(&["--prefix", venv.to_str().unwrap(), "-p", "linux-64", "-e", "web"])
+        .args(["--report", "diff", "--report-format", "json", "--against"])
+        .arg(&lockfile)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let report: Value = serde_json::from_slice(&output).unwrap();
+    let changed = &report["version_changed"][0];
+    assert_eq!(changed["name"], "urllib3");
+    assert_eq!(changed["old_version"], "2.8.0");
+    assert_eq!(changed["new_version"], "2.7.0");
+    let pip: Vec<&str> = report["pip_installed"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(pip, ["pip"]);
+
+    // --environment with --prefix means the lockfile side, so it needs --against.
+    run(&["--prefix", venv.to_str().unwrap(), "-e", "web"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("names the lockfile side of '--against'"));
+    run(&["--prefix", fixtures.join("explicit").to_str().unwrap()])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("is not an environment"))
+        .stderr(predicate::str::contains("found"));
 }

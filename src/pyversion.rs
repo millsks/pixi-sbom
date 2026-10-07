@@ -135,12 +135,14 @@ pub struct Row {
     pub ceiling: Option<PyVersion>,
 }
 
-/// The environment's own interpreter, from its `python` package.
+/// The environment's own interpreter, from its `python` package, or for a venv or plain
+/// installation the version it records.
 pub fn interpreter(sbom: &Sbom) -> Option<PyVersion> {
     sbom.packages
         .iter()
         .find(|p| p.name == "python" && p.kind != PackageKind::Pypi)
         .and_then(|p| p.version.as_deref())
+        .or(sbom.interpreter.as_deref())
         .and_then(PyVersion::parse)
 }
 

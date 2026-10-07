@@ -1173,6 +1173,13 @@ fn validate(args: &cli::Args) {
     if args.outdated_min.is_some() && args.report != Some(report::ReportKind::Outdated) {
         usage(ArgumentConflict, "'--outdated-min' only applies to '--report outdated'");
     }
+    if args.prefix.is_some() && args.against.is_none() && args.environment != "default" {
+        usage(
+            ArgumentConflict,
+            "'--environment' with '--prefix' names the lockfile side of '--against'; an installed environment has \
+             no environments of its own",
+        );
+    }
     match (args.report, &args.against) {
         (Some(report::ReportKind::Diff), None) => usage(
             MissingRequiredArgument,

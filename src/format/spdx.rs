@@ -265,6 +265,9 @@ fn root_package(sbom: &Sbom, extracted: &mut BTreeMap<String, ExtractedLicense>)
 pub(crate) fn root_comment(sbom: &Sbom) -> Option<String> {
     let incomplete = &sbom.incomplete;
     let mut lines = Vec::new();
+    if let Some(python) = &sbom.interpreter {
+        lines.push(format!("pixi:python-version={python}"));
+    }
     if !sbom.excluded.is_empty() {
         lines.push(format!("pixi:excluded={}", sbom.excluded.join(", ")));
     }

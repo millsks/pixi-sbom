@@ -59,7 +59,7 @@ pub enum Against {
 /// Decide what `--against` points at, and read what can be read once. A lockfile and a prefix
 /// are turned into the comparison side per document, because they answer per environment.
 pub fn resolve_against(path: &Path) -> Result<Against, DiffError> {
-    if path.join("conda-meta").is_dir() {
+    if path.is_dir() && crate::prefix::layout(path).is_some() {
         return Ok(Against::Prefix(path.to_path_buf()));
     }
     let text = std::fs::read_to_string(path).map_err(|source| DiffError::Read {

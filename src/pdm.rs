@@ -350,6 +350,7 @@ pub fn build_sbom(lock: &PdmLock, platform: Option<&str>, root: Root, lockfile_n
         lifecycles: vec![crate::model::PHASE_LOCKFILE.into()],
         declared_roots: false,
         scopes: std::collections::BTreeMap::new(),
+        interpreter: None,
     })
 }
 

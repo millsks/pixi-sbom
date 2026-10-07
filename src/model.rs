@@ -55,6 +55,9 @@ pub struct Sbom {
     /// What each package is there for, by id, when the input says (see [`crate::scope`]); empty
     /// when it does not, and then the writers say nothing about it.
     pub scopes: std::collections::BTreeMap<String, crate::scope::Scope>,
+    /// The Python an environment without conda records was made with (`3.12.7`), from its
+    /// `pyvenv.cfg` or site-packages path. A conda environment lists `python` as a package instead.
+    pub interpreter: Option<String>,
 }
 
 /// The CycloneDX lifecycle phase of a document made from a lockfile: resolved, nothing built.

@@ -273,7 +273,8 @@ With `--prefix` the document describes an installed environment instead of a loc
 says `prefix <name>`, and pip-installed packages are located by a `file://` URL of their `dist-info` directory (or
 `<vcs>+<url>` for direct VCS installs, with `pixi:direct-url` and `pixi:source-rev`), carry `pixi:installer`, and
 have no hashes. Conda packages carry `pixi:extracted-package-dir`, where the record says the archive was
-unpacked.
+unpacked. A venv or a plain Python installation has no `python` package to list, so the Python it was made with is
+the document's `pixi:python-version` (a CycloneDX metadata property, a line of the SPDX root package's comment).
 
 ### Documents derived from documents
 

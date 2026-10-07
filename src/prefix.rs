@@ -1,8 +1,9 @@
 //! `--prefix <DIR>`: describe an installed environment that has no lockfile: a `pixi global`
-//! environment, a conda / mamba / micromamba environment, an environment inside a container.
-//! Conda packages come from `conda-meta/<name>-<version>-<build>.json` (the same fields as a
-//! lock record), pip-installed packages from `site-packages/*.dist-info` (`METADATA`, and
-//! `INSTALLER` to leave the ones conda put there to their conda package).
+//! environment, a conda / mamba / micromamba environment, a venv, a Python installation inside a
+//! container. Conda packages come from `conda-meta/<name>-<version>-<build>.json` (the same
+//! fields as a lock record), pip-installed packages from `site-packages/*.dist-info` (`METADATA`,
+//! and in a conda environment `INSTALLER` to leave the ones conda put there to their conda
+//! package). The layout decides which: see [`Layout`].
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -17,12 +18,22 @@ use crate::wheel;
 /// Why a prefix could not be read.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum PrefixError {
-    #[error("{path} is not a conda environment: it has no conda-meta directory")]
+    #[error(
+        "{path} is not an environment: looked for conda-meta/, pyvenv.cfg, lib/python3.*/site-packages and \
+         Lib/site-packages, found {found}"
+    )]
     #[diagnostic(
         code(pixi_sbom::prefix::not_an_environment),
-        help("--prefix takes an environment directory such as ~/.pixi/envs/<name> or a conda env")
+        help(
+            "--prefix takes the top directory of an environment: a conda or pixi environment (~/.pixi/envs/<name>), \
+             a venv (the directory holding pyvenv.cfg), or a Python installation (the directory holding lib/)"
+        )
     )]
-    NotAnEnvironment { path: PathBuf },
+    NotAnEnvironment {
+        path: PathBuf,
+        /// What the directory holds instead, or why there is nothing to look at.
+        found: String,
+    },
     #[error("cannot read {path}: {source}")]
     #[diagnostic(
         code(pixi_sbom::prefix::read),
@@ -104,26 +115,137 @@ pub fn environment_name(prefix: &Path) -> String {
         .unwrap_or_else(|| "prefix".into())
 }
 
+/// What kind of environment a directory is, by what it holds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Layout {
+    /// `conda-meta/`: conda records, plus whatever pip installed beside them.
+    Conda,
+    /// `pyvenv.cfg` and no `conda-meta/`: a venv, whose packages are all in site-packages.
+    Venv,
+    /// Neither, but a site-packages directory: a plain Python installation.
+    Python,
+}
+
+/// The layout of the directory at `prefix`, or `None` when it is not an environment.
+pub fn layout(prefix: &Path) -> Option<Layout> {
+    if prefix.join("conda-meta").is_dir() {
+        Some(Layout::Conda)
+    } else if prefix.join("pyvenv.cfg").is_file() {
+        Some(Layout::Venv)
+    } else if site_packages(prefix).iter().any(|dir| dir.is_dir()) {
+        Some(Layout::Python)
+    } else {
+        None
+    }
+}
+
+/// What a directory that is not an environment holds, for the error.
+fn found(prefix: &Path) -> String {
+    let Ok(entries) = std::fs::read_dir(prefix) else {
+        return if prefix.exists() {
+            "a file, not a directory".into()
+        } else {
+            "nothing: it does not exist".into()
+        };
+    };
+    let mut names: Vec<String> = entries
+        .flatten()
+        .map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if e.path().is_dir() { format!("{name}/") } else { name }
+        })
+        .collect();
+    names.sort();
+    match names.len() {
+        0 => "an empty directory".into(),
+        n if n > 8 => format!("{} and {} more", names[..8].join(", "), n - 8),
+        _ => names.join(", "),
+    }
+}
+
+/// The Python version an environment without conda records was made with: `version` or
+/// `version_info` in `pyvenv.cfg`, else the `pythonX.Y` of its site-packages path.
+fn interpreter(prefix: &Path) -> Option<String> {
+    let config = std::fs::read_to_string(prefix.join("pyvenv.cfg")).unwrap_or_default();
+    let from_config = config.lines().find_map(|line| {
+        let (key, value) = line.split_once('=')?;
+        matches!(key.trim(), "version" | "version_info").then(|| {
+            // `3.13.5.final.0` from uv: the release, without the level and serial.
+            value.trim().split('.').take(3).collect::<Vec<_>>().join(".")
+        })
+    });
+    from_config.filter(|v| !v.is_empty()).or_else(|| {
+        let mut versions: Vec<String> = std::fs::read_dir(prefix.join("lib"))
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter(|e| e.path().join("site-packages").is_dir())
+            .filter_map(|e| e.file_name().to_str()?.strip_prefix("python").map(str::to_string))
+            .collect();
+        versions.sort();
+        versions.pop()
+    })
+}
+
+/// The conda platform a wheel's platform tag was built for, when it names one.
+fn tag_platform(tag: &str) -> Option<&'static str> {
+    let platform = tag.rsplit('-').next()?;
+    let arm = platform.contains("aarch64") || platform.contains("arm64");
+    if platform.starts_with("manylinux") || platform.starts_with("musllinux") || platform.starts_with("linux") {
+        Some(if arm { "linux-aarch64" } else { "linux-64" })
+    } else if platform.starts_with("macosx") {
+        // A universal2 wheel runs on both; it says nothing.
+        (!platform.contains("universal")).then_some(if arm { "osx-arm64" } else { "osx-64" })
+    } else if platform.starts_with("win") {
+        Some(if arm { "win-arm64" } else { "win-64" })
+    } else {
+        None
+    }
+}
+
+/// The platform the installed wheels were built for, by majority of their `WHEEL` tags.
+fn wheel_platform(dist_infos: &[PathBuf]) -> Option<String> {
+    let mut counts: BTreeMap<&'static str, usize> = BTreeMap::new();
+    for dist_info in dist_infos {
+        let text = std::fs::read_to_string(dist_info.join("WHEEL")).unwrap_or_default();
+        let platforms: std::collections::BTreeSet<&'static str> = text
+            .lines()
+            .filter_map(|line| line.strip_prefix("Tag:"))
+            .filter_map(|tag| tag_platform(tag.trim()))
+            .collect();
+        for platform in platforms {
+            *counts.entry(platform).or_default() += 1;
+        }
+    }
+    counts.into_iter().max_by_key(|(_, n)| *n).map(|(p, _)| p.to_string())
+}
+
 /// Read the environment at `prefix` into a model. `platform` overrides the one the records
 /// name.
 pub fn build_sbom(prefix: &Path, root: Root, platform: Option<&str>) -> Result<Sbom, PrefixError> {
-    let meta = prefix.join("conda-meta");
-    if !meta.is_dir() {
+    let Some(layout) = layout(prefix) else {
         return Err(PrefixError::NotAnEnvironment {
             path: prefix.to_path_buf(),
+            found: found(prefix),
         });
-    }
+    };
     let mut packages = Vec::new();
     let mut declared = Vec::new();
     let mut subdirs: BTreeMap<String, usize> = BTreeMap::new();
-    let mut entries: Vec<PathBuf> = std::fs::read_dir(&meta)
-        .map_err(|source| PrefixError::Read {
-            path: meta.clone(),
-            source,
-        })?
-        .filter_map(|e| e.ok().map(|e| e.path()))
-        .filter(|p| p.extension().is_some_and(|e| e == "json"))
-        .collect();
+    let meta = prefix.join("conda-meta");
+    let records: Vec<PathBuf> = if layout == Layout::Conda {
+        std::fs::read_dir(&meta)
+            .map_err(|source| PrefixError::Read {
+                path: meta.clone(),
+                source,
+            })?
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|e| e == "json"))
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let mut entries = records;
     entries.sort();
     for path in entries {
         let text = std::fs::read_to_string(&path).map_err(|source| PrefixError::Read {
@@ -141,8 +263,10 @@ pub fn build_sbom(prefix: &Path, root: Root, platform: Option<&str>) -> Result<S
         declared.push(DeclaredDeps::Conda(record.depends));
     }
 
-    for dist_info in dist_infos(prefix) {
-        let Some((package, requires)) = pypi_package(&dist_info)? else {
+    let dist_infos = dist_infos(prefix);
+    for dist_info in &dist_infos {
+        // Without conda records, nothing else lists what conda installed: every dist-info counts.
+        let Some((package, requires)) = pypi_package(dist_info, layout == Layout::Conda)? else {
             continue;
         };
         packages.push(package);
@@ -158,6 +282,14 @@ pub fn build_sbom(prefix: &Path, root: Root, platform: Option<&str>) -> Result<S
                 .into_iter()
                 .max_by_key(|(_, count)| *count)
                 .map(|(subdir, _)| subdir)
+        })
+        .or_else(|| wheel_platform(&dist_infos))
+        .or_else(|| {
+            prefix
+                .join("Lib")
+                .join("site-packages")
+                .is_dir()
+                .then(|| "win-64".to_string())
         })
         .or_else(|| rattler_conda_types::Platform::current().map(|p| p.to_string()))
         .unwrap_or_else(|| "unknown".into());
@@ -176,6 +308,11 @@ pub fn build_sbom(prefix: &Path, root: Root, platform: Option<&str>) -> Result<S
         lifecycles: vec![crate::model::PHASE_INSTALLED.into()],
         declared_roots: false,
         scopes: std::collections::BTreeMap::new(),
+        interpreter: if layout == Layout::Conda {
+            None
+        } else {
+            interpreter(prefix)
+        },
     })
 }
 
@@ -277,17 +414,8 @@ fn conda_package(record: &Record) -> Result<Package, PrefixError> {
 /// Every `*.dist-info` directory under the environment's site-packages, whichever layout the
 /// platform uses.
 pub fn dist_infos(prefix: &Path) -> Vec<PathBuf> {
-    let mut roots = vec![prefix.join("Lib").join("site-packages")];
-    if let Ok(lib) = std::fs::read_dir(prefix.join("lib")) {
-        for entry in lib.flatten() {
-            let name = entry.file_name().to_string_lossy().into_owned();
-            if name.starts_with("python") {
-                roots.push(entry.path().join("site-packages"));
-            }
-        }
-    }
     let mut found = Vec::new();
-    for root in roots {
+    for root in site_packages(prefix) {
         let Ok(entries) = std::fs::read_dir(&root) else {
             continue;
         };
@@ -302,11 +430,27 @@ pub fn dist_infos(prefix: &Path) -> Vec<PathBuf> {
     found
 }
 
-/// A pip-installed package from its `dist-info`; `None` when conda installed it (its conda
-/// package is already listed) or the metadata is unusable.
-fn pypi_package(dist_info: &Path) -> Result<Option<(Package, Vec<String>)>, PrefixError> {
+/// The site-packages directories an environment may have, whichever layout the platform uses:
+/// `Lib/site-packages` on Windows, `lib/python3.X/site-packages` elsewhere.
+fn site_packages(prefix: &Path) -> Vec<PathBuf> {
+    let mut roots = vec![prefix.join("Lib").join("site-packages")];
+    if let Ok(lib) = std::fs::read_dir(prefix.join("lib")) {
+        for entry in lib.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if name.starts_with("python") {
+                roots.push(entry.path().join("site-packages"));
+            }
+        }
+    }
+    roots
+}
+
+/// A pip-installed package from its `dist-info`; `None` when the metadata is unusable, or when
+/// `conda_records` lists what conda installed and conda installed this (its conda package is
+/// already listed).
+fn pypi_package(dist_info: &Path, conda_records: bool) -> Result<Option<(Package, Vec<String>)>, PrefixError> {
     let installer = std::fs::read_to_string(dist_info.join("INSTALLER")).unwrap_or_default();
-    if installer.trim().eq_ignore_ascii_case("conda") {
+    if conda_records && installer.trim().eq_ignore_ascii_case("conda") {
         return Ok(None);
     }
     let metadata = match std::fs::read_to_string(dist_info.join("METADATA")) {
@@ -419,6 +563,7 @@ mod tests {
         for err in [
             PrefixError::NotAnEnvironment {
                 path: PathBuf::from("/opt/somewhere"),
+                found: "README.md, src/".into(),
             },
             PrefixError::Read {
                 path: PathBuf::from("/opt/env/conda-meta"),
@@ -513,6 +658,77 @@ mod tests {
             build_sbom(dir.path(), Root::default(), None).unwrap_err(),
             PrefixError::Record { .. }
         ));
+    }
+
+    fn fixtures(name: &str) -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(name)
+    }
+
+    #[test]
+    fn venvs_and_plain_installations_are_their_site_packages() {
+        assert_eq!(layout(&fixture()), Some(Layout::Conda));
+        assert_eq!(layout(&fixtures("venv-posix")), Some(Layout::Venv));
+        assert_eq!(layout(&fixtures("venv-windows")), Some(Layout::Venv));
+        assert_eq!(layout(&fixtures("site-packages")), Some(Layout::Python));
+
+        let posix = build_sbom(&fixtures("venv-posix"), Root::default(), None).unwrap();
+        assert_eq!(posix.packages.len(), 6);
+        assert_eq!(posix.interpreter.as_deref(), Some("3.12.7"));
+        assert_eq!(posix.platform, "linux-64", "from charset_normalizer's manylinux tag");
+        let requests = posix.packages.iter().find(|p| p.name == "requests").unwrap();
+        assert_eq!(requests.dependencies.len(), 4, "no python package to hang off");
+
+        let windows = build_sbom(&fixtures("venv-windows"), Root::default(), None).unwrap();
+        assert_eq!(windows.interpreter.as_deref(), Some("3.13.5"), "uv's version_info");
+        assert_eq!(windows.platform, "win-64");
+
+        let plain = build_sbom(&fixtures("site-packages"), Root::default(), None).unwrap();
+        let names: Vec<&str> = plain.packages.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(
+            names,
+            ["numpy", "six"],
+            "INSTALLER conda decides nothing without conda records"
+        );
+        assert_eq!(
+            plain.interpreter.as_deref(),
+            Some("3.11"),
+            "from the site-packages path"
+        );
+        assert_eq!(plain.platform, "osx-arm64");
+
+        let conda = build_sbom(&fixture(), Root::default(), None).unwrap();
+        assert_eq!(conda.interpreter, None, "a conda environment lists python itself");
+    }
+
+    #[test]
+    fn wheel_tags_name_platforms() {
+        assert_eq!(
+            tag_platform("cp312-cp312-manylinux_2_17_aarch64"),
+            Some("linux-aarch64")
+        );
+        assert_eq!(tag_platform("cp312-cp312-musllinux_1_2_x86_64"), Some("linux-64"));
+        assert_eq!(tag_platform("cp312-cp312-macosx_11_0_x86_64"), Some("osx-64"));
+        assert_eq!(tag_platform("cp312-cp312-macosx_10_13_universal2"), None);
+        assert_eq!(tag_platform("cp312-cp312-win_arm64"), Some("win-arm64"));
+        assert_eq!(tag_platform("py3-none-any"), None);
+        assert_eq!(wheel_platform(&[]), None);
+    }
+
+    #[test]
+    fn not_an_environment_says_what_it_found() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(found(dir.path()), "an empty directory");
+        assert_eq!(found(&dir.path().join("missing")), "nothing: it does not exist");
+        std::fs::write(dir.path().join("README.md"), "").unwrap();
+        assert_eq!(found(&dir.path().join("README.md")), "a file, not a directory");
+        std::fs::create_dir(dir.path().join("src")).unwrap();
+        assert_eq!(found(dir.path()), "README.md, src/");
+        for i in 0..9 {
+            std::fs::write(dir.path().join(format!("f{i}")), "").unwrap();
+        }
+        assert!(found(dir.path()).ends_with("and 3 more"));
+        let err = build_sbom(&dir.path().join("src"), Root::default(), None).unwrap_err();
+        assert!(err.to_string().contains("found an empty directory"), "{err}");
     }
 
     #[test]
