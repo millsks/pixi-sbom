@@ -550,6 +550,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#values-with-a-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Values with a structure
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -935,6 +946,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#values-with-a-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Values with a structure
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1128,6 +1150,12 @@ would be a major version with its own notice.</p>
 </tr>
 </tbody>
 </table>
+<h3 id="values-with-a-structure">Values with a structure<a class="headerlink" href="#values-with-a-structure" title="Permanent link">&para;</a></h3>
+<p><code>--ignore-vuln</code> (and the <code>ignore-vuln</code> config key and action input) takes <code>ID</code>, <code>ID:TEXT</code>,
+<code>ID:STATE:TEXT</code> or <code>ID:not_affected:JUSTIFICATION:TEXT</code>. <code>STATE</code> is a CycloneDX impact-analysis state and
+<code>JUSTIFICATION</code> a CycloneDX impact-analysis justification; each segment is read as one only when it names a
+known value, otherwise it is text. Every form keeps its meaning through 1.x; a new segment may be added only in
+the same way, recognised by a fixed vocabulary, so an existing entry never changes meaning.</p>
 <h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

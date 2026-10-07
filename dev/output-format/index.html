@@ -2040,7 +2040,7 @@ has nowhere to put them</strong> and says so on stderr, pointing at <code>--spec
 </tr>
 <tr>
 <td><code>analysis</code></td>
-<td>Only for findings accepted with <code>--ignore-vuln</code>: <code>{ state, detail }</code>, the CycloneDX impact-analysis (VEX) block</td>
+<td>Only for findings accepted with <code>--ignore-vuln</code>: <code>{ state, justification, detail }</code>, the CycloneDX impact-analysis (VEX) block. <code>justification</code> only when one was given after <code>not_affected</code>.</td>
 </tr>
 <tr>
 <td><code>properties[]</code></td>
@@ -2108,16 +2108,45 @@ profile.</p>
 </tr>
 <tr>
 <td><code>security_VexNotAffectedVulnAssessmentRelationship</code></td>
-<td>For a finding accepted with <code>--ignore-vuln</code> in the <code>not_affected</code> state, carrying your reason as <code>security_impactStatement</code>. The other states CycloneDX accepts have no SPDX class and stay CycloneDX-only.</td>
+<td>For a finding accepted with <code>--ignore-vuln</code> in the <code>not_affected</code> state, carrying your text as <code>security_impactStatement</code> and, where it has an SPDX equivalent, your justification as <code>security_justificationType</code>. The other states CycloneDX accepts have no SPDX class and stay CycloneDX-only.</td>
 </tr>
 </tbody>
 </table>
 <p><strong>Timestamps are rewritten.</strong> SPDX 3 pins these fields to exactly <code>YYYY-MM-DDThh:mm:ssZ</code> — no fractional seconds, no
 numeric offset — while OSV records carry nanoseconds (<code>2026-07-08T06:00:54.217433740Z</code>). Values are converted to UTC
 second precision, and one that cannot be parsed is omitted rather than guessed at.</p>
-<p><code>security_justificationType</code> is deliberately never set. Its five permitted values are a fixed vocabulary and
-<code>--ignore-vuln</code> takes free text, so the text goes in the impact statement instead of being forced into a category
-nobody chose.</p>
+<p><code>security_justificationType</code> is set only from a justification given on <code>--ignore-vuln</code>, never guessed from the
+text, and only where one of SPDX's five values means the same thing:</p>
+<table>
+<thead>
+<tr>
+<th><code>--ignore-vuln</code> justification</th>
+<th><code>security_justificationType</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>code_not_present</code></td>
+<td><code>vulnerableCodeNotPresent</code></td>
+</tr>
+<tr>
+<td><code>code_not_reachable</code></td>
+<td><code>vulnerableCodeNotInExecutePath</code></td>
+</tr>
+<tr>
+<td><code>protected_by_mitigating_control</code></td>
+<td><code>inlineMitigationsAlreadyExist</code></td>
+</tr>
+<tr>
+<td><code>protected_at_runtime</code>, <code>protected_at_perimeter</code></td>
+<td><code>vulnerableCodeCannotBeControlledByAdversary</code></td>
+</tr>
+<tr>
+<td>the others</td>
+<td>not set; the text stays in <code>security_impactStatement</code></td>
+</tr>
+</tbody>
+</table>
 <h2 id="spdx-301">SPDX 3.0.1<a class="headerlink" href="#spdx-301" title="Permanent link">&para;</a></h2>
 <p><code>--format spdx --spec-version 3.0</code> writes the SPDX 3.0.1 JSON-LD serialization: a <code>@context</code> of
 <code>https://spdx.org/rdf/3.0.1/spdx-context.jsonld</code> and a <code>@graph</code> of typed elements, each with an IRI <code>spdxId</code> under

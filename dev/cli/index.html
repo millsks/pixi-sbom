@@ -1923,7 +1923,7 @@
 <tr>
 <td><code>--ignore-vuln &lt;ID[:STATE][:TEXT]&gt;</code></td>
 <td></td>
-<td>Repeatable, with <code>--vulnerabilities</code>. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX <code>analysis</code> block (<code>state</code> defaults to <code>not_affected</code>; <code>TEXT</code> is the justification), is excluded from <code>--fail-on-severity</code> and listed separately in the report.</td>
+<td>Repeatable, with <code>--vulnerabilities</code>. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX <code>analysis</code> block (<code>state</code> defaults to <code>not_affected</code>; <code>TEXT</code> is the justification, and <code>not_affected</code> may be followed by a machine-readable one, see below), is excluded from <code>--fail-on-severity</code> and listed separately in the report.</td>
 </tr>
 <tr>
 <td><code>--vex &lt;PATH&gt;</code></td>
@@ -2409,12 +2409,21 @@ still produced, the open findings at or above the level are listed on stderr, an
 <a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--fail-on-severity<span class="w"> </span>high<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">  </span>--ignore-vuln<span class="w"> </span><span class="s2">"GHSA-2xpw-w6gg-jr37:streaming API is not used"</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">  </span>--ignore-vuln<span class="w"> </span><span class="s2">"CVE-2023-43804:false_positive:only reachable through a removed code path"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">  </span>--ignore-vuln<span class="w"> </span>GHSA-qccp-gfcp-xxvc:in_triage
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">  </span>--ignore-vuln<span class="w"> </span><span class="s2">"GHSA-34jh-p97f-mpxf:not_affected:code_not_reachable:only the docs build imports it"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">  </span>--ignore-vuln<span class="w"> </span>GHSA-qccp-gfcp-xxvc:in_triage
 </code></pre></div>
 <p>An entry is <code>ID</code>, <code>ID:TEXT</code> or <code>ID:STATE:TEXT</code>. <code>ID</code> matches the record id or any alias, case-insensitively.
 <code>STATE</code> is one of the CycloneDX impact-analysis states (<code>not_affected</code>, <code>false_positive</code>, <code>in_triage</code>,
 <code>resolved</code>, <code>resolved_with_pedigree</code>, <code>exploitable</code>); a second segment that is not a state is taken as the
-text, so <code>ID:see ticket: ABC-12</code> keeps the whole text. An id that matches nothing is logged at debug level and
+text, so <code>ID:see ticket: ABC-12</code> keeps the whole text.</p>
+<p>After <code>not_affected</code>, the next segment may be a machine-readable justification, <code>ID:not_affected:JUSTIFICATION:TEXT</code>,
+which is what VEX consumers filter and audit on and what CISA's minimum VEX requirements ask of every
+<code>not_affected</code> claim. It is one of CycloneDX's <code>code_not_present</code>, <code>code_not_reachable</code>, <code>requires_configuration</code>,
+<code>requires_dependency</code>, <code>requires_environment</code>, <code>protected_by_compiler</code>, <code>protected_at_runtime</code>,
+<code>protected_at_perimeter</code> and <code>protected_by_mitigating_control</code>, written to <code>analysis.justification</code>. As with the
+state, a word that is not one of these stays part of the text, and only an explicit <code>not_affected</code> is followed by
+a justification: <code>ID:code_not_reachable:...</code> is text, as it always was. A justification after any other state is
+a usage error, since it would explain a claim nobody made. An id that matches nothing is logged at debug level and
 otherwise ignored, so a list of accepted findings can be kept across upgrades. Findings of unknown severity
 (records without a rating) never trip the gate; the report shows them so they can be assessed. When both the
 license policy and the vulnerability gate fail, both lists are printed and the exit code is 3.</p>
