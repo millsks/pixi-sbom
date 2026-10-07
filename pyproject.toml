@@ -1,0 +1,36 @@
+# Packaging for PyPI only: the release workflow builds the pixi-sbom binary into platform wheels
+# with maturin (`bindings = "bin"`), so `uvx pixi-sbom` and `pip install pixi-sbom` work without
+# pixi. There is no Python code; the version comes from Cargo.toml. The pixi workspace is
+# pixi.toml.
+[build-system]
+requires = ["maturin>=1.15,<2"]
+build-backend = "maturin"
+
+[project]
+name = "pixi-sbom"
+description = "Generate a CycloneDX or SPDX SBOM from a lockfile (pixi, uv, pylock, Poetry, PDM, conda-lock) or an installed environment"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.8"
+dynamic = ["version"]
+keywords = ["sbom", "cyclonedx", "spdx", "pixi", "conda", "uv", "supply-chain"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Rust",
+  "Topic :: Security",
+  "Topic :: Software Development :: Build Tools",
+]
+
+[project.urls]
+Homepage = "https://github.com/millsks/pixi-sbom"
+Documentation = "https://millsks.github.io/pixi-sbom/latest/"
+Changelog = "https://github.com/millsks/pixi-sbom/blob/main/CHANGELOG.md"
+Issues = "https://github.com/millsks/pixi-sbom/issues"
+
+[tool.maturin]
+bindings = "bin"

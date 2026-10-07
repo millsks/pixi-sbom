@@ -10,6 +10,7 @@ runs it when you type `pixi <name>`. There is no plugin registration; installing
 |---|---|
 | pixi global (recommended) | `pixi global install pixi-sbom` |
 | Prebuilt binary | Download `pixi-sbom-<version>-<platform>.tar.gz` (or `.zip` on Windows) from the [releases page](https://github.com/millsks/pixi-sbom/releases), check its provenance (below), and put `pixi-sbom` on your `PATH` |
+| PyPI | `uvx pixi-sbom` runs it without installing; `uv tool install pixi-sbom` or `pip install pixi-sbom` installs it. The wheels hold the same binary as the release archives (no Python code), for Linux (glibc and musl) x86_64/aarch64, macOS x86_64/arm64 and Windows x86_64, from 1.7.0 on |
 | cargo binstall | `cargo binstall pixi-sbom` downloads the release binary for your platform from GitHub (no compiler needed); `cargo install pixi-sbom` builds it from crates.io instead |
 | From source | `pixi run build` in a clone, then copy `target/release/pixi-sbom` to `~/.pixi/bin/` |
 
@@ -35,6 +36,10 @@ built by this repository's release workflow, from a named commit, in a named wor
 ```sh
 gh attestation verify pixi-sbom-<version>-linux-64.tar.gz --repo millsks/pixi-sbom
 ```
+
+The PyPI wheels are attested the same way, from 1.7.0 on: `gh attestation verify pixi_sbom-<version>-py3-none-<platform>.whl
+--repo millsks/pixi-sbom` checks a downloaded wheel (`pip download pixi-sbom --no-deps` fetches one), and PyPI shows
+its own publish attestation beside each file.
 
 ```console
 Loaded digest sha256:... for file://pixi-sbom-<version>-linux-64.tar.gz

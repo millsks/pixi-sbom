@@ -287,3 +287,113 @@ jobs:
     with:
       tag: ${{ needs.tag.outputs.tag }}
     secrets: inherit
+
+  # ---------------------------------------------------------------------------
+  # The same binary as platform wheels for PyPI (maturin, `bindings = "bin"`), so `uvx pixi-sbom`
+  # and `pip install pixi-sbom` work for projects that do not use pixi. Built from the tagged
+  # commit with the toolchain the archives use, and attested like them.
+  # ---------------------------------------------------------------------------
+  wheels:
+    name: Wheel (${{ matrix.platform }})
+    needs: tag
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, platform: manylinux-x86_64, target: x86_64-unknown-linux-gnu, manylinux: auto, run: true }
+          - { os: ubuntu-24.04-arm, platform: manylinux-aarch64, target: aarch64-unknown-linux-gnu, manylinux: auto, run: true }
+          - { os: ubuntu-latest, platform: musllinux-x86_64, target: x86_64-unknown-linux-musl, manylinux: musllinux_1_2, run: false }
+          - { os: ubuntu-24.04-arm, platform: musllinux-aarch64, target: aarch64-unknown-linux-musl, manylinux: musllinux_1_2, run: false }
+          - { os: macos-15-intel, platform: macos-x86_64, target: x86_64-apple-darwin, manylinux: "off", run: true }
+          - { os: macos-latest, platform: macos-arm64, target: aarch64-apple-darwin, manylinux: "off", run: true }
+          - { os: windows-latest, platform: windows-x86_64, target: x86_64-pc-windows-msvc, manylinux: "off", run: true }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+      - name: Build the wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          maturin-version: v1.15.0
+          # The Rust that pixi.toml pins for the release archives.
+          rust-toolchain: "1.98.1"
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          args: --release --locked --out dist
+      # A musllinux wheel cannot run on the glibc runner; the others are installed and run.
+      - uses: actions/setup-python@v5
+        if: matrix.run
+        with:
+          python-version: "3.13"
+      - name: Smoke test
+        if: matrix.run
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv smoke
+          if [[ -d smoke/Scripts ]]; then bin=smoke/Scripts; else bin=smoke/bin; fi
+          "$bin/python" -m pip install --no-index --find-links dist pixi-sbom
+          "$bin/pixi-sbom" --version
+      - name: Attest the wheel's provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*.whl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.platform }}
+          path: dist/*.whl
+
+  # Trusted publishing: no token, PyPI checks this workflow's OIDC identity against the
+  # publisher registered for the project (repository millsks/pixi-sbom, workflow
+  # release-artifacts.yml, and the environment named here). A release candidate goes to
+  # TestPyPI, a final release to PyPI, and either only once the GitHub Release is out.
+  testpypi:
+    name: Publish the wheels to TestPyPI
+    needs: [tag, wheels, publish]
+    if: needs.tag.outputs.prerelease == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/pixi-sbom/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          # The digital attestations PyPI shows beside each file.
+          attestations: true
+          # A re-run (workflow_dispatch) finds the files already there; PyPI never takes a
+          # version twice, so there is nothing to replace.
+          skip-existing: true
+
+  pypi:
+    name: Publish the wheels to PyPI
+    needs: [tag, wheels, publish]
+    if: needs.tag.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/pixi-sbom/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          attestations: true
+          skip-existing: true

@@ -47,8 +47,9 @@ command line is the interface, and [what 1.0 freezes](docs/stability.md) says ex
 pixi global install pixi-sbom
 ```
 
-Outside the conda ecosystem, `cargo binstall pixi-sbom` fetches the same release binary (and `cargo install
-pixi-sbom` builds it from crates.io). Or download a binary from the
+Outside the conda ecosystem, `uvx pixi-sbom` runs it from PyPI without installing anything (or `pip install
+pixi-sbom`, `uv tool install pixi-sbom`), and `cargo binstall pixi-sbom` fetches the same release binary (`cargo
+install pixi-sbom` builds it from crates.io). Or download a binary from the
 [releases page](https://github.com/millsks/pixi-sbom/releases) and put it on your `PATH`, or build from source:
 
 ```sh
