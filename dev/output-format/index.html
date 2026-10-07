@@ -513,6 +513,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#lifecycle-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle phase
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#reproducibility" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1075,6 +1086,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#lifecycle-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle phase
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#reproducibility" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1405,8 +1427,8 @@ specifications list them, followed by a trailing newline.</p>
 </tr>
 <tr>
 <td>Generation context</td>
-<td><code>metadata.lifecycles[]</code>: <code>phase: pre-build</code> (derived from resolved inputs, before any build)</td>
-<td><code>creationInfo.comment</code> saying the same</td>
+<td><code>metadata.lifecycles[]</code>: the phase the input describes (see <a href="#lifecycle-phase">Lifecycle phase</a>)</td>
+<td><code>creationInfo.comment</code> naming the input and the same phase</td>
 </tr>
 <tr>
 <td>Data origin (1.7 only)</td>
@@ -1427,6 +1449,49 @@ specifications list them, followed by a trailing newline.</p>
 </table>
 <p><code>pixi:lockfile</code> is the lockfile's name relative to the workspace root (normally <code>pixi.lock</code>), never the absolute path
 it was read from, so a document does not reveal or depend on the layout of the machine that generated it.</p>
+<h3 id="lifecycle-phase">Lifecycle phase<a class="headerlink" href="#lifecycle-phase" title="Permanent link">&para;</a></h3>
+<p>What moment in a project's life the document describes depends on what it was made from:</p>
+<table>
+<thead>
+<tr>
+<th>Input</th>
+<th>CycloneDX <code>metadata.lifecycles[].phase</code></th>
+<th>SPDX 3 <code>software_sbomType</code></th>
+<th>SPDX 2.3 <code>creationInfo.comment</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A lockfile (<code>pixi.lock</code>, <code>pylock.toml</code>)</td>
+<td><code>pre-build</code>: resolved, nothing built</td>
+<td><code>build</code></td>
+<td>"Generated from the lockfile … before any build; lifecycle phase: pre-build"</td>
+</tr>
+<tr>
+<td><code>--prefix</code></td>
+<td><code>operations</code>: what is installed</td>
+<td><code>deployed</code></td>
+<td>"Generated from the installed environment …; lifecycle phase: operations"</td>
+</tr>
+<tr>
+<td><code>--from-sbom</code></td>
+<td>the source document's phases</td>
+<td>the same, mapped</td>
+<td>"Generated from the document …", with its phases</td>
+</tr>
+<tr>
+<td><code>--from-sbom</code>, source names none</td>
+<td>none (<code>lifecycles</code> is left out)</td>
+<td>none</td>
+<td>no phase</td>
+</tr>
+</tbody>
+</table>
+<p>A source document's phases are read from its <code>metadata.lifecycles</code> (CycloneDX), its <code>software_sbomType</code> (SPDX 3),
+or the creator comment of an SPDX 2.3 document pixi-sbom wrote. SPDX 3 has one <code>build</code> type for CycloneDX's
+<code>pre-build</code>, <code>build</code> and <code>post-build</code>, so a lockfile's document read back from SPDX 3 is <code>build</code>; <code>decommission</code>
+has no SPDX 3 counterpart and is left out there. Before 1.7.0 every document claimed <code>pre-build</code>, which was wrong for
+<code>--prefix</code> and <code>--from-sbom</code>.</p>
 <h3 id="reproducibility">Reproducibility<a class="headerlink" href="#reproducibility" title="Permanent link">&para;</a></h3>
 <p>Documents are deterministic. The identifier is a UUIDv5 derived from the lockfile text, the environment, the
 platform, the format, and the pixi-sbom version, so the same input always yields the same <code>serialNumber</code> /
@@ -2189,7 +2254,7 @@ text, and only where one of SPDX's five values means the same thing:</p>
 </tr>
 <tr>
 <td><code>software_Sbom</code></td>
-<td><code>software_sbomType: [build]</code>, <code>rootElement</code> = the workspace package, <code>element</code> = every package, relationship and license element</td>
+<td><code>software_sbomType</code> for the input's phase (see <a href="#lifecycle-phase">Lifecycle phase</a>), <code>rootElement</code> = the workspace package, <code>element</code> = every package, relationship and license element</td>
 </tr>
 <tr>
 <td><code>software_Package</code> (workspace)</td>
