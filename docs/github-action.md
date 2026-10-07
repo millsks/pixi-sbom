@@ -38,7 +38,7 @@ release (`@v1.0.0`) or a commit sha and let Dependabot bump it.
 | `fail-on-policy` | `true` | Fail the step on a policy violation; with `false` it becomes a warning and the `policy-violated` output is `true` |
 | `vulnerabilities`, `kev` | | `osv` looks findings up and records them; `kev: "true"` marks the known-exploited ones |
 | `fail-on-severity`, `fail-on-kev` | | The vulnerability gate (exit code 4) |
-| `ignore-vuln` | | Accepted findings, one per line: `ID`, `ID:justification` or `ID:state:justification` |
+| `ignore-vuln` | | Accepted findings, one per line: `ID`, `ID:text`, `ID:state:text` or `ID:not_affected:justification:text`, as for [`--ignore-vuln`](cli.md#looking-up-vulnerabilities) |
 | `fail-on-vulnerabilities` | `true` | Fail the step when the gate trips; with `false` it becomes a warning and the `vulnerabilities-found` output is `true` |
 | `vex`, `vex-open` | | Also write a standalone CycloneDX VEX to that path, and the state it gives findings nobody assessed (`in-triage`, `exploitable`). Needs `format: cyclonedx`. |
 | `upload-sarif`, `sarif-category` | `false`, `pixi-sbom` | Write the findings as SARIF and upload them to GitHub code scanning (see below) |

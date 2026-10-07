@@ -510,9 +510,10 @@ pub struct Args {
     #[arg(long, value_enum, value_name = "SEVERITY")]
     pub fail_on_severity: Option<FailOnSeverity>,
 
-    /// Accept a finding deliberately (repeatable): `ID`, `ID:justification` or
-    /// `ID:state:justification`, where ID is an advisory id or alias (GHSA, CVE, ...) and state
-    /// a CycloneDX analysis state (default `not_affected`). The finding stays in the document
+    /// Accept a finding deliberately (repeatable): `ID`, `ID:text`, `ID:state:text` or
+    /// `ID:not_affected:justification:text`, where ID is an advisory id or alias (GHSA, CVE, ...),
+    /// state a CycloneDX analysis state (default `not_affected`) and justification a CycloneDX
+    /// impact-analysis justification (`code_not_reachable`, ...). The finding stays in the document
     /// with an `analysis` block, is excluded from --fail-on-severity and listed separately in
     /// the report. Requires --vulnerabilities.
     #[arg(long, value_name = "ID[:STATE][:TEXT]")]

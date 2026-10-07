@@ -339,7 +339,7 @@ One CycloneDX entry per finding, after records describing the same vulnerability
 | `advisories[]` | The record's reference URLs |
 | `published`, `updated` | The record's timestamps |
 | `affects[]` | `{ ref }` for every affected component (`bom-ref` = the package's purl); a conda package matched through its PyPI purl is listed under its own `bom-ref` |
-| `analysis` | Only for findings accepted with `--ignore-vuln`: `{ state, detail }`, the CycloneDX impact-analysis (VEX) block |
+| `analysis` | Only for findings accepted with `--ignore-vuln`: `{ state, justification, detail }`, the CycloneDX impact-analysis (VEX) block. `justification` only when one was given after `not_affected`. |
 | `properties[]` | With `--kev`, for known-exploited findings: `pixi:kev=true`, `pixi:kev-cve`, `pixi:kev-date-added`, `pixi:kev-due-date`, `pixi:kev-ransomware`; the rating from `CISA KEV` is `critical` and, without a fixed version, `recommendation` carries the catalog's required action |
 
 Entries are ordered by the worst rating, then id.
@@ -369,15 +369,22 @@ profile.
 | `Relationship` `hasAssociatedVulnerability` | One per affected package, from the package to the vulnerability: the direction a reader follows from a component. |
 | `security_CvssV2/V3/V4VulnAssessmentRelationship` | One per CVSS rating, from the vulnerability `hasAssessmentFor` the affected packages, with `security_score`, `security_severity` and `security_vectorString`. The schema requires all three together, so a rating missing any of them is left out rather than half-recorded — as is a rating whose method is not CVSS, since SPDX has no class for it. |
 | `security_ExploitCatalogVulnAssessmentRelationship` | With `--kev`, for a finding in CISA's catalog: `security_catalogType: kev`, `security_exploited: true`, and the catalog URL as `security_locator`. The added and due dates go in `comment`. |
-| `security_VexNotAffectedVulnAssessmentRelationship` | For a finding accepted with `--ignore-vuln` in the `not_affected` state, carrying your reason as `security_impactStatement`. The other states CycloneDX accepts have no SPDX class and stay CycloneDX-only. |
+| `security_VexNotAffectedVulnAssessmentRelationship` | For a finding accepted with `--ignore-vuln` in the `not_affected` state, carrying your text as `security_impactStatement` and, where it has an SPDX equivalent, your justification as `security_justificationType`. The other states CycloneDX accepts have no SPDX class and stay CycloneDX-only. |
 
 **Timestamps are rewritten.** SPDX 3 pins these fields to exactly `YYYY-MM-DDThh:mm:ssZ` — no fractional seconds, no
 numeric offset — while OSV records carry nanoseconds (`2026-07-08T06:00:54.217433740Z`). Values are converted to UTC
 second precision, and one that cannot be parsed is omitted rather than guessed at.
 
-`security_justificationType` is deliberately never set. Its five permitted values are a fixed vocabulary and
-`--ignore-vuln` takes free text, so the text goes in the impact statement instead of being forced into a category
-nobody chose.
+`security_justificationType` is set only from a justification given on `--ignore-vuln`, never guessed from the
+text, and only where one of SPDX's five values means the same thing:
+
+| `--ignore-vuln` justification | `security_justificationType` |
+|---|---|
+| `code_not_present` | `vulnerableCodeNotPresent` |
+| `code_not_reachable` | `vulnerableCodeNotInExecutePath` |
+| `protected_by_mitigating_control` | `inlineMitigationsAlreadyExist` |
+| `protected_at_runtime`, `protected_at_perimeter` | `vulnerableCodeCannotBeControlledByAdversary` |
+| the others | not set; the text stays in `security_impactStatement` |
 
 ## SPDX 3.0.1
 

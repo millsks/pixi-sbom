@@ -220,6 +220,8 @@ pub struct Kev {
 pub struct Analysis {
     /// CycloneDX impact-analysis state (`not_affected`, `false_positive`, ...).
     pub state: &'static str,
+    /// CycloneDX impact-analysis justification (`code_not_reachable`, ...), for `not_affected`.
+    pub justification: Option<&'static str>,
     /// Free-text justification.
     pub detail: Option<String>,
 }

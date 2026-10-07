@@ -52,7 +52,7 @@ With no options this means:
 | `--kev` | off | With `--vulnerabilities`: mark findings whose CVE alias is in CISA's Known Exploited Vulnerabilities catalog (downloaded once a day). They are rated `critical`, sorted first, and carry the catalog's dates and required action. |
 | `--fail-on-kev` | off | With `--kev`: exit **4** after writing the document when any open finding is known exploited, regardless of severity. |
 | `--fail-on-severity <low\|medium\|high\|critical>` | | With `--vulnerabilities`: exit **4** after writing the document when any open finding is at or above the level. Findings of unknown severity never trip it. |
-| `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification), is excluded from `--fail-on-severity` and listed separately in the report. |
+| `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification, and `not_affected` may be followed by a machine-readable one, see below), is excluded from `--fail-on-severity` and listed separately in the report. |
 | `--vex <PATH>` | | With `--vulnerabilities` and CycloneDX output: also write a standalone CycloneDX VEX there, linked back to the SBOM. |
 | `--vex-open <in-triage\|exploitable>` | `in-triage` | The analysis state the VEX gives findings nobody assessed with `--ignore-vuln`. |
 | `--version-details` (`--build-info`) | | Print the version with the target, the features compiled in, the caches, pixi's version and the network settings: the block to paste into a bug report. |
@@ -465,13 +465,23 @@ pixi sbom --pypi-mapping prefix --vulnerabilities osv --fail-on-severity high
 pixi sbom --pypi-mapping prefix --vulnerabilities osv --fail-on-severity high \
   --ignore-vuln "GHSA-2xpw-w6gg-jr37:streaming API is not used" \
   --ignore-vuln "CVE-2023-43804:false_positive:only reachable through a removed code path" \
+  --ignore-vuln "GHSA-34jh-p97f-mpxf:not_affected:code_not_reachable:only the docs build imports it" \
   --ignore-vuln GHSA-qccp-gfcp-xxvc:in_triage
 ```
 
 An entry is `ID`, `ID:TEXT` or `ID:STATE:TEXT`. `ID` matches the record id or any alias, case-insensitively.
 `STATE` is one of the CycloneDX impact-analysis states (`not_affected`, `false_positive`, `in_triage`,
 `resolved`, `resolved_with_pedigree`, `exploitable`); a second segment that is not a state is taken as the
-text, so `ID:see ticket: ABC-12` keeps the whole text. An id that matches nothing is logged at debug level and
+text, so `ID:see ticket: ABC-12` keeps the whole text.
+
+After `not_affected`, the next segment may be a machine-readable justification, `ID:not_affected:JUSTIFICATION:TEXT`,
+which is what VEX consumers filter and audit on and what CISA's minimum VEX requirements ask of every
+`not_affected` claim. It is one of CycloneDX's `code_not_present`, `code_not_reachable`, `requires_configuration`,
+`requires_dependency`, `requires_environment`, `protected_by_compiler`, `protected_at_runtime`,
+`protected_at_perimeter` and `protected_by_mitigating_control`, written to `analysis.justification`. As with the
+state, a word that is not one of these stays part of the text, and only an explicit `not_affected` is followed by
+a justification: `ID:code_not_reachable:...` is text, as it always was. A justification after any other state is
+a usage error, since it would explain a claim nobody made. An id that matches nothing is logged at debug level and
 otherwise ignored, so a list of accepted findings can be kept across upgrades. Findings of unknown severity
 (records without a rating) never trip the gate; the report shows them so they can be assessed. When both the
 license policy and the vulnerability gate fail, both lists are printed and the exit code is 3.

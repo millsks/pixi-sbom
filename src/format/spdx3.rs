@@ -137,6 +137,8 @@ struct Node {
     // security_VexNotAffectedVulnAssessmentRelationship
     #[serde(rename = "security_impactStatement", skip_serializing_if = "Option::is_none")]
     impact_statement: Option<String>,
+    #[serde(rename = "security_justificationType", skip_serializing_if = "Option::is_none")]
+    justification_type: Option<&'static str>,
 }
 
 #[derive(Debug, Serialize)]
@@ -298,6 +300,18 @@ fn cvss_class(method: &str) -> Option<&'static str> {
         "CVSSv2" => "security_CvssV2VulnAssessmentRelationship",
         "CVSSv3" | "CVSSv31" => "security_CvssV3VulnAssessmentRelationship",
         "CVSSv4" => "security_CvssV4VulnAssessmentRelationship",
+        _ => return None,
+    })
+}
+
+/// The SPDX `security_VexJustificationType` for a CycloneDX justification, or `None` where SPDX's
+/// five values have none that means the same thing: the reason then lives only in the text.
+fn justification_type(justification: &str) -> Option<&'static str> {
+    Some(match justification {
+        "code_not_present" => "vulnerableCodeNotPresent",
+        "code_not_reachable" => "vulnerableCodeNotInExecutePath",
+        "protected_by_mitigating_control" => "inlineMitigationsAlreadyExist",
+        "protected_at_runtime" | "protected_at_perimeter" => "vulnerableCodeCannotBeControlledByAdversary",
         _ => return None,
     })
 }
@@ -595,9 +609,10 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
                 &vuln_id,
                 affected.clone(),
             );
-            // The justification enum has five fixed values and our detail is free text, so the
-            // text goes in the impact statement and no justification is invented for it.
+            // The free text goes in the impact statement; the justification only where SPDX has
+            // a value that means the same thing.
             node.impact_statement = analysis.detail.clone();
+            node.justification_type = analysis.justification.and_then(justification_type);
             let id = b.push(node);
             elements.push(id);
         }
@@ -643,6 +658,34 @@ mod tests {
 
     fn json() -> serde_json::Value {
         serde_json::to_value(document(&sample_sbom(), &fixed_context())).unwrap()
+    }
+
+    #[test]
+    fn every_justification_maps_to_an_equivalent_or_to_nothing() {
+        let mapped: Vec<_> = crate::vulnpolicy::JUSTIFICATIONS
+            .iter()
+            .map(|j| (*j, justification_type(j)))
+            .collect();
+        assert_eq!(
+            mapped,
+            [
+                ("code_not_present", Some("vulnerableCodeNotPresent")),
+                ("code_not_reachable", Some("vulnerableCodeNotInExecutePath")),
+                ("requires_configuration", None),
+                ("requires_dependency", None),
+                ("requires_environment", None),
+                ("protected_by_compiler", None),
+                (
+                    "protected_at_runtime",
+                    Some("vulnerableCodeCannotBeControlledByAdversary")
+                ),
+                (
+                    "protected_at_perimeter",
+                    Some("vulnerableCodeCannotBeControlledByAdversary")
+                ),
+                ("protected_by_mitigating_control", Some("inlineMitigationsAlreadyExist")),
+            ]
+        );
     }
 
     fn nodes(doc: &serde_json::Value, kind: &str) -> Vec<serde_json::Value> {

@@ -47,6 +47,14 @@ would be a major version with its own notice.
 | `--pypi-licenses` | `--fetch-licenses` | renamed in 0.4.0 |
 | `--build-info` | `--version-details` | a visible alias, both shown |
 
+### Values with a structure
+
+`--ignore-vuln` (and the `ignore-vuln` config key and action input) takes `ID`, `ID:TEXT`,
+`ID:STATE:TEXT` or `ID:not_affected:JUSTIFICATION:TEXT`. `STATE` is a CycloneDX impact-analysis state and
+`JUSTIFICATION` a CycloneDX impact-analysis justification; each segment is read as one only when it names a
+known value, otherwise it is text. Every form keeps its meaning through 1.x; a new segment may be added only in
+the same way, recognised by a fixed vocabulary, so an existing entry never changes meaning.
+
 ## Exit codes
 
 | Code | Meaning |
