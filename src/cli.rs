@@ -81,9 +81,9 @@ impl SpecVersion {
 /// Where PyPI identities for conda packages come from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum CondaIndexKind {
-    /// anaconda.org's package API. The default, and only anaconda.org serves it.
+    /// anaconda.org's package API; only anaconda.org serves it.
     Anaconda,
-    /// prefix.dev's GraphQL API, which serves the same data from a different host.
+    /// prefix.dev's GraphQL API, which serves the same data from a different host. The default.
     Prefix,
 }
 
@@ -388,9 +388,9 @@ pub struct Args {
 
     /// Which index `--report outdated` asks for conda versions.
     ///
-    /// `prefix` answers with the same versions and release dates from a host that is reachable
-    /// where anaconda.org is blocked.
-    #[arg(long, value_enum, default_value_t = CondaIndexKind::Anaconda, value_name = "KIND")]
+    /// `prefix` asks about ten packages per request; `anaconda` asks anaconda.org directly, for a
+    /// network that blocks prefix.dev or for releases published in the last hour or so.
+    #[arg(long, value_enum, default_value_t = CondaIndexKind::Prefix, value_name = "KIND")]
     pub conda_index_kind: CondaIndexKind,
 
     /// Where to get PyPI identities for conda packages. `prefix` downloads the conda-forge

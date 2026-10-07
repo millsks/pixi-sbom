@@ -520,7 +520,7 @@ mod tests {
             format = "spdx"
             spec-version = "3.0"
             pypi-mapping = "prefix"
-            conda-index-kind = "prefix"
+            conda-index-kind = "anaconda"
             concurrency = 25
             primary-purl = "pypi"
             fetch-licenses = true
@@ -546,7 +546,7 @@ mod tests {
         assert_eq!(a.format, Format::Spdx);
         assert_eq!(a.spec_version, Some(SpecVersion::V3_0));
         assert_eq!(a.pypi_mapping, PypiMappingSource::Prefix);
-        assert_eq!(a.conda_index_kind, CondaIndexKind::Prefix);
+        assert_eq!(a.conda_index_kind, CondaIndexKind::Anaconda);
         assert_eq!(a.concurrency, Some(25));
         assert_eq!(a.primary_purl, PrimaryPurl::Pypi);
         assert!(a.fetch_licenses);
@@ -624,14 +624,15 @@ mod tests {
     fn the_index_a_network_can_reach_is_a_property_of_the_workspace() {
         // Which index answers is fixed for everyone sharing a network, so it belongs in the
         // file rather than on every `--report outdated` invocation.
-        let cfg = loaded("conda-index-kind = \"prefix\"");
+        let cfg = loaded("conda-index-kind = \"anaconda\"");
         let (mut a, m) = args(&[]);
+        assert_eq!(a.conda_index_kind, CondaIndexKind::Prefix, "the default");
         apply(&cfg, &mut a, &m).unwrap();
-        assert_eq!(a.conda_index_kind, CondaIndexKind::Prefix);
+        assert_eq!(a.conda_index_kind, CondaIndexKind::Anaconda);
 
-        let (mut a, m) = args(&["--conda-index-kind", "anaconda"]);
+        let (mut a, m) = args(&["--conda-index-kind", "prefix"]);
         apply(&cfg, &mut a, &m).unwrap();
-        assert_eq!(a.conda_index_kind, CondaIndexKind::Anaconda, "the command line wins");
+        assert_eq!(a.conda_index_kind, CondaIndexKind::Prefix, "the command line wins");
 
         let cfg = loaded("conda-index-kind = \"artifactory\"");
         let (mut a, m) = args(&[]);
@@ -728,7 +729,7 @@ mod tests {
         let etc = tempfile::tempdir().unwrap();
         let ws = tempfile::tempdir().unwrap();
         std::fs::write(etc.path().join(FILE_NAME), "fetch-licenses = true\nformat = \"spdx\"\n").unwrap();
-        std::fs::write(home.path().join(FILE_NAME), "conda-index-kind = \"prefix\"\n").unwrap();
+        std::fs::write(home.path().join(FILE_NAME), "conda-index-kind = \"anaconda\"\n").unwrap();
         std::fs::write(ws.path().join(LEGACY_FILE_NAME), "format = \"cyclonedx\"\n").unwrap();
         let dirs = [
             (Source::System, etc.path().to_path_buf()),
@@ -744,14 +745,14 @@ mod tests {
 
         let (mut a, m) = args(&[]);
         apply_all(&layers, &mut a, &m).unwrap();
-        assert_eq!(a.conda_index_kind, CondaIndexKind::Prefix, "from the user layer");
+        assert_eq!(a.conda_index_kind, CondaIndexKind::Anaconda, "from the user layer");
         assert!(a.fetch_licenses, "the system layer is inherited, not reset");
         assert_eq!(a.format, Format::Cyclonedx, "the workspace overrides the system");
 
         // The command line still beats every layer.
-        let (mut a, m) = args(&["--conda-index-kind", "anaconda"]);
+        let (mut a, m) = args(&["--conda-index-kind", "prefix"]);
         apply_all(&layers, &mut a, &m).unwrap();
-        assert_eq!(a.conda_index_kind, CondaIndexKind::Anaconda);
+        assert_eq!(a.conda_index_kind, CondaIndexKind::Prefix);
     }
 
     #[test]

@@ -872,13 +872,13 @@ fn doctor_says_how_many_requests_and_which_index() {
 
     let plain = run(&[]);
     assert!(plain.contains("requests   10 at once (the default)"), "{plain}");
-    assert!(plain.contains("index      anaconda.org"), "{plain}");
+    assert!(plain.contains("index      prefix.dev"), "{plain}");
     assert!(plain.contains("(the default)"), "{plain}");
 
     // Each source names itself, which is the half that makes it a diagnostic rather than a number.
-    let flagged = run(&["--concurrency", "42", "--conda-index-kind", "prefix"]);
+    let flagged = run(&["--concurrency", "42", "--conda-index-kind", "anaconda"]);
     assert!(flagged.contains("requests   42 at once (--concurrency)"), "{flagged}");
-    assert!(flagged.contains("index      prefix.dev"), "{flagged}");
+    assert!(flagged.contains("index      anaconda.org"), "{flagged}");
 
     let mut command = pixi_sbom();
     let varied = String::from_utf8(
@@ -4319,7 +4319,16 @@ fn outdated_report_reads_both_indexes_from_the_cache() {
             .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
             .env("PIXI_SBOM_OFFLINE", "1")
             .env("COLUMNS", "160")
-            .args(["-e", "web", "-p", "linux-64", "--report", "outdated"])
+            .args([
+                "-e",
+                "web",
+                "-p",
+                "linux-64",
+                "--report",
+                "outdated",
+                "--conda-index-kind",
+                "anaconda",
+            ])
             .args(args)
             .assert()
             .success()

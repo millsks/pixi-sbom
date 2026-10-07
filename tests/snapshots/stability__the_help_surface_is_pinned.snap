@@ -28,9 +28,9 @@ expression: "surface.join(\"\\n\")"
       --all-platforms
       --concurrency <N>
       --conda-index-kind <KIND>
-          - anaconda: anaconda.org's package API. The default, and only anaconda.org serves it
-          - prefix:   prefix.dev's GraphQL API, which serves the same data from a different host
-          [default: anaconda]
+          - anaconda: anaconda.org's package API; only anaconda.org serves it
+          - prefix:   prefix.dev's GraphQL API, which serves the same data from a different host. The default
+          [default: prefix]
       --pypi-mapping <PYPI_MAPPING>
           - lock:   Only the purls recorded in the lockfile (no network)
           - prefix: Also the conda-forge mapping from conda-mapping.prefix.dev, cached for a day

@@ -286,7 +286,7 @@ Keys mirror the long flags:
 format = "cyclonedx"
 spec-version = "1.6"
 pypi-mapping = "prefix"          # or pypi-mapping-file = "mirrors/mapping.json" (relative to this file)
-conda-index-kind = "prefix"      # which index `--report outdated` asks, where anaconda.org is blocked
+conda-index-kind = "anaconda"    # which index `--report outdated` asks, where prefix.dev is blocked
 concurrency = 25                 # requests in flight; a property of the network, not of the project
 primary-purl = "pypi"
 fetch-licenses = true
@@ -577,8 +577,8 @@ behaviour off.
 
 | `--conda-index-kind` | Address | Override | |
 |---|---|---|---|
-| `anaconda` | `https://api.anaconda.org` | `PIXI_SBOM_ANACONDA_URL` | the default; only anaconda.org serves this API |
-| `prefix` | `https://prefix.dev/api/graphql` | `PIXI_SBOM_PREFIX_INDEX_URL` | the same data from a different host |
+| `prefix` | `https://prefix.dev/api/graphql` | `PIXI_SBOM_PREFIX_INDEX_URL` | the default; ten packages per request |
+| `anaconda` | `https://api.anaconda.org` | `PIXI_SBOM_ANACONDA_URL` | the same data from anaconda.org; only anaconda.org serves this API |
 
 Both answer with a version list and the first build time of a version, which is where `Latest`, `Behind`, `Step`,
 `Released` and `Age` come from.
@@ -619,11 +619,12 @@ a page happened to contain.
 prefix.dev takes one request per package, and a second only to date the newest release when the package is behind,
 since that version is only known once the first request answers.
 
-`prefix` is the one to reach for on a network that blocks anaconda.org, which is otherwise the only service
-speaking the API this report expects:
+`prefix` is the default because it asks about ten packages per request and answers for a channel by name whatever
+host the lockfile fetched it from. `anaconda` is the one to reach for on a network that blocks prefix.dev, or when
+releases from the last hour or so matter, since anaconda.org has them before prefix.dev's index does:
 
 ```sh
-pixi sbom --report outdated --conda-index-kind prefix
+pixi sbom --report outdated --conda-index-kind anaconda
 ```
 
 Which index a network can reach is the same for every run in a workspace and for everyone sharing it, so it is
@@ -632,7 +633,7 @@ any one project, the user-level file is usually the right place for it:
 
 ```toml
 # ~/.pixi/pixi-sbom-config.toml  (or .pixi/pixi-sbom-config.toml for just this workspace)
-conda-index-kind = "prefix"
+conda-index-kind = "anaconda"
 ```
 
 prefix.dev is asked about **ten packages per request**, as GraphQL aliases in one document. On a
@@ -655,8 +656,8 @@ prefix.dev is otherwise asked with one GraphQL request per package, the same req
 query carries the version list, the newest builds across versions (where the latest release's date comes from) and
 the builds of the installed version by name, so its date is exact however far behind it is.
 
-By default a conda package is only asked about when the lockfile says it came from anaconda.org, because that is
-where the default index is pointed and asking it about a channel it does not host costs a request per package to be
+With `anaconda`, a conda package is only asked about when the lockfile says it came from anaconda.org, because that
+is where that index is pointed and asking it about a channel it does not host costs a request per package to be
 told nothing. A channel hosted elsewhere would otherwise mean downloading its `repodata.json`, which is hundreds of
 megabytes.
 
@@ -1319,7 +1320,7 @@ Configuration
   TLS roots  the platform verifier (the operating system trust store)
   timeout    120s
   requests   10 at once (the default)
-  index      anaconda.org's package API (the default)
+  index      prefix.dev's GraphQL API (the default)
   cache      /home/u/.cache/rattler/pixi-sbom (exists)
 
 Upstreams
@@ -1332,7 +1333,7 @@ Upstreams
   CISA KEV                   ok 200, 114 ms
                              https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json (default)
   conda package index        ok 200, 196 ms
-                             https://api.anaconda.org (default)
+                             https://prefix.dev/api/graphql (default)
   OpenSSF Scorecard          ok 200, 162 ms
                              https://api.securityscorecards.dev (default)
 

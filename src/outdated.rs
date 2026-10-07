@@ -580,8 +580,8 @@ fn timestamp_to_rfc3339(milliseconds: i64) -> Option<String> {
 /// signal available: the lockfile records where packages were *fetched from*, which says nothing
 /// about what the chosen index can answer for.
 pub fn index_is_configured(kind: crate::cli::CondaIndexKind) -> bool {
-    // Choosing `prefix` is as much a statement as naming an address: prefix.dev answers for a
-    // channel by name, whatever host the lockfile happened to fetch the package from.
+    // `prefix`, the default, needs no statement: prefix.dev answers for a channel by name, whatever
+    // host the lockfile happened to fetch the package from.
     //
     // A fallback channel does the same for a different reason: an unrecognised channel is then
     // recoverable by matching the package's hash, which is a better guard than its host ever was.

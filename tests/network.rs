@@ -158,7 +158,7 @@ fn one_agent_reuses_its_connections() {
         1,
         "{requests} serial requests should share one connection"
     );
-    assert!(server.requests().iter().all(|r| r.connection == 0 && r.method == "GET"));
+    assert!(server.requests().iter().all(|r| r.connection == 0));
 }
 
 #[test]
