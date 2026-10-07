@@ -18,7 +18,7 @@ With no options this means:
 
 | Option | Default | Effect |
 |---|---|---|
-| `--lockfile <PATH>` | upward search from cwd | Lockfile to read: a `pixi.lock`, or a PEP 751 `pylock.toml` / `pylock.<name>.toml` (see [Reading pylock.toml](#reading-pylocktoml)). The file must exist; there is no fallback search when this is given. |
+| `--lockfile <PATH>` | upward search from cwd | Lockfile to read: a `pixi.lock`, a `uv.lock` (see [Reading uv.lock](#reading-uvlock)), or a PEP 751 `pylock.toml` / `pylock.<name>.toml` (see [Reading pylock.toml](#reading-pylocktoml)). The file must exist; there is no fallback search when this is given. Without it, the nearest directory at or above the current one that has `pixi.lock`, `uv.lock` or `pylock.toml` is used, in that order of preference within a directory. |
 | `--prefix <DIR>` | | Describe an installed environment instead of a lockfile (see below). Cannot be combined with `--lockfile`, `--environment` or the `--all-*` flags. |
 | `--root-name <NAME>`, `--root-version <VERSION>` | directory name, none | With `--prefix`: what the described application is called. |
 | `--config <PATH>` | see below | Configuration file to read before the command line. |
@@ -225,6 +225,41 @@ The last line of the table decides what to do: time spent waiting on an upstream
 The cache tally underneath says how much of the run was answered from disk — a first run and a warm run are not
 comparable, and `--refresh` makes the comparison fair.
 
+## Reading uv.lock
+
+A uv project or workspace is described from its `uv.lock`, which the upward search finds when there is no
+`pixi.lock` beside it:
+
+```sh
+cd my-uv-project && pixi sbom -p linux-64
+pixi sbom --lockfile path/to/uv.lock -p win-64 --vulnerabilities osv
+```
+
+`uv.lock` records the dependency graph, with environment markers on the edges and the extras an edge asks for
+(`django[argon2]`). A document is for one platform, so it holds the packages reached from the workspace's members
+along the edges whose markers hold there: on `linux-64`, an edge `colorama; sys_platform == 'win32'` is not
+followed and `colorama` is not in the document unless something else needs it. A package's optional dependencies
+are followed only for the extras an incoming edge asks for. Every member's own extras and dependency groups are
+followed, since the lockfile describes all of them. Python markers use the lowest Python the lock's
+`requires-python` allows, as for `pylock.toml`, and a package uv locked at more than one version picks the one the
+edge names.
+
+What each package records:
+
+- **From an index:** a `pkg:pypi` purl, `pixi:index-url` and the supplier, and the artifact this platform would
+  install as its location and SHA-256, chosen as for `pylock.toml`.
+- **From git:** `git+<repository>` as the location, `pixi:direct-url` and the exact commit as `pixi:source-rev`.
+- **From a local path, directory or URL:** `pixi:direct-url`, and `pixi:editable` for an editable install.
+- **Locked at more than one version** (uv's forks): `pixi:resolution-markers`, the environments this one is for.
+- **Packages the project itself depends on**, directly or through its extras and groups: `pixi:direct`.
+
+Workspace members are first-party. The member at the workspace root (`virtual` or `editable` at `.`) is the
+document's root; the other members are components with a `pkg:generic` purl, because a `pkg:pypi` purl would claim
+a PyPI release that does not exist, and they are left out of every PyPI lookup for the same reason.
+
+A `uv.lock` of a later, incompatible format version is refused rather than half-read (exit 1).
+`--environment`, `--all-environments` and `--all-platforms` are refused (exit 2), as for `pylock.toml`.
+
 ## Reading pylock.toml
 
 A Python project that locks with the PEP 751 standard lockfile can be described without converting it to pixi.
@@ -236,8 +271,8 @@ pixi sbom --lockfile pylock.toml -p win-64 --vulnerabilities osv --report vulner
 ```
 
 The file is recognised by its name, `pylock.toml` or `pylock.<name>.toml` (a named lock records `<name>` as the
-environment). It is read only through `--lockfile` for now; the upward search and `--scan` still look for
-`pixi.lock`.
+environment). The upward search finds `pylock.toml` when a directory has no `pixi.lock` or `uv.lock`; a named lock is
+read through `--lockfile`, and `--scan` still looks for `pixi.lock` only.
 
 One `pylock.toml` describes every environment it was resolved for, with an environment marker on each package
 that is not needed everywhere. A document is for one platform, so the markers are evaluated for it, as pip and uv

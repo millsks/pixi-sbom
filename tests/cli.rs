@@ -171,7 +171,7 @@ fn no_lockfile_in_tree_fails_with_help() {
         .current_dir(dir.path())
         .assert()
         .failure()
-        .stderr(predicate::str::contains("no pixi.lock found"))
+        .stderr(predicate::str::contains("no pixi.lock, uv.lock or pylock.toml found"))
         .stderr(predicate::str::contains("--lockfile"));
 }
 
@@ -6645,4 +6645,137 @@ fn pylock_is_read_in_every_format_for_the_chosen_platform() {
             .code(2)
             .stderr(predicate::str::contains("pylock.toml has none"));
     }
+}
+
+#[test]
+fn uv_lock_is_found_by_the_upward_search_and_read_in_every_format() {
+    // #322: uv.lock, with its graph walked for the platform; workspace members are first-party.
+    let work = tempfile::tempdir().unwrap();
+    let run = |dir: &Path, args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir)
+            .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(["--output", "-"])
+            .args(args);
+        command
+    };
+    let doc = |dir: &Path, args: &[&str]| -> Value {
+        serde_json::from_slice(&run(dir, args).assert().success().get_output().stdout).unwrap()
+    };
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/projects");
+    let django = examples.join("uv/01-django");
+
+    // No --lockfile: the upward search finds uv.lock beside the project.
+    let linux = doc(&django, &["-p", "linux-64"]);
+    assert_valid(&cyclonedx_validator(), &linux);
+    assert_valid(
+        &cyclonedx_1_7_validator(),
+        &doc(&django, &["-p", "linux-64", "--spec-version", "1.7"]),
+    );
+    assert_valid(
+        &spdx_validator(),
+        &doc(&django, &["-p", "linux-64", "--format", "spdx"]),
+    );
+    assert_valid(
+        &spdx3_validator(),
+        &doc(
+            &django,
+            &["-p", "linux-64", "--format", "spdx", "--spec-version", "3.0"],
+        ),
+    );
+    let props = linux["metadata"]["properties"].as_array().unwrap();
+    assert!(
+        props
+            .iter()
+            .any(|p| p["name"] == "pixi:lockfile" && p["value"] == "uv.lock")
+    );
+    assert_eq!(linux["metadata"]["component"]["name"], "django-example");
+    // A graph, unlike pylock.toml: django depends on what it brought.
+    let deps = linux["dependencies"].as_array().unwrap();
+    let django_ref = linux["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "django")
+        .unwrap()["bom-ref"]
+        .clone();
+    let django_deps = deps.iter().find(|d| d["ref"] == django_ref).unwrap()["dependsOn"]
+        .as_array()
+        .unwrap();
+    assert!(
+        django_deps.iter().any(|d| d.as_str().unwrap().contains("sqlparse")),
+        "{django_deps:?}"
+    );
+
+    // uv.lock and the pylock.toml uv exported from the same project describe the same packages
+    // on every platform: two formats, one resolution. (The export leaves the version off a local
+    // directory package, so versions are compared where both say one.)
+    let versions = |d: &Value| -> std::collections::BTreeMap<String, String> {
+        d["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| {
+                (
+                    c["name"].as_str().unwrap().to_lowercase(),
+                    c["version"].as_str().unwrap_or("").to_string(),
+                )
+            })
+            .collect()
+    };
+    let set = |d: &Value| -> std::collections::BTreeSet<String> {
+        versions(d)
+            .into_iter()
+            .map(|(name, version)| format!("{name}@{version}"))
+            .collect()
+    };
+    for platform in ["linux-64", "osx-arm64", "win-64"] {
+        for scenario in ["01-django", "06-deep-learning", "13-genai-llm"] {
+            let from_uv = versions(&doc(&examples.join("uv").join(scenario), &["-p", platform]));
+            let from_pylock = versions(&doc(&examples.join("pylock").join(scenario), &["-p", platform]));
+            assert_eq!(
+                from_uv.keys().collect::<Vec<_>>(),
+                from_pylock.keys().collect::<Vec<_>>(),
+                "{scenario} on {platform}"
+            );
+            for (name, version) in &from_pylock {
+                if !version.is_empty() {
+                    assert_eq!(&from_uv[name], version, "{name} in {scenario} on {platform}");
+                }
+            }
+        }
+    }
+
+    // A workspace: the root member is the document, the other members are first-party components.
+    let workspace = tests_dir().join("fixtures/uv-workspace");
+    let ws = doc(&workspace, &["-p", "linux-64"]);
+    assert_valid(&cyclonedx_validator(), &ws);
+    assert_eq!(ws["metadata"]["component"]["name"], "acme-platform");
+    let purls: Vec<&str> = ws["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["purl"].as_str().unwrap())
+        .collect();
+    assert!(purls.contains(&"pkg:generic/acme-cli@0.4.0"), "{purls:?}");
+    assert!(purls.contains(&"pkg:generic/acme-core@0.4.0"), "{purls:?}");
+    assert!(
+        !purls.iter().any(|p| p.starts_with("pkg:pypi/acme")),
+        "members are not PyPI releases"
+    );
+    assert!(!purls.iter().any(|p| p.contains("colorama")), "Windows-only");
+    assert!(
+        set(&doc(&workspace, &["-p", "win-64"]))
+            .iter()
+            .any(|p| p.starts_with("colorama@"))
+    );
+
+    // Flags that need a pixi workspace.
+    run(&django, &["--all-platforms"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("uv.lock has none"));
 }

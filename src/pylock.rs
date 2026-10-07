@@ -226,7 +226,7 @@ impl Artifact {
     }
 
     /// Where it is, as a URI reference.
-    fn location(&self) -> Option<String> {
+    pub(crate) fn location(&self) -> Option<String> {
         self.url
             .clone()
             .or_else(|| self.path.as_deref().map(crate::lock::local_path_reference))
@@ -315,7 +315,7 @@ pub fn python_floor(requires_python: &str) -> Option<String> {
 }
 
 /// The marker environment for `platform` and Python `python` (`3.11`).
-fn marker_environment(platform: &str, python: &str) -> Result<MarkerEnvironment, PylockError> {
+pub(crate) fn marker_environment(platform: &str, python: &str) -> Result<MarkerEnvironment, PylockError> {
     let (sys_platform, platform_system, os_name, platform_machine) =
         platform_markers(platform).ok_or_else(|| PylockError::Platform {
             platform: platform.to_string(),
@@ -368,20 +368,21 @@ fn wheel_fits(file: &str, platform: &str) -> bool {
 /// The artifact that stands for a package on `platform`: a universal wheel, else a wheel for the
 /// platform (one built for `python` first), else the sdist. A lockfile lists one per platform and
 /// Python; the document records the one this platform would install.
-fn chosen_artifact<'a>(package: &'a LockedPackage, platform: &str, python: &str) -> Option<&'a Artifact> {
-    let universal = package.wheels.iter().find(|w| w.file_name().ends_with("-none-any.whl"));
+pub(crate) fn choose_artifact<'a>(
+    wheels: &'a [Artifact],
+    sdist: Option<&'a Artifact>,
+    platform: &str,
+    python: &str,
+) -> Option<&'a Artifact> {
+    let universal = wheels.iter().find(|w| w.file_name().ends_with("-none-any.whl"));
     let cp = format!("-cp{}-", python.replace('.', ""));
-    let fitting: Vec<&Artifact> = package
-        .wheels
-        .iter()
-        .filter(|w| wheel_fits(w.file_name(), platform))
-        .collect();
+    let fitting: Vec<&Artifact> = wheels.iter().filter(|w| wheel_fits(w.file_name(), platform)).collect();
     universal
         .or_else(|| fitting.iter().find(|w| w.file_name().contains(&cp)).copied())
         .or_else(|| fitting.iter().find(|w| w.file_name().contains("-abi3-")).copied())
         .or_else(|| fitting.first().copied())
-        .or(package.sdist.as_ref())
-        .or_else(|| package.wheels.first())
+        .or(sdist)
+        .or_else(|| wheels.first())
 }
 
 /// Whether `package` is the project the lockfile was written for: pip records it as a directory
@@ -519,7 +520,7 @@ fn convert(package: &LockedPackage, platform: &str, python: &str) -> Result<Pack
                 url: Some(index.clone()),
             });
         }
-        let artifact = chosen_artifact(package, platform, python);
+        let artifact = choose_artifact(&package.wheels, package.sdist.as_ref(), platform, python);
         if artifact.is_some_and(|a| package.sdist.as_ref().is_some_and(|s| std::ptr::eq(a, s))) {
             properties.insert("pixi:source".into(), "true".into());
         }
@@ -552,7 +553,7 @@ fn convert(package: &LockedPackage, platform: &str, python: &str) -> Result<Pack
 }
 
 /// The host of an index URL, as the supplier's name.
-fn url_host(url: &str) -> Option<String> {
+pub(crate) fn url_host(url: &str) -> Option<String> {
     let rest = url.split_once("://")?.1;
     let host = rest.split(['/', '?', '#']).next()?;
     let host = host.rsplit('@').next()?;

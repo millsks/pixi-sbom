@@ -115,10 +115,11 @@ entry).
 | `pixi:scorecard-check-<name>` | any | One per check below `--scorecard-min`, e.g. `pixi:scorecard-check-Signed-Releases=0.0` |
 | `pixi:cargo-source` | embedded (cargo) | Where a crate read from a `cargo auditable` binary came from: `crates.io`, `git`, `local`, ... |
 | `pixi:index-url` | PyPI | Index the wheel was resolved from |
+| `pixi:resolution-markers` | PyPI (`uv.lock`) | For a package uv locked at more than one version, the environments this one is for, joined with ` \|\| ` |
 | `pixi:marker` | PyPI (`pylock.toml`) | The environment marker the lockfile put on the package, e.g. `sys_platform == 'win32'`; the package is in the document because the marker is true for its platform |
-| `pixi:direct-url` | PyPI (`pylock.toml`, `--prefix`) | Where a package installed from outside an index came from: the repository URL of a VCS source, the path of a local directory (relative to the lockfile), or the URL of an archive |
-| `pixi:source-rev` | PyPI (`pylock.toml`, `--prefix`) | The exact commit of a VCS source |
-| `pixi:editable` | PyPI (`pylock.toml`) | `true` for a local directory installed in editable mode |
+| `pixi:direct-url` | PyPI (`pylock.toml`, `uv.lock`, `--prefix`) | Where a package installed from outside an index came from: the repository URL of a VCS source, the path of a local directory (relative to the lockfile), or the URL of an archive |
+| `pixi:source-rev` | PyPI (`pylock.toml`, `uv.lock`, `--prefix`) | The exact commit of a VCS source |
+| `pixi:editable` | PyPI (`pylock.toml`, `uv.lock`) | `true` for a local directory installed in editable mode |
 | `pixi:requires-python` | PyPI | `Requires-Python` of the distribution |
 | `pixi:source` | PyPI | `true` for sdists / source trees |
 
@@ -131,6 +132,7 @@ In SPDX these appear in the package `comment` because SPDX 2.3 has no free-form 
 | conda binary | `pkg:conda/<name>@<version>?build=<build>&channel=<channel>&subdir=<subdir>&type=<conda\|tar.bz2>` |
 | conda source | `pkg:conda/<name>@<version>?build=<build>&subdir=<subdir>` (no channel; qualifiers present only when known) |
 | PyPI | `pkg:pypi/<normalized-name>@<version>` with PEP 503 normalization (lower-case, runs of `-_.` collapsed to `-`) |
+| First-party workspace member (`uv.lock`) | `pkg:generic/<name>@<version>`: no registry has released it |
 
 Purls double as the CycloneDX `bom-ref`, which is why they must be unique within a document; within one environment
 and platform they always are. The `bom-ref` / `SPDXID` is always derived from the conda purl, even when

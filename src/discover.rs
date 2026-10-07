@@ -10,14 +10,18 @@ use crate::cli::Format;
 /// Name of the lockfile pixi writes next to its manifest.
 pub const LOCKFILE_NAME: &str = "pixi.lock";
 
+/// The lockfiles the upward search looks for, in the order it prefers them within one directory:
+/// a pixi workspace that also has a `uv.lock` (pixi uses uv underneath) is a pixi workspace.
+pub const UPWARD_NAMES: [&str; 3] = [LOCKFILE_NAME, "uv.lock", "pylock.toml"];
+
 /// Errors raised while locating input and output files.
 #[derive(Debug, Error, Diagnostic)]
 pub enum DiscoverError {
     /// No lockfile found walking up from the start directory.
-    #[error("no {LOCKFILE_NAME} found in {start} or any parent directory")]
+    #[error("no pixi.lock, uv.lock or pylock.toml found in {start} or any parent directory")]
     #[diagnostic(
         code(pixi_sbom::discover::not_found),
-        help("run `pixi lock` in your workspace, or pass --lockfile /path/to/pixi.lock")
+        help("run `pixi lock` (or `uv lock`) in your project, or pass --lockfile with the path to one")
     )]
     NotFound {
         /// Directory the search started from.
@@ -131,11 +135,15 @@ pub fn resolve_lockfile(explicit: Option<&Path>, start: &Path) -> Result<PathBuf
     }
 }
 
+/// The nearest lockfile at or above `start`: the closest directory wins, and within a directory
+/// the first of [`UPWARD_NAMES`] it has.
 fn find_upward(start: &Path) -> Option<PathBuf> {
-    start
-        .ancestors()
-        .map(|dir| dir.join(LOCKFILE_NAME))
-        .find(|candidate| candidate.is_file())
+    start.ancestors().find_map(|dir| {
+        UPWARD_NAMES
+            .iter()
+            .map(|name| dir.join(name))
+            .find(|candidate| candidate.is_file())
+    })
 }
 
 /// The `--output` spelling that selects standard output.
@@ -206,6 +214,28 @@ fn lockfile_dir(lockfile: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_nearest_lockfile_wins_and_pixi_lock_first_within_a_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let nested = dir.path().join("a/b");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(dir.path().join("pixi.lock"), "").unwrap();
+        std::fs::write(dir.path().join("a/uv.lock"), "").unwrap();
+        assert_eq!(
+            resolve_lockfile(None, &nested).unwrap(),
+            dir.path().join("a/uv.lock"),
+            "closer"
+        );
+        std::fs::write(dir.path().join("a/pixi.lock"), "").unwrap();
+        assert_eq!(
+            resolve_lockfile(None, &nested).unwrap(),
+            dir.path().join("a/pixi.lock"),
+            "pixi first"
+        );
+        std::fs::write(nested.join("pylock.toml"), "").unwrap();
+        assert_eq!(resolve_lockfile(None, &nested).unwrap(), nested.join("pylock.toml"));
+    }
 
     #[test]
     fn every_error_carries_a_code_and_a_next_step() {

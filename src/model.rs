@@ -352,9 +352,9 @@ pub enum PackageKind {
     /// A component declared by an SBOM embedded in a wheel (PEP 770), e.g. a Rust crate
     /// compiled into it. Not installed as a package of its own.
     Embedded,
-    /// A package read from an existing document (`--from-sbom`) whose purl is neither conda
-    /// nor PyPI, or which has no purl at all: the document is the only thing that knows what
-    /// it is.
+    /// A package that is neither conda nor PyPI, which only its source knows: one read from an
+    /// existing document (`--from-sbom`) with another purl type or none, or a first-party
+    /// workspace member a lockfile names (`pkg:generic`), which no registry has released.
     External,
 }
 

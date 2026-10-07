@@ -75,6 +75,18 @@ pub fn pypi(name: &str, version: &str) -> Result<String, PurlError> {
     Ok(purl.to_string())
 }
 
+/// Build a `pkg:generic/...` purl, for a first-party package no public registry has: a uv
+/// workspace member, say, which a `pkg:pypi` purl would wrongly claim was released on PyPI.
+pub fn generic(name: &str, version: &str) -> Result<String, PurlError> {
+    let wrap = |source| PurlError {
+        name: name.to_string(),
+        source,
+    };
+    let mut purl = PackageUrl::new("generic", name.to_string()).map_err(wrap)?;
+    purl.with_version(version).map_err(wrap)?;
+    Ok(purl.to_string())
+}
+
 /// Fill a version into a purl that has none, leaving one that already has a version alone.
 ///
 /// pixi records `purls:` for a conda package as a bare name — `pkg:pypi/click?source=...` — with
