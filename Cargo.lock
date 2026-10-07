@@ -2032,6 +2032,7 @@ dependencies = [
  "rayon",
  "serde",
  "serde_json",
+ "serde_yaml",
  "spdx",
  "tar",
  "tempfile",

@@ -30,6 +30,7 @@ pub mod cli;
 pub mod concurrency;
 #[doc(hidden)]
 pub mod condaarchive;
+pub mod condalock;
 #[doc(hidden)]
 pub mod config;
 #[doc(hidden)]

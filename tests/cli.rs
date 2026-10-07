@@ -7033,3 +7033,187 @@ fn pdm_lock_is_read_in_every_format_with_extras_folded_in() {
         .code(1)
         .stderr(predicate::str::contains("lock_version 3.0 is not supported"));
 }
+
+#[test]
+fn conda_lock_gives_the_same_conda_components_as_pixi_lock_and_one_document_per_platform() {
+    // #326: conda-lock.yml (unified, version 1).
+    let work = tempfile::tempdir().unwrap();
+    let command = |dir: &Path, args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir)
+            .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(args);
+        command
+    };
+    let doc = |dir: &Path, args: &[&str]| -> Value {
+        let mut all = vec!["--output", "-"];
+        all.extend_from_slice(args);
+        serde_json::from_slice(&command(dir, &all).assert().success().get_output().stdout).unwrap()
+    };
+    let component = |d: &Value, name: &str| -> Value {
+        d["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == name)
+            .cloned()
+            .unwrap_or_else(|| panic!("{name}"))
+    };
+
+    // The exact python archive tests/fixtures/with-pypi/pixi.lock pins, as conda-lock writes it.
+    let same = work.path().join("same");
+    std::fs::create_dir_all(&same).unwrap();
+    std::fs::write(
+        same.join("conda-lock.yml"),
+        r#"version: 1
+metadata:
+  content_hash: {linux-64: x}
+  channels: [{url: conda-forge, used_env_vars: []}]
+  platforms: [linux-64]
+  sources: [environment.yml]
+package:
+- name: python
+  version: 3.12.14
+  manager: conda
+  platform: linux-64
+  dependencies: {}
+  url: https://conda.anaconda.org/conda-forge/linux-64/python-3.12.14-h5f976f7_3_cpython.conda
+  hash: {md5: 98be3cf76eca2e8871f907a03aed3b84, sha256: 14c579b1016da04e4c9f1c5c857272d83ec447317d8c4074a07d59de3cef70ef}
+  category: main
+  optional: false
+"#,
+    )
+    .unwrap();
+    let from_conda_lock = component(
+        &doc(&same, &["--lockfile", "conda-lock.yml", "-p", "linux-64"]),
+        "python",
+    );
+    let from_pixi_lock = component(
+        &doc(
+            workspace("with-pypi").path(),
+            &[
+                "--lockfile",
+                tests_dir().join("fixtures/with-pypi/pixi.lock").to_str().unwrap(),
+                "-e",
+                "web",
+                "-p",
+                "linux-64",
+            ],
+        ),
+        "python",
+    );
+    for field in ["purl", "supplier", "hashes", "externalReferences"] {
+        assert_eq!(from_conda_lock[field], from_pixi_lock[field], "{field}");
+    }
+
+    // A real conda-lock.yml with conda and pip packages on two platforms.
+    let example = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/projects/conda-lock/01-django");
+    let linux = doc(&example, &["--lockfile", "conda-lock.yml", "-p", "linux-64"]);
+    assert_valid(&cyclonedx_validator(), &linux);
+    assert_valid(
+        &cyclonedx_1_7_validator(),
+        &doc(
+            &example,
+            &[
+                "--lockfile",
+                "conda-lock.yml",
+                "-p",
+                "linux-64",
+                "--spec-version",
+                "1.7",
+            ],
+        ),
+    );
+    assert_valid(
+        &spdx_validator(),
+        &doc(
+            &example,
+            &["--lockfile", "conda-lock.yml", "-p", "linux-64", "--format", "spdx"],
+        ),
+    );
+    assert_valid(
+        &spdx3_validator(),
+        &doc(
+            &example,
+            &[
+                "--lockfile",
+                "conda-lock.yml",
+                "-p",
+                "linux-64",
+                "--format",
+                "spdx",
+                "--spec-version",
+                "3.0",
+            ],
+        ),
+    );
+    assert!(
+        component(&linux, "django")["purl"]
+            .as_str()
+            .unwrap()
+            .starts_with("pkg:conda/django@3.2.12")
+    );
+    assert_eq!(
+        component(&linux, "django-environ")["purl"],
+        "pkg:pypi/django-environ@0.9.0",
+        "the pip section"
+    );
+    let mac = doc(&example, &["--lockfile", "conda-lock.yml", "-p", "osx-arm64"]);
+    assert!(
+        component(&mac, "python")["purl"]
+            .as_str()
+            .unwrap()
+            .contains("subdir=osx-arm64")
+    );
+
+    // --all-platforms writes one document per locked platform.
+    let out = work.path().join("out");
+    std::fs::create_dir_all(&out).unwrap();
+    command(
+        &example,
+        &[
+            "--lockfile",
+            "conda-lock.yml",
+            "--all-platforms",
+            "--output",
+            out.to_str().unwrap(),
+        ],
+    )
+    .assert()
+    .success();
+    let mut written: Vec<String> = std::fs::read_dir(&out)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .collect();
+    written.sort();
+    assert_eq!(written, ["sbom-linux-64.cdx.json", "sbom-osx-arm64.cdx.json"]);
+
+    // Reports run; environments and unknown platforms are refused.
+    for report in [&["--report", "packages"][..], &["--report", "licenses"]] {
+        command(
+            &example,
+            &[&["--lockfile", "conda-lock.yml", "-p", "linux-64"][..], report].concat(),
+        )
+        .assert()
+        .success();
+    }
+    command(
+        &example,
+        &["--lockfile", "conda-lock.yml", "--all-environments", "--output", "-"],
+    )
+    .assert()
+    .code(2)
+    .stderr(predicate::str::contains("conda-lock.yml has none"));
+    command(
+        &example,
+        &["--lockfile", "conda-lock.yml", "-p", "win-64", "--output", "-"],
+    )
+    .assert()
+    .code(1)
+    .stderr(predicate::str::contains(
+        "platform win-64 is not in this conda-lock.yml",
+    ));
+}

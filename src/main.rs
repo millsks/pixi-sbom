@@ -5,9 +5,10 @@
 #![cfg_attr(not(test), forbid(unsafe_code))]
 
 use pixi_sbom::{
-    auditable, batch, cache, cli, concurrency, condaarchive, config, diff, discover, doctor, embedded, explain, filter,
-    format, fromsbom, http, imports, kev, license, lock, manifest, mapping, mirror, model, osv, outdated, pdm, phantom,
-    pkgcache, poetry, policy, prefix, progress, pylock, pypi, report, scorecard, style, timings, uv, vulnpolicy, wheel,
+    auditable, batch, cache, cli, concurrency, condaarchive, condalock, config, diff, discover, doctor, embedded,
+    explain, filter, format, fromsbom, http, imports, kev, license, lock, manifest, mapping, mirror, model, osv,
+    outdated, pdm, phantom, pkgcache, poetry, policy, prefix, progress, pylock, pypi, report, scorecard, style,
+    timings, uv, vulnpolicy, wheel,
 };
 
 /// The system allocator on macOS and Windows is slow under the many small allocations a
@@ -196,6 +197,15 @@ fn main() -> Result<()> {
         }),
         (None, Some(_)) => None,
         // A PEP 751 lockfile, recognised by its name; anything else given as --lockfile is read as pixi.lock.
+        (None, None) if condalock::is_conda_lock_name(&lockfile) => {
+            let condalock::Loaded { lock, contents } =
+                timings::time(timings::Phase::Input, || condalock::load(&lockfile))?;
+            Some(Input::CondaLock {
+                lock,
+                contents,
+                manifest: timings::time(timings::Phase::Manifest, || manifest::read(&lockfile)),
+            })
+        }
         (None, None) if pdm::is_pdm_lock_name(&lockfile) => {
             let pdm::Loaded { lock, contents } = timings::time(timings::Phase::Input, || pdm::load(&lockfile))?;
             Some(Input::Pdm {
@@ -264,6 +274,7 @@ fn main() -> Result<()> {
             let input = input.expect("only a scan leaves the input unread");
             let targets = match &input {
                 Input::Lock { lock, .. } => resolve_targets(&args, lock, &lockfile, None)?,
+                Input::CondaLock { lock, .. } => condalock_targets(&args, lock, &lockfile),
                 Input::Pdm { .. } => {
                     refuse_workspace_flags(&args, "pdm.lock");
                     vec![Target {
@@ -942,6 +953,52 @@ fn report_gates(failed: &[&Gate]) {
     let _ = stderr.flush();
 }
 
+/// The documents a `conda-lock.yml` gives: one platform, or each locked platform with
+/// `--all-platforms`, named as `pixi.lock`'s are. It has no environments to choose among.
+fn condalock_targets(args: &cli::Args, lock: &condalock::CondaLock, lockfile: &Path) -> Vec<Target> {
+    for (set, flag) in [
+        (args.all_environments, "--all-environments"),
+        (args.environment != "default", "--environment"),
+    ] {
+        if set {
+            cli::Args::command()
+                .error(
+                    clap::error::ErrorKind::ArgumentConflict,
+                    format!("'{flag}' chooses among a pixi workspace's environments, and conda-lock.yml has none"),
+                )
+                .exit();
+        }
+    }
+    if !args.all_platforms {
+        return vec![Target {
+            environment: "default".to_string(),
+            platform: args.platform.clone(),
+            output: discover::resolve_output(args.output.as_deref(), lockfile, args.format),
+        }];
+    }
+    if discover::is_stdout(args.output.as_deref()) {
+        cli::Args::command()
+            .error(
+                clap::error::ErrorKind::ArgumentConflict,
+                "'--output -' writes one document to stdout and cannot be combined with '--all-platforms'",
+            )
+            .exit();
+    }
+    condalock::platform_names(lock)
+        .into_iter()
+        .map(|platform| Target {
+            environment: "default".to_string(),
+            output: discover::Output::File(discover::resolve_batch_output(
+                args.output.as_deref(),
+                lockfile,
+                args.format,
+                std::iter::once(platform.as_str()),
+            )),
+            platform: Some(platform),
+        })
+        .collect()
+}
+
 /// Refuse the flags that choose among a pixi workspace's environments and platforms, for an input
 /// that has neither (exit 2). `-e` is caught only when it names something other than the default.
 fn refuse_workspace_flags(args: &cli::Args, input: &str) {
@@ -1606,6 +1663,12 @@ enum Input {
         contents: String,
         manifest: manifest::Manifest,
     },
+    /// A unified `conda-lock.yml`, with its text and the manifest beside it.
+    CondaLock {
+        lock: condalock::CondaLock,
+        contents: String,
+        manifest: manifest::Manifest,
+    },
     /// A `pdm.lock`, with its text and the manifest beside it.
     Pdm {
         lock: pdm::PdmLock,
@@ -1731,6 +1794,20 @@ fn model_for(workspace: &Workspace, environment: &str, platform: Option<&str>) -
                 &discover::lockfile_name(lockfile),
             )?;
             // What the workspace asked for itself, as opposed to what came along.
+            manifest.apply(&mut sbom);
+            (sbom, contents.clone())
+        }
+        Input::CondaLock {
+            lock,
+            contents,
+            manifest,
+        } => {
+            let mut sbom = condalock::build_sbom(
+                lock,
+                platform,
+                manifest.root.clone(),
+                &discover::lockfile_name(lockfile),
+            )?;
             manifest.apply(&mut sbom);
             (sbom, contents.clone())
         }

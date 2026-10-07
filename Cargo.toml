@@ -99,6 +99,9 @@ toml = "1.1.6"
 # Environment markers in pylock.toml and the other Python lockfiles. Already in the tree through
 # rattler_lock; a direct dependency only so the readers can evaluate markers the way uv and pip do.
 pep508_rs = { version = "0.9.2", default-features = false }
+# conda-lock.yml. The parser rattler_lock already reads every pixi.lock with; a direct dependency only
+# so the conda-lock reader can use it. Upstream is archived: follow rattler if it moves to a fork.
+serde_yaml = "0.9.34"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
 ureq = { version = "3.4.2", default-features = false, features = [

@@ -18,7 +18,7 @@ With no options this means:
 
 | Option | Default | Effect |
 |---|---|---|
-| `--lockfile <PATH>` | upward search from cwd | Lockfile to read: a `pixi.lock`, a `uv.lock` (see [Reading uv.lock](#reading-uvlock)), a `poetry.lock` (see [Reading poetry.lock](#reading-poetrylock)), a `pdm.lock` (see [Reading pdm.lock](#reading-pdmlock)), or a PEP 751 `pylock.toml` / `pylock.<name>.toml` (see [Reading pylock.toml](#reading-pylocktoml)). The file must exist; there is no fallback search when this is given. Without it, the nearest directory at or above the current one that has `pixi.lock`, `uv.lock`, `poetry.lock`, `pdm.lock` or `pylock.toml` is used, in that order of preference within a directory. |
+| `--lockfile <PATH>` | upward search from cwd | Lockfile to read: a `pixi.lock`, a `uv.lock` (see [Reading uv.lock](#reading-uvlock)), a `poetry.lock` (see [Reading poetry.lock](#reading-poetrylock)), a `pdm.lock` (see [Reading pdm.lock](#reading-pdmlock)), a `conda-lock.yml` (see [Reading conda-lock.yml](#reading-conda-lockyml)), or a PEP 751 `pylock.toml` / `pylock.<name>.toml` (see [Reading pylock.toml](#reading-pylocktoml)). The file must exist; there is no fallback search when this is given. Without it, the nearest directory at or above the current one that has `pixi.lock`, `uv.lock`, `poetry.lock`, `pdm.lock` or `pylock.toml` is used, in that order of preference within a directory. |
 | `--prefix <DIR>` | | Describe an installed environment instead of a lockfile (see below). Cannot be combined with `--lockfile`, `--environment` or the `--all-*` flags. |
 | `--root-name <NAME>`, `--root-version <VERSION>` | directory name, none | With `--prefix`: what the described application is called. |
 | `--config <PATH>` | see below | Configuration file to read before the command line. |
@@ -311,6 +311,34 @@ What is not:
   `static_urls` strategy does record URLs, and those become the location.
 - **Dependency groups.** The groups each package belongs to are in the lock and are read, but not yet recorded in
   the document.
+
+## Reading conda-lock.yml
+
+A conda environment locked with conda-lock is described from its unified `conda-lock.yml` (version 1, which
+conda-lock writes by default), through `--lockfile`:
+
+```sh
+pixi sbom --lockfile conda-lock.yml -p linux-64
+pixi sbom --lockfile conda-lock.yml --all-platforms --output sboms/   # one document per locked platform
+```
+
+One file pins the environment for several platforms, and each package entry names its platform, so a document for
+one platform holds that platform's entries. `--platform` picks it (the host by default), and `--all-platforms` writes
+one document per platform the file locks, named as for `pixi.lock` (`sbom-linux-64.cdx.json`, ...). A platform the
+file does not lock is refused with the ones it does.
+
+Conda packages are described exactly as the `pixi.lock` reader describes them, because both read the same archive
+URL: the same `pkg:conda` purl (channel, subdir, build and archive type from the URL), the channel as the
+supplier, the archive's SHA-256 and MD5, and `pixi:channel`, `pixi:channel-url`, `pixi:subdir`, `pixi:build` and
+`pixi:file-name`. A `pixi.lock` and a `conda-lock.yml` of the same environment give the same components, so
+`--fetch-licenses`, `--pypi-mapping` and `--vulnerabilities` behave the same on both. Two things a `pixi.lock` records
+are not in a `conda-lock.yml` and are left out rather than guessed: the build number and the archive size.
+
+Entries from the environment's `pip:` section (`manager: pip`) are PyPI packages, with their wheel's URL and hash.
+The graph comes from each entry's `dependencies`; a pip package's dependency on a package conda provides links to
+the conda package. The project's name comes from a `pixi.toml` or `pyproject.toml` beside the file, and is the
+directory's name otherwise. The upward search does not look for `conda-lock.yml` yet; `--environment` and
+`--all-environments` are refused, since the file has no environments.
 
 ## Reading pylock.toml
 
