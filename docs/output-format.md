@@ -108,7 +108,7 @@ entry).
 | `pixi:source-git`, `pixi:source-rev`, `pixi:source-tag` / `pixi:source-branch`, `pixi:source-subdirectory` | conda source (git) | The pinned build source |
 | `pixi:source-url`, `pixi:source-subdirectory` | conda source (archive) | The pinned build source; its SHA-256 goes into the hashes |
 | `pixi:source-path` | conda source (path) | Local path |
-| `pixi:direct` | any | `true` when the workspace manifest declares this package itself, rather than it coming along as somebody else's dependency. For a lockfile other than `pixi.lock`, the manifest is the `pyproject.toml` or `environment.yml` beside it (see [What a project without pixi declared](cli.md#what-a-project-without-pixi-declared)) |
+| `pixi:direct` | any | `true` when the workspace manifest declares this package itself, rather than it coming along as somebody else's dependency. For a lockfile other than `pixi.lock`, the manifest is the `pyproject.toml` or `environment.yml` beside it (see [What a project without pixi declared](cli.md#what-a-project-without-pixi-declared)) With `--prefix`, set on what the user asked for by name (`REQUESTED`, `conda-meta/history`), with `pixi:declared-in = requested` |
 | `pixi:declared-in` | any | The features whose dependency tables declare it, comma separated (`default`, `default,docs`) |
 | `pixi:license-exempt` | any | Why the license policy does not apply (`--ignore-license`); `true` when no justification was given |
 | `pixi:scorecard`, `pixi:scorecard-date` | any | With `--scorecard`: the OpenSSF Scorecard aggregate out of ten and when the repository was scored |
@@ -348,7 +348,7 @@ to the graph instead of floating as extra roots.
 | | CycloneDX | SPDX |
 |---|---|---|
 | Package → package | `dependencies[]`: `{ ref, dependsOn[] }` for every component | `DEPENDS_ON` relationship per edge |
-| Root → packages | `dependencies[0]` (`ref: root`) lists what the workspace declared, plus the packages nothing else depends on; beside a lockfile that is not `pixi.lock`, with a manifest that declares something, only what it declared | `SPDXRef-Package-root DEPENDS_ON ...` for the same set |
+| Root → packages | `dependencies[0]` (`ref: root`) lists what the workspace declared, plus the packages nothing else depends on; beside a lockfile that is not `pixi.lock`, with a manifest that declares something, only what it declared; for an installed environment that recorded it, what was requested by name | `SPDXRef-Package-root DEPENDS_ON ...` for the same set |
 
 The declared half comes from the manifest next to the lockfile: the dependency tables of the environment's features
 (see [`pixi:direct`](#pixi-properties)), so a declared dependency that something else also needs — `python` is

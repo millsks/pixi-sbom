@@ -7780,3 +7780,44 @@ fn installs_from_outside_an_index_do_not_claim_a_pypi_release() {
     assert_eq!(editable["purl"], "pkg:generic/myapp@2.1.0");
     assert_eq!(property(&editable, "pixi:editable").as_deref(), Some("true"));
 }
+
+#[test]
+fn what_was_requested_by_name_is_direct_in_an_installed_environment() {
+    // #332: a REQUESTED dist-info is what the user asked for; the rest came along with it.
+    let work = tempfile::tempdir().unwrap();
+    let venv = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/venv-posix");
+    let run = |args: &[&str]| {
+        let output = pixi_sbom()
+            .current_dir(work.path())
+            .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "200")
+            .args(["--prefix", venv.to_str().unwrap()])
+            .args(args)
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        String::from_utf8(output).unwrap()
+    };
+    let table = run(&["--report", "packages"]);
+    assert!(
+        table.contains("6 packages, 1 requested by name when installed"),
+        "{table}"
+    );
+    let row = table.lines().find(|l| l.starts_with("requests ")).unwrap();
+    assert!(row.contains("requested"), "{row}");
+    let row = table.lines().find(|l| l.starts_with("urllib3 ")).unwrap();
+    assert!(!row.contains("requested"), "came along: {row}");
+
+    let doc: Value = serde_json::from_str(&run(&["--output", "-"])).unwrap();
+    let root = doc["dependencies"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["ref"] == doc["metadata"]["component"]["bom-ref"])
+        .unwrap();
+    assert_eq!(root["dependsOn"], serde_json::json!(["pkg:pypi/requests@2.34.2"]));
+}

@@ -507,6 +507,14 @@ package was extracted to (`extracted_package_dir`, the package cache), so it nee
 that installed the environment. The default output is `sbom.cdx.json` in the working directory, and the
 configuration file is looked up there too.
 
+An installed environment has no manifest, but it may remember what was asked for by name. pip and uv leave an
+empty `REQUESTED` file (PEP 376) in the `dist-info` of each package the user installed by name, and conda records
+the specs of every `install` and `remove` in `conda-meta/history` (`# update specs` / `# remove specs`). Those
+packages are marked as for a manifest: `pixi:direct = true`, `pixi:declared-in = requested`, the *Declared* column of
+`--report packages` says `requested`, its summary counts them ("6 packages, 1 requested by name when installed"),
+and the root of the document depends on them alone. When the environment recorded nothing, nothing is marked and
+the root depends on the packages nothing else needs, as before.
+
 With `--embedded-sboms` the binaries themselves are read too: conda-forge builds its Rust packages with
 `cargo auditable`, which embeds the resolved crate graph in the program's `.dep-v0` section, and that is the only
 record of what went into `ripgrep` or `fd` — the lockfile knows the conda package and nothing below it. Every

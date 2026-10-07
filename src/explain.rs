@@ -156,6 +156,11 @@ fn extras(package: &Package, input: &str) -> Vec<Fact> {
 /// Whether the workspace asked for this package itself.
 fn declared(package: &Package, ctx: Context) -> Fact {
     match package.properties.get(crate::manifest::DECLARED_IN_PROPERTY) {
+        Some(requested) if requested == crate::prefix::REQUESTED => Fact::known(
+            "declared",
+            "requested by name when it was installed",
+            "the environment's install records (REQUESTED, conda-meta/history)",
+        ),
         Some(features) => Fact::known("declared", features.replace(',', ", "), "the workspace manifest"),
         None if ctx.manifest => Fact::unknown(
             "declared",

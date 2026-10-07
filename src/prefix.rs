@@ -99,6 +99,59 @@ struct Record {
     extracted_package_dir: Option<String>,
 }
 
+/// What `pixi:declared-in` says of a package the user asked for by name: a dist-info with a
+/// PEP 376 `REQUESTED` file, or a conda spec the environment's `conda-meta/history` records.
+pub const REQUESTED: &str = "requested";
+
+/// The conda package names the user asked for, from `conda-meta/history`: every `# update specs`
+/// line adds its specs' names, every `# remove specs` line takes them away again.
+fn requested_conda(prefix: &Path) -> std::collections::BTreeSet<String> {
+    let text = std::fs::read_to_string(prefix.join("conda-meta").join("history")).unwrap_or_default();
+    let mut requested = std::collections::BTreeSet::new();
+    for line in text.lines() {
+        let (add, specs) = if let Some(specs) = line.strip_prefix("# update specs:") {
+            (true, specs)
+        } else if let Some(specs) = line.strip_prefix("# remove specs:") {
+            (false, specs)
+        } else {
+            continue;
+        };
+        let names = specs
+            .trim()
+            .trim_start_matches('[')
+            .trim_end_matches(']')
+            .split(',')
+            .filter_map(|spec| {
+                let spec = spec.trim().trim_matches(['\'', '"']);
+                // `conda-forge::numpy>=2` or `conda-forge/linux-64::numpy`: the name after the channel.
+                let spec = spec.rsplit("::").next().unwrap_or(spec);
+                let name: String = spec
+                    .chars()
+                    .take_while(|c| !matches!(c, '=' | '<' | '>' | '!' | '~' | ' ' | '['))
+                    .collect();
+                (!name.is_empty()).then(|| name.to_lowercase())
+            });
+        for name in names {
+            if add {
+                requested.insert(name);
+            } else {
+                requested.remove(&name);
+            }
+        }
+    }
+    requested
+}
+
+/// Mark `package` as asked for by the user.
+fn mark_requested(package: &mut Package) {
+    package
+        .properties
+        .insert(crate::manifest::DIRECT_PROPERTY.into(), "true".into());
+    package
+        .properties
+        .insert(crate::manifest::DECLARED_IN_PROPERTY.into(), REQUESTED.into());
+}
+
 /// Property naming the directory the package was extracted from, for `--fetch-licenses`.
 pub const EXTRACTED_DIR_PROPERTY: &str = "pixi:extracted-package-dir";
 
@@ -233,6 +286,7 @@ pub fn build_sbom(prefix: &Path, root: Root, platform: Option<&str>) -> Result<S
     let mut declared = Vec::new();
     let mut subdirs: BTreeMap<String, usize> = BTreeMap::new();
     let meta = prefix.join("conda-meta");
+    let requested = requested_conda(prefix);
     let records: Vec<PathBuf> = if layout == Layout::Conda {
         std::fs::read_dir(&meta)
             .map_err(|source| PrefixError::Read {
@@ -259,7 +313,11 @@ pub fn build_sbom(prefix: &Path, root: Root, platform: Option<&str>) -> Result<S
         if let Some(subdir) = record.subdir.as_deref().filter(|s| *s != "noarch") {
             *subdirs.entry(subdir.to_string()).or_default() += 1;
         }
-        packages.push(conda_package(&record)?);
+        let mut package = conda_package(&record)?;
+        if requested.contains(&package.name.to_lowercase()) {
+            mark_requested(&mut package);
+        }
+        packages.push(package);
         declared.push(DeclaredDeps::Conda(record.depends));
     }
 
@@ -293,6 +351,10 @@ pub fn build_sbom(prefix: &Path, root: Root, platform: Option<&str>) -> Result<S
         })
         .or_else(|| rattler_conda_types::Platform::current().map(|p| p.to_string()))
         .unwrap_or_else(|| "unknown".into());
+    // What the user asked for, when the environment recorded it, is what the root depends on.
+    let declared_roots = packages
+        .iter()
+        .any(|p| p.properties.contains_key(crate::manifest::DIRECT_PROPERTY));
     Ok(Sbom {
         root,
         environment: environment_name(prefix),
@@ -306,7 +368,7 @@ pub fn build_sbom(prefix: &Path, root: Root, platform: Option<&str>) -> Result<S
         declared_missing: Vec::new(),
         incomplete: crate::model::Incomplete::default(),
         lifecycles: vec![crate::model::PHASE_INSTALLED.into()],
-        declared_roots: false,
+        declared_roots,
         scopes: std::collections::BTreeMap::new(),
         interpreter: if layout == Layout::Conda {
             None
@@ -542,6 +604,10 @@ fn pypi_package(dist_info: &Path, conda_records: bool) -> Result<Option<(Package
         dependencies: Vec::new(),
     };
     purl::identify_pypi_source(&mut package)?;
+    // PEP 376: pip and uv leave an empty REQUESTED file in what was asked for by name.
+    if dist_info.join("REQUESTED").exists() {
+        mark_requested(&mut package);
+    }
     Ok(Some((package, requires)))
 }
 
@@ -704,6 +770,55 @@ mod tests {
 
         let conda = build_sbom(&fixture(), Root::default(), None).unwrap();
         assert_eq!(conda.interpreter, None, "a conda environment lists python itself");
+    }
+
+    #[test]
+    fn what_the_user_asked_for_is_direct_and_the_root_depends_on_it_alone() {
+        use crate::manifest::{DECLARED_IN_PROPERTY, DIRECT_PROPERTY};
+        let venv = build_sbom(&fixtures("venv-posix"), Root::default(), None).unwrap();
+        let direct: Vec<&str> = venv
+            .packages
+            .iter()
+            .filter(|p| p.properties.contains_key(DIRECT_PROPERTY))
+            .map(|p| p.name.as_str())
+            .collect();
+        assert_eq!(direct, ["requests"], "only its dist-info has REQUESTED");
+        assert!(venv.declared_roots);
+        assert_eq!(crate::format::top_level_ids(&venv), ["pkg:pypi/requests@2.34.2"]);
+        let requests = venv.packages.iter().find(|p| p.name == "requests").unwrap();
+        assert_eq!(requests.properties[DECLARED_IN_PROPERTY], REQUESTED);
+
+        // Nothing recorded: the graph-root heuristic, as before.
+        let windows = build_sbom(&fixtures("venv-windows"), Root::default(), None).unwrap();
+        assert!(!windows.declared_roots);
+
+        // A conda environment's history: specs added, then one removed again.
+        let dir = tempfile::tempdir().unwrap();
+        for entry in std::fs::read_dir(fixture().join("conda-meta")).unwrap().flatten() {
+            std::fs::create_dir_all(dir.path().join("conda-meta")).unwrap();
+            std::fs::copy(entry.path(), dir.path().join("conda-meta").join(entry.file_name())).unwrap();
+        }
+        std::fs::write(
+            dir.path().join("conda-meta/history"),
+            "==> 2026-01-01 10:00:00 <==\n# cmd: conda create -p x python=3.12 tzdata\n\
+             # update specs: ['conda-forge::python=3.12', \"tzdata\"]\n\
+             ==> 2026-01-02 10:00:00 <==\n# update specs: ['libzlib >=1.3']\n\
+             ==> 2026-01-03 10:00:00 <==\n# remove specs: ['tzdata']\n",
+        )
+        .unwrap();
+        let conda = build_sbom(dir.path(), Root::default(), None).unwrap();
+        let direct: Vec<&str> = conda
+            .packages
+            .iter()
+            .filter(|p| p.properties.contains_key(DIRECT_PROPERTY))
+            .map(|p| p.name.as_str())
+            .collect();
+        assert_eq!(direct, ["libzlib", "python"]);
+        assert!(conda.declared_roots);
+        assert!(
+            !build_sbom(&fixture(), Root::default(), None).unwrap().declared_roots,
+            "a history without specs changes nothing"
+        );
     }
 
     #[test]

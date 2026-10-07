@@ -219,6 +219,9 @@ pub struct PackageSummary {
     pub direct: usize,
     /// Names the manifest declares for this environment that it has no package for.
     pub declared_missing: Vec<String>,
+    /// An installed environment: `direct` counts what the user asked for by name, not a manifest.
+    #[serde(skip)]
+    pub requested: bool,
 }
 
 /// Summary of the licenses in one document.
@@ -645,12 +648,14 @@ impl Report {
             ReportKind::Packages => {
                 let packages: Vec<Row> = sbom.packages.iter().map(row).collect();
                 let direct = packages.iter().filter(|r| !r.declared_in.is_empty()).count();
+                let requested = sbom.prefix.is_some();
                 // Without a manifest nothing is declared and there is nothing to summarize;
                 // the report then reads exactly as it always did.
                 if direct > 0 || !sbom.declared_missing.is_empty() {
                     report.package_summary = Some(PackageSummary {
                         direct,
                         declared_missing: sbom.declared_missing.clone(),
+                        requested,
                     });
                 }
                 report.packages = Some(packages);
@@ -1482,11 +1487,13 @@ pub fn render_with_width(
                 }
                 if let Some(summary) = &report.package_summary {
                     writeln!(out)?;
-                    let heading = palette.header(&format!(
-                        "Summary: {} packages, {} declared by the workspace",
-                        rows.len(),
-                        summary.direct
-                    ));
+                    let asked = if summary.requested {
+                        "requested by name when installed"
+                    } else {
+                        "declared by the workspace"
+                    };
+                    let heading =
+                        palette.header(&format!("Summary: {} packages, {} {asked}", rows.len(), summary.direct));
                     match format {
                         ReportFormat::Markdown => writeln!(out, "### {heading}\n")?,
                         _ => writeln!(out, "{heading}")?,
