@@ -2040,7 +2040,7 @@ has nowhere to put them</strong> and says so on stderr, pointing at <code>--spec
 </tr>
 <tr>
 <td><code>analysis</code></td>
-<td>Only for findings accepted with <code>--ignore-vuln</code>: <code>{ state, justification, detail }</code>, the CycloneDX impact-analysis (VEX) block. <code>justification</code> only when one was given after <code>not_affected</code>.</td>
+<td>Only for findings accepted with <code>--ignore-vuln</code>: <code>{ state, justification, response, detail }</code>, the CycloneDX impact-analysis (VEX) block. <code>justification</code> only when one was given after <code>not_affected</code>, <code>response</code> only when one was given. <code>firstIssued</code> / <code>lastUpdated</code> are never written (see <a href="../cli/#looking-up-vulnerabilities">the vulnerability gate</a>).</td>
 </tr>
 <tr>
 <td><code>properties[]</code></td>
@@ -2108,7 +2108,7 @@ profile.</p>
 </tr>
 <tr>
 <td><code>security_VexNotAffectedVulnAssessmentRelationship</code></td>
-<td>For a finding accepted with <code>--ignore-vuln</code> in the <code>not_affected</code> state, carrying your text as <code>security_impactStatement</code> and, where it has an SPDX equivalent, your justification as <code>security_justificationType</code>. The other states CycloneDX accepts have no SPDX class and stay CycloneDX-only.</td>
+<td>For a finding accepted with <code>--ignore-vuln</code> in the <code>not_affected</code> state, carrying your text as <code>security_impactStatement</code> and, where it has an SPDX equivalent, your justification as <code>security_justificationType</code>. The other states CycloneDX accepts have no SPDX class and stay CycloneDX-only, as do responses.</td>
 </tr>
 </tbody>
 </table>
