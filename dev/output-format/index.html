@@ -1679,6 +1679,26 @@ entry).</p>
 <td>Index the wheel was resolved from</td>
 </tr>
 <tr>
+<td><code>pixi:marker</code></td>
+<td>PyPI (<code>pylock.toml</code>)</td>
+<td>The environment marker the lockfile put on the package, e.g. <code>sys_platform == 'win32'</code>; the package is in the document because the marker is true for its platform</td>
+</tr>
+<tr>
+<td><code>pixi:direct-url</code></td>
+<td>PyPI (<code>pylock.toml</code>, <code>--prefix</code>)</td>
+<td>Where a package installed from outside an index came from: the repository URL of a VCS source, the path of a local directory (relative to the lockfile), or the URL of an archive</td>
+</tr>
+<tr>
+<td><code>pixi:source-rev</code></td>
+<td>PyPI (<code>pylock.toml</code>, <code>--prefix</code>)</td>
+<td>The exact commit of a VCS source</td>
+</tr>
+<tr>
+<td><code>pixi:editable</code></td>
+<td>PyPI (<code>pylock.toml</code>)</td>
+<td><code>true</code> for a local directory installed in editable mode</td>
+</tr>
+<tr>
 <td><code>pixi:requires-python</code></td>
 <td>PyPI</td>
 <td><code>Requires-Python</code> of the distribution</td>
