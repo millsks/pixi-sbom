@@ -486,7 +486,7 @@ fn location_string(location: &UrlOrPath) -> String {
     }
 }
 
-fn local_path_reference(path: &str) -> String {
+pub(crate) fn local_path_reference(path: &str) -> String {
     let forward = path.replace('\\', "/");
     let drive =
         forward.as_bytes().get(1) == Some(&b':') && forward.as_bytes().first().is_some_and(u8::is_ascii_alphabetic);

@@ -2025,6 +2025,7 @@ dependencies = [
  "mimalloc",
  "object 0.40.0",
  "packageurl",
+ "pep508_rs",
  "predicates",
  "rattler_conda_types",
  "rattler_lock",

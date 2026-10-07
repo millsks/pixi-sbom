@@ -18,7 +18,7 @@ With no options this means:
 
 | Option | Default | Effect |
 |---|---|---|
-| `--lockfile <PATH>` | upward search from cwd | Lockfile to read. The file must exist; there is no fallback search when this is given. |
+| `--lockfile <PATH>` | upward search from cwd | Lockfile to read: a `pixi.lock`, or a PEP 751 `pylock.toml` / `pylock.<name>.toml` (see [Reading pylock.toml](#reading-pylocktoml)). The file must exist; there is no fallback search when this is given. |
 | `--prefix <DIR>` | | Describe an installed environment instead of a lockfile (see below). Cannot be combined with `--lockfile`, `--environment` or the `--all-*` flags. |
 | `--root-name <NAME>`, `--root-version <VERSION>` | directory name, none | With `--prefix`: what the described application is called. |
 | `--config <PATH>` | see below | Configuration file to read before the command line. |
@@ -224,6 +224,54 @@ The last line of the table decides what to do: time spent waiting on an upstream
 `http` debug lines then say which host and how long each request took. Time spent anywhere else is the tool's.
 The cache tally underneath says how much of the run was answered from disk — a first run and a warm run are not
 comparable, and `--refresh` makes the comparison fair.
+
+## Reading pylock.toml
+
+A Python project that locks with the PEP 751 standard lockfile can be described without converting it to pixi.
+`uv export --format pylock.toml`, `pip lock` and other tools write it:
+
+```sh
+pixi sbom --lockfile pylock.toml -p linux-64
+pixi sbom --lockfile pylock.toml -p win-64 --vulnerabilities osv --report vulnerabilities
+```
+
+The file is recognised by its name, `pylock.toml` or `pylock.<name>.toml` (a named lock records `<name>` as the
+environment). It is read only through `--lockfile` for now; the upward search and `--scan` still look for
+`pixi.lock`.
+
+One `pylock.toml` describes every environment it was resolved for, with an environment marker on each package
+that is not needed everywhere. A document is for one platform, so the markers are evaluated for it, as pip and uv
+evaluate them, and a package whose marker is false is left out: `colorama` (`sys_platform == 'win32'`) is in the
+`win-64` document and not the `linux-64` one. `--platform` chooses the platform and defaults to the host. Python
+markers (`python_version < '3.11'`) are evaluated for the lowest Python the lock's `requires-python` allows, since a
+lockfile has to work there; a lock that names none, which is what `pip lock` writes, is evaluated for Python 3.14.
+`pip lock` resolves for the one interpreter it runs on, so its lockfiles carry no markers and every platform gets
+the same packages.
+
+What each package records:
+
+- **From an index:** a `pkg:pypi` purl, the index as `pixi:index-url` and the supplier, and the one artifact this
+  platform would install, as its location and SHA-256. A lockfile lists every wheel for every platform and Python;
+  the document takes a universal wheel, else a wheel for the platform (built for the lock's Python first), else
+  the sdist, marked `pixi:source`.
+- **From version control:** `<vcs>+<url>` as the location, the repository as `pixi:direct-url` and the exact commit
+  as `pixi:source-rev`, as `--prefix` records a VCS install.
+- **From a local directory or archive:** the path or URL as `pixi:direct-url`, and `pixi:editable` for an editable
+  install. pip also writes the project itself, as a directory at the lockfile's own location; that becomes the
+  document's root rather than one of its components.
+- **Its marker**, as `pixi:marker`.
+
+The project's name and version come from the `pyproject.toml` beside the lockfile when there is one.
+
+Neither uv nor pip writes `[[packages.dependencies]]`, which PEP 751 makes optional, so a lockfile from either has
+no dependency graph to read: the document lists its packages without edges, and every one is a direct child of the
+root, rather than with edges pixi-sbom made up. A lockfile that does record them gets them as the graph.
+
+`--environment`, `--all-environments` and `--all-platforms` choose among a pixi workspace's environments and
+platforms, which a `pylock.toml` does not have, so they are refused (exit 2). Every enrichment and report that works
+from a PyPI purl (licenses, vulnerabilities, outdated, scorecard, diff) runs unchanged.
+
+`examples/projects/pylock/` has fourteen lockfiles written by uv and pip to try this on.
 
 ## Describing an installed environment
 

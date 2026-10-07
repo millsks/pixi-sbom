@@ -98,6 +98,10 @@ entry).
 | `pixi:scorecard-check-<name>` | any | One per check below `--scorecard-min`, e.g. `pixi:scorecard-check-Signed-Releases=0.0` |
 | `pixi:cargo-source` | embedded (cargo) | Where a crate read from a `cargo auditable` binary came from: `crates.io`, `git`, `local`, ... |
 | `pixi:index-url` | PyPI | Index the wheel was resolved from |
+| `pixi:marker` | PyPI (`pylock.toml`) | The environment marker the lockfile put on the package, e.g. `sys_platform == 'win32'`; the package is in the document because the marker is true for its platform |
+| `pixi:direct-url` | PyPI (`pylock.toml`, `--prefix`) | Where a package installed from outside an index came from: the repository URL of a VCS source, the path of a local directory (relative to the lockfile), or the URL of an archive |
+| `pixi:source-rev` | PyPI (`pylock.toml`, `--prefix`) | The exact commit of a VCS source |
+| `pixi:editable` | PyPI (`pylock.toml`) | `true` for a local directory installed in editable mode |
 | `pixi:requires-python` | PyPI | `Requires-Python` of the distribution |
 | `pixi:source` | PyPI | `true` for sdists / source trees |
 

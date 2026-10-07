@@ -83,6 +83,7 @@ pub mod prefix;
 pub mod progress;
 #[doc(hidden)]
 pub mod purl;
+pub mod pylock;
 #[doc(hidden)]
 pub mod pypi;
 #[doc(hidden)]

@@ -6490,3 +6490,154 @@ fn kev_and_accepted_findings_become_spdx_3_assessment_relationships() {
         }
     }
 }
+
+/// A `pylock.toml` from examples/projects, read in place: `--output -` writes nothing beside it.
+fn pylock_example(scenario: &str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("examples/projects/pylock")
+        .join(scenario)
+        .join("pylock.toml")
+}
+
+#[test]
+fn pylock_is_read_in_every_format_for_the_chosen_platform() {
+    // #321: PEP 751 lockfiles, as uv (01-django) and pip (08-cli-tool) write them.
+    let work = tempfile::tempdir().unwrap();
+    let command = |lockfile: &Path, args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(work.path())
+            .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("SOURCE_DATE_EPOCH", "1767225600")
+            .arg("--lockfile")
+            .arg(lockfile)
+            .args(args);
+        command
+    };
+    let run = |lockfile: &Path, args: &[&str]| command(lockfile, &[&["--output", "-"][..], args].concat());
+    let doc = |lockfile: &Path, args: &[&str]| -> Value {
+        let assert = run(lockfile, args).assert().success();
+        serde_json::from_slice(&assert.get_output().stdout).unwrap()
+    };
+    let django = pylock_example("01-django");
+
+    // Every format validates.
+    let linux = doc(&django, &["-p", "linux-64"]);
+    assert_valid(&cyclonedx_validator(), &linux);
+    assert_valid(
+        &cyclonedx_1_7_validator(),
+        &doc(&django, &["-p", "linux-64", "--spec-version", "1.7"]),
+    );
+    assert_valid(
+        &spdx_validator(),
+        &doc(&django, &["-p", "linux-64", "--format", "spdx"]),
+    );
+    assert_valid(
+        &spdx3_validator(),
+        &doc(
+            &django,
+            &["-p", "linux-64", "--format", "spdx", "--spec-version", "3.0"],
+        ),
+    );
+
+    // The project is named by the pyproject.toml beside the lockfile, and the input is recorded.
+    assert_eq!(linux["metadata"]["component"]["name"], "django-example");
+    let props = linux["metadata"]["properties"].as_array().unwrap();
+    assert!(
+        props
+            .iter()
+            .any(|p| p["name"] == "pixi:lockfile" && p["value"] == "pylock.toml"),
+        "{props:?}"
+    );
+
+    let components = |d: &Value| d["components"].as_array().unwrap().clone();
+    let named = |d: &Value, name: &str| components(d).into_iter().find(|c| c["name"] == name);
+    let property = |c: &Value, key: &str| {
+        c["properties"]
+            .as_array()
+            .and_then(|ps| ps.iter().find(|p| p["name"] == key))
+            .map(|p| p["value"].as_str().unwrap().to_string())
+    };
+
+    // Markers are evaluated for the platform: colorama is Windows-only.
+    assert!(named(&linux, "colorama").is_none());
+    let windows = doc(&django, &["-p", "win-64"]);
+    let colorama = named(&windows, "colorama").expect("colorama on win-64");
+    assert_eq!(
+        property(&colorama, "pixi:marker").as_deref(),
+        Some("sys_platform == 'win32'")
+    );
+
+    // The pinned, vulnerable release is there with its purl; git and local sources say where they came from.
+    let django_pkg = named(&linux, "django").unwrap();
+    assert_eq!(django_pkg["purl"], "pkg:pypi/django@3.2.12");
+    let toolbar = named(&linux, "django-debug-toolbar").unwrap();
+    assert!(
+        property(&toolbar, "pixi:source-rev").is_some_and(|rev| rev.len() == 40),
+        "{toolbar}"
+    );
+    let local = named(&linux, "internal-utils").unwrap();
+    assert_eq!(property(&local, "pixi:editable").as_deref(), Some("true"));
+    assert_eq!(
+        property(&local, "pixi:direct-url").as_deref(),
+        Some("libs/internal-utils")
+    );
+
+    // pip writes the project itself into the lockfile; it is the document's root, not a component.
+    let cli = doc(&pylock_example("08-cli-tool"), &["-p", "linux-64"]);
+    assert_eq!(cli["metadata"]["component"]["name"], "cli-tool-example");
+    assert!(named(&cli, "cli-tool-example").is_none());
+    assert!(named(&cli, "click").is_some());
+
+    // Byte-identical when nothing changed.
+    let once = run(&django, &["-p", "linux-64"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let twice = run(&django, &["-p", "linux-64"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    assert_eq!(once, twice);
+
+    // The reports run on it.
+    for report in [
+        &["--report", "packages"][..],
+        &["--report", "licenses"],
+        &["--vulnerabilities", "osv", "--report", "vulnerabilities"],
+    ] {
+        command(&django, &[&["-p", "linux-64"][..], report].concat())
+            .assert()
+            .success();
+    }
+    let before = work.path().join("before.cdx.json");
+    std::fs::write(&before, serde_json::to_vec(&linux).unwrap()).unwrap();
+    let diff = command(
+        &django,
+        &[
+            "-p",
+            "win-64",
+            "--report",
+            "diff",
+            "--against",
+            before.to_str().unwrap(),
+        ],
+    )
+    .assert()
+    .success();
+    assert!(String::from_utf8_lossy(&diff.get_output().stdout).contains("colorama"));
+
+    // A pylock.toml has no environments or platform list to choose among.
+    for flag in [&["--all-platforms"][..], &["--all-environments"], &["-e", "dev"]] {
+        run(&django, flag)
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains("pylock.toml has none"));
+    }
+}

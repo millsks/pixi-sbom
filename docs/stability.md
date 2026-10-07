@@ -150,22 +150,23 @@ says which flag produces which.
 |---|---|---|
 | `pixi:build` | `pixi:build-number` | `pixi:cargo-source` |
 | `pixi:channel` | `pixi:channel-url` | `pixi:declared-in` |
-| `pixi:direct` | `pixi:direct-url` | `pixi:embedded-sbom` |
-| `pixi:environment` | `pixi:excluded` | `pixi:extracted-package-dir` |
-| `pixi:file-name` | `pixi:identifier-hash` | `pixi:incomplete` |
-| `pixi:incomplete-detail` | `pixi:index-url` | `pixi:installer` |
-| `pixi:kev` | `pixi:kev-cve` | `pixi:kev-date-added` |
-| `pixi:kev-due-date` | `pixi:kev-ransomware` | `pixi:kind` |
-| `pixi:license-exempt` | `pixi:license-family` | `pixi:license-file` |
-| `pixi:license-files-source` | `pixi:license-raw` | `pixi:license-source` |
-| `pixi:lockfile` | `pixi:noarch` | `pixi:platform` |
-| `pixi:prefix` | `pixi:purl` | `pixi:pypi-mapping` |
-| `pixi:requires-python` | `pixi:scorecard` | `pixi:scorecard-date` |
-| `pixi:size` | `pixi:source` | `pixi:source-branch` |
-| `pixi:source-document` | `pixi:source-git` | `pixi:source-path` |
-| `pixi:source-rev` | `pixi:source-subdirectory` | `pixi:source-tag` |
-| `pixi:source-url` | `pixi:stale-cache` | `pixi:subdir` |
-| `pixi:vex-for` | `pixi:yanked` | `pixi:yanked-reason` |
+| `pixi:direct` | `pixi:direct-url` | `pixi:editable` |
+| `pixi:embedded-sbom` | `pixi:environment` | `pixi:excluded` |
+| `pixi:extracted-package-dir` | `pixi:file-name` | `pixi:identifier-hash` |
+| `pixi:incomplete` | `pixi:incomplete-detail` | `pixi:index-url` |
+| `pixi:installer` | `pixi:kev` | `pixi:kev-cve` |
+| `pixi:kev-date-added` | `pixi:kev-due-date` | `pixi:kev-ransomware` |
+| `pixi:kind` | `pixi:license-exempt` | `pixi:license-family` |
+| `pixi:license-file` | `pixi:license-files-source` | `pixi:license-raw` |
+| `pixi:license-source` | `pixi:lockfile` | `pixi:marker` |
+| `pixi:noarch` | `pixi:platform` | `pixi:prefix` |
+| `pixi:purl` | `pixi:pypi-mapping` | `pixi:requires-python` |
+| `pixi:scorecard` | `pixi:scorecard-date` | `pixi:size` |
+| `pixi:source` | `pixi:source-branch` | `pixi:source-document` |
+| `pixi:source-git` | `pixi:source-path` | `pixi:source-rev` |
+| `pixi:source-subdirectory` | `pixi:source-tag` | `pixi:source-url` |
+| `pixi:stale-cache` | `pixi:subdir` | `pixi:vex-for` |
+| `pixi:yanked` | `pixi:yanked-reason` |  |
 
 `pixi:scorecard-check-<name>` is a family rather than one name: the suffix is the OpenSSF check,
 so the set grows when OpenSSF adds a check. The prefix is frozen; the suffixes are theirs.
