@@ -1744,23 +1744,28 @@ entry).</p>
 <td>Index the wheel was resolved from</td>
 </tr>
 <tr>
+<td><code>pixi:resolution-markers</code></td>
+<td>PyPI (<code>uv.lock</code>)</td>
+<td>For a package uv locked at more than one version, the environments this one is for, joined with <code>\|\|</code></td>
+</tr>
+<tr>
 <td><code>pixi:marker</code></td>
 <td>PyPI (<code>pylock.toml</code>)</td>
 <td>The environment marker the lockfile put on the package, e.g. <code>sys_platform == 'win32'</code>; the package is in the document because the marker is true for its platform</td>
 </tr>
 <tr>
 <td><code>pixi:direct-url</code></td>
-<td>PyPI (<code>pylock.toml</code>, <code>--prefix</code>)</td>
+<td>PyPI (<code>pylock.toml</code>, <code>uv.lock</code>, <code>--prefix</code>)</td>
 <td>Where a package installed from outside an index came from: the repository URL of a VCS source, the path of a local directory (relative to the lockfile), or the URL of an archive</td>
 </tr>
 <tr>
 <td><code>pixi:source-rev</code></td>
-<td>PyPI (<code>pylock.toml</code>, <code>--prefix</code>)</td>
+<td>PyPI (<code>pylock.toml</code>, <code>uv.lock</code>, <code>--prefix</code>)</td>
 <td>The exact commit of a VCS source</td>
 </tr>
 <tr>
 <td><code>pixi:editable</code></td>
-<td>PyPI (<code>pylock.toml</code>)</td>
+<td>PyPI (<code>pylock.toml</code>, <code>uv.lock</code>)</td>
 <td><code>true</code> for a local directory installed in editable mode</td>
 </tr>
 <tr>
@@ -1796,6 +1801,10 @@ entry).</p>
 <tr>
 <td>PyPI</td>
 <td><code>pkg:pypi/&lt;normalized-name&gt;@&lt;version&gt;</code> with PEP 503 normalization (lower-case, runs of <code>-_.</code> collapsed to <code>-</code>)</td>
+</tr>
+<tr>
+<td>First-party workspace member (<code>uv.lock</code>)</td>
+<td><code>pkg:generic/&lt;name&gt;@&lt;version&gt;</code>: no registry has released it</td>
 </tr>
 </tbody>
 </table>
