@@ -640,7 +640,8 @@ prefix.dev is asked about **ten packages per request**, as GraphQL aliases in on
 dates of newer releases are counted. The saving grows with latency: a link where each round trip
 costs most of a second is exactly where making a third as many of them matters.
 
-**Batched queries are throttled below the ordinary request concurrency**, to four at a time. Asking
+**Batched queries are throttled below the ordinary request concurrency**, to four at a time, or to
+`--concurrency` when that is lower. Asking
 about ten packages at once does not change how much work the index does for a workspace — the same
 packages, the same fields — and it strictly reduces the connections, handshakes and parses it pays
 for. What it could raise is how much of that work arrives at once, so that is held near what one

@@ -302,7 +302,7 @@ const PREFIX_FIELDS: &str = "versions(limit:500) { page { version } } \
 /// answered slowly, so this trades the round trips saved against a request big enough to refuse.
 pub const PREFIX_BATCH: usize = 10;
 
-/// How many batched queries are in flight at once.
+/// How many batched queries are in flight at once, at most: never more than `--concurrency` allows.
 ///
 /// Deliberately far below the request concurrency. Batching does not change how much work the index
 /// does for a workspace — the same packages, the same fields — and it strictly reduces the
@@ -1010,8 +1010,10 @@ impl Lookup<'_> {
 
         // Phase one: ask. Throttled, because one batched query is several packages' worth of work
         // for the index, and ten of those at once would be a tenfold spike in what it handles.
-        let fetched: Vec<Vec<(&Job, String)>> =
-            crate::concurrency::map_with(PREFIX_BATCHES_AT_ONCE, &chunks, |chunk| {
+        let fetched: Vec<Vec<(&Job, String)>> = crate::concurrency::map_with(
+            PREFIX_BATCHES_AT_ONCE.min(crate::concurrency::network()),
+            &chunks,
+            |chunk| {
                 let packages: Vec<(String, String, String, String)> = chunk
                     .iter()
                     .filter_map(|job| {
@@ -1041,7 +1043,8 @@ impl Lookup<'_> {
                     .enumerate()
                     .filter_map(|(index, job)| prefix_alias(&answer, index).map(|single| (*job, single)))
                     .collect()
-            });
+            },
+        );
         let asked = fetched.iter().filter(|answers| !answers.is_empty()).count();
         let answers: Vec<(&Job, String)> = fetched.into_iter().flatten().collect();
 
