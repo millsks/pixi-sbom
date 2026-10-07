@@ -7821,3 +7821,62 @@ fn what_was_requested_by_name_is_direct_in_an_installed_environment() {
         .unwrap();
     assert_eq!(root["dependsOn"], serde_json::json!(["pkg:pypi/requests@2.34.2"]));
 }
+
+#[test]
+fn infer_extras_is_opt_in_and_labelled() {
+    // #334: off by default; with the flag, the inference is marked as such.
+    let work = tempfile::tempdir().unwrap();
+    let venv = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/venv-extras");
+    let requests = |args: &[&str]| -> Value {
+        let output = pixi_sbom()
+            .current_dir(work.path())
+            .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(["--prefix", venv.to_str().unwrap(), "--output", "-"])
+            .args(args)
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        let doc: Value = serde_json::from_slice(&output).unwrap();
+        doc["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == "requests")
+            .unwrap()
+            .clone()
+    };
+    let names = |c: &Value| -> Vec<String> {
+        c["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| p["name"].as_str().unwrap().to_string())
+            .collect()
+    };
+    assert!(
+        !names(&requests(&[])).iter().any(|n| n.contains("extras")),
+        "off by default"
+    );
+    let inferred = requests(&["--infer-extras"]);
+    for key in [
+        "pixi:python-extras",
+        "pixi:python-extras-inferred",
+        "pixi:python-extras-evidence",
+    ] {
+        assert!(names(&inferred).iter().any(|n| n == key), "{key}");
+    }
+
+    // The configuration file can turn it on, and the flag needs --prefix.
+    std::fs::write(work.path().join("pixi-sbom.toml"), "infer-extras = true\n").unwrap();
+    assert!(names(&requests(&[])).iter().any(|n| n == "pixi:python-extras-inferred"));
+    pixi_sbom()
+        .current_dir(work.path())
+        .args(["--infer-extras", "--no-config"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("--prefix"));
+}

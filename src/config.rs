@@ -73,6 +73,7 @@ pub struct Config {
     pub fetch_licenses: Option<bool>,
     pub license_texts: Option<bool>,
     pub embedded_sboms: Option<bool>,
+    pub infer_extras: Option<bool>,
     pub exclude: Option<Vec<String>>,
     pub include: Option<Vec<String>>,
     pub exclude_kind: Option<Vec<String>>,
@@ -393,6 +394,7 @@ pub fn apply(loaded: &Loaded, args: &mut Args, matches: &ArgMatches) -> Result<(
     set!(fetch_licenses, "fetch_licenses", config.fetch_licenses);
     set!(license_texts, "license_texts", config.license_texts);
     set!(embedded_sboms, "embedded_sboms", config.embedded_sboms);
+    set!(infer_extras, "infer_extras", config.infer_extras);
     set!(exclude, "exclude", config.exclude.clone());
     set!(include, "include", config.include.clone());
     if let Some(kinds) = &config.exclude_kind {

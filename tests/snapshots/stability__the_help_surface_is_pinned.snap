@@ -43,6 +43,7 @@ expression: "surface.join(\"\\n\")"
       --fetch-licenses
       --license-texts
       --embedded-sboms
+      --infer-extras
       --exclude <GLOB>
       --include <GLOB>
       --exclude-kind <KIND>

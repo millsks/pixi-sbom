@@ -423,6 +423,12 @@ pub struct Args {
     #[arg(long)]
     pub embedded_sboms: bool,
 
+    /// With --prefix, infer which extras each Python package was installed with: an extra counts
+    /// when every requirement it gates is installed. Labelled pixi:python-extras-inferred, since
+    /// the packages may be there for another reason.
+    #[arg(long, requires = "prefix")]
+    pub infer_extras: bool,
+
     /// Deprecated alias for --fetch-licenses (it used to cover PyPI packages only).
     #[arg(long, hide = true)]
     pub pypi_licenses: bool,

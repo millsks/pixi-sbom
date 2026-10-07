@@ -86,6 +86,8 @@ pub fn matching<'a>(sbom: &'a Sbom, patterns: &[Glob]) -> Vec<&'a Package> {
 const EXPLAINED_PROPERTIES: &[&str] = &[
     crate::extras::PYTHON_EXTRAS_PROPERTY,
     crate::extras::VIA_EXTRA_PROPERTY,
+    crate::prefix::EXTRAS_INFERRED_PROPERTY,
+    crate::prefix::EXTRAS_EVIDENCE_PROPERTY,
     crate::manifest::DIRECT_PROPERTY,
     crate::manifest::DECLARED_IN_PROPERTY,
     crate::mapping::MAPPING_PROPERTY,
@@ -140,7 +142,15 @@ pub fn facts(package: &Package, sbom: &Sbom, ctx: Context) -> Vec<Fact> {
 fn extras(package: &Package, input: &str) -> Vec<Fact> {
     let mut facts = Vec::new();
     if let Some(extras) = package.properties.get(crate::extras::PYTHON_EXTRAS_PROPERTY) {
-        facts.push(Fact::known("installed with extras", extras.replace(',', ", "), input));
+        let inferred = package.properties.contains_key(crate::prefix::EXTRAS_INFERRED_PROPERTY);
+        let source = match package.properties.get(crate::prefix::EXTRAS_EVIDENCE_PROPERTY) {
+            Some(evidence) if inferred => format!(
+                "inferred by --infer-extras, because everything they require is installed ({evidence}); \
+                 those packages may be there for another reason"
+            ),
+            _ => input.to_string(),
+        };
+        facts.push(Fact::known("installed with extras", extras.replace(',', ", "), source));
     }
     if let Some(via) = package.properties.get(crate::extras::VIA_EXTRA_PROPERTY) {
         let via = via.replace(',', ", ");

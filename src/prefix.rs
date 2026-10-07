@@ -7,7 +7,9 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
+use pep508_rs::{ExtraName, Requirement, VerbatimUrl};
 use serde::Deserialize;
 
 use crate::lock::{DeclaredDeps, link_dependencies};
@@ -150,6 +152,101 @@ fn mark_requested(package: &mut Package) {
     package
         .properties
         .insert(crate::manifest::DECLARED_IN_PROPERTY.into(), REQUESTED.into());
+}
+
+/// `true` on a package whose `pixi:python-extras` was inferred by `--infer-extras`, not read.
+pub const EXTRAS_INFERRED_PROPERTY: &str = "pixi:python-extras-inferred";
+/// What an inference rests on: each extra and the installed packages it requires,
+/// `socks: pysocks; security: cryptography, pyopenssl`.
+pub const EXTRAS_EVIDENCE_PROPERTY: &str = "pixi:python-extras-evidence";
+
+/// `--infer-extras`: an installed environment does not record which extras a package was
+/// installed with, so guess them. An extra counts as active when it gates at least one
+/// requirement whose other markers hold for this interpreter and platform, and every such
+/// requirement is installed. It can be wrong (the packages may be there for another reason),
+/// which is why it is opt-in and labelled with [`EXTRAS_INFERRED_PROPERTY`].
+pub fn infer_extras(prefix: &Path, sbom: &mut Sbom) {
+    let Some(python) = crate::pyversion::interpreter(sbom) else {
+        tracing::warn!("--infer-extras: no interpreter version known for this environment; nothing inferred");
+        return;
+    };
+    let env = match crate::pylock::marker_environment(&sbom.platform, &python.to_string()) {
+        Ok(env) => env,
+        Err(err) => {
+            tracing::warn!(platform = %sbom.platform, %err, "--infer-extras: cannot evaluate markers; nothing inferred");
+            return;
+        }
+    };
+    let installed: std::collections::BTreeSet<String> = sbom
+        .packages
+        .iter()
+        .map(|p| purl::normalize_pypi_name(&p.name))
+        .collect();
+    let mut inferred: BTreeMap<String, Vec<(String, Vec<String>)>> = BTreeMap::new();
+    for dist_info in dist_infos(prefix) {
+        let Ok(metadata) = std::fs::read_to_string(dist_info.join("METADATA")) else {
+            continue;
+        };
+        let headers = wheel::parse_headers(&metadata);
+        let Some(name) = headers.get("name").and_then(|v| v.first()) else {
+            continue;
+        };
+        let mut by_extra: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for text in headers.get("requires-dist").into_iter().flatten() {
+            let Ok(requirement) = Requirement::<VerbatimUrl>::from_str(text) else {
+                tracing::debug!(package = %name, requirement = %text, "--infer-extras: unparsable requirement");
+                continue;
+            };
+            if requirement.marker.evaluate(&env, &[]) {
+                continue;
+            }
+            for extra in crate::extras::gating_extras(&requirement.marker.try_to_string().unwrap_or_default()) {
+                let Ok(extra_name) = ExtraName::from_str(&extra) else {
+                    continue;
+                };
+                if requirement.marker.evaluate(&env, std::slice::from_ref(&extra_name)) {
+                    by_extra
+                        .entry(extra)
+                        .or_default()
+                        .push(purl::normalize_pypi_name(requirement.name.as_ref()));
+                }
+            }
+        }
+        let active: Vec<(String, Vec<String>)> = by_extra
+            .into_iter()
+            .filter(|(_, needs)| needs.iter().all(|n| installed.contains(n)))
+            .map(|(extra, mut needs)| {
+                needs.sort();
+                needs.dedup();
+                (extra, needs)
+            })
+            .collect();
+        if !active.is_empty() {
+            inferred.insert(purl::normalize_pypi_name(name), active);
+        }
+    }
+    for package in sbom.packages.iter_mut().filter(|p| p.kind == PackageKind::Pypi) {
+        let Some(active) = inferred.get(&purl::normalize_pypi_name(&package.name)) else {
+            continue;
+        };
+        if package.properties.contains_key(crate::extras::PYTHON_EXTRAS_PROPERTY) {
+            continue;
+        }
+        let extras: Vec<&str> = active.iter().map(|(extra, _)| extra.as_str()).collect();
+        let evidence: Vec<String> = active
+            .iter()
+            .map(|(extra, needs)| format!("{extra}: {}", needs.join(", ")))
+            .collect();
+        package
+            .properties
+            .insert(crate::extras::PYTHON_EXTRAS_PROPERTY.into(), extras.join(","));
+        package
+            .properties
+            .insert(EXTRAS_INFERRED_PROPERTY.into(), "true".into());
+        package
+            .properties
+            .insert(EXTRAS_EVIDENCE_PROPERTY.into(), evidence.join("; "));
+    }
 }
 
 /// Property naming the directory the package was extracted from, for `--fetch-licenses`.
@@ -819,6 +916,48 @@ mod tests {
             !build_sbom(&fixture(), Root::default(), None).unwrap().declared_roots,
             "a history without specs changes nothing"
         );
+    }
+
+    #[test]
+    fn extras_are_inferred_only_when_asked_and_only_when_all_they_need_is_there() {
+        let extras = |sbom: &Sbom, key: &str| {
+            sbom.packages
+                .iter()
+                .find(|p| p.name == "requests")
+                .and_then(|p| p.properties.get(key).cloned())
+        };
+        let mut sbom = build_sbom(&fixtures("venv-extras"), Root::default(), None).unwrap();
+        assert_eq!(
+            extras(&sbom, crate::extras::PYTHON_EXTRAS_PROPERTY),
+            None,
+            "off by default"
+        );
+        infer_extras(&fixtures("venv-extras"), &mut sbom);
+        // socks: pysocks is installed, and win-inet-pton is for win32 only, so it does not count.
+        // use-chardet-on-py3: chardet is not installed.
+        assert_eq!(
+            extras(&sbom, crate::extras::PYTHON_EXTRAS_PROPERTY).as_deref(),
+            Some("socks")
+        );
+        assert_eq!(extras(&sbom, EXTRAS_INFERRED_PROPERTY).as_deref(), Some("true"));
+        assert_eq!(
+            extras(&sbom, EXTRAS_EVIDENCE_PROPERTY).as_deref(),
+            Some("socks: pysocks")
+        );
+
+        // On Windows the win32-only requirement counts too, and it is missing.
+        let mut windows = build_sbom(&fixtures("venv-extras"), Root::default(), Some("win-64")).unwrap();
+        infer_extras(&fixtures("venv-extras"), &mut windows);
+        assert_eq!(extras(&windows, crate::extras::PYTHON_EXTRAS_PROPERTY), None);
+
+        // No interpreter known, or a platform markers cannot be evaluated for: nothing inferred.
+        let mut unknown = build_sbom(&fixtures("venv-extras"), Root::default(), None).unwrap();
+        unknown.interpreter = None;
+        infer_extras(&fixtures("venv-extras"), &mut unknown);
+        assert_eq!(extras(&unknown, crate::extras::PYTHON_EXTRAS_PROPERTY), None);
+        let mut odd = build_sbom(&fixtures("venv-extras"), Root::default(), Some("emscripten-wasm32")).unwrap();
+        infer_extras(&fixtures("venv-extras"), &mut odd);
+        assert_eq!(extras(&odd, crate::extras::PYTHON_EXTRAS_PROPERTY), None);
     }
 
     #[test]

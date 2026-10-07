@@ -14,7 +14,7 @@ this page fails the build, and so does a line on this page for something that do
 
 ## Command-line flags
 
-All 67. Their meanings are in [cli.md](cli.md); what this page promises is that none of them
+All 68. Their meanings are in [cli.md](cli.md); what this page promises is that none of them
 disappears or changes shape before 2.0.
 
 | `--against` | `--all-environments` | `--all-platforms` | `--allow-license` |
@@ -25,15 +25,15 @@ disappears or changes shape before 2.0.
 | `--fail-on-phantom` | `--fail-on-scorecard` | `--fail-on-severity` | `--fail-on-yanked` |
 | `--fetch-licenses` | `--format` | `--from-sbom` | `--group-by` |
 | `--help` | `--ignore-license` | `--ignore-vuln` | `--include` |
-| `--keep-orphans` | `--kev` | `--license-texts` | `--lockfile` |
-| `--log-format` | `--no-cache` | `--no-config` | `--outdated-min` |
-| `--output` | `--platform` | `--prefix` | `--primary-purl` |
-| `--pypi-mapping` | `--pypi-mapping-file` | `--quiet` | `--refresh` |
-| `--report` | `--report-format` | `--require-license` | `--root-name` |
-| `--root-version` | `--scan` | `--scan-depth` | `--scorecard` |
-| `--scorecard-min` | `--source` | `--spec-version` | `--timings` |
-| `--tree` | `--verbose` | `--version` | `--version-details` |
-| `--vex` | `--vex-open` | `--vulnerabilities` |  |
+| `--infer-extras` | `--keep-orphans` | `--kev` | `--license-texts` |
+| `--lockfile` | `--log-format` | `--no-cache` | `--no-config` |
+| `--outdated-min` | `--output` | `--platform` | `--prefix` |
+| `--primary-purl` | `--pypi-mapping` | `--pypi-mapping-file` | `--quiet` |
+| `--refresh` | `--report` | `--report-format` | `--require-license` |
+| `--root-name` | `--root-version` | `--scan` | `--scan-depth` |
+| `--scorecard` | `--scorecard-min` | `--source` | `--spec-version` |
+| `--timings` | `--tree` | `--verbose` | `--version` |
+| `--version-details` | `--vex` | `--vex-open` | `--vulnerabilities` |
 
 ### Spellings that answer to an older name
 
@@ -108,7 +108,7 @@ stays supported.
 | `vulnerabilities` | `kev` | `fail-on-kev` | `fail-on-severity` |
 | `ignore-vuln` | `ignore-license` | `scorecard` | `scorecard-min` |
 | `fail-on-scorecard` | `fail-on-diff` | `source` | `assume-used` |
-| `fail-on-phantom` | `conda-index-kind` | `concurrency` | |
+| `fail-on-phantom` | `conda-index-kind` | `concurrency` | `infer-extras` |
 
 An unknown key is an error, not a warning, and the diagnostic lists every key that is accepted — so
 a typo cannot pass silently and you are never left guessing at the spelling.
@@ -161,13 +161,14 @@ says which flag produces which.
 | `pixi:license-source` | `pixi:lockfile` | `pixi:marker` |
 | `pixi:noarch` | `pixi:platform` | `pixi:prefix` |
 | `pixi:purl` | `pixi:pypi-mapping` | `pixi:python-extras` |
-| `pixi:python-version` | `pixi:requires-python` | `pixi:resolution-markers` |
-| `pixi:scorecard` | `pixi:scorecard-date` | `pixi:size` |
-| `pixi:source` | `pixi:source-branch` | `pixi:source-document` |
-| `pixi:source-git` | `pixi:source-path` | `pixi:source-rev` |
-| `pixi:source-subdirectory` | `pixi:source-tag` | `pixi:source-url` |
-| `pixi:stale-cache` | `pixi:subdir` | `pixi:vex-for` |
-| `pixi:via-extra` | `pixi:yanked` | `pixi:yanked-reason` |
+| `pixi:python-extras-evidence` | `pixi:python-extras-inferred` | `pixi:python-version` |
+| `pixi:requires-python` | `pixi:resolution-markers` | `pixi:scorecard` |
+| `pixi:scorecard-date` | `pixi:size` | `pixi:source` |
+| `pixi:source-branch` | `pixi:source-document` | `pixi:source-git` |
+| `pixi:source-path` | `pixi:source-rev` | `pixi:source-subdirectory` |
+| `pixi:source-tag` | `pixi:source-url` | `pixi:stale-cache` |
+| `pixi:subdir` | `pixi:vex-for` | `pixi:via-extra` |
+| `pixi:yanked` | `pixi:yanked-reason` |  |
 
 `pixi:scorecard-check-<name>` is a family rather than one name: the suffix is the OpenSSF check,
 so the set grows when OpenSSF adds a check. The prefix is frozen; the suffixes are theirs.

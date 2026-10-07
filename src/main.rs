@@ -189,6 +189,7 @@ fn main() -> Result<()> {
         }
         (Some(dir), _) => Some(Input::Prefix {
             dir: dir.clone(),
+            infer_extras: args.infer_extras,
             root: model::Root {
                 name: args.root_name.clone().unwrap_or_else(|| prefix::environment_name(dir)),
                 version: args.root_version.clone(),
@@ -1726,7 +1727,12 @@ enum Input {
         manifest: manifest::Manifest,
     },
     /// An installed environment (`--prefix`).
-    Prefix { dir: std::path::PathBuf, root: model::Root },
+    Prefix {
+        dir: std::path::PathBuf,
+        root: model::Root,
+        /// `--infer-extras`.
+        infer_extras: bool,
+    },
     /// An existing document (`--from-sbom`), already read into the model.
     Document(Box<fromsbom::Loaded>),
 }
@@ -1930,8 +1936,15 @@ fn model_for(workspace: &Workspace, environment: &str, platform: Option<&str>) -
             manifest.apply(&mut sbom);
             (sbom, contents.clone())
         }
-        Input::Prefix { dir, root } => {
-            let sbom = prefix::build_sbom(dir, root.clone(), platform)?;
+        Input::Prefix {
+            dir,
+            root,
+            infer_extras,
+        } => {
+            let mut sbom = prefix::build_sbom(dir, root.clone(), platform)?;
+            if *infer_extras {
+                prefix::infer_extras(dir, &mut sbom);
+            }
             // Stands in for the lockfile text as the document's identity: the installed
             // packages, in order.
             let contents = sbom

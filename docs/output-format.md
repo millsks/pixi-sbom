@@ -121,7 +121,9 @@ entry).
 | `pixi:source-rev` | PyPI (`pylock.toml`, `uv.lock`, `--prefix`) | The exact commit of a VCS source |
 | `pixi:editable` | PyPI (`pylock.toml`, `uv.lock`) | `true` for a local directory installed in editable mode |
 | `pixi:requires-python` | PyPI | `Requires-Python` of the distribution |
-| `pixi:python-extras` | PyPI (`pixi.lock`, `uv.lock`, `poetry.lock`, `pdm.lock`) | The extras the package was installed with, comma separated, e.g. `socks,security`: what the manifest and the other packages asked of it |
+| `pixi:python-extras` | PyPI (`pixi.lock`, `uv.lock`, `poetry.lock`, `pdm.lock`; `--prefix` with `--infer-extras`) | The extras the package was installed with, comma separated, e.g. `socks,security`: what the manifest and the other packages asked of it |
+| `pixi:python-extras-inferred` | PyPI (`--prefix --infer-extras`) | `true` when `pixi:python-extras` was inferred from what is installed rather than read from the input |
+| `pixi:python-extras-evidence` | PyPI (`--prefix --infer-extras`) | What an inference rests on: each extra and the installed packages it requires, e.g. `socks: pysocks` |
 | `pixi:via-extra` | PyPI (`pixi.lock`, `uv.lock`, `poetry.lock`, `pdm.lock`, `pylock.toml`) | The extras the package is in the document for, as `package[extra]`, comma separated, e.g. `requests[socks]`. Set only when nothing else needs the package; what such a package depends on carries the same label |
 | `pixi:source` | PyPI | `true` for sdists / source trees |
 
