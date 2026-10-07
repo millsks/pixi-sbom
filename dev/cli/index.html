@@ -1928,7 +1928,7 @@
 <tr>
 <td><code>--vex &lt;PATH&gt;</code></td>
 <td></td>
-<td>With <code>--vulnerabilities</code>: also write a standalone CycloneDX VEX there, linked back to the SBOM.</td>
+<td>With <code>--vulnerabilities</code> and CycloneDX output: also write a standalone CycloneDX VEX there, linked back to the SBOM.</td>
 </tr>
 <tr>
 <td><code>--vex-open &lt;in-triage\|exploitable&gt;</code></td>
@@ -2432,7 +2432,9 @@ instead). Every <code>affects[].ref</code> is a BOM-Link into the SBOM this run 
 <code>pixi:vex-for</code> names the document it belongs to. That is the shape Dependency-Track and other VEX consumers
 expect, and it validates against the CycloneDX schema like everything else this tool writes.</p>
 <p><code>--vex</code> needs <code>--vulnerabilities</code> and one document to point at, so it does not combine with <code>--report</code>,
-<code>--all-environments</code>, <code>--all-platforms</code> or <code>--scan</code>.</p>
+<code>--all-environments</code>, <code>--all-platforms</code> or <code>--scan</code>. The VEX is CycloneDX and its links only resolve against a
+CycloneDX SBOM, so <code>--format spdx</code> is refused too. With SPDX, use <code>--spec-version 3.0</code>: the document records
+the assessments itself, in its security profile.</p>
 <h2 id="how-far-behind-the-environment-is">How far behind the environment is<a class="headerlink" href="#how-far-behind-the-environment-is" title="Permanent link">&para;</a></h2>
 <p align="center">
   <img src="assets/report-outdated.gif" alt="pixi sbom --report outdated: every package with its age, the latest release, how many releases behind, and whether that is a major, minor or patch step." width="100%">
