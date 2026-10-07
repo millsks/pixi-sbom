@@ -389,6 +389,31 @@ come from `[project]` (or the `name:` of `environment.yml`).
 When there is no manifest beside the lockfile, the document is written without declarations, as for a bare
 lockfile before.
 
+## Python extras
+
+An extra pulls in more code: `requests[socks]` installs `pysocks` as well. Wherever the input says which extras
+were asked for, two properties record it.
+
+- **`pixi:python-extras`** on a package installed with extras: `socks,security`.
+- **`pixi:via-extra`** on a package that is there only because of an extra: `requests[socks]`, or `my-app[s3]` for
+  one of the project's own extras. The packages it depends on carry the same label, until one is reached that is
+  needed anyway. A package something else needs as well gets no label.
+
+| Input | Which extras were asked for | What each extra brings in |
+|---|---|---|
+| `pixi.lock` | the manifest's `extras = [...]` on a `pypi-dependencies` entry, and the other packages' requirements | `requires_dist` entries marked `extra == '...'` |
+| `uv.lock` | the `extra = [...]` on each dependency | `[package.optional-dependencies]` |
+| `poetry.lock` | the `extras` on each dependency entry | optional entries marked `extra == "..."`, and package markers for the project's own |
+| `pdm.lock` | the `extras` of each `name[extra]` entry | that entry's dependencies |
+| `pylock.toml` | not recorded per package | `'name' in extras` markers, for the project's own extras |
+
+`pdm.lock` does not say which of the project's groups are extras, so a package there for one of the project's own
+extras is labelled only through `pixi:declared-in`. An installed environment (`--prefix`) records no extras.
+`--explain <package>` shows both: *installed with extras* and *brought in by*.
+
+A `pylock.toml` whose markers name extras or dependency groups (`'s3' in extras`) is read with every extra and
+group it lists counted as chosen, because the document describes all of them.
+
 ## Reading pylock.toml
 
 A Python project that locks with the PEP 751 standard lockfile can be described without converting it to pixi.

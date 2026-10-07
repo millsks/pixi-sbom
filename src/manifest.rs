@@ -29,6 +29,17 @@ pub struct Declared {
     pub pypi: bool,
     /// The feature whose tables declare it; `default` for the top-level ones.
     pub feature: String,
+    /// The extras it is asked for with (`requests[socks]`), for a PyPI dependency.
+    pub extras: Vec<String>,
+}
+
+/// The extras a table-form dependency asks for: `{ version = "...", extras = ["socks"] }`.
+fn table_extras(value: &toml::Value) -> Vec<String> {
+    value
+        .get("extras")
+        .and_then(toml::Value::as_array)
+        .map(|extras| extras.iter().filter_map(|e| e.as_str().map(str::to_string)).collect())
+        .unwrap_or_default()
 }
 
 /// An entry of the manifest's `[environments]` table.
@@ -105,10 +116,11 @@ impl DepTables {
             (&self.build_dependencies, false),
             (&self.pypi_dependencies, true),
         ] {
-            out.extend(table.keys().map(|name| Declared {
+            out.extend(table.iter().map(|(name, value)| Declared {
                 name: name.clone(),
                 pypi,
                 feature: feature.to_string(),
+                extras: if pypi { table_extras(value) } else { Vec::new() },
             }));
         }
         // A platform table declares for the same feature; what belongs to another platform
@@ -303,6 +315,28 @@ impl Manifest {
         features
     }
 
+    /// The extras the manifest asks of each PyPI dependency in `environment`, by PEP 503 name.
+    pub fn requested_extras(&self, environment: &str) -> BTreeMap<String, BTreeSet<String>> {
+        let features = if self.every_feature {
+            self.declared.iter().map(|d| d.feature.as_str()).collect()
+        } else {
+            self.features_of(environment)
+        };
+        let mut out: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        for declared in self
+            .declared
+            .iter()
+            .filter(|d| d.pypi && features.contains(d.feature.as_str()))
+        {
+            if !declared.extras.is_empty() {
+                out.entry(matching_key(&declared.name, true))
+                    .or_default()
+                    .extend(declared.extras.iter().cloned());
+            }
+        }
+        out
+    }
+
     /// Mark the packages of `sbom` that its environment's manifest asked for directly, and
     /// record the declared names the environment has no package for. Does nothing when there
     /// is no manifest, so a bare lockfile keeps the graph-root heuristic it always had.
@@ -316,11 +350,14 @@ impl Manifest {
             self.features_of(&sbom.environment)
         };
         let mut wanted: BTreeMap<(bool, String), BTreeSet<&str>> = BTreeMap::new();
+        let mut extras: BTreeMap<(bool, String), BTreeSet<&str>> = BTreeMap::new();
         for declared in self.declared.iter().filter(|d| features.contains(d.feature.as_str())) {
-            wanted
-                .entry((declared.pypi, matching_key(&declared.name, declared.pypi)))
+            let key = (declared.pypi, matching_key(&declared.name, declared.pypi));
+            extras
+                .entry(key.clone())
                 .or_default()
-                .insert(&declared.feature);
+                .extend(declared.extras.iter().map(String::as_str));
+            wanted.entry(key).or_default().insert(&declared.feature);
         }
         let mut matched: BTreeSet<(bool, String)> = BTreeSet::new();
         for package in &mut sbom.packages {
@@ -339,6 +376,16 @@ impl Manifest {
                     DECLARED_IN_PROPERTY.to_string(),
                     features.iter().copied().collect::<Vec<_>>().join(","),
                 );
+                // The extras the project asked for, with whatever the lockfile already recorded.
+                if let Some(asked) = extras.get(&key).filter(|e| !e.is_empty()) {
+                    let mut all: BTreeSet<&str> = asked.clone();
+                    let recorded = package.properties.get(crate::extras::PYTHON_EXTRAS_PROPERTY).cloned();
+                    all.extend(recorded.as_deref().unwrap_or("").split(',').filter(|e| !e.is_empty()));
+                    package.properties.insert(
+                        crate::extras::PYTHON_EXTRAS_PROPERTY.to_string(),
+                        all.into_iter().collect::<Vec<_>>().join(","),
+                    );
+                }
                 matched.insert(key);
             }
         }
@@ -429,11 +476,17 @@ fn read_pyproject(path: &Path) -> Option<Manifest> {
             // `python` constrains the interpreter; it is not a package.
             manifest
                 .declared
-                .extend(table.keys().filter(|name| *name != "python").map(|name| Declared {
-                    name: name.clone(),
-                    pypi: true,
-                    feature: feature.to_string(),
-                }));
+                .extend(
+                    table
+                        .iter()
+                        .filter(|(name, _)| *name != "python")
+                        .map(|(name, value)| Declared {
+                            name: name.clone(),
+                            pypi: true,
+                            feature: feature.to_string(),
+                            extras: table_extras(value),
+                        }),
+                );
         }
     }
     // PEP 621 requirements are the default feature's PyPI dependencies, and each extra is a
@@ -512,6 +565,7 @@ fn read_environment_yml(path: &Path) -> Option<Manifest> {
                         name,
                         pypi: false,
                         feature: DEFAULT_FEATURE.to_string(),
+                        extras: Vec::new(),
                     });
                 }
             }
@@ -566,10 +620,25 @@ fn declared_requirement(requirement: &str, feature: &str) -> Option<Declared> {
         .chars()
         .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
         .collect();
+    // `name[extra1, extra2]>=1`: the extras between the brackets that follow the name.
+    let extras = requirement
+        .trim()
+        .get(name.len()..)
+        .and_then(|rest| rest.trim_start().strip_prefix('['))
+        .and_then(|rest| rest.split_once(']'))
+        .map(|(inside, _)| {
+            inside
+                .split(',')
+                .map(|e| e.trim().to_string())
+                .filter(|e| !e.is_empty())
+                .collect()
+        })
+        .unwrap_or_default();
     (!name.is_empty()).then(|| Declared {
         name,
         pypi: true,
         feature: feature.to_string(),
+        extras,
     })
 }
 
@@ -706,6 +775,50 @@ lint = ["flake8"]
     }
 
     #[test]
+    fn the_extras_a_dependency_is_asked_for_are_kept() {
+        let dir = workspace(&[(
+            "pyproject.toml",
+            r#"
+[project]
+name = "app"
+dependencies = ["requests[socks, security]>=2.32", "django [argon2]", "rich"]
+[project.optional-dependencies]
+s3 = ["django-storages[s3]"]
+[tool.poetry.dependencies]
+celery = { version = "^5", extras = ["redis"] }
+"#,
+        )]);
+        let manifest = read(&dir.path().join("poetry.lock"));
+        let asked = manifest.requested_extras("default");
+        let get = |name: &str| asked.get(name).map(|e| e.iter().cloned().collect::<Vec<_>>());
+        assert_eq!(get("requests"), Some(vec!["security".to_string(), "socks".to_string()]));
+        assert_eq!(
+            get("django"),
+            Some(vec!["argon2".to_string()]),
+            "a space before the bracket"
+        );
+        assert_eq!(
+            get("django-storages"),
+            Some(vec!["s3".to_string()]),
+            "every extra counts"
+        );
+        assert_eq!(get("celery"), Some(vec!["redis".to_string()]), "a poetry table");
+        assert_eq!(get("rich"), None);
+
+        let pixi = workspace(&[(
+            "pixi.toml",
+            "[workspace]\nname = \"w\"\nchannels = []\nplatforms = []\n[pypi-dependencies]\nrequests = { version = \"*\", extras = [\"socks\"] }\n[feature.dev.pypi-dependencies]\nhttpx = { version = \"*\", extras = [\"http2\"] }\n[environments]\ndev = [\"dev\"]\n",
+        )]);
+        let manifest = read(&pixi.path().join("pixi.lock"));
+        assert!(manifest.requested_extras("default").contains_key("requests"));
+        assert!(
+            !manifest.requested_extras("default").contains_key("httpx"),
+            "not in that environment"
+        );
+        assert!(manifest.requested_extras("dev").contains_key("httpx"));
+    }
+
+    #[test]
     fn an_environment_yml_declares_its_conda_specs_and_pip_list() {
         let dir = workspace(&[(
             "environment.yml",
@@ -745,6 +858,7 @@ lint = ["flake8"]
                 name: "six".into(),
                 pypi: true,
                 feature: "test".into(),
+                extras: Vec::new(),
             }],
             every_feature: true,
             ..Manifest::default()

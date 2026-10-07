@@ -644,7 +644,7 @@ fn main() -> Result<()> {
         }
         if !explain_patterns.is_empty() {
             let context = explain::Context {
-                manifest: matches!(input, Input::Lock { manifest, .. } if !manifest.declared.is_empty()),
+                manifest: input.manifest().is_some_and(|manifest| !manifest.declared.is_empty()),
                 ..explain_context
             };
             let report = report::Report::explain(&sbom, &explain_patterns, context);
@@ -1724,6 +1724,22 @@ enum Input {
     Document(Box<fromsbom::Loaded>),
 }
 
+impl Input {
+    /// The manifest read beside the input, for a lockfile of any kind.
+    fn manifest(&self) -> Option<&manifest::Manifest> {
+        match self {
+            Input::Lock { manifest, .. }
+            | Input::Explicit { manifest, .. }
+            | Input::CondaLock { manifest, .. }
+            | Input::Pdm { manifest, .. }
+            | Input::Poetry { manifest, .. }
+            | Input::Uv { manifest, .. }
+            | Input::Pylock { manifest, .. } => Some(manifest),
+            _ => None,
+        }
+    }
+}
+
 /// One document to write: an environment, a platform (`None` = host), and where it goes.
 #[derive(Debug)]
 struct Target {
@@ -1811,11 +1827,12 @@ fn model_for(workspace: &Workspace, environment: &str, platform: Option<&str>) -
             manifest,
         } => {
             let selection = lock::Selection { environment, platform };
-            let mut sbom = lock::sbom_from_lock(
+            let mut sbom = lock::sbom_from_lock_with_extras(
                 lock,
                 selection,
                 manifest.root.clone(),
                 &discover::lockfile_name(lockfile),
+                &manifest.requested_extras(environment),
             )?;
             // What the workspace asked for itself, as opposed to what came along.
             manifest.apply(&mut sbom);

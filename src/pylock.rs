@@ -15,7 +15,7 @@ use std::path::Path;
 use std::str::FromStr;
 
 use miette::Diagnostic;
-use pep508_rs::{MarkerEnvironment, MarkerEnvironmentBuilder, MarkerTree};
+use pep508_rs::{ExtraName, MarkerEnvironment, MarkerEnvironmentBuilder, MarkerTree};
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -106,7 +106,7 @@ pub struct Loaded {
 }
 
 /// The parts of a PEP 751 lockfile a document is built from. Keys this reader has no use for
-/// (attestations, tool tables, `extras`, `dependency-groups`) are ignored rather than rejected.
+/// (attestations, tool tables) are ignored rather than rejected.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Pylock {
@@ -121,6 +121,12 @@ pub struct Pylock {
     /// The locked packages.
     #[serde(default)]
     pub packages: Vec<LockedPackage>,
+    /// The project's extras the lock covers; `'name' in extras` markers refer to them.
+    #[serde(default)]
+    pub extras: Vec<String>,
+    /// The dependency groups the lock covers; `'name' in dependency_groups` markers refer to them.
+    #[serde(default)]
+    pub dependency_groups: Vec<String>,
 }
 
 /// One `[[packages]]` entry.
@@ -419,18 +425,45 @@ pub fn build_sbom(
         }
     };
     let env = marker_environment(&platform, &python)?;
+    // Every extra and group the lock covers is described, so each counts as chosen.
+    let chosen: Vec<ExtraName> = lock
+        .extras
+        .iter()
+        .cloned()
+        .chain(
+            lock.dependency_groups
+                .iter()
+                .map(|g| format!("{}{g}", crate::extras::GROUP_EXTRA_PREFIX)),
+        )
+        .filter_map(|name| ExtraName::from_str(&name).ok())
+        .collect();
+    let groups_only: Vec<ExtraName> = chosen
+        .iter()
+        .filter(|e| e.as_ref().starts_with(crate::extras::GROUP_EXTRA_PREFIX))
+        .cloned()
+        .collect();
 
     let mut selected = Vec::new();
+    let mut for_extras: BTreeMap<usize, Vec<String>> = BTreeMap::new();
     for package in &lock.packages {
         if let Some(marker) = &package.marker {
-            let tree = MarkerTree::from_str(marker).map_err(|err| PylockError::Marker {
+            let rewritten = crate::extras::pep751_marker(marker);
+            let tree = MarkerTree::from_str(&rewritten).map_err(|err| PylockError::Marker {
                 package: package.name.clone(),
                 marker: marker.clone(),
                 message: err.to_string(),
             })?;
-            if !tree.evaluate(&env, &[]) {
+            if !tree.evaluate(&env, &chosen) {
                 tracing::debug!(package = %package.name, %marker, %platform, "not installed on this platform");
                 continue;
+            }
+            // Installed, but not without the project's extras: it is here for them.
+            if !tree.evaluate(&env, &groups_only) {
+                let wanted: Vec<String> = crate::extras::gating_extras(&rewritten)
+                    .into_iter()
+                    .filter(|e| !e.starts_with(crate::extras::GROUP_EXTRA_PREFIX))
+                    .collect();
+                for_extras.insert(selected.len(), wanted);
             }
         }
         if is_the_project(package) {
@@ -450,6 +483,21 @@ pub fn build_sbom(
         .map(|package| convert(package, &platform, &python))
         .collect::<Result<Vec<_>, _>>()?;
     link(&selected, &mut packages);
+    let mut extras = crate::extras::Extras::default();
+    let project = if root.name.is_empty() {
+        "project"
+    } else {
+        root.name.as_str()
+    };
+    for (i, wanted) in for_extras.iter().filter(|(_, w)| !w.is_empty()) {
+        let labels = wanted.iter().map(|extra| format!("{project}[{extra}]"));
+        extras
+            .project
+            .entry(packages[*i].id.clone())
+            .or_default()
+            .extend(labels);
+    }
+    extras.apply(&mut packages);
     packages.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
     tracing::info!(
         platform = %platform,
@@ -683,6 +731,64 @@ wheels = [{ name = "rich-14.0.0-py3-none-any.whl", url = "https://files.pythonho
         assert!(!is_pylock_name(Path::new("poetry.lock")));
         assert_eq!(environment_name(Path::new("pylock.dev.toml")), "dev");
         assert_eq!(environment_name(Path::new("pylock.toml")), "default");
+    }
+
+    #[test]
+    fn pep_751_extra_and_group_markers_are_read_and_name_the_extra() {
+        let text = r#"
+lock-version = "1.0"
+created-by = "pdm"
+extras = ["s3"]
+dependency-groups = ["dev"]
+
+[[packages]]
+name = "fetcher"
+directory = { path = "." }
+
+[[packages]]
+name = "django"
+version = "5.2.0"
+wheels = [{ name = "django-5.2.0-py3-none-any.whl", url = "https://files.pythonhosted.org/packages/a/django-5.2.0-py3-none-any.whl", hashes = { sha256 = "aa" } }]
+
+[[packages]]
+name = "boto3"
+version = "1.40.0"
+marker = "'s3' in extras"
+dependencies = [{ name = "jmespath" }]
+wheels = [{ name = "boto3-1.40.0-py3-none-any.whl", url = "https://files.pythonhosted.org/packages/b/boto3-1.40.0-py3-none-any.whl", hashes = { sha256 = "bb" } }]
+
+[[packages]]
+name = "jmespath"
+version = "1.0.1"
+marker = "'s3' in extras"
+wheels = [{ name = "jmespath-1.0.1-py3-none-any.whl", url = "https://files.pythonhosted.org/packages/c/jmespath-1.0.1-py3-none-any.whl", hashes = { sha256 = "cc" } }]
+
+[[packages]]
+name = "pytest"
+version = "8.4.0"
+marker = "'dev' in dependency_groups"
+wheels = [{ name = "pytest-8.4.0-py3-none-any.whl", url = "https://files.pythonhosted.org/packages/d/pytest-8.4.0-py3-none-any.whl", hashes = { sha256 = "dd" } }]
+
+[[packages]]
+name = "pywin32"
+version = "311"
+marker = "'s3' in extras and sys_platform == 'win32'"
+wheels = [{ name = "pywin32-311-py3-none-any.whl", url = "https://files.pythonhosted.org/packages/e/pywin32-311-py3-none-any.whl", hashes = { sha256 = "ee" } }]
+"#;
+        let doc = sbom(text, "linux-64");
+        let names: Vec<&str> = doc.packages.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, ["boto3", "django", "jmespath", "pytest"], "win32 stays out");
+        let via = |name| {
+            package(&doc, name)
+                .properties
+                .get(crate::extras::VIA_EXTRA_PROPERTY)
+                .cloned()
+        };
+        assert_eq!(via("boto3").as_deref(), Some("fetcher[s3]"));
+        assert_eq!(via("jmespath").as_deref(), Some("fetcher[s3]"));
+        assert_eq!(via("pytest"), None, "a group is not an extra");
+        assert_eq!(via("django"), None);
+        assert!(sbom(text, "win-64").packages.iter().any(|p| p.name == "pywin32"));
     }
 
     #[test]

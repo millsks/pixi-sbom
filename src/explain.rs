@@ -84,6 +84,8 @@ pub fn matching<'a>(sbom: &'a Sbom, patterns: &[Glob]) -> Vec<&'a Package> {
 /// The `pixi:*` properties that are reported as a fact of their own, so the catch-all at the
 /// end does not print them twice.
 const EXPLAINED_PROPERTIES: &[&str] = &[
+    crate::extras::PYTHON_EXTRAS_PROPERTY,
+    crate::extras::VIA_EXTRA_PROPERTY,
     crate::manifest::DIRECT_PROPERTY,
     crate::manifest::DECLARED_IN_PROPERTY,
     crate::mapping::MAPPING_PROPERTY,
@@ -114,6 +116,7 @@ pub fn facts(package: &Package, sbom: &Sbom, ctx: Context) -> Vec<Fact> {
         None => Fact::unknown("version", vec![format!("{input}: the entry carries no version")]),
     });
     facts.push(declared(package, ctx));
+    facts.extend(extras(package, &input));
     facts.push(obtained_from(package, &input));
     facts.push(match package.location.is_empty() {
         false => Fact::known("location", &package.location, &input),
@@ -130,6 +133,23 @@ pub fn facts(package: &Package, sbom: &Sbom, ctx: Context) -> Vec<Fact> {
     facts.push(vulnerabilities(package, sbom, ctx));
     facts.extend(edges(package, sbom, &input));
     facts.extend(other_properties(package, &input));
+    facts
+}
+
+/// The extras it was installed with, and the extra it is here for, when either is known.
+fn extras(package: &Package, input: &str) -> Vec<Fact> {
+    let mut facts = Vec::new();
+    if let Some(extras) = package.properties.get(crate::extras::PYTHON_EXTRAS_PROPERTY) {
+        facts.push(Fact::known("installed with extras", extras.replace(',', ", "), input));
+    }
+    if let Some(via) = package.properties.get(crate::extras::VIA_EXTRA_PROPERTY) {
+        let via = via.replace(',', ", ");
+        facts.push(Fact::known(
+            "brought in by",
+            format!("{via}: it is here only because that extra was asked for"),
+            input,
+        ));
+    }
     facts
 }
 

@@ -121,6 +121,8 @@ entry).
 | `pixi:source-rev` | PyPI (`pylock.toml`, `uv.lock`, `--prefix`) | The exact commit of a VCS source |
 | `pixi:editable` | PyPI (`pylock.toml`, `uv.lock`) | `true` for a local directory installed in editable mode |
 | `pixi:requires-python` | PyPI | `Requires-Python` of the distribution |
+| `pixi:python-extras` | PyPI (`pixi.lock`, `uv.lock`, `poetry.lock`, `pdm.lock`) | The extras the package was installed with, comma separated, e.g. `socks,security`: what the manifest and the other packages asked of it |
+| `pixi:via-extra` | PyPI (`pixi.lock`, `uv.lock`, `poetry.lock`, `pdm.lock`, `pylock.toml`) | The extras the package is in the document for, as `package[extra]`, comma separated, e.g. `requests[socks]`. Set only when nothing else needs the package; what such a package depends on carries the same label |
 | `pixi:source` | PyPI | `true` for sdists / source trees |
 
 In SPDX these appear in the package `comment` because SPDX 2.3 has no free-form property field.

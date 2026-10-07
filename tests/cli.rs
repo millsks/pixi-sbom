@@ -7437,3 +7437,89 @@ fn the_manifest_beside_a_non_pixi_lockfile_says_what_the_project_declared() {
         .count();
     assert!(root["dependsOn"].as_array().unwrap().len() >= direct);
 }
+
+#[test]
+fn python_extras_say_what_was_asked_for_and_what_came_with_it() {
+    // #330: `pixi:python-extras` on a package installed with extras, `pixi:via-extra` on what an
+    // extra alone brought in, from uv.lock, poetry.lock, pdm.lock and pixi.lock.
+    let work = tempfile::tempdir().unwrap();
+    let run = |dir: &Path, args: &[&str]| {
+        let output = pixi_sbom()
+            .current_dir(dir)
+            .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "200")
+            .args(["-p", "linux-64"])
+            .args(args)
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        String::from_utf8(output).unwrap()
+    };
+    let properties = |dir: &Path| -> std::collections::BTreeMap<String, (Option<String>, Option<String>)> {
+        let doc: Value = serde_json::from_str(&run(dir, &["--output", "-"])).unwrap();
+        doc["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| {
+                let get = |key: &str| {
+                    c["properties"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .find(|p| p["name"] == key)
+                        .map(|p| p["value"].as_str().unwrap().to_string())
+                };
+                (
+                    c["name"].as_str().unwrap().to_string(),
+                    (get("pixi:python-extras"), get("pixi:via-extra")),
+                )
+            })
+            .collect()
+    };
+    let some = |s: &str| Some(s.to_string());
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/projects");
+
+    for reader in ["uv", "poetry", "pdm"] {
+        let found = properties(&examples.join(reader).join("01-django"));
+        assert_eq!(found["django"].0, some("argon2"), "{reader}");
+        assert_eq!(found["django-storages"].0, some("s3"), "{reader}");
+        for name in ["argon2-cffi", "argon2-cffi-bindings", "cffi", "pycparser"] {
+            assert_eq!(found[name].1, some("django[argon2]"), "{reader}: {name}");
+        }
+        assert_eq!(found["sqlparse"], (None, None), "{reader}: needed anyway");
+        if reader != "pdm" {
+            // pdm.lock does not say which of the project's groups are extras.
+            assert_eq!(found["django-storages"].1, some("django-example[s3]"), "{reader}");
+        }
+    }
+
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/pypi-extras");
+    let found = properties(&fixture);
+    assert_eq!(found["requests"].0, some("socks"), "from the manifest's extras = [...]");
+    assert_eq!(found["pysocks"].1, some("requests[socks]"));
+    assert_eq!(found["urllib3"], (None, None));
+
+    let explained = run(&fixture, &["--explain", "pysocks", "--explain", "requests"]);
+    assert!(
+        explained
+            .lines()
+            .any(|l| l.contains("brought in by") && l.contains("requests[socks]")),
+        "{explained}"
+    );
+    assert!(
+        explained
+            .lines()
+            .any(|l| l.contains("installed with extras") && l.contains("socks")),
+        "{explained}"
+    );
+    let uv = run(&examples.join("uv/01-django"), &["--explain", "cffi"]);
+    assert!(
+        !uv.contains("none was read"),
+        "the pyproject.toml beside uv.lock was read: {uv}"
+    );
+}

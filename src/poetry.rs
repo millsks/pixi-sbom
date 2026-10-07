@@ -282,6 +282,48 @@ pub fn build_sbom(
         deps.dedup();
         package.dependencies = deps;
     }
+
+    // Extras. A dependency entry may ask for some of its target's extras; an optional entry
+    // whose marker names one of this package's extras exists only for it; and a package whose
+    // own marker names an extra is there for the project's extra of that name.
+    let mut extras = crate::extras::Extras::default();
+    for (locked, package) in selected.iter().zip(&packages) {
+        for (name, spec) in &locked.dependencies {
+            let Some(to) = ids.get(&purl::normalize_pypi_name(name)) else {
+                continue;
+            };
+            let asked = spec
+                .get("extras")
+                .and_then(toml::Value::as_array)
+                .map(|e| {
+                    e.iter()
+                        .filter_map(|x| x.as_str().map(str::to_string))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            extras.request(to, asked);
+            let optional = spec.get("optional").and_then(toml::Value::as_bool).unwrap_or(false);
+            let marker = spec.get("markers").and_then(toml::Value::as_str).unwrap_or("");
+            if optional {
+                for extra in crate::extras::gating_extras(marker) {
+                    extras.gate(&package.id, &locked.name, &extra, to);
+                }
+            }
+        }
+        for extra in crate::extras::gating_extras(locked.markers.as_deref().unwrap_or("")) {
+            let project = if root.name.is_empty() {
+                "project"
+            } else {
+                root.name.as_str()
+            };
+            extras
+                .project
+                .entry(package.id.clone())
+                .or_default()
+                .insert(format!("{project}[{extra}]"));
+        }
+    }
+    extras.apply(&mut packages);
     packages.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
     tracing::info!(
         platform = %platform,

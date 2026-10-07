@@ -272,8 +272,17 @@ pub fn build_sbom(lock: &PdmLock, platform: Option<&str>, root: Root, lockfile_n
         .map(|((name, _), package)| (name.clone(), package.id.clone()))
         .collect();
     let mut edges: BTreeMap<(String, Option<String>), BTreeSet<String>> = BTreeMap::new();
+    // An extra's entry asks for that extra of the package it extends, and its edges exist only
+    // for it (unless the package's own entry has them too).
+    let mut extras = crate::extras::Extras::default();
+    let mut extra_edges: Vec<(String, String, String)> = Vec::new();
+    let mut plain: BTreeSet<(String, String)> = BTreeSet::new();
     for package in &selected {
         let from = key(package);
+        let from_id = ids.get(&from.0).cloned();
+        if let Some(from_id) = &from_id {
+            extras.request(from_id, package.extras.iter().cloned());
+        }
         for requirement in &package.dependencies {
             let parsed = Requirement::<VerbatimUrl>::from_str(requirement).map_err(|err| PdmError::Marker {
                 package: package.name.clone(),
@@ -285,7 +294,22 @@ pub fn build_sbom(lock: &PdmLock, platform: Option<&str>, root: Root, lockfile_n
             }
             if let Some(id) = ids.get(&purl::normalize_pypi_name(parsed.name.as_ref())) {
                 edges.entry(from.clone()).or_default().insert(id.clone());
+                if let Some(from_id) = &from_id {
+                    extras.request(id, parsed.extras.iter().map(ToString::to_string));
+                    if package.extras.is_empty() {
+                        plain.insert((from_id.clone(), id.clone()));
+                    } else {
+                        for extra in &package.extras {
+                            extra_edges.push((from_id.clone(), format!("{}[{extra}]", package.name), id.clone()));
+                        }
+                    }
+                }
             }
+        }
+    }
+    for (from, label, to) in extra_edges {
+        if from != to && !plain.contains(&(from.clone(), to.clone())) {
+            extras.gated.entry((from, to)).or_default().insert(label);
         }
     }
     let mut packages: Vec<Package> = components
@@ -300,6 +324,7 @@ pub fn build_sbom(lock: &PdmLock, platform: Option<&str>, root: Root, lockfile_n
             package
         })
         .collect();
+    extras.apply(&mut packages);
     packages.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
     tracing::info!(
         platform = %platform,

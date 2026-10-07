@@ -152,6 +152,19 @@ pub fn sbom_from_lock(
     root: Root,
     lockfile_name: &str,
 ) -> Result<Sbom, LockError> {
+    sbom_from_lock_with_extras(lock, selection, root, lockfile_name, &BTreeMap::new())
+}
+
+/// [`sbom_from_lock`], told which extras the workspace manifest asks for, by PEP 503-normalized
+/// PyPI name. A requirement gated on an extra (`pysocks; extra == 'socks'`) brings its package in
+/// only when that extra was asked for, here or by another package's requirement.
+pub fn sbom_from_lock_with_extras(
+    lock: &LockFile,
+    selection: Selection<'_>,
+    root: Root,
+    lockfile_name: &str,
+    manifest_extras: &BTreeMap<String, BTreeSet<String>>,
+) -> Result<Sbom, LockError> {
     let environment = lock
         .environment(selection.environment)
         .ok_or_else(|| LockError::EnvironmentNotFound {
@@ -188,6 +201,7 @@ pub fn sbom_from_lock(
         .map(|package| convert_package(package))
         .collect::<Result<Vec<_>, _>>()?;
     resolve_dependencies(&locked, &mut packages);
+    record_extras(&locked, &mut packages, manifest_extras);
     for package in &mut packages {
         if let Some(raw) = &package.license
             && crate::license::is_rewritten(raw)
@@ -532,6 +546,51 @@ fn resolve_dependencies(locked: &[&LockedPackage], packages: &mut [Package]) {
         })
         .collect();
     link_dependencies(packages, &declared);
+}
+
+/// Which extras each PyPI package was asked for, and which packages are present only for one.
+fn record_extras(
+    locked: &[&LockedPackage],
+    packages: &mut [Package],
+    manifest_extras: &BTreeMap<String, BTreeSet<String>>,
+) {
+    let by_name: HashMap<String, String> = packages
+        .iter()
+        .filter(|p| p.kind == PackageKind::Pypi)
+        .map(|p| (purl::normalize_pypi_name(&p.name), p.id.clone()))
+        .collect();
+    let mut extras = crate::extras::Extras::default();
+    for (name, asked) in manifest_extras {
+        if let Some(id) = by_name.get(name) {
+            extras.request(id, asked.iter().cloned());
+        }
+    }
+    let mut gates: Vec<(String, String, String, String)> = Vec::new();
+    for (locked, package) in locked.iter().zip(packages.iter()) {
+        let LockedPackage::Pypi(pypi) = locked else { continue };
+        for requirement in pypi.requires_dist() {
+            let Some(to) = by_name.get(&purl::normalize_pypi_name(requirement.name.as_ref())) else {
+                continue;
+            };
+            if !package.dependencies.contains(to) {
+                continue;
+            }
+            extras.request(to, requirement.extras.iter().map(ToString::to_string));
+            let marker = requirement.marker.try_to_string().unwrap_or_default();
+            for extra in crate::extras::gating_extras(&marker) {
+                gates.push((package.id.clone(), package.name.clone(), extra, to.clone()));
+            }
+        }
+    }
+    // Only a gate whose extra was asked for brought anything in.
+    for (from, name, extra, to) in gates {
+        if extras.requested.get(&from).is_some_and(|asked| asked.contains(&extra)) {
+            extras.gate(&from, &name, &extra, &to);
+        } else {
+            extras.unrequested.insert((from, to));
+        }
+    }
+    extras.apply(packages);
 }
 
 /// Match each package's declared dependencies (same order as `packages`) to the packages

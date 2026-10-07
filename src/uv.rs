@@ -304,6 +304,11 @@ pub fn build_sbom(lock: &UvLock, platform: Option<&str>, mut root: Root, lockfil
         .filter(|(_, p)| is_member(p, &members))
         .map(|(i, p)| (i, p.optional_dependencies.keys().cloned().collect()))
         .collect();
+    // What extras did along the way: edges taken only for an extra (`from`'s name and extra),
+    // edges taken without one, and the extras each edge asked of its target.
+    let mut gated: BTreeMap<(usize, usize), BTreeSet<String>> = BTreeMap::new();
+    let mut plain: BTreeSet<(usize, usize)> = BTreeSet::new();
+    let mut requested: BTreeMap<usize, BTreeSet<String>> = BTreeMap::new();
     while let Some((i, extras)) = queue.pop_front() {
         let first = !done.contains_key(&i);
         let seen = done.entry(i).or_default();
@@ -313,17 +318,24 @@ pub fn build_sbom(lock: &UvLock, platform: Option<&str>, mut root: Root, lockfil
         }
         seen.extend(new_extras.iter().cloned());
         let package = &lock.packages[i];
-        let mut outgoing: Vec<&Edge> = Vec::new();
+        let mut outgoing: Vec<(&Edge, Option<&str>)> = Vec::new();
         if first {
-            outgoing.extend(&package.dependencies);
+            outgoing.extend(package.dependencies.iter().map(|e| (e, None)));
             if is_member(package, &members) {
-                outgoing.extend(package.dev_dependencies.values().flatten());
+                outgoing.extend(package.dev_dependencies.values().flatten().map(|e| (e, None)));
             }
         }
         for extra in &new_extras {
-            outgoing.extend(package.optional_dependencies.get(extra).into_iter().flatten());
+            outgoing.extend(
+                package
+                    .optional_dependencies
+                    .get(extra)
+                    .into_iter()
+                    .flatten()
+                    .map(|e| (e, Some(extra.as_str()))),
+            );
         }
-        for edge in outgoing {
+        for (edge, via) in outgoing {
             if let Some(marker) = &edge.marker {
                 let tree = MarkerTree::from_str(marker).map_err(|err| UvError::Marker {
                     from: package.name.clone(),
@@ -340,6 +352,20 @@ pub fn build_sbom(lock: &UvLock, platform: Option<&str>, mut root: Root, lockfil
                 continue;
             };
             edges.entry(i).or_default().insert(target);
+            match via {
+                Some(extra) => {
+                    gated
+                        .entry((i, target))
+                        .or_default()
+                        .insert(format!("{}[{extra}]", package.name));
+                }
+                None => {
+                    plain.insert((i, target));
+                }
+            }
+            if !edge.extra.is_empty() {
+                requested.entry(target).or_default().extend(edge.extra.iter().cloned());
+            }
             queue.push_back((target, edge.extra.iter().cloned().collect()));
         }
     }
@@ -381,6 +407,53 @@ pub fn build_sbom(lock: &UvLock, platform: Option<&str>, mut root: Root, lockfil
         package.dependencies = deps;
     }
     let mut packages: Vec<Package> = packages.into_iter().map(|(_, p)| p).collect();
+
+    // Extras: what each package was asked for, and what is here only because of one. The
+    // project's own extras are labelled with its name; its other edges are the roots.
+    let mut extras = crate::extras::Extras::default();
+    for (target, asked) in &requested {
+        if let Some(id) = ids.get(target) {
+            extras.request(id, asked.iter().cloned());
+        }
+    }
+    let mut roots: BTreeSet<String> = BTreeSet::new();
+    for ((from, to), via) in &gated {
+        if plain.contains(&(*from, *to)) {
+            continue;
+        }
+        let Some(to_id) = ids.get(to) else { continue };
+        if Some(*from) == project {
+            extras
+                .project
+                .entry(to_id.clone())
+                .or_default()
+                .extend(via.iter().cloned());
+        } else if let Some(from_id) = ids.get(from) {
+            for label in via {
+                extras
+                    .gated
+                    .entry((from_id.clone(), to_id.clone()))
+                    .or_default()
+                    .insert(label.clone());
+            }
+        }
+    }
+    for (from, to) in &plain {
+        if Some(*from) == project
+            && let Some(id) = ids.get(to)
+        {
+            roots.insert(id.clone());
+        }
+    }
+    for (i, id) in &ids {
+        if is_member(&lock.packages[*i], &members) {
+            roots.insert(id.clone());
+        }
+    }
+    if project.is_some() {
+        extras.roots = Some(roots);
+    }
+    extras.apply(&mut packages);
     packages.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
     tracing::info!(
         platform = %platform,
