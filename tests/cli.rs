@@ -171,7 +171,9 @@ fn no_lockfile_in_tree_fails_with_help() {
         .current_dir(dir.path())
         .assert()
         .failure()
-        .stderr(predicate::str::contains("no pixi.lock, uv.lock or pylock.toml found"))
+        .stderr(predicate::str::contains(
+            "no pixi.lock, uv.lock, poetry.lock or pylock.toml found",
+        ))
         .stderr(predicate::str::contains("--lockfile"));
 }
 
@@ -6778,4 +6780,142 @@ fn uv_lock_is_found_by_the_upward_search_and_read_in_every_format() {
         .assert()
         .code(2)
         .stderr(predicate::str::contains("uv.lock has none"));
+}
+
+#[test]
+fn poetry_lock_is_read_in_every_format_with_its_sources() {
+    // #324: poetry.lock 2.x. No download URLs in the lock, a second index, and the project's own
+    // dependencies from the pyproject.toml beside it.
+    let work = tempfile::tempdir().unwrap();
+    let command = |dir: &Path, args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir)
+            .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(args);
+        command
+    };
+    let doc = |dir: &Path, args: &[&str]| -> Value {
+        let mut all = vec!["--output", "-"];
+        all.extend_from_slice(args);
+        serde_json::from_slice(&command(dir, &all).assert().success().get_output().stdout).unwrap()
+    };
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/projects");
+    let django = examples.join("poetry/01-django");
+
+    // Found by the upward search; every format validates, including components with no location.
+    let linux = doc(&django, &["-p", "linux-64"]);
+    assert_valid(&cyclonedx_validator(), &linux);
+    assert_valid(
+        &cyclonedx_1_7_validator(),
+        &doc(&django, &["-p", "linux-64", "--spec-version", "1.7"]),
+    );
+    assert_valid(
+        &spdx_validator(),
+        &doc(&django, &["-p", "linux-64", "--format", "spdx"]),
+    );
+    assert_valid(
+        &spdx3_validator(),
+        &doc(
+            &django,
+            &["-p", "linux-64", "--format", "spdx", "--spec-version", "3.0"],
+        ),
+    );
+    assert_eq!(linux["metadata"]["component"]["name"], "django-example");
+    let components = linux["components"].as_array().unwrap();
+    let named = |name: &str| components.iter().find(|c| c["name"] == name).unwrap();
+    let property = |c: &Value, key: &str| {
+        c["properties"]
+            .as_array()
+            .and_then(|ps| ps.iter().find(|p| p["name"] == key))
+            .map(|p| p["value"].as_str().unwrap().to_string())
+    };
+    let django_pkg = named("django");
+    assert_eq!(django_pkg["purl"], "pkg:pypi/django@3.2.12");
+    assert!(
+        django_pkg.get("externalReferences").is_none_or(|refs| !refs
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["type"] == "distribution")),
+        "no URL to claim"
+    );
+    assert!(property(django_pkg, "pixi:file-name").is_some_and(|f| f.ends_with(".whl")));
+    assert_eq!(
+        property(django_pkg, "pixi:direct").as_deref(),
+        Some("true"),
+        "declared in pyproject.toml"
+    );
+    assert!(property(named("django-debug-toolbar"), "pixi:source-rev").is_some_and(|r| r.len() == 40));
+    assert_eq!(
+        property(named("internal-utils"), "pixi:editable").as_deref(),
+        Some("true")
+    );
+    let spdx = doc(&django, &["-p", "linux-64", "--format", "spdx"]);
+    let spdx_django = spdx["packages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "django")
+        .unwrap();
+    assert_eq!(spdx_django["downloadLocation"], "NOASSERTION");
+    assert!(spdx_django.get("sourceInfo").is_none());
+
+    // Poetry and uv resolved this scenario independently; they agree on what is installed.
+    let names = |d: &Value| -> std::collections::BTreeSet<String> {
+        d["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["name"].as_str().unwrap().to_lowercase())
+            .collect()
+    };
+    for platform in ["linux-64", "win-64"] {
+        assert_eq!(
+            names(&doc(&django, &["-p", platform])),
+            names(&doc(&examples.join("uv/01-django"), &["-p", platform])),
+            "{platform}"
+        );
+    }
+
+    // A package from a second index names that index, not PyPI.
+    let sources = tests_dir().join("fixtures/poetry-sources");
+    let ml = doc(&sources, &["-p", "linux-64"]);
+    assert_valid(&cyclonedx_validator(), &ml);
+    let torch = ml["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "torch")
+        .unwrap();
+    assert_eq!(torch["purl"], "pkg:pypi/torch@2.9.0%2Bcpu");
+    assert_eq!(torch["supplier"]["name"], "download.pytorch.org");
+    assert!(torch["hashes"].as_array().is_some_and(|h| !h.is_empty()));
+
+    // Reports run on it.
+    for report in [
+        &["--report", "packages"][..],
+        &["--report", "licenses"],
+        &["--vulnerabilities", "osv", "--report", "vulnerabilities"],
+    ] {
+        command(&django, &[&["-p", "linux-64"][..], report].concat())
+            .assert()
+            .success();
+    }
+
+    // A lock-version 1 file is refused with the fix.
+    let old = work.path().join("old");
+    std::fs::create_dir_all(&old).unwrap();
+    std::fs::write(
+        old.join("poetry.lock"),
+        "[metadata]\nlock-version = \"1.1\"\npython-versions = \"^3.8\"\ncontent-hash = \"x\"\n",
+    )
+    .unwrap();
+    command(&old, &["--output", "-"])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("lock-version 1.1 is not supported"))
+        .stderr(predicate::str::contains("poetry lock"));
 }

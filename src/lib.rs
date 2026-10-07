@@ -75,6 +75,7 @@ pub mod outdated;
 pub mod phantom;
 #[doc(hidden)]
 pub mod pkgcache;
+pub mod poetry;
 #[doc(hidden)]
 pub mod policy;
 #[doc(hidden)]

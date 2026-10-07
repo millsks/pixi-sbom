@@ -78,7 +78,7 @@ conda source, PyPI), then name, then version.
 | Package URL | `purl` | `externalRefs[]` with `referenceCategory: PACKAGE-MANAGER`, `referenceType: purl` |
 | Supplier | `supplier` (`name`, `url[]`): the conda channel (e.g. `conda-forge`) or the PyPI index host (e.g. `pypi.org`); absent for source packages | `supplier`: `Organization: <name> (<url>)` |
 | Extra purls (see below) | property `pixi:purl` per purl | additional `externalRefs[]` entries |
-| Download location | `externalReferences[]` of type `distribution`, or `vcs` for `git+` locations | `downloadLocation` (URL or `git+<url>@<rev>`); `NOASSERTION` plus `sourceInfo` for local paths |
+| Download location | `externalReferences[]` of type `distribution`, or `vcs` for `git+` locations; none when nothing records one (`poetry.lock` names files, not URLs) | `downloadLocation` (URL or `git+<url>@<rev>`); `NOASSERTION` plus `sourceInfo` for local paths; `NOASSERTION` alone when nothing records one |
 | SHA-256, MD5 | `hashes[]` (`SHA-256`, `MD5`) | `checksums[]` (`SHA256`, `MD5`) |
 | License | `licenses[]` (see below) | `licenseDeclared` (see below); `licenseConcluded` and `copyrightText` are `NOASSERTION` |
 | License file names, summary, URLs (`--fetch-licenses`) | `pixi:license-file` properties, `description`, `externalReferences[]` | `licenseComments`, `summary`, `homepage` |
@@ -99,7 +99,7 @@ entry).
 | `pixi:subdir` | conda | `linux-64`, `noarch`, ... |
 | `pixi:build` | conda | Build string |
 | `pixi:build-number` | conda | Build number |
-| `pixi:file-name` | conda binary | Archive file name |
+| `pixi:file-name` | conda binary; PyPI (`poetry.lock`) | Archive file name; for a Poetry package, the wheel or sdist this platform would install, since Poetry records no download URL |
 | `pixi:size` | conda | Archive size in bytes |
 | `pixi:license-family` | conda | Channel-declared license family |
 | `pixi:noarch` | conda | `true` when the package is noarch |

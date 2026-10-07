@@ -12,16 +12,16 @@ pub const LOCKFILE_NAME: &str = "pixi.lock";
 
 /// The lockfiles the upward search looks for, in the order it prefers them within one directory:
 /// a pixi workspace that also has a `uv.lock` (pixi uses uv underneath) is a pixi workspace.
-pub const UPWARD_NAMES: [&str; 3] = [LOCKFILE_NAME, "uv.lock", "pylock.toml"];
+pub const UPWARD_NAMES: [&str; 4] = [LOCKFILE_NAME, "uv.lock", "poetry.lock", "pylock.toml"];
 
 /// Errors raised while locating input and output files.
 #[derive(Debug, Error, Diagnostic)]
 pub enum DiscoverError {
     /// No lockfile found walking up from the start directory.
-    #[error("no pixi.lock, uv.lock or pylock.toml found in {start} or any parent directory")]
+    #[error("no pixi.lock, uv.lock, poetry.lock or pylock.toml found in {start} or any parent directory")]
     #[diagnostic(
         code(pixi_sbom::discover::not_found),
-        help("run `pixi lock` (or `uv lock`) in your project, or pass --lockfile with the path to one")
+        help("run `pixi lock` (or `uv lock`, `poetry lock`) in your project, or pass --lockfile with the path to one")
     )]
     NotFound {
         /// Directory the search started from.

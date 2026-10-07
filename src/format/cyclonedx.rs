@@ -608,20 +608,23 @@ fn component(package: &Package) -> Component {
         purl: Some(package.purl.clone()),
         hashes,
         licenses,
-        external_references: std::iter::once(ExternalReference {
-            kind: if package.location.starts_with("git+") {
-                "vcs"
-            } else {
-                "distribution"
-            },
-            url: package.location.clone(),
-        })
-        .chain(project_references(
-            package.homepage.as_deref(),
-            package.repository.as_deref(),
-            package.documentation.as_deref(),
-        ))
-        .collect(),
+        // A package may have no known location: Poetry records file names and hashes, not URLs.
+        external_references: (!package.location.is_empty())
+            .then(|| ExternalReference {
+                kind: if package.location.starts_with("git+") {
+                    "vcs"
+                } else {
+                    "distribution"
+                },
+                url: package.location.clone(),
+            })
+            .into_iter()
+            .chain(project_references(
+                package.homepage.as_deref(),
+                package.repository.as_deref(),
+                package.documentation.as_deref(),
+            ))
+            .collect(),
         properties,
     }
 }

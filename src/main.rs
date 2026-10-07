@@ -7,7 +7,7 @@
 use pixi_sbom::{
     auditable, batch, cache, cli, concurrency, condaarchive, config, diff, discover, doctor, embedded, explain, filter,
     format, fromsbom, http, imports, kev, license, lock, manifest, mapping, mirror, model, osv, outdated, phantom,
-    pkgcache, policy, prefix, progress, pylock, pypi, report, scorecard, style, timings, uv, vulnpolicy, wheel,
+    pkgcache, poetry, policy, prefix, progress, pylock, pypi, report, scorecard, style, timings, uv, vulnpolicy, wheel,
 };
 
 /// The system allocator on macOS and Windows is slow under the many small allocations a
@@ -196,6 +196,14 @@ fn main() -> Result<()> {
         }),
         (None, Some(_)) => None,
         // A PEP 751 lockfile, recognised by its name; anything else given as --lockfile is read as pixi.lock.
+        (None, None) if poetry::is_poetry_lock_name(&lockfile) => {
+            let poetry::Loaded { lock, contents } = timings::time(timings::Phase::Input, || poetry::load(&lockfile))?;
+            Some(Input::Poetry {
+                lock,
+                contents,
+                manifest: timings::time(timings::Phase::Manifest, || manifest::read(&lockfile)),
+            })
+        }
         (None, None) if uv::is_uv_lock_name(&lockfile) => {
             let uv::Loaded { lock, contents } = timings::time(timings::Phase::Input, || uv::load(&lockfile))?;
             Some(Input::Uv {
@@ -248,6 +256,14 @@ fn main() -> Result<()> {
             let input = input.expect("only a scan leaves the input unread");
             let targets = match &input {
                 Input::Lock { lock, .. } => resolve_targets(&args, lock, &lockfile, None)?,
+                Input::Poetry { .. } => {
+                    refuse_workspace_flags(&args, "poetry.lock");
+                    vec![Target {
+                        environment: "default".to_string(),
+                        platform: args.platform.clone(),
+                        output: discover::resolve_output(args.output.as_deref(), &lockfile, args.format),
+                    }]
+                }
                 Input::Uv { .. } => {
                     refuse_workspace_flags(&args, "uv.lock");
                     vec![Target {
@@ -1574,6 +1590,13 @@ enum Input {
         contents: String,
         manifest: manifest::Manifest,
     },
+    /// A `poetry.lock`, with its text and the manifest beside it (the project's name and what it
+    /// asked for live there, not in the lock).
+    Poetry {
+        lock: poetry::PoetryLock,
+        contents: String,
+        manifest: manifest::Manifest,
+    },
     /// A `uv.lock`, with its text and the manifest beside it.
     Uv {
         lock: uv::UvLock,
@@ -1686,6 +1709,20 @@ fn model_for(workspace: &Workspace, environment: &str, platform: Option<&str>) -
                 &discover::lockfile_name(lockfile),
             )?;
             // What the workspace asked for itself, as opposed to what came along.
+            manifest.apply(&mut sbom);
+            (sbom, contents.clone())
+        }
+        Input::Poetry {
+            lock,
+            contents,
+            manifest,
+        } => {
+            let mut sbom = poetry::build_sbom(
+                lock,
+                platform,
+                manifest.root.clone(),
+                &discover::lockfile_name(lockfile),
+            )?;
             manifest.apply(&mut sbom);
             (sbom, contents.clone())
         }

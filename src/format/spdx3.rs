@@ -415,7 +415,8 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
         node.package_url = Some(package.purl.clone());
         let is_url = package.location.contains("://");
         node.download_location = is_url.then(|| package.location.clone());
-        node.source_info = (!is_url).then(|| format!("built from source at {}", package.location));
+        node.source_info =
+            (!is_url && !package.location.is_empty()).then(|| format!("built from source at {}", package.location));
         node.supplied_by = package.supplier.as_ref().map(|s| b.supplier(&s.name, s.url.as_deref()));
         let mut identifiers: Vec<ExternalIdentifier> = package
             .extra_purls

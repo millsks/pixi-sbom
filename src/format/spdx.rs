@@ -291,6 +291,9 @@ fn spdx_package(
     let is_url = package.location.contains("://");
     let (download_location, source_info) = if is_url {
         (package.location.clone(), None)
+    } else if package.location.is_empty() {
+        // Nothing records where it was downloaded from (a poetry.lock names files, not URLs).
+        (NOASSERTION.into(), None)
     } else {
         (
             NOASSERTION.into(),
