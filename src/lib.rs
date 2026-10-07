@@ -45,6 +45,7 @@ pub mod doctor;
 pub mod embedded;
 #[doc(hidden)]
 pub mod explain;
+pub mod explicit;
 #[doc(hidden)]
 pub mod filter;
 #[doc(hidden)]

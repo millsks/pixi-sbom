@@ -7217,3 +7217,116 @@ package:
         "platform win-64 is not in this conda-lock.yml",
     ));
 }
+
+#[test]
+fn explicit_spec_files_are_read_with_whatever_hashes_they_carry() {
+    // #327: `conda list --explicit` output, recognised by its @EXPLICIT line.
+    let work = tempfile::tempdir().unwrap();
+    let command = |file: &Path, args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(work.path())
+            .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .arg("--lockfile")
+            .arg(file)
+            .args(args);
+        command
+    };
+    let doc = |file: &Path, args: &[&str]| -> Value {
+        let mut all = vec!["--output", "-"];
+        all.extend_from_slice(args);
+        serde_json::from_slice(&command(file, &all).assert().success().get_output().stdout).unwrap()
+    };
+    let fixtures = tests_dir().join("fixtures/explicit");
+    let by_purl = |d: &Value| -> std::collections::BTreeMap<String, Value> {
+        d["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| (c["purl"].as_str().unwrap().to_string(), c["hashes"].clone()))
+            .collect()
+    };
+    let alg = |hashes: &Value| -> Vec<String> {
+        hashes
+            .as_array()
+            .map(|h| h.iter().map(|x| x["alg"].as_str().unwrap().to_string()).collect())
+            .unwrap_or_default()
+    };
+
+    let md5 = doc(&fixtures.join("md5.txt"), &[]);
+    assert_valid(&cyclonedx_validator(), &md5);
+    assert_valid(
+        &cyclonedx_1_7_validator(),
+        &doc(&fixtures.join("md5.txt"), &["--spec-version", "1.7"]),
+    );
+    assert_valid(
+        &spdx_validator(),
+        &doc(&fixtures.join("md5.txt"), &["--format", "spdx"]),
+    );
+    assert_valid(
+        &spdx3_validator(),
+        &doc(
+            &fixtures.join("md5.txt"),
+            &["--format", "spdx", "--spec-version", "3.0"],
+        ),
+    );
+    let props = md5["metadata"]["properties"].as_array().unwrap();
+    assert!(
+        props
+            .iter()
+            .any(|p| p["name"] == "pixi:platform" && p["value"] == "linux-64"),
+        "from the # platform: comment"
+    );
+
+    // The same 65 packages whichever hashes the file carries.
+    let (with_md5, with_sha, without) = (
+        by_purl(&md5),
+        by_purl(&doc(&fixtures.join("sha256.txt"), &[])),
+        by_purl(&doc(&fixtures.join("no-hashes.txt"), &[])),
+    );
+    assert_eq!(with_md5.len(), 65);
+    assert_eq!(with_md5.keys().collect::<Vec<_>>(), with_sha.keys().collect::<Vec<_>>());
+    assert_eq!(with_md5.keys().collect::<Vec<_>>(), without.keys().collect::<Vec<_>>());
+    assert!(with_md5.values().all(|h| alg(h) == ["MD5"]));
+    assert!(with_sha.values().all(|h| alg(h) == ["SHA-256"]));
+    assert!(without.values().all(|h| alg(h).is_empty()));
+
+    // The format has no graph: every package hangs off the root and nothing else.
+    let deps = md5["dependencies"].as_array().unwrap();
+    assert!(
+        deps.iter()
+            .filter(|d| d["ref"] != "root")
+            .all(|d| d["dependsOn"].as_array().is_none_or(|a| a.is_empty()))
+    );
+
+    // The conda-lock.yml it was rendered from gives the same conda components.
+    let lock = doc(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/projects/conda-lock/01-django/conda-lock.yml"),
+        &["-p", "linux-64"],
+    );
+    let conda_from_lock: std::collections::BTreeSet<String> = by_purl(&lock)
+        .into_keys()
+        .filter(|p| p.starts_with("pkg:conda/"))
+        .collect();
+    let conda_from_explicit: std::collections::BTreeSet<String> = with_md5.into_keys().collect();
+    assert_eq!(conda_from_explicit, conda_from_lock);
+
+    // A platform the file is not for, and a file that is not explicit after all.
+    command(&fixtures.join("md5.txt"), &["-p", "win-64", "--output", "-"])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("is for linux-64, not win-64"));
+    let unpinned = work.path().join("environment.txt");
+    std::fs::write(&unpinned, "@EXPLICIT\nnumpy=2.0\n").unwrap();
+    command(&unpinned, &["--output", "-"])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("line 2"))
+        .stderr(predicate::str::contains("is not a package URL"));
+    command(&fixtures.join("md5.txt"), &["--all-platforms", "--output", "-"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("an explicit spec file has none"));
+}

@@ -253,9 +253,28 @@ fn convert(entry: &LockedPackage) -> Result<Package, CondaLockError> {
     if entry.manager == "pip" {
         return pip(entry);
     }
-    // `https://conda.anaconda.org/conda-forge/linux-64/python-3.11.9-h..._0_cpython.conda`: the
-    // channel, the subdir and the file name, from which the build.
-    let (base, file_name) = entry.url.rsplit_once('/').unwrap_or(("", entry.url.as_str()));
+    Ok(conda_package(
+        &entry.url,
+        Some(&entry.name),
+        Some(&entry.version),
+        entry.hash.get("sha256").cloned(),
+        entry.hash.get("md5").cloned(),
+    )?)
+}
+
+/// A conda package from its archive URL, as the `pixi.lock` reader describes it:
+/// `https://conda.anaconda.org/conda-forge/linux-64/python-3.11.9-h..._0_cpython.conda` gives the
+/// channel, the subdir and the file name, and from the file name the build. `name` and `version`
+/// are read from the file name (`<name>-<version>-<build>`) when the caller has none, as for an
+/// explicit spec file, whose lines are bare URLs.
+pub(crate) fn conda_package(
+    url: &str,
+    name: Option<&str>,
+    version: Option<&str>,
+    sha256: Option<String>,
+    md5: Option<String>,
+) -> Result<Package, purl::PurlError> {
+    let (base, file_name) = url.rsplit_once('/').unwrap_or(("", url));
     let (channel_url, subdir) = base.rsplit_once('/').unwrap_or(("", base));
     let channel_url = format!("{channel_url}/");
     let channel = purl::channel_name_from_url(&channel_url).map(str::to_string);
@@ -264,9 +283,15 @@ fn convert(entry: &LockedPackage) -> Result<Package, CondaLockError> {
         .strip_suffix(".conda")
         .or_else(|| file_name.strip_suffix(".tar.bz2"))
         .unwrap_or(file_name);
-    let build = stem
-        .strip_prefix(&format!("{}-{}-", entry.name, entry.version))
-        .map(str::to_string);
+    // Split from the right: a conda name may contain dashes, a version and a build may not.
+    let mut parts = stem.rsplitn(3, '-');
+    let (parsed_build, parsed_version, parsed_name) = (parts.next(), parts.next(), parts.next());
+    let name = name.or(parsed_name).unwrap_or(stem).to_string();
+    let version = version.or(parsed_version).map(str::to_string);
+    let build = match &version {
+        Some(version) => stem.strip_prefix(&format!("{name}-{version}-")).map(str::to_string),
+        None => parsed_build.map(str::to_string),
+    };
 
     let mut properties = BTreeMap::new();
     properties.insert("pixi:channel-url".into(), channel_url.clone());
@@ -283,8 +308,8 @@ fn convert(entry: &LockedPackage) -> Result<Package, CondaLockError> {
     }
 
     let purl = purl::conda(CondaPurl {
-        name: &entry.name,
-        version: Some(&entry.version),
+        name: &name,
+        version: version.as_deref(),
         build: build.as_deref(),
         channel: channel.as_deref(),
         subdir: Some(subdir),
@@ -292,8 +317,8 @@ fn convert(entry: &LockedPackage) -> Result<Package, CondaLockError> {
     })?;
     Ok(Package {
         id: purl.clone(),
-        name: entry.name.clone(),
-        version: Some(entry.version.clone()),
+        name,
+        version,
         kind: PackageKind::CondaBinary,
         purl,
         supplier: channel.map(|name| Supplier {
@@ -302,9 +327,9 @@ fn convert(entry: &LockedPackage) -> Result<Package, CondaLockError> {
         }),
         extra_purls: Vec::new(),
         purls_from_lock: false,
-        location: entry.url.clone(),
-        sha256: entry.hash.get("sha256").cloned(),
-        md5: entry.hash.get("md5").cloned(),
+        location: url.to_string(),
+        sha256,
+        md5,
         license: None,
         license_files: Vec::new(),
         description: None,

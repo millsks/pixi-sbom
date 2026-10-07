@@ -18,7 +18,7 @@ With no options this means:
 
 | Option | Default | Effect |
 |---|---|---|
-| `--lockfile <PATH>` | upward search from cwd | Lockfile to read: a `pixi.lock`, a `uv.lock` (see [Reading uv.lock](#reading-uvlock)), a `poetry.lock` (see [Reading poetry.lock](#reading-poetrylock)), a `pdm.lock` (see [Reading pdm.lock](#reading-pdmlock)), a `conda-lock.yml` (see [Reading conda-lock.yml](#reading-conda-lockyml)), or a PEP 751 `pylock.toml` / `pylock.<name>.toml` (see [Reading pylock.toml](#reading-pylocktoml)). The file must exist; there is no fallback search when this is given. Without it, the nearest directory at or above the current one that has `pixi.lock`, `uv.lock`, `poetry.lock`, `pdm.lock` or `pylock.toml` is used, in that order of preference within a directory. |
+| `--lockfile <PATH>` | upward search from cwd | Lockfile to read: a `pixi.lock`, a `uv.lock` (see [Reading uv.lock](#reading-uvlock)), a `poetry.lock` (see [Reading poetry.lock](#reading-poetrylock)), a `pdm.lock` (see [Reading pdm.lock](#reading-pdmlock)), a `conda-lock.yml` (see [Reading conda-lock.yml](#reading-conda-lockyml)), an explicit conda spec file (see [Reading an explicit spec file](#reading-an-explicit-spec-file)), or a PEP 751 `pylock.toml` / `pylock.<name>.toml` (see [Reading pylock.toml](#reading-pylocktoml)). The file must exist; there is no fallback search when this is given. Without it, the nearest directory at or above the current one that has `pixi.lock`, `uv.lock`, `poetry.lock`, `pdm.lock` or `pylock.toml` is used, in that order of preference within a directory. |
 | `--prefix <DIR>` | | Describe an installed environment instead of a lockfile (see below). Cannot be combined with `--lockfile`, `--environment` or the `--all-*` flags. |
 | `--root-name <NAME>`, `--root-version <VERSION>` | directory name, none | With `--prefix`: what the described application is called. |
 | `--config <PATH>` | see below | Configuration file to read before the command line. |
@@ -339,6 +339,32 @@ The graph comes from each entry's `dependencies`; a pip package's dependency on 
 the conda package. The project's name comes from a `pixi.toml` or `pyproject.toml` beside the file, and is the
 directory's name otherwise. The upward search does not look for `conda-lock.yml` yet; `--environment` and
 `--all-environments` are refused, since the file has no environments.
+
+## Reading an explicit spec file
+
+`conda list --explicit` (and `conda-lock render --kind explicit`, `micromamba env export --explicit`) writes an
+explicit spec file: an `@EXPLICIT` line, then the exact archive URL of every package, optionally with a hash
+fragment. Many teams keep one instead of a lockfile.
+
+```sh
+conda list --explicit --md5 > spec.txt
+pixi sbom --lockfile spec.txt
+```
+
+The file is recognised by its `@EXPLICIT` line, whatever it is called. It covers one platform: the one its
+`# platform:` comment names, or else the subdir its packages share. `--platform` may name that platform and no
+other; `--environment` and the `--all-*` flags are refused.
+
+Each URL becomes a conda package described exactly as the `pixi.lock` reader describes the same archive: name,
+version and build from the file name, channel and subdir from the URL, the same `pkg:conda` purl and the channel as
+supplier. A `#<md5>` or `#md5:` fragment becomes the MD5 and a `#sha256:` fragment the SHA-256, so files written with
+`--md5`, `--sha256` or neither all read, and give the same packages. A line that names a package without its archive
+(`numpy=2.0`) means the file is not an explicit one, and it is refused with its line number.
+
+**There is no dependency graph.** The format lists what to install and nothing about why: a package's dependencies
+are in its archive's `info/index.json`, not in the file. So every package is a direct child of the document's root,
+and no edge appears that the file does not support. The packages and their hashes are exact; the structure is not
+there to read.
 
 ## Reading pylock.toml
 

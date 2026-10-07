@@ -6,8 +6,8 @@
 
 use pixi_sbom::{
     auditable, batch, cache, cli, concurrency, condaarchive, condalock, config, diff, discover, doctor, embedded,
-    explain, filter, format, fromsbom, http, imports, kev, license, lock, manifest, mapping, mirror, model, osv,
-    outdated, pdm, phantom, pkgcache, poetry, policy, prefix, progress, pylock, pypi, report, scorecard, style,
+    explain, explicit, filter, format, fromsbom, http, imports, kev, license, lock, manifest, mapping, mirror, model,
+    osv, outdated, pdm, phantom, pkgcache, poetry, policy, prefix, progress, pylock, pypi, report, scorecard, style,
     timings, uv, vulnpolicy, wheel,
 };
 
@@ -238,6 +238,16 @@ fn main() -> Result<()> {
                 manifest: timings::time(timings::Phase::Manifest, || manifest::read(&lockfile)),
             })
         }
+        // An explicit spec file is recognised by its @EXPLICIT line; its name says nothing.
+        (None, None) if explicit::is_explicit(&lockfile) => {
+            let explicit::Loaded { explicit, contents } =
+                timings::time(timings::Phase::Input, || explicit::load(&lockfile))?;
+            Some(Input::Explicit {
+                explicit,
+                contents,
+                manifest: timings::time(timings::Phase::Manifest, || manifest::read(&lockfile)),
+            })
+        }
         (None, None) => {
             let lock::LoadedLock { lock, contents } = timings::time(timings::Phase::Input, || lock::load(&lockfile))?;
             Some(Input::Lock {
@@ -275,6 +285,14 @@ fn main() -> Result<()> {
             let targets = match &input {
                 Input::Lock { lock, .. } => resolve_targets(&args, lock, &lockfile, None)?,
                 Input::CondaLock { lock, .. } => condalock_targets(&args, lock, &lockfile),
+                Input::Explicit { .. } => {
+                    refuse_workspace_flags(&args, "an explicit spec file");
+                    vec![Target {
+                        environment: "default".to_string(),
+                        platform: args.platform.clone(),
+                        output: discover::resolve_output(args.output.as_deref(), &lockfile, args.format),
+                    }]
+                }
                 Input::Pdm { .. } => {
                     refuse_workspace_flags(&args, "pdm.lock");
                     vec![Target {
@@ -1663,6 +1681,12 @@ enum Input {
         contents: String,
         manifest: manifest::Manifest,
     },
+    /// An explicit conda spec file (`@EXPLICIT`), with its text and the manifest beside it.
+    Explicit {
+        explicit: explicit::Explicit,
+        contents: String,
+        manifest: manifest::Manifest,
+    },
     /// A unified `conda-lock.yml`, with its text and the manifest beside it.
     CondaLock {
         lock: condalock::CondaLock,
@@ -1794,6 +1818,20 @@ fn model_for(workspace: &Workspace, environment: &str, platform: Option<&str>) -
                 &discover::lockfile_name(lockfile),
             )?;
             // What the workspace asked for itself, as opposed to what came along.
+            manifest.apply(&mut sbom);
+            (sbom, contents.clone())
+        }
+        Input::Explicit {
+            explicit,
+            contents,
+            manifest,
+        } => {
+            let mut sbom = explicit::build_sbom(
+                explicit,
+                platform,
+                manifest.root.clone(),
+                &discover::lockfile_name(lockfile),
+            )?;
             manifest.apply(&mut sbom);
             (sbom, contents.clone())
         }
