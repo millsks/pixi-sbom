@@ -87,7 +87,8 @@ impl Progress {
     }
 }
 
-/// One progress bar. Dropping it clears the line.
+/// One progress bar. Dropping it clears the line. A clone is the same bar, not a copy.
+#[derive(Clone)]
 pub struct Bar {
     bar: ProgressBar,
 }
@@ -97,6 +98,11 @@ impl Bar {
     pub fn advance(&self, message: &str) {
         self.bar.set_message(message.to_string());
         self.bar.inc(1);
+    }
+
+    /// How many items have been counted so far; a hidden bar counts too.
+    pub fn position(&self) -> u64 {
+        self.bar.position()
     }
 
     /// Take the bar off the terminal, leaving the line clean for the log line that follows.
@@ -151,6 +157,7 @@ mod tests {
         let bar = off.bar("packages", 3);
         bar.advance("one");
         bar.advance("two");
+        assert_eq!(bar.clone().position(), 2, "a clone reads the same count");
         bar.finish();
 
         // Zero items never draws, even when progress is on.
