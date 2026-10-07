@@ -552,7 +552,7 @@ fn convert(locked: &UvPackage, member: bool, platform: &str, python: &str) -> Re
         chosen.and_then(Artifact::location)
     };
 
-    Ok(Package {
+    let mut package = Package {
         id: purl.clone(),
         name: locked.name.clone(),
         version: locked.version.clone(),
@@ -573,7 +573,9 @@ fn convert(locked: &UvPackage, member: bool, platform: &str, python: &str) -> Re
         yanked: None,
         properties,
         dependencies: Vec::new(),
-    })
+    };
+    purl::identify_pypi_source(&mut package)?;
+    Ok(package)
 }
 
 #[cfg(test)]
@@ -705,9 +707,14 @@ source = { registry = "https://pypi.org/simple" }
         let pytest = package(&doc, "pytest");
         assert_eq!(pytest.location, "git+https://github.com/pytest-dev/pytest");
         assert_eq!(pytest.properties["pixi:source-rev"], "abc123");
+        assert_eq!(
+            pytest.purl, "pkg:github/pytest-dev/pytest@abc123",
+            "the commit, not a PyPI release"
+        );
 
         let local = package(&doc, "internal-utils");
         assert_eq!(local.properties["pixi:editable"], "true");
+        assert!(local.purl.starts_with("pkg:generic/internal-utils"), "{}", local.purl);
         assert_eq!(local.location, "libs/internal-utils");
     }
 

@@ -134,7 +134,18 @@ In SPDX these appear in the package `comment` because SPDX 2.3 has no free-form 
 | conda binary | `pkg:conda/<name>@<version>?build=<build>&channel=<channel>&subdir=<subdir>&type=<conda\|tar.bz2>` |
 | conda source | `pkg:conda/<name>@<version>?build=<build>&subdir=<subdir>` (no channel; qualifiers present only when known) |
 | PyPI | `pkg:pypi/<normalized-name>@<version>` with PEP 503 normalization (lower-case, runs of `-_.` collapsed to `-`) |
+| PyPI, from a GitHub checkout | `pkg:github/<owner>/<repo>@<commit>` |
+| PyPI, from another VCS checkout | `pkg:pypi/<normalized-name>@<version>?vcs_url=<vcs>+<repository>@<commit>` |
+| PyPI, from an archive URL | `pkg:generic/<name>@<version>?download_url=<url>` |
+| PyPI, from a local directory or archive (editable or not) | `pkg:generic/<name>@<version>` |
 | First-party workspace member (`uv.lock`) | `pkg:generic/<name>@<version>`: no registry has released it |
+
+A package installed from somewhere other than an index does not get a plain `pkg:pypi` purl, since that would claim
+a PyPI release which may not exist or may hold other code, and a scanner would match the wrong advisories. Where it
+came from stays in `pixi:direct-url`, `pixi:source-rev` and `pixi:editable`, from every lockfile reader and from
+`--prefix` (PEP 610 `direct_url.json`). `--vulnerabilities osv` asks about none of these purls: OSV has no ecosystem
+for `generic` or `github`, and a `vcs_url` checkout is not the release of its version. In `pixi.lock` a git or local
+source is recognised; a URL without an index is left as it is, since older lockfiles record index wheels that way.
 
 Purls double as the CycloneDX `bom-ref`, which is why they must be unique within a document; within one environment
 and platform they always are. The `bom-ref` / `SPDXID` is always derived from the conda purl, even when

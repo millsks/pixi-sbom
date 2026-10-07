@@ -4997,7 +4997,8 @@ fn embedded_sboms_attach_wheel_components_in_every_format() {
         "the conda openssl is untouched"
     );
     let deps = doc["dependencies"].as_array().unwrap();
-    let six_deps: Vec<_> = deps.iter().find(|d| d["ref"] == "pkg:pypi/six@1.17.0").unwrap()["dependsOn"]
+    // six is the local wheel now, which claims no PyPI release (#333).
+    let six_deps: Vec<_> = deps.iter().find(|d| d["ref"] == "pkg:generic/six@1.17.0").unwrap()["dependsOn"]
         .as_array()
         .unwrap()
         .iter()
@@ -7717,4 +7718,65 @@ fn prefix_reads_venvs_and_plain_site_packages() {
         .failure()
         .stderr(predicate::str::contains("is not an environment"))
         .stderr(predicate::str::contains("found"));
+}
+
+#[test]
+fn installs_from_outside_an_index_do_not_claim_a_pypi_release() {
+    // #333: a git checkout, a local directory and an editable install, per PEP 610.
+    let work = tempfile::tempdir().unwrap();
+    let venv = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/venv-sources");
+    let output = pixi_sbom()
+        .current_dir(work.path())
+        .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args(["--prefix", venv.to_str().unwrap(), "--output", "-"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let doc: Value = serde_json::from_slice(&output).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let component = |name: &str| {
+        doc["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == name)
+            .unwrap_or_else(|| panic!("{name}"))
+            .clone()
+    };
+    let property = |c: &Value, key: &str| {
+        c["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == key)
+            .map(|p| p["value"].as_str().unwrap().to_string())
+    };
+    assert_eq!(
+        component("requests")["purl"],
+        "pkg:pypi/requests@2.34.2",
+        "from an index: unchanged"
+    );
+    let git = component("acme_tools");
+    assert_eq!(
+        git["purl"],
+        "pkg:github/acme/acme-tools@4f2c9e1b7d3a5c8e0f6b2d4a1c3e5f7091a2b3c4"
+    );
+    assert_eq!(
+        property(&git, "pixi:source-rev").as_deref(),
+        Some("4f2c9e1b7d3a5c8e0f6b2d4a1c3e5f7091a2b3c4")
+    );
+    let local = component("internal_lib");
+    assert_eq!(local["purl"], "pkg:generic/internal_lib@1.0.0");
+    assert_eq!(
+        property(&local, "pixi:direct-url").as_deref(),
+        Some("file:///srv/app/libs/internal-lib")
+    );
+    assert_eq!(property(&local, "pixi:editable"), None);
+    let editable = component("myapp");
+    assert_eq!(editable["purl"], "pkg:generic/myapp@2.1.0");
+    assert_eq!(property(&editable, "pixi:editable").as_deref(), Some("true"));
 }

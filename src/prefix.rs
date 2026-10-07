@@ -498,6 +498,13 @@ fn pypi_package(dist_info: &Path, conda_records: bool) -> Result<Option<(Package
         && let Some(url) = direct.get("url").and_then(|u| u.as_str())
     {
         properties.insert("pixi:direct-url".into(), url.to_string());
+        if direct
+            .pointer("/dir_info/editable")
+            .and_then(serde_json::Value::as_bool)
+            == Some(true)
+        {
+            properties.insert("pixi:editable".into(), "true".into());
+        }
         if let Some(vcs) = direct.get("vcs_info") {
             if let Some(commit) = vcs.get("commit_id").and_then(|c| c.as_str()) {
                 properties.insert("pixi:source-rev".into(), commit.to_string());
@@ -512,31 +519,30 @@ fn pypi_package(dist_info: &Path, conda_records: bool) -> Result<Option<(Package
         .filter_map(|req| requirement_name(req))
         .collect();
     let license = info.license_expression.or(info.license);
-    Ok(Some((
-        Package {
-            id: purl.clone(),
-            name,
-            version: Some(version),
-            kind: PackageKind::Pypi,
-            purl,
-            supplier: None,
-            extra_purls: Vec::new(),
-            purls_from_lock: false,
-            location,
-            sha256: None,
-            md5: None,
-            license,
-            license_files: Vec::new(),
-            description: info.summary,
-            homepage: info.homepage,
-            repository: info.repository,
-            documentation: info.documentation,
-            yanked: None,
-            properties,
-            dependencies: Vec::new(),
-        },
-        requires,
-    )))
+    let mut package = Package {
+        id: purl.clone(),
+        name,
+        version: Some(version),
+        kind: PackageKind::Pypi,
+        purl,
+        supplier: None,
+        extra_purls: Vec::new(),
+        purls_from_lock: false,
+        location,
+        sha256: None,
+        md5: None,
+        license,
+        license_files: Vec::new(),
+        description: info.summary,
+        homepage: info.homepage,
+        repository: info.repository,
+        documentation: info.documentation,
+        yanked: None,
+        properties,
+        dependencies: Vec::new(),
+    };
+    purl::identify_pypi_source(&mut package)?;
+    Ok(Some((package, requires)))
 }
 
 /// The project name at the front of a PEP 508 requirement string.

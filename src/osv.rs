@@ -228,10 +228,13 @@ pub struct RecordReference {
 }
 
 /// The purl OSV is asked about: type, namespace, name and version, without qualifiers or a
-/// subpath. `None` for purl types OSV has no ecosystem for.
+/// subpath. `None` for purl types OSV has no ecosystem for (conda, a first-party `generic`, a
+/// `github` commit), and for a PyPI name installed from a VCS checkout (`vcs_url`), whose code
+/// is not the release of that version.
 pub fn queryable_purl(purl: &str) -> Option<String> {
     let bare = purl.split(['?', '#']).next().unwrap_or(purl);
-    if bare.starts_with("pkg:conda/") || !bare.contains('@') {
+    let unanswerable = ["pkg:conda/", "pkg:generic/", "pkg:github/"];
+    if unanswerable.iter().any(|t| bare.starts_with(t)) || !bare.contains('@') || purl.contains("vcs_url=") {
         return None;
     }
     Some(bare.to_string())
@@ -934,6 +937,13 @@ mod tests {
         );
         assert_eq!(queryable_purl("pkg:conda/python@3.12?build=x"), None);
         assert_eq!(queryable_purl("pkg:pypi/noversion"), None);
+        // #333: what is not a PyPI release is not looked up as one.
+        assert_eq!(queryable_purl("pkg:generic/internal-lib@1.0.0"), None);
+        assert_eq!(queryable_purl("pkg:github/acme/acme-tools@4f2c9e1"), None);
+        assert_eq!(
+            queryable_purl("pkg:pypi/tools@0.3.0?vcs_url=git%2Bhttps://gitlab.com/a/b%404f2c"),
+            None
+        );
         assert_eq!(
             query_cache_name("pkg:pypi/urllib3@1.26.4"),
             "pkg_pypi_urllib3_1.26.4.json"

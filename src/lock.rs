@@ -465,8 +465,21 @@ fn convert_pypi(pypi: &PypiPackageData) -> Result<Package, LockError> {
     if pypi.as_source().is_some() {
         properties.insert("pixi:source".into(), "true".into());
     }
+    // A git checkout or a local path, recorded as the other readers record them. A URL without
+    // an index could be either an archive or an index wheel from an older lockfile, so it stays.
+    let location = location_string(pypi.location().inner());
+    if let Some(git) = location.strip_prefix("git+") {
+        let (rest, commit) = git.split_once('#').unwrap_or((git, ""));
+        let repository = rest.split('?').next().unwrap_or(rest);
+        properties.insert("pixi:direct-url".into(), repository.to_string());
+        if !commit.is_empty() {
+            properties.insert("pixi:source-rev".into(), commit.to_string());
+        }
+    } else if matches!(pypi.location().inner(), UrlOrPath::Path(_)) || location.starts_with("file://") {
+        properties.insert("pixi:direct-url".into(), location.clone());
+    }
 
-    Ok(Package {
+    let mut package = Package {
         id: purl.clone(),
         name,
         version,
@@ -475,7 +488,7 @@ fn convert_pypi(pypi: &PypiPackageData) -> Result<Package, LockError> {
         supplier,
         extra_purls: Vec::new(),
         purls_from_lock: true,
-        location: location_string(pypi.location().inner()),
+        location,
         sha256: hashes.and_then(PackageHashes::sha256).map(hex),
         md5: hashes.and_then(PackageHashes::md5).map(hex),
         license: None,
@@ -487,7 +500,9 @@ fn convert_pypi(pypi: &PypiPackageData) -> Result<Package, LockError> {
         yanked: None,
         properties,
         dependencies: Vec::new(),
-    })
+    };
+    purl::identify_pypi_source(&mut package)?;
+    Ok(package)
 }
 
 fn hex(bytes: impl AsRef<[u8]>) -> String {
@@ -796,6 +811,52 @@ mod tests {
 
         assert_eq!(sbom.platform, "osx-arm64");
         assert!(sbom.packages.iter().all(|p| p.properties["pixi:subdir"] == "osx-arm64"));
+    }
+
+    #[test]
+    fn git_and_path_pypi_packages_claim_no_pypi_release() {
+        // #333: the with-pypi lockfile with urllib3 from a git commit and six from a local wheel.
+        let text = std::fs::read_to_string(fixture("with-pypi")).unwrap();
+        let urllib3 = text
+            .lines()
+            .find_map(|l| l.trim().strip_prefix("- pypi: ").filter(|u| u.contains("/urllib3-")))
+            .unwrap()
+            .to_string();
+        let six = text
+            .lines()
+            .find_map(|l| l.trim().strip_prefix("- pypi: ").filter(|u| u.contains("/six-")))
+            .unwrap()
+            .to_string();
+        let commit = "0123456789abcdef0123456789abcdef01234567";
+        let text = text
+            .replace(
+                &urllib3,
+                &format!("git+https://github.com/urllib3/urllib3.git?tag=2.8.0#{commit}"),
+            )
+            .replace(&six, "./vendor/six-1.17.0-py2.py3-none-any.whl");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("pixi.lock");
+        std::fs::write(&path, text).unwrap();
+        let sbom = build_sbom(&path, select("web", "linux-64"), root()).unwrap();
+        let find = |name: &str| sbom.packages.iter().find(|p| p.name == name).unwrap();
+
+        let urllib3 = find("urllib3");
+        assert_eq!(urllib3.purl, format!("pkg:github/urllib3/urllib3@{commit}"));
+        assert_eq!(
+            urllib3.properties["pixi:direct-url"],
+            "https://github.com/urllib3/urllib3.git"
+        );
+        assert_eq!(urllib3.properties["pixi:source-rev"], commit);
+        let six = find("six");
+        assert_eq!(six.purl, "pkg:generic/six@1.17.0");
+        assert!(six.properties["pixi:direct-url"].ends_with("six-1.17.0-py2.py3-none-any.whl"));
+        let requests = find("requests");
+        assert!(
+            requests.dependencies.contains(&urllib3.id),
+            "edges follow the new identity: {:?}",
+            requests.dependencies
+        );
+        assert!(!requests.properties.contains_key("pixi:direct-url"), "from the index");
     }
 
     #[test]

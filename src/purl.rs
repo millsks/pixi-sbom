@@ -87,6 +87,87 @@ pub fn generic(name: &str, version: &str) -> Result<String, PurlError> {
     Ok(purl.to_string())
 }
 
+/// Give a PyPI package installed from somewhere other than an index an identity that says so,
+/// rather than a `pkg:pypi` purl claiming a release that may not exist or may hold other code.
+/// Reads what every reader records for such a source: `pixi:direct-url` (the repository, path or
+/// URL), `pixi:source-rev` (the commit) and a `<vcs>+` location for a VCS checkout.
+///
+/// - A VCS checkout of a GitHub repository at a known commit: `pkg:github/<owner>/<repo>@<commit>`.
+/// - Any other VCS checkout: the `pkg:pypi` purl with a `vcs_url` qualifier naming the
+///   repository and commit, which OSV is then not asked about.
+/// - An archive from a URL: `pkg:generic/<name>@<version>?download_url=<url>`.
+/// - A local directory or archive: `pkg:generic/<name>@<version>`.
+///
+/// Changes `purl` and `id` together, so call it before dependency edges are linked by id.
+pub fn identify_pypi_source(package: &mut crate::model::Package) -> Result<(), PurlError> {
+    if package.kind != crate::model::PackageKind::Pypi {
+        return Ok(());
+    }
+    let Some(direct) = package.properties.get("pixi:direct-url").cloned() else {
+        return Ok(());
+    };
+    let wrap = |source| PurlError {
+        name: package.name.clone(),
+        source,
+    };
+    let version = package.version.as_deref();
+    let vcs = ["git", "hg", "svn", "bzr"]
+        .into_iter()
+        .find(|vcs| package.location.starts_with(&format!("{vcs}+")));
+    let commit = package.properties.get("pixi:source-rev").filter(|c| !c.is_empty());
+    let purl = if let Some(vcs) = vcs {
+        match (vcs, github_repository(&direct), commit) {
+            ("git", Some((owner, repo)), Some(commit)) => {
+                let mut purl = PackageUrl::new("github", repo).map_err(wrap)?;
+                purl.with_namespace(owner).map_err(wrap)?;
+                purl.with_version(commit.as_str()).map_err(wrap)?;
+                purl.to_string()
+            }
+            _ => {
+                let at = commit.map(|c| format!("@{c}")).unwrap_or_default();
+                let mut purl = PackageUrl::new("pypi", normalize_pypi_name(&package.name)).map_err(wrap)?;
+                if let Some(version) = version {
+                    purl.with_version(version).map_err(wrap)?;
+                }
+                purl.add_qualifier("vcs_url", format!("{vcs}+{direct}{at}"))
+                    .map_err(wrap)?;
+                purl.to_string()
+            }
+        }
+    } else {
+        let mut purl = PackageUrl::new("generic", package.name.clone()).map_err(wrap)?;
+        if let Some(version) = version {
+            purl.with_version(version).map_err(wrap)?;
+        }
+        if direct.starts_with("https://") || direct.starts_with("http://") {
+            purl.add_qualifier("download_url", direct.clone()).map_err(wrap)?;
+        }
+        purl.to_string()
+    };
+    package.id.clone_from(&purl);
+    package.purl = purl;
+    Ok(())
+}
+
+/// `(owner, repo)` of a GitHub repository URL, lower-cased as the `github` purl type has it.
+fn github_repository(url: &str) -> Option<(String, String)> {
+    let rest = url
+        .trim_start_matches("git+")
+        .split_once("://")
+        .map_or(url, |(_, rest)| rest);
+    let rest = rest
+        .split_once('@')
+        .filter(|(user, _)| !user.contains('/'))
+        .map_or(rest, |(_, host)| host);
+    let path = rest
+        .strip_prefix("github.com/")
+        .or_else(|| rest.strip_prefix("www.github.com/"))?;
+    let mut parts = path.split(['/', '?', '#']).filter(|p| !p.is_empty());
+    let owner = parts.next()?.to_lowercase();
+    let repo = parts.next()?.trim_end_matches(".git").to_lowercase();
+    (!repo.is_empty()).then_some((owner, repo))
+}
+
 /// Fill a version into a purl that has none, leaving one that already has a version alone.
 ///
 /// pixi records `purls:` for a conda package as a bare name — `pkg:pypi/click?source=...` — with
@@ -163,6 +244,78 @@ pub fn sample_error() -> PurlError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn sourced(location: &str, direct: &str, rev: Option<&str>) -> crate::model::Package {
+        let mut p = crate::format::testing::sample_sbom()
+            .packages
+            .into_iter()
+            .find(|p| p.kind == crate::model::PackageKind::Pypi)
+            .unwrap();
+        p.name = "Internal_Utils".into();
+        p.version = Some("1.2.0".into());
+        p.location = location.into();
+        p.properties.clear();
+        p.properties.insert("pixi:direct-url".into(), direct.into());
+        if let Some(rev) = rev {
+            p.properties.insert("pixi:source-rev".into(), rev.into());
+        }
+        p
+    }
+
+    fn identified(mut p: crate::model::Package) -> String {
+        identify_pypi_source(&mut p).unwrap();
+        assert_eq!(p.id, p.purl);
+        p.purl
+    }
+
+    #[test]
+    fn a_package_from_outside_an_index_does_not_claim_a_pypi_release() {
+        let github = "https://github.com/Acme/Internal-Utils.git";
+        assert_eq!(
+            identified(sourced(&format!("git+{github}"), github, Some("abc123"))),
+            "pkg:github/acme/internal-utils@abc123"
+        );
+        assert_eq!(
+            identified(sourced(
+                "git+ssh://git@github.com/acme/utils",
+                "ssh://git@github.com/acme/utils",
+                Some("abc")
+            )),
+            "pkg:github/acme/utils@abc",
+            "an ssh URL with a user"
+        );
+        let gitlab = identified(sourced(
+            "git+https://gitlab.com/acme/utils.git",
+            "https://gitlab.com/acme/utils.git",
+            Some("def"),
+        ));
+        assert!(gitlab.starts_with("pkg:pypi/internal-utils@1.2.0?vcs_url="), "{gitlab}");
+        assert!(gitlab.contains("gitlab.com"), "{gitlab}");
+        assert!(
+            identified(sourced(&format!("git+{github}"), github, None)).contains("vcs_url="),
+            "no commit: no github purl"
+        );
+        assert_eq!(
+            identified(sourced("libs/utils", "libs/utils", None)),
+            "pkg:generic/Internal_Utils@1.2.0"
+        );
+        let archive = identified(sourced(
+            "https://example.com/utils-1.2.0.tar.gz",
+            "https://example.com/utils-1.2.0.tar.gz",
+            None,
+        ));
+        assert!(
+            archive.starts_with("pkg:generic/Internal_Utils@1.2.0?download_url="),
+            "{archive}"
+        );
+
+        let mut index = sourced("https://files.pythonhosted.org/x.whl", "", None);
+        index.properties.clear();
+        let before = index.purl.clone();
+        assert_eq!(identified(index), before, "from an index: unchanged");
+        assert_eq!(github_repository("https://gitlab.com/a/b"), None);
+        assert_eq!(github_repository("https://github.com/only-owner"), None);
+    }
 
     #[test]
     fn every_error_carries_a_code_and_a_next_step() {

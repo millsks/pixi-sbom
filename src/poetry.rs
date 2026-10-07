@@ -415,7 +415,7 @@ fn convert(locked: &PoetryPackage, platform: &str, python: &str) -> Result<Packa
         }
     }
 
-    Ok(Package {
+    let mut package = Package {
         id: purl.clone(),
         name: locked.name.clone(),
         version: Some(locked.version.clone()),
@@ -436,7 +436,9 @@ fn convert(locked: &PoetryPackage, platform: &str, python: &str) -> Result<Packa
         yanked: None,
         properties,
         dependencies: Vec::new(),
-    })
+    };
+    purl::identify_pypi_source(&mut package)?;
+    Ok(package)
 }
 
 #[cfg(test)]
@@ -609,9 +611,11 @@ content-hash = "x"
             "git+https://github.com/django-commons/django-debug-toolbar"
         );
         assert_eq!(toolbar.properties["pixi:source-rev"], "9ec7210e");
+        assert_eq!(toolbar.purl, "pkg:github/django-commons/django-debug-toolbar@9ec7210e");
         let local = package(&doc, "internal-utils");
         assert_eq!(local.location, "libs/internal-utils");
         assert_eq!(local.properties["pixi:editable"], "true");
+        assert!(local.purl.starts_with("pkg:generic/internal-utils"), "{}", local.purl);
     }
 
     #[test]

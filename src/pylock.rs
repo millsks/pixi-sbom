@@ -579,7 +579,7 @@ fn convert(package: &LockedPackage, platform: &str, python: &str) -> Result<Pack
         artifact.and_then(Artifact::location)
     };
 
-    Ok(Package {
+    let mut package = Package {
         id: purl.clone(),
         name: package.name.clone(),
         version: package.version.clone(),
@@ -600,7 +600,9 @@ fn convert(package: &LockedPackage, platform: &str, python: &str) -> Result<Pack
         yanked: None,
         properties,
         dependencies: Vec::new(),
-    })
+    };
+    purl::identify_pypi_source(&mut package)?;
+    Ok(package)
 }
 
 /// The host of an index URL, as the supplier's name.
@@ -841,12 +843,14 @@ wheels = [{ name = "pywin32-311-py3-none-any.whl", url = "https://files.pythonho
             "https://github.com/django-commons/django-debug-toolbar"
         );
         assert_eq!(toolbar.properties["pixi:source-rev"], "9ec7210e");
+        assert_eq!(toolbar.purl, "pkg:github/django-commons/django-debug-toolbar@9ec7210e");
 
         let local = package(&doc, "internal-utils");
         assert_eq!(local.version, None);
         assert_eq!(local.location, "libs/internal-utils");
         assert_eq!(local.properties["pixi:direct-url"], "libs/internal-utils");
         assert_eq!(local.properties["pixi:editable"], "true");
+        assert!(local.purl.starts_with("pkg:generic/internal-utils"), "{}", local.purl);
     }
 
     #[test]
