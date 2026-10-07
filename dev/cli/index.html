@@ -526,6 +526,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#what-a-project-without-pixi-declared" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What a project without pixi declared
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#reading-pylocktoml" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1437,6 +1448,17 @@
     <span class="md-ellipsis">
       
         Reading an explicit spec file
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-a-project-without-pixi-declared" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What a project without pixi declared
       
     </span>
   </a>
@@ -2372,7 +2394,7 @@ whose markers hold there. A marker that names an extra (<code>extra == "s3"</cod
 records switched on, since the lockfile describes all of them. Python markers use the lowest Python the lock's
 <code>python-versions</code> allows. The dependency graph comes from each package's <code>[package.dependencies]</code>.</p>
 <p>The lockfile has no entry for the project itself. Its name and version come from the <code>pyproject.toml</code> beside it, and
-so does what it asked for: packages its <code>[project.dependencies]</code> declares are marked <code>pixi:direct</code>.</p>
+so does what it asked for (see <a href="#what-a-project-without-pixi-declared">What a project without pixi declared</a>).</p>
 <p>Poetry records a package's files by name and hash, but not the URL they were downloaded from. A package from an
 index therefore records which artifact this platform would install as <code>pixi:file-name</code>, with its SHA-256, and no
 download location: the CycloneDX component has no <code>distribution</code> reference and the SPDX package's
@@ -2444,6 +2466,45 @@ supplier. A <code>#&lt;md5&gt;</code> or <code>#md5:</code> fragment becomes the
 are in its archive's <code>info/index.json</code>, not in the file. So every package is a direct child of the document's root,
 and no edge appears that the file does not support. The packages and their hashes are exact; the structure is not
 there to read.</p>
+<h2 id="what-a-project-without-pixi-declared">What a project without pixi declared<a class="headerlink" href="#what-a-project-without-pixi-declared" title="Permanent link">&para;</a></h2>
+<p>With a <code>pixi.lock</code>, the workspace manifest says which packages the project asked for itself: they carry
+<code>pixi:direct</code> and <code>pixi:declared-in</code>, the root of the document depends on them, and the <code>packages</code> and <code>phantom</code>
+reports show them. The other lockfiles get the same from the manifest beside them. It is read only for what it
+declares; nothing is resolved from it.</p>
+<table>
+<thead>
+<tr>
+<th>Lockfile</th>
+<th>Manifest</th>
+<th>Declared</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>uv.lock</code>, <code>pylock.toml</code>, <code>pdm.lock</code></td>
+<td><code>pyproject.toml</code></td>
+<td><code>[project.dependencies]</code> as <code>default</code>, each <code>[project.optional-dependencies]</code> extra under its name, each PEP 735 <code>[dependency-groups]</code> group under its name (with <code>include-group</code> expanded), and the older <code>[tool.uv] dev-dependencies</code> (<code>dev</code>) and <code>[tool.pdm.dev-dependencies]</code> groups</td>
+</tr>
+<tr>
+<td><code>poetry.lock</code></td>
+<td><code>pyproject.toml</code></td>
+<td>the above, and <code>[tool.poetry.dependencies]</code> (<code>default</code>, without <code>python</code>), <code>[tool.poetry.group.&lt;name&gt;.dependencies]</code> and the older <code>[tool.poetry.dev-dependencies]</code> (<code>dev</code>)</td>
+</tr>
+<tr>
+<td><code>conda-lock.yml</code>, explicit spec files</td>
+<td><code>environment.yml</code></td>
+<td>its conda specs, and the requirements of its <code>pip:</code> list, as <code>default</code></td>
+</tr>
+</tbody>
+</table>
+<p>Every extra and group counts, because the readers describe all of them: <code>pixi:declared-in</code> names the ones that
+declared a package (<code>default</code>, <code>s3</code>, <code>test</code>). And because such a manifest is the only record of what the project
+asked for, the root of the document depends on exactly the packages it declared, rather than also on every package
+nothing else depends on. That second half is what a <code>pixi.lock</code> adds, and what the graph-less formats would otherwise
+turn into a claim that the project depends directly on everything. The project's name, version, authors and license
+come from <code>[project]</code> (or the <code>name:</code> of <code>environment.yml</code>).</p>
+<p>When there is no manifest beside the lockfile, the document is written without declarations, as for a bare
+lockfile before.</p>
 <h2 id="reading-pylocktoml">Reading pylock.toml<a class="headerlink" href="#reading-pylocktoml" title="Permanent link">&para;</a></h2>
 <p>A Python project that locks with the PEP 751 standard lockfile can be described without converting it to pixi.
 <code>uv export --format pylock.toml</code>, <code>pip lock</code> and other tools write it:</p>
