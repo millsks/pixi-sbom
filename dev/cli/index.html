@@ -493,6 +493,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#reading-pdmlock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading pdm.lock
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#reading-pylocktoml" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1378,6 +1389,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#reading-pdmlock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading pdm.lock
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#reading-pylocktoml" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1819,7 +1841,7 @@
 <tr>
 <td><code>--lockfile &lt;PATH&gt;</code></td>
 <td>upward search from cwd</td>
-<td>Lockfile to read: a <code>pixi.lock</code>, a <code>uv.lock</code> (see <a href="#reading-uvlock">Reading uv.lock</a>), a <code>poetry.lock</code> (see <a href="#reading-poetrylock">Reading poetry.lock</a>), or a PEP 751 <code>pylock.toml</code> / <code>pylock.&lt;name&gt;.toml</code> (see <a href="#reading-pylocktoml">Reading pylock.toml</a>). The file must exist; there is no fallback search when this is given. Without it, the nearest directory at or above the current one that has <code>pixi.lock</code>, <code>uv.lock</code>, <code>poetry.lock</code> or <code>pylock.toml</code> is used, in that order of preference within a directory.</td>
+<td>Lockfile to read: a <code>pixi.lock</code>, a <code>uv.lock</code> (see <a href="#reading-uvlock">Reading uv.lock</a>), a <code>poetry.lock</code> (see <a href="#reading-poetrylock">Reading poetry.lock</a>), a <code>pdm.lock</code> (see <a href="#reading-pdmlock">Reading pdm.lock</a>), or a PEP 751 <code>pylock.toml</code> / <code>pylock.&lt;name&gt;.toml</code> (see <a href="#reading-pylocktoml">Reading pylock.toml</a>). The file must exist; there is no fallback search when this is given. Without it, the nearest directory at or above the current one that has <code>pixi.lock</code>, <code>uv.lock</code>, <code>poetry.lock</code>, <code>pdm.lock</code> or <code>pylock.toml</code> is used, in that order of preference within a directory.</td>
 </tr>
 <tr>
 <td><code>--prefix &lt;DIR&gt;</code></td>
@@ -2313,6 +2335,31 @@ download location: the CycloneDX component has no <code>distribution</code> refe
 <code>downloadLocation</code> is <code>NOASSERTION</code>, rather than a URL pixi-sbom would have had to guess. The index is PyPI unless
 the package's source names another (a <code>legacy</code> source, such as the PyTorch CPU index), which then appears as
 <code>pixi:index-url</code> and the supplier. Git, directory and URL sources record what they do for <code>uv.lock</code>.</p>
+<h2 id="reading-pdmlock">Reading pdm.lock<a class="headerlink" href="#reading-pdmlock" title="Permanent link">&para;</a></h2>
+<p>A PDM project is described from its <code>pdm.lock</code>, which the upward search finds after <code>pixi.lock</code>, <code>uv.lock</code> and
+<code>poetry.lock</code>. Lock_version 4.x is read, which current PDM writes; another version is refused (exit 1).</p>
+<p>What is carried over:</p>
+<ul>
+<li><strong>Every package for the platform.</strong> PDM records on each package the environments it is needed in (<code>marker</code>),
+  evaluated as for <code>poetry.lock</code>, and on each dependency a PEP 508 requirement whose own marker decides whether
+  the edge applies there. Python markers use the lowest Python the lock's target allows.</li>
+<li><strong>The dependency graph</strong>, from each package's <code>dependencies</code>.</li>
+<li><strong>Extras, as edges.</strong> PDM writes <code>django[argon2]</code> as a second <code>django</code> entry that depends on <code>django</code> and on what
+  the extra brings. That entry is folded into the <code>django</code> component, so the component appears once and
+  <code>argon2-cffi</code> is its dependency. Which extra brought it is not recorded yet.</li>
+<li><strong>Sources.</strong> A git dependency records its repository and exact commit, a local path its path and <code>pixi:editable</code>,
+  and a direct URL its URL, as for the other lockfiles.</li>
+<li><strong>The project</strong>, its name and what <code>[project.dependencies]</code> declares, from the <code>pyproject.toml</code> beside the lock.</li>
+</ul>
+<p>What is not:</p>
+<ul>
+<li><strong>Download locations and the index.</strong> PDM records each file by name and hash, and a package's source only in
+  <code>pyproject.toml</code>, without saying which source served which package. A package records the artifact this platform
+  would install as <code>pixi:file-name</code>, with its SHA-256, and no location or supplier. A lock made with PDM's
+  <code>static_urls</code> strategy does record URLs, and those become the location.</li>
+<li><strong>Dependency groups.</strong> The groups each package belongs to are in the lock and are read, but not yet recorded in
+  the document.</li>
+</ul>
 <h2 id="reading-pylocktoml">Reading pylock.toml<a class="headerlink" href="#reading-pylocktoml" title="Permanent link">&para;</a></h2>
 <p>A Python project that locks with the PEP 751 standard lockfile can be described without converting it to pixi.
 <code>uv export --format pylock.toml</code>, <code>pip lock</code> and other tools write it:</p>
@@ -2320,7 +2367,7 @@ the package's source names another (a <code>legacy</code> source, such as the Py
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>pylock.toml<span class="w"> </span>-p<span class="w"> </span>win-64<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--report<span class="w"> </span>vulnerabilities
 </code></pre></div>
 <p>The file is recognised by its name, <code>pylock.toml</code> or <code>pylock.&lt;name&gt;.toml</code> (a named lock records <code>&lt;name&gt;</code> as the
-environment). The upward search finds <code>pylock.toml</code> when a directory has no <code>pixi.lock</code>, <code>uv.lock</code> or <code>poetry.lock</code>; a named lock is
+environment). The upward search finds <code>pylock.toml</code> when a directory has none of <code>pixi.lock</code>, <code>uv.lock</code>, <code>poetry.lock</code> or <code>pdm.lock</code>; a named lock is
 read through <code>--lockfile</code>, and <code>--scan</code> still looks for <code>pixi.lock</code> only.</p>
 <p>One <code>pylock.toml</code> describes every environment it was resolved for, with an environment marker on each package
 that is not needed everywhere. A document is for one platform, so the markers are evaluated for it, as pip and uv
