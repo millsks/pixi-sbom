@@ -23,7 +23,7 @@ prefer adding a task.
 | `fmt` | `cargo fmt` | Format (`rustfmt.toml`: edition 2024, 120 columns) |
 | `lint` | `cargo clippy --all-targets -- -D warnings` | Lint; warnings are errors |
 | `check` | `cargo check --all-targets` | Type-check without building |
-| `test` | `cargo test` | Unit tests (in `src/`) and end-to-end tests (`tests/cli.rs`) |
+| `test` | `cargo test` | Unit tests (in `src/`), end-to-end tests (`tests/cli.rs`) and network tests (`tests/network.rs`) |
 | `test-integration` | `cargo test --test '*'` | End-to-end tests only |
 | `cov` | `cargo llvm-cov --all-targets --fail-under-lines 90` | Full suite with a 90% line-coverage gate |
 | `build` | `cargo build --release` | Optimized binary (`lto`, `codegen-units = 1`, stripped) at `target/release/pixi-sbom` |
@@ -144,6 +144,20 @@ pixi run cargo insta review                # or: INSTA_UPDATE=always pixi run ca
 Run the built binary with `assert_cmd` against copies of the fixtures in temp directories, then read the file it
 wrote and validate it with the `jsonschema` crate against the schemas in `tests/schemas/`. They cover lockfile
 discovery, every option including `--all-environments`, both formats, and each error path's message and exit code.
+They run with `PIXI_SBOM_OFFLINE=1`, so they never make a request.
+
+### Network tests (`tests/network.rs`)
+
+The third kind, for behaviour that only shows in how requests go over the wire: unit tests stub `Fetch` and never
+speak HTTP, and the end-to-end tests are offline. `tests/support/` is a small HTTP/1.1 server on `127.0.0.1` (the
+standard library and threads, no dependency) that answers a script and records every request: which connection
+carried it, when it started and finished, and its body. The tests run the real binary with every upstream pointed at
+it through the `PIXI_SBOM_*_URL` overrides, so nothing leaves the machine. They cover connection reuse, batched
+queries and their follow-ups overlapping, the cache counters on a cold and a warm run, batched, refused and
+partly-failed batches producing the same report, and which statuses are retried.
+
+A behaviour that is about requests (how many, on how many connections, in what order or overlap, retried or not)
+gets its test here rather than a stopwatch reading in the PR description.
 
 ### Schema validation
 
@@ -188,7 +202,7 @@ real document; the fixtures are small by design.
 - Rust: edition 2024, `rustfmt` defaults at 120 columns, clippy clean with `-D warnings`. Public items in every module
   carry a doc comment; error enums derive `thiserror::Error` and `miette::Diagnostic` with a `code(...)`.
 - Every behavior change comes with a test in the layer that owns the behavior (model changes → `lock.rs` tests;
-  output changes → writer tests and snapshots; CLI changes → `tests/cli.rs`).
+  output changes → writer tests and snapshots; CLI changes → `tests/cli.rs`; request behaviour → `tests/network.rs`).
 - Dependencies: prefer what `rattler_lock` already pulls in; avoid git dependencies. `serde_json` uses
   `preserve_order` so keys are emitted in struct order.
 - Never print to stdout; logs go through `tracing` to stderr.
