@@ -932,6 +932,10 @@ runs it when you type <code>pixi &lt;name&gt;</code>. There is no plugin registr
 <td>Download <code>pixi-sbom-&lt;version&gt;-&lt;platform&gt;.tar.gz</code> (or <code>.zip</code> on Windows) from the <a href="https://github.com/millsks/pixi-sbom/releases">releases page</a>, check its provenance (below), and put <code>pixi-sbom</code> on your <code>PATH</code></td>
 </tr>
 <tr>
+<td>PyPI</td>
+<td><code>uvx pixi-sbom</code> runs it without installing; <code>uv tool install pixi-sbom</code> or <code>pip install pixi-sbom</code> installs it. The wheels hold the same binary as the release archives (no Python code), for Linux (glibc and musl) x86_64/aarch64, macOS x86_64/arm64 and Windows x86_64, from 1.7.0 on</td>
+</tr>
+<tr>
 <td>cargo binstall</td>
 <td><code>cargo binstall pixi-sbom</code> downloads the release binary for your platform from GitHub (no compiler needed); <code>cargo install pixi-sbom</code> builds it from crates.io instead</td>
 </tr>
@@ -955,6 +959,9 @@ built by this repository's release workflow, from a named commit, in a named wor
 <strong>0.11.0 onward</strong>; earlier archives have a checksum and nothing else.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>gh<span class="w"> </span>attestation<span class="w"> </span>verify<span class="w"> </span>pixi-sbom-&lt;version&gt;-linux-64.tar.gz<span class="w"> </span>--repo<span class="w"> </span>millsks/pixi-sbom
 </code></pre></div>
+<p>The PyPI wheels are attested the same way, from 1.7.0 on: <code>gh attestation verify pixi_sbom-&lt;version&gt;-py3-none-&lt;platform&gt;.whl
+--repo millsks/pixi-sbom</code> checks a downloaded wheel (<code>pip download pixi-sbom --no-deps</code> fetches one), and PyPI shows
+its own publish attestation beside each file.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">Loaded digest sha256:... for file://pixi-sbom-&lt;version&gt;-linux-64.tar.gz</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">Loaded 1 attestation from GitHub API</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
