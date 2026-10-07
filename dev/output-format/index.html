@@ -1847,11 +1847,33 @@ entry).</p>
 <td><code>pkg:pypi/&lt;normalized-name&gt;@&lt;version&gt;</code> with PEP 503 normalization (lower-case, runs of <code>-_.</code> collapsed to <code>-</code>)</td>
 </tr>
 <tr>
+<td>PyPI, from a GitHub checkout</td>
+<td><code>pkg:github/&lt;owner&gt;/&lt;repo&gt;@&lt;commit&gt;</code></td>
+</tr>
+<tr>
+<td>PyPI, from another VCS checkout</td>
+<td><code>pkg:pypi/&lt;normalized-name&gt;@&lt;version&gt;?vcs_url=&lt;vcs&gt;+&lt;repository&gt;@&lt;commit&gt;</code></td>
+</tr>
+<tr>
+<td>PyPI, from an archive URL</td>
+<td><code>pkg:generic/&lt;name&gt;@&lt;version&gt;?download_url=&lt;url&gt;</code></td>
+</tr>
+<tr>
+<td>PyPI, from a local directory or archive (editable or not)</td>
+<td><code>pkg:generic/&lt;name&gt;@&lt;version&gt;</code></td>
+</tr>
+<tr>
 <td>First-party workspace member (<code>uv.lock</code>)</td>
 <td><code>pkg:generic/&lt;name&gt;@&lt;version&gt;</code>: no registry has released it</td>
 </tr>
 </tbody>
 </table>
+<p>A package installed from somewhere other than an index does not get a plain <code>pkg:pypi</code> purl, since that would claim
+a PyPI release which may not exist or may hold other code, and a scanner would match the wrong advisories. Where it
+came from stays in <code>pixi:direct-url</code>, <code>pixi:source-rev</code> and <code>pixi:editable</code>, from every lockfile reader and from
+<code>--prefix</code> (PEP 610 <code>direct_url.json</code>). <code>--vulnerabilities osv</code> asks about none of these purls: OSV has no ecosystem
+for <code>generic</code> or <code>github</code>, and a <code>vcs_url</code> checkout is not the release of its version. In <code>pixi.lock</code> a git or local
+source is recognised; a URL without an index is left as it is, since older lockfiles record index wheels that way.</p>
 <p>Purls double as the CycloneDX <code>bom-ref</code>, which is why they must be unique within a document; within one environment
 and platform they always are. The <code>bom-ref</code> / <code>SPDXID</code> is always derived from the conda purl, even when
 <code>--primary-purl pypi</code> (below) makes a PyPI purl the component's <code>purl</code>.</p>
