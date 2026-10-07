@@ -86,7 +86,7 @@ Nothing in this table is scheduled for removal; dropping any of it would be a ma
 | `--from-sbom <FILE>` | | Read an existing document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON) instead of a lockfile and run the reports, the license policy and the vulnerability gate on it. |
 | `--scan <DIR>` | | Describe every project under the directory: one document per directory with a lockfile of any kind it finds (see [Which lockfile is found](#which-lockfile-is-found)). Cannot be combined with `--lockfile`, `--prefix`, `--against` or `--output -`. |
 | `--scan-depth <N>` | unlimited | With `--scan`: how far below the directory to walk (`0` is the directory itself). |
-| `--against <PATH>` | | With `--report diff`: what to compare with — a document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON), a `pixi.lock`, or the directory of an installed environment. |
+| `--against <PATH>` | | With `--report diff`: what to compare with — a document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON), any lockfile `--lockfile` reads (`pixi.lock`, `uv.lock`, `pylock.toml`, `poetry.lock`, `pdm.lock`, `conda-lock.yml`, an explicit spec file), or the directory of an installed environment (conda, venv or plain Python). |
 | `--fail-on-diff [<SECTION>...]` | off | With `--report diff`: exit **6** when the named sections (`added`, `removed`, `version`, `license`, `build`, `pip`) are not empty. The bare flag means any change. |
 | `--explain <PACKAGE>` | | Repeatable. Print every fact the tool has about the packages matching this name or shell-style pattern (as in `--exclude`) and where each fact came from, including the sources that came back empty (see below). Prints instead of writing, so it cannot be combined with `--output` or `--report`. |
 | `--report-format <table\|markdown\|csv\|json\|sarif>` | `table` | How to render the report or `--explain`; `sarif` (2.1.0, for GitHub code scanning) applies to `--report vulnerabilities` only. |
@@ -1276,6 +1276,28 @@ With `--prefix` the document is named after the environment's directory, which s
 `--environment` (default `default`) names the side to compare with. The comparison also works the other way round —
 a lockfile run with `--against <prefix directory>` — and between two lockfiles, where `--against pixi.lock` on the
 workspace's own lockfile is the "nothing has changed" baseline.
+
+### Does this venv still match its lock?
+
+`--against` reads every lockfile `--lockfile` reads, through the same reader, so the same check works for a venv:
+
+```sh
+pixi sbom --prefix .venv --against uv.lock --report diff --fail-on-diff any
+pixi sbom --prefix /app/.venv --against pylock.toml --report diff --fail-on-diff pip
+```
+
+The lockfile is read for the platform the venv was described for (its wheels' platform, or `--platform`), and a
+`pylock.<name>.toml` for its own environment. Packages are matched by purl type and normalized name.
+
+- **Seeded tools.** `python -m venv` seeds `pip` (and older Pythons `setuptools`), which no lockfile lists, so they
+  show up as `pip` installed; leave them out with `--exclude pip`. A venv `uv` made has none.
+- **Unknown licenses.** A license one side does not know is not a change: a lockfile records none for a PyPI
+  package, while the installed `METADATA` does. Only two known, different licenses are a license change.
+- **Conda packages.** A side read from something that can only hold PyPI packages — a `uv.lock`, `pylock.toml`,
+  `poetry.lock` or `pdm.lock`, a venv, a plain Python installation — says nothing about conda packages. Compared
+  with a conda environment or a `pixi.lock`, the comparison covers the PyPI packages, and the conda ones are counted
+  rather than all reported as added or removed: `(3 conda packages out of scope: the other side describes PyPI
+  packages only)`, and `out_of_scope` in the JSON report.
 
 ## Working from an existing SBOM
 

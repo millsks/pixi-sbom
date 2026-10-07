@@ -7944,3 +7944,104 @@ fn a_scan_reads_every_kind_of_lockfile_once_per_project() {
         assert_eq!(recorded.as_deref(), Some(lockfile), "{dir}");
     }
 }
+
+#[test]
+fn a_venv_is_checked_against_its_uv_lock_or_pylock() {
+    // #340: --against reads uv.lock and pylock.toml like --lockfile does.
+    let work = tempfile::tempdir().unwrap();
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    // The venv-posix fixture without the pip that `python -m venv` seeds: what `uv sync` leaves.
+    let venv = work.path().join("venv");
+    let copy = |from: &Path, to: &Path| {
+        for entry in walkdir(from) {
+            let target = to.join(entry.strip_prefix(from).unwrap());
+            std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+            std::fs::copy(&entry, &target).unwrap();
+        }
+    };
+    copy(&fixtures.join("venv-posix"), &venv);
+    std::fs::remove_dir_all(venv.join("lib/python3.12/site-packages/pip-25.2.dist-info")).unwrap();
+    let check = |against: &str| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(work.path())
+            .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args([
+                "--prefix",
+                venv.to_str().unwrap(),
+                "--report",
+                "diff",
+                "--fail-on-diff",
+                "any",
+                "--against",
+            ])
+            .arg(fixtures.join("uv-drift").join(against));
+        command
+    };
+    for against in ["uv.lock", "pylock.toml"] {
+        let assert = check(against).assert().success();
+        let out = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+        assert!(out.contains("No changes against"), "{against}: {out}");
+    }
+
+    // Someone ran `pip install six` in the venv.
+    let six = venv.join("lib/python3.12/site-packages/six-1.17.0.dist-info");
+    std::fs::create_dir_all(&six).unwrap();
+    std::fs::write(
+        six.join("METADATA"),
+        "Metadata-Version: 2.1\nName: six\nVersion: 1.17.0\n",
+    )
+    .unwrap();
+    std::fs::write(six.join("INSTALLER"), "pip\n").unwrap();
+    for against in ["uv.lock", "pylock.toml"] {
+        check(against)
+            .assert()
+            .code(6)
+            .stderr(predicate::str::contains("pip installed (1)"));
+    }
+
+    // A conda prefix against uv.lock compares the PyPI packages and counts the conda ones out.
+    let output = pixi_sbom()
+        .current_dir(work.path())
+        .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args([
+            "--prefix",
+            fixtures.join("prefix").to_str().unwrap(),
+            "--report",
+            "diff",
+        ])
+        .args(["--report-format", "json", "--against"])
+        .arg(fixtures.join("uv-drift/uv.lock"))
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let report: Value = serde_json::from_slice(&output).unwrap();
+    assert_eq!(report["out_of_scope"], 3, "{report}");
+    assert!(
+        report["removed"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|p| p["kind"] == "pypi")
+    );
+}
+
+/// Every file under `dir`.
+fn walkdir(dir: &Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(dir).unwrap().flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            files.extend(walkdir(&path));
+        } else {
+            files.push(path);
+        }
+    }
+    files
+}

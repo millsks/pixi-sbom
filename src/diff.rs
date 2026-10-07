@@ -1,7 +1,8 @@
 //! `--report diff --against <PATH>`: what changed between another environment and the one this
 //! run describes. The other side may be a document this tool or another wrote (CycloneDX
-//! 1.4–1.7, SPDX 2.x or SPDX 3.0.1 JSON), a `pixi.lock`, or an installed environment, which is
-//! what makes `--prefix <DIR> --against pixi.lock` a drift check for a container image.
+//! 1.4–1.7, SPDX 2.x or SPDX 3.0.1 JSON), any lockfile `--lockfile` reads, or an installed
+//! environment, which is what makes `--prefix <DIR> --against pixi.lock` (or `uv.lock`) a drift
+//! check for a container image or a venv.
 //! Packages are matched by purl type and normalized name, so a version bump is a change rather
 //! than a removal plus an addition.
 
@@ -20,7 +21,7 @@ pub enum DiffError {
     #[diagnostic(
         code(pixi_sbom::diff::read),
         help(
-            "--against takes a readable CycloneDX, SPDX 2.x or SPDX 3.0 JSON document, a pixi.lock, or the \
+            "--against takes a readable CycloneDX, SPDX 2.x or SPDX 3.0 JSON document, a lockfile, or the \
              directory of an installed environment; check the path and its permissions"
         )
     )]
@@ -29,12 +30,13 @@ pub enum DiffError {
         #[source]
         source: std::io::Error,
     },
-    #[error("{path} is not a document, a pixi lockfile or an installed environment")]
+    #[error("{path} is not a document, a lockfile or an installed environment")]
     #[diagnostic(
         code(pixi_sbom::diff::parse),
         help(
             "--against takes a CycloneDX, SPDX 2.x or SPDX 3.0 JSON document (written by pixi-sbom or \
-             another tool), a pixi.lock, or the directory of an installed environment"
+             another tool), any lockfile --lockfile reads (pixi.lock, uv.lock, pylock.toml, poetry.lock, pdm.lock, \
+             conda-lock.yml, an explicit spec file), or the directory of an installed environment"
         )
     )]
     Parse { path: PathBuf },
@@ -54,6 +56,20 @@ pub enum Against {
     /// An installed environment, which is what makes `--prefix <DIR> --against pixi.lock` a
     /// drift check.
     Prefix(PathBuf),
+    /// A lockfile that is not `pixi.lock` (`uv.lock`, `pylock.toml`, ...): read per document by
+    /// the same reader `--lockfile` would use.
+    Other(PathBuf),
+}
+
+/// Whether `path` names a lockfile kind other than `pixi.lock`: by name, or for an explicit spec
+/// file by its `@EXPLICIT` line.
+fn is_other_lockfile(path: &Path) -> bool {
+    crate::uv::is_uv_lock_name(path)
+        || crate::pylock::is_pylock_name(path)
+        || crate::poetry::is_poetry_lock_name(path)
+        || crate::pdm::is_pdm_lock_name(path)
+        || crate::condalock::is_conda_lock_name(path)
+        || crate::explicit::is_explicit(path)
 }
 
 /// Decide what `--against` points at, and read what can be read once. A lockfile and a prefix
@@ -61,6 +77,9 @@ pub enum Against {
 pub fn resolve_against(path: &Path) -> Result<Against, DiffError> {
     if path.is_dir() && crate::prefix::layout(path).is_some() {
         return Ok(Against::Prefix(path.to_path_buf()));
+    }
+    if path.is_file() && is_other_lockfile(path) {
+        return Ok(Against::Other(path.to_path_buf()));
     }
     let text = std::fs::read_to_string(path).map_err(|source| DiffError::Read {
         path: path.to_path_buf(),
@@ -126,7 +145,21 @@ pub fn previous_from_sbom(sbom: &Sbom) -> Previous {
     Previous {
         entries: sbom.packages.iter().map(entry_of).collect(),
         format: sbom.input_description(),
+        pypi_only: describes_pypi_only(sbom),
     }
+}
+
+/// Whether the input `sbom` was read from can only hold PyPI packages: a Python lockfile
+/// (`uv.lock`, `pylock.toml`, `poetry.lock`, `pdm.lock`), or a venv or plain Python installation
+/// (an installed environment without conda records, which is when the interpreter is recorded).
+pub fn describes_pypi_only(sbom: &Sbom) -> bool {
+    let lockfile = Path::new(&sbom.lockfile);
+    let python_lockfile = !sbom.lockfile.is_empty()
+        && (crate::uv::is_uv_lock_name(lockfile)
+            || crate::pylock::is_pylock_name(lockfile)
+            || crate::poetry::is_poetry_lock_name(lockfile)
+            || crate::pdm::is_pdm_lock_name(lockfile));
+    python_lockfile || (sbom.prefix.is_some() && sbom.interpreter.is_some())
 }
 
 /// The conda build string a purl carries, which distinguishes two builds of one version.
@@ -143,6 +176,9 @@ pub struct Previous {
     pub entries: Vec<Entry>,
     /// The family of the document (`CycloneDX`, `SPDX 2.3`, `SPDX 3.0`).
     pub format: String,
+    /// The side was read from an input that can only hold PyPI packages; see
+    /// [`describes_pypi_only`]. A document never says, so it is `false` for one.
+    pub pypi_only: bool,
 }
 
 /// Reduce a document's text; `None` when it is none of the three families.
@@ -182,7 +218,11 @@ pub fn parse_previous(text: &str) -> Option<Previous> {
                 installer: None,
             })
             .collect();
-        return Some(Previous { entries, format });
+        return Some(Previous {
+            entries,
+            format,
+            pypi_only: false,
+        });
     }
     parse_spdx3(text)
 }
@@ -267,6 +307,7 @@ fn parse_spdx3(text: &str) -> Option<Previous> {
     Some(Previous {
         entries,
         format: "SPDX 3.0".into(),
+        pypi_only: false,
     })
 }
 
@@ -335,6 +376,14 @@ pub struct Diff {
     /// counted as ordinary additions.
     pub pip_installed: Vec<Presence>,
     pub unchanged: usize,
+    /// Conda packages left out because the other side describes PyPI packages only (a venv, a
+    /// `uv.lock`): comparing them would call every one of them added or removed.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub out_of_scope: usize,
+}
+
+fn is_zero(n: &usize) -> bool {
+    *n == 0
 }
 
 impl Diff {
@@ -384,8 +433,8 @@ pub const DIFF_EXIT_CODE: i32 = 6;
 
 /// Compare `sbom` (the new side) with `previous`.
 pub fn compare(sbom: &Sbom, previous: &Previous, against: &Path) -> Diff {
-    let old: BTreeMap<String, &Entry> = previous.entries.iter().map(|e| (key(&e.kind, &e.name), e)).collect();
-    let new: BTreeMap<String, Entry> = sbom
+    let mut old: BTreeMap<String, &Entry> = previous.entries.iter().map(|e| (key(&e.kind, &e.name), e)).collect();
+    let mut new: BTreeMap<String, Entry> = sbom
         .packages
         .iter()
         .map(|p| {
@@ -393,6 +442,15 @@ pub fn compare(sbom: &Sbom, previous: &Previous, against: &Path) -> Diff {
             (key(&entry.kind, &entry.name), entry)
         })
         .collect();
+    // A side read from an input that can only hold PyPI packages (a venv, a uv.lock) says nothing
+    // about conda packages: the other side's are out of scope rather than all added or removed.
+    let mut out_of_scope = 0;
+    if previous.pypi_only != describes_pypi_only(sbom) {
+        let before = old.len() + new.len();
+        old.retain(|_, e| e.kind != "conda");
+        new.retain(|_, e| e.kind != "conda");
+        out_of_scope = before - old.len() - new.len();
+    }
     let presence = |e: &Entry| Presence {
         name: e.name.clone(),
         kind: e.kind.clone(),
@@ -403,6 +461,7 @@ pub fn compare(sbom: &Sbom, previous: &Previous, against: &Path) -> Diff {
     let mut diff = Diff {
         against: against.display().to_string(),
         against_format: previous.format.clone(),
+        out_of_scope,
         ..Diff::default()
     };
     for (k, entry) in &new {
@@ -427,7 +486,9 @@ pub fn compare(sbom: &Sbom, previous: &Previous, against: &Path) -> Diff {
                     diff.version_changed.push(change);
                 } else if old_build.is_some() && new_build.is_some() && old_build != new_build {
                     diff.build_changed.push(change);
-                } else if before.license != entry.license {
+                } else if before.license.is_some() && entry.license.is_some() && before.license != entry.license {
+                    // A license one side does not know is not a change: a lockfile records none
+                    // for a PyPI package, the installed METADATA does.
                     diff.license_changed.push(change);
                 } else {
                     diff.unchanged += 1;
@@ -614,6 +675,39 @@ mod tests {
     }
 
     #[test]
+    fn an_unknown_license_is_no_change_and_a_pypi_only_side_leaves_conda_out() {
+        let sbom = sample_sbom();
+        let mut previous = previous_from_sbom(&sbom);
+        for entry in &mut previous.entries {
+            entry.license = None;
+        }
+        let diff = compare(&sbom, &previous, Path::new("x"));
+        assert!(diff.license_changed.is_empty(), "{:?}", diff.license_changed);
+        assert_eq!(diff.out_of_scope, 0, "two sides that may both hold conda");
+
+        let conda = sbom
+            .packages
+            .iter()
+            .filter(|p| p.purl.starts_with("pkg:conda/"))
+            .count();
+        assert!(conda > 0);
+        let mut pypi_only = previous_from_sbom(&sbom);
+        pypi_only.entries.retain(|e| e.kind != "conda");
+        pypi_only.pypi_only = true;
+        let diff = compare(&sbom, &pypi_only, Path::new("uv.lock"));
+        assert_eq!(diff.out_of_scope, conda);
+        assert!(diff.removed.is_empty() && diff.added.is_empty(), "{diff:?}");
+        let value = serde_json::to_value(&diff).unwrap();
+        assert_eq!(value["out_of_scope"], conda);
+        assert!(
+            serde_json::to_value(Diff::default())
+                .unwrap()
+                .get("out_of_scope")
+                .is_none()
+        );
+    }
+
+    #[test]
     fn names_match_across_spelling_and_kinds_do_not_mix() {
         let previous = Previous {
             entries: vec![
@@ -635,6 +729,7 @@ mod tests {
                 },
             ],
             format: "CycloneDX".into(),
+            pypi_only: false,
         };
         let mut sbom = sample_sbom();
         sbom.packages.retain(|p| p.name == "six");

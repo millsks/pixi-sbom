@@ -1721,6 +1721,14 @@ pub fn render_with_width(
                             line + &format!(", {} unchanged", diff.unchanged)
                         }
                     };
+                    let line = if diff.out_of_scope > 0 {
+                        format!(
+                            "{line} ({} conda packages out of scope: the other side describes PyPI packages only)",
+                            diff.out_of_scope
+                        )
+                    } else {
+                        line
+                    };
                     writeln!(out, "{line}")?;
                 }
             }
@@ -3103,6 +3111,7 @@ mod tests {
                     purl: Some("pkg:pypi/attrs@25.4.0".into()),
                 }],
                 unchanged: 1,
+                out_of_scope: 0,
             },
         )
     }

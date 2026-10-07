@@ -658,6 +658,23 @@ fn main() -> Result<()> {
                             let other = prefix::build_sbom(dir, model::Root::default(), platform.as_deref())?;
                             std::borrow::Cow::Owned(diff::previous_from_sbom(&other))
                         }
+                        diff::Against::Other(path) => {
+                            // Read as --lockfile would read it, for the platform this side was
+                            // described for: a venv's platform comes from its wheels, not the host.
+                            let workspace = Workspace {
+                                lockfile: path.clone(),
+                                input: read_input(path)?,
+                                targets: Vec::new(),
+                            };
+                            let environment = if pylock::is_pylock_name(path) {
+                                pylock::environment_name(path)
+                            } else {
+                                "default".to_string()
+                            };
+                            let platform = platform.clone().unwrap_or_else(|| sbom.platform.clone());
+                            let (other, _) = model_for(&workspace, &environment, Some(&platform))?;
+                            std::borrow::Cow::Owned(diff::previous_from_sbom(&other))
+                        }
                     };
                     let diff = diff::compare(&sbom, &previous, path);
                     tracing::info!(
