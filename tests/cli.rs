@@ -2272,6 +2272,25 @@ fn vex_is_written_beside_the_document_and_links_into_it() {
         .assert()
         .code(2)
         .stderr(predicate::str::contains("cannot be combined with '--report'"));
+
+    // A CycloneDX VEX links into a CycloneDX BOM, so SPDX output of any version is refused,
+    // and nothing is written.
+    for spec in ["2.3", "3.0"] {
+        run(&["--format", "spdx", "--spec-version", spec, "--vex", "spdx-vex.json"])
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains("cannot be combined with '--format spdx'"))
+            .stderr(predicate::str::contains("--spec-version 3.0"));
+    }
+    assert!(!dir.path().join("spdx-vex.json").exists());
+
+    // The same holds when the configuration file asks for SPDX.
+    std::fs::write(dir.path().join("pixi-sbom.toml"), "format = \"spdx\"\n").unwrap();
+    run(&["--vex", "spdx-vex.json"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("cannot be combined with '--format spdx'"));
+    std::fs::remove_file(dir.path().join("pixi-sbom.toml")).unwrap();
 }
 
 #[test]

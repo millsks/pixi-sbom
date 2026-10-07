@@ -519,8 +519,8 @@ pub struct Args {
     pub ignore_vuln: Vec<String>,
 
     /// Also write a standalone CycloneDX VEX document here: every finding with its analysis,
-    /// linked back to the SBOM this run writes. Needs --vulnerabilities, and a single
-    /// document.
+    /// linked back to the SBOM this run writes. Needs --vulnerabilities, a single document, and
+    /// CycloneDX output.
     #[arg(long, value_name = "PATH")]
     pub vex: Option<PathBuf>,
 

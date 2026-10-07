@@ -949,6 +949,14 @@ fn validate(args: &cli::Args) {
                 "'--vex' needs '--vulnerabilities <SOURCE>': there is nothing to assess without findings",
             );
         }
+        if args.format == cli::Format::Spdx {
+            usage(
+                ArgumentConflict,
+                "'--vex' writes a CycloneDX VEX linked to a CycloneDX SBOM and cannot be combined with \
+                 '--format spdx'; with SPDX, use '--spec-version 3.0', which records the assessments in the \
+                 document's security profile",
+            );
+        }
         for (set, flag) in [
             (args.all_environments, "--all-environments"),
             (args.all_platforms, "--all-platforms"),

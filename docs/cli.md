@@ -53,7 +53,7 @@ With no options this means:
 | `--fail-on-kev` | off | With `--kev`: exit **4** after writing the document when any open finding is known exploited, regardless of severity. |
 | `--fail-on-severity <low\|medium\|high\|critical>` | | With `--vulnerabilities`: exit **4** after writing the document when any open finding is at or above the level. Findings of unknown severity never trip it. |
 | `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification), is excluded from `--fail-on-severity` and listed separately in the report. |
-| `--vex <PATH>` | | With `--vulnerabilities`: also write a standalone CycloneDX VEX there, linked back to the SBOM. |
+| `--vex <PATH>` | | With `--vulnerabilities` and CycloneDX output: also write a standalone CycloneDX VEX there, linked back to the SBOM. |
 | `--vex-open <in-triage\|exploitable>` | `in-triage` | The analysis state the VEX gives findings nobody assessed with `--ignore-vuln`. |
 | `--version-details` (`--build-info`) | | Print the version with the target, the features compiled in, the caches, pixi's version and the network settings: the block to paste into a bug report. |
 | `--timings` | off | Print where the run spent its time, phase by phase, separating waiting on the network from working. |
@@ -495,7 +495,9 @@ instead). Every `affects[].ref` is a BOM-Link into the SBOM this run wrote
 expect, and it validates against the CycloneDX schema like everything else this tool writes.
 
 `--vex` needs `--vulnerabilities` and one document to point at, so it does not combine with `--report`,
-`--all-environments`, `--all-platforms` or `--scan`.
+`--all-environments`, `--all-platforms` or `--scan`. The VEX is CycloneDX and its links only resolve against a
+CycloneDX SBOM, so `--format spdx` is refused too. With SPDX, use `--spec-version 3.0`: the document records
+the assessments itself, in its security profile.
 
 ## How far behind the environment is
 
