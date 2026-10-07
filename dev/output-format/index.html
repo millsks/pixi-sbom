@@ -2035,7 +2035,8 @@ Because the purls are <code>pkg:cargo</code>, <code>--vulnerabilities osv</code>
 says <code>prefix &lt;name&gt;</code>, and pip-installed packages are located by a <code>file://</code> URL of their <code>dist-info</code> directory (or
 <code>&lt;vcs&gt;+&lt;url&gt;</code> for direct VCS installs, with <code>pixi:direct-url</code> and <code>pixi:source-rev</code>), carry <code>pixi:installer</code>, and
 have no hashes. Conda packages carry <code>pixi:extracted-package-dir</code>, where the record says the archive was
-unpacked.</p>
+unpacked. A venv or a plain Python installation has no <code>python</code> package to list, so the Python it was made with is
+the document's <code>pixi:python-version</code> (a CycloneDX metadata property, a line of the SPDX root package's comment).</p>
 <h3 id="documents-derived-from-documents">Documents derived from documents<a class="headerlink" href="#documents-derived-from-documents" title="Permanent link">&para;</a></h3>
 <p>With <code>--from-sbom</code> the document describes what another document described: the metadata property is
 <code>pixi:source-document</code> — the source's CycloneDX serial number or SPDX document namespace — rather than
