@@ -2605,7 +2605,8 @@ any one project, the user-level file is usually the right place for it:</p>
 52-package workspace that is 6 requests where there were 52, and 19 in total against 65 once the
 dates of newer releases are counted. The saving grows with latency: a link where each round trip
 costs most of a second is exactly where making a third as many of them matters.</p>
-<p><strong>Batched queries are throttled below the ordinary request concurrency</strong>, to four at a time. Asking
+<p><strong>Batched queries are throttled below the ordinary request concurrency</strong>, to four at a time, or to
+<code>--concurrency</code> when that is lower. Asking
 about ten packages at once does not change how much work the index does for a workspace — the same
 packages, the same fields — and it strictly reduces the connections, handshakes and parses it pays
 for. What it could raise is how much of that work arrives at once, so that is held near what one
