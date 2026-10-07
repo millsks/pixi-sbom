@@ -49,6 +49,10 @@ pub struct Manifest {
     pub declared: Vec<Declared>,
     /// The `[environments]` table; an environment missing from it is the default feature alone.
     pub environments: BTreeMap<String, Environment>,
+    /// Whether every declared feature applies to every document. True for a manifest that is not
+    /// pixi's (a plain `pyproject.toml`, an `environment.yml`): its lockfile has no environments,
+    /// and the readers describe all of its extras and groups.
+    pub every_feature: bool,
 }
 
 /// The `[workspace]` / `[project]` table of a pixi manifest.
@@ -184,11 +188,57 @@ enum PyprojectLicense {
 struct PyprojectToml {
     project: Option<PyprojectProject>,
     tool: Option<PyprojectTool>,
+    /// PEP 735 dependency groups: requirement strings, or `{ include-group = "..." }` tables.
+    #[serde(default, rename = "dependency-groups")]
+    dependency_groups: BTreeMap<String, Vec<toml::Value>>,
 }
 
 #[derive(Debug, Default, Deserialize)]
 struct PyprojectTool {
     pixi: Option<PixiToml>,
+    poetry: Option<PoetryTool>,
+    uv: Option<LegacyDevTool>,
+    pdm: Option<PdmTool>,
+}
+
+/// `[tool.poetry]`: its own dependency tables, which Poetry still reads beside `[project]`.
+#[derive(Debug, Default, Deserialize)]
+struct PoetryTool {
+    #[serde(default)]
+    dependencies: BTreeMap<String, toml::Value>,
+    #[serde(default)]
+    group: BTreeMap<String, PoetryGroup>,
+    /// Before Poetry 1.2 groups, the one development group.
+    #[serde(default, rename = "dev-dependencies")]
+    dev_dependencies: BTreeMap<String, toml::Value>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct PoetryGroup {
+    #[serde(default)]
+    dependencies: BTreeMap<String, toml::Value>,
+}
+
+/// `[tool.uv]`'s development dependencies, from before uv read PEP 735 groups.
+#[derive(Debug, Default, Deserialize)]
+struct LegacyDevTool {
+    #[serde(default, rename = "dev-dependencies")]
+    dev_dependencies: Vec<String>,
+}
+
+/// `[tool.pdm]`'s development groups, from before PDM read PEP 735 groups.
+#[derive(Debug, Default, Deserialize)]
+struct PdmTool {
+    #[serde(default, rename = "dev-dependencies")]
+    dev_dependencies: BTreeMap<String, Vec<String>>,
+}
+
+/// An `environment.yml`: its name, and its dependencies, conda specs or a `pip:` list.
+#[derive(Debug, Default, Deserialize)]
+struct EnvironmentYml {
+    name: Option<String>,
+    #[serde(default)]
+    dependencies: Vec<serde_yaml::Value>,
 }
 
 /// Read the manifest describing a lockfile.
@@ -210,6 +260,17 @@ pub fn read(lockfile: &Path) -> Manifest {
         if manifest.environments.is_empty() {
             manifest.environments = pyproject.environments;
         }
+        manifest.every_feature = pyproject.every_feature;
+    }
+    // A conda environment locked outside pixi declares itself in environment.yml.
+    if manifest.declared.is_empty()
+        && let Some(environment) = read_environment_yml(&dir.join("environment.yml"))
+    {
+        if manifest.root.name.is_empty() {
+            manifest.root.name = environment.root.name;
+        }
+        manifest.declared = environment.declared;
+        manifest.every_feature = true;
     }
     if manifest.root.name.is_empty() {
         manifest.root.name = fallback_name(dir);
@@ -249,7 +310,11 @@ impl Manifest {
         if self.declared.is_empty() {
             return;
         }
-        let features = self.features_of(&sbom.environment);
+        let features = if self.every_feature {
+            self.declared.iter().map(|d| d.feature.as_str()).collect()
+        } else {
+            self.features_of(&sbom.environment)
+        };
         let mut wanted: BTreeMap<(bool, String), BTreeSet<&str>> = BTreeMap::new();
         for declared in self.declared.iter().filter(|d| features.contains(d.feature.as_str())) {
             wanted
@@ -291,6 +356,9 @@ impl Manifest {
             );
         }
         sbom.declared_missing = missing;
+        // A manifest that is not pixi's, beside a lockfile that is not pixi's, says what the
+        // project asked for and nothing else does: the root depends on exactly that.
+        sbom.declared_roots = self.every_feature && !matched.is_empty();
     }
 }
 
@@ -322,11 +390,52 @@ fn read_pixi_toml(path: &Path) -> Option<Manifest> {
 fn read_pyproject(path: &Path) -> Option<Manifest> {
     let file: PyprojectToml = read_toml(path)?;
     let project = file.project.unwrap_or_default();
-    let mut manifest = file
-        .tool
-        .and_then(|tool| tool.pixi)
-        .map(manifest_from_pixi)
-        .unwrap_or_default();
+    let tool = file.tool.unwrap_or_default();
+    let mut manifest = match tool.pixi {
+        Some(pixi) => manifest_from_pixi(pixi),
+        None => Manifest {
+            every_feature: true,
+            ..Manifest::default()
+        },
+    };
+    // PEP 735 groups, then the tools' own spellings of the same idea.
+    for group in file.dependency_groups.keys() {
+        for requirement in expand_group(&file.dependency_groups, group, &mut BTreeSet::new()) {
+            manifest.declared.extend(declared_requirement(&requirement, group));
+        }
+    }
+    if let Some(uv) = &tool.uv {
+        for requirement in &uv.dev_dependencies {
+            manifest.declared.extend(declared_requirement(requirement, "dev"));
+        }
+    }
+    if let Some(pdm) = &tool.pdm {
+        for (group, requirements) in &pdm.dev_dependencies {
+            for requirement in requirements {
+                manifest.declared.extend(declared_requirement(requirement, group));
+            }
+        }
+    }
+    if let Some(poetry) = &tool.poetry {
+        let tables = std::iter::once((DEFAULT_FEATURE, &poetry.dependencies))
+            .chain(std::iter::once(("dev", &poetry.dev_dependencies)))
+            .chain(
+                poetry
+                    .group
+                    .iter()
+                    .map(|(name, group)| (name.as_str(), &group.dependencies)),
+            );
+        for (feature, table) in tables {
+            // `python` constrains the interpreter; it is not a package.
+            manifest
+                .declared
+                .extend(table.keys().filter(|name| *name != "python").map(|name| Declared {
+                    name: name.clone(),
+                    pypi: true,
+                    feature: feature.to_string(),
+                }));
+        }
+    }
     // PEP 621 requirements are the default feature's PyPI dependencies, and each extra is a
     // feature of the same name.
     for requirement in &project.dependencies {
@@ -356,6 +465,82 @@ fn read_pyproject(path: &Path) -> Option<Manifest> {
     Some(manifest)
 }
 
+/// The requirement strings of a PEP 735 group, with `{ include-group = "..." }` entries expanded.
+/// A group that includes itself, directly or not, is expanded once.
+fn expand_group(groups: &BTreeMap<String, Vec<toml::Value>>, name: &str, seen: &mut BTreeSet<String>) -> Vec<String> {
+    if !seen.insert(name.to_string()) {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    for entry in groups.get(name).into_iter().flatten() {
+        match entry {
+            toml::Value::String(requirement) => out.push(requirement.clone()),
+            toml::Value::Table(table) => {
+                if let Some(included) = table.get("include-group").and_then(toml::Value::as_str) {
+                    out.extend(expand_group(groups, included, seen));
+                }
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+/// What an `environment.yml` declares: conda specs, and the requirements of its `pip:` list.
+fn read_environment_yml(path: &Path) -> Option<Manifest> {
+    let text = std::fs::read_to_string(path).ok()?;
+    let file: EnvironmentYml = match serde_yaml::from_str(&text) {
+        Ok(file) => file,
+        Err(err) => {
+            tracing::warn!(path = %path.display(), %err, "cannot parse environment.yml; leaving declarations out");
+            return None;
+        }
+    };
+    let mut declared = Vec::new();
+    for entry in &file.dependencies {
+        match entry {
+            serde_yaml::Value::String(spec) => {
+                // `conda-forge::numpy>=2`, `python=3.11`, `pip`: the name is what precedes the
+                // version, after any channel.
+                let spec = spec.rsplit("::").next().unwrap_or(spec).trim();
+                let name: String = spec
+                    .chars()
+                    .take_while(|c| !matches!(c, '=' | '<' | '>' | '!' | '~' | ' ' | '[' | ';'))
+                    .collect();
+                if !name.is_empty() {
+                    declared.push(Declared {
+                        name,
+                        pypi: false,
+                        feature: DEFAULT_FEATURE.to_string(),
+                    });
+                }
+            }
+            serde_yaml::Value::Mapping(map) => {
+                for requirement in map
+                    .get("pip")
+                    .and_then(serde_yaml::Value::as_sequence)
+                    .into_iter()
+                    .flatten()
+                {
+                    if let Some(requirement) = requirement.as_str() {
+                        declared.extend(declared_requirement(requirement, DEFAULT_FEATURE));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    Some(Manifest {
+        root: Root {
+            name: file.name.unwrap_or_default(),
+            ..Root::default()
+        },
+        declared,
+        environments: BTreeMap::new(),
+        every_feature: true,
+    })
+}
+
 fn manifest_from_pixi(file: PixiToml) -> Manifest {
     let mut declared = Vec::new();
     file.deps.collect(DEFAULT_FEATURE, &mut declared);
@@ -370,6 +555,7 @@ fn manifest_from_pixi(file: PixiToml) -> Manifest {
             .iter()
             .map(|(name, spec)| (name.clone(), spec.environment()))
             .collect(),
+        every_feature: false,
     }
 }
 
@@ -455,6 +641,134 @@ fn read_toml<T: for<'de> Deserialize<'de>>(path: &Path) -> Option<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn declared_by_feature(manifest: &Manifest) -> BTreeMap<String, Vec<String>> {
+        let mut out: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for d in &manifest.declared {
+            out.entry(d.feature.clone()).or_default().push(d.name.clone());
+        }
+        out
+    }
+
+    #[test]
+    fn pep_735_groups_with_include_group_are_declared() {
+        let dir = workspace(&[(
+            "pyproject.toml",
+            r#"
+[project]
+name = "app"
+dependencies = ["django>=4"]
+[project.optional-dependencies]
+s3 = ["django-storages[s3]"]
+[dependency-groups]
+test = ["pytest>=8", { include-group = "lint" }]
+lint = ["ruff", { include-group = "test" }]
+"#,
+        )]);
+        let manifest = read(&dir.path().join("uv.lock"));
+        assert!(manifest.every_feature, "not a pixi manifest");
+        let by = declared_by_feature(&manifest);
+        assert_eq!(by["default"], ["django"]);
+        assert_eq!(by["s3"], ["django-storages"]);
+        assert_eq!(
+            by["test"],
+            ["pytest", "ruff"],
+            "lint included, and the cycle back to test stops"
+        );
+        assert_eq!(by["lint"], ["ruff", "pytest"]);
+    }
+
+    #[test]
+    fn poetry_and_the_older_tool_tables_are_declared() {
+        let dir = workspace(&[(
+            "pyproject.toml",
+            r#"
+[project]
+name = "app"
+[tool.poetry.dependencies]
+python = "^3.12"
+requests = "^2.32"
+[tool.poetry.group.docs.dependencies]
+mkdocs = "*"
+[tool.poetry.dev-dependencies]
+black = "*"
+[tool.uv]
+dev-dependencies = ["mypy>=1"]
+[tool.pdm.dev-dependencies]
+lint = ["flake8"]
+"#,
+        )]);
+        let by = declared_by_feature(&read(&dir.path().join("poetry.lock")));
+        assert_eq!(by["default"], ["requests"], "python is the interpreter, not a package");
+        assert_eq!(by["docs"], ["mkdocs"]);
+        assert_eq!(by["dev"], ["mypy", "black"]);
+        assert_eq!(by["lint"], ["flake8"]);
+    }
+
+    #[test]
+    fn an_environment_yml_declares_its_conda_specs_and_pip_list() {
+        let dir = workspace(&[(
+            "environment.yml",
+            "name: analysis\nchannels: [conda-forge]\ndependencies:\n  - python=3.12\n  - conda-forge::numpy>=2\n  - pandas >=2.2\n  - pip\n  - pip:\n      - django-environ==0.9.0\n",
+        )]);
+        let manifest = read(&dir.path().join("conda-lock.yml"));
+        assert_eq!(manifest.root.name, "analysis");
+        assert!(manifest.every_feature);
+        let names: Vec<(&str, bool)> = manifest.declared.iter().map(|d| (d.name.as_str(), d.pypi)).collect();
+        assert_eq!(
+            names,
+            [
+                ("python", false),
+                ("numpy", false),
+                ("pandas", false),
+                ("pip", false),
+                ("django-environ", true)
+            ]
+        );
+        // A pixi.toml wins, and an environment.yml beside it is not read.
+        let pixi = workspace(&[
+            (
+                "pixi.toml",
+                "[workspace]\nname = \"ws\"\nchannels = []\nplatforms = []\n[dependencies]\nzlib = \"*\"\n",
+            ),
+            ("environment.yml", "name: other\ndependencies: [numpy]\n"),
+        ]);
+        let manifest = read(&pixi.path().join("pixi.lock"));
+        assert!(!manifest.every_feature);
+        assert_eq!(manifest.declared.len(), 1);
+    }
+
+    #[test]
+    fn every_feature_marks_extras_and_groups_and_makes_the_root_depend_on_them_alone() {
+        let manifest = Manifest {
+            declared: vec![Declared {
+                name: "six".into(),
+                pypi: true,
+                feature: "test".into(),
+            }],
+            every_feature: true,
+            ..Manifest::default()
+        };
+        let mut sbom = crate::format::testing::sample_sbom();
+        manifest.apply(&mut sbom);
+        let six = sbom.packages.iter().find(|p| p.name == "six").unwrap();
+        assert_eq!(
+            six.properties[DECLARED_IN_PROPERTY], "test",
+            "a group counts without an [environments] table"
+        );
+        assert!(sbom.declared_roots);
+        assert_eq!(crate::format::top_level_ids(&sbom), ["pkg:pypi/six@1.17.0"]);
+
+        // A pixi manifest keeps its environments: the group is not in the default environment.
+        let pixi = Manifest {
+            every_feature: false,
+            ..manifest
+        };
+        let mut sbom = crate::format::testing::sample_sbom();
+        pixi.apply(&mut sbom);
+        assert!(!sbom.declared_roots);
+        assert!(!sbom.packages.iter().any(|p| p.properties.contains_key(DIRECT_PROPERTY)));
+    }
 
     fn workspace(files: &[(&str, &str)]) -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();

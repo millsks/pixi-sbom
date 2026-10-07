@@ -47,6 +47,11 @@ pub struct Sbom {
     /// environment and somebody else's document are different moments in a project's life.
     /// Empty when nothing says, which is written as no phase rather than a guess.
     pub lifecycles: Vec<String>,
+    /// Whether the root depends on exactly the packages the project declared: true when a
+    /// manifest beside a non-pixi lockfile named what the project asked for. Otherwise the root
+    /// also depends on every package nothing else does, which is how a lockfile with no manifest,
+    /// or a pixi workspace, has always been described.
+    pub declared_roots: bool,
 }
 
 /// The CycloneDX lifecycle phase of a document made from a lockfile: resolved, nothing built.

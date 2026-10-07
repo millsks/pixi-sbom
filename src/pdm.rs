@@ -323,6 +323,7 @@ pub fn build_sbom(lock: &PdmLock, platform: Option<&str>, root: Root, lockfile_n
         declared_missing: Vec::new(),
         incomplete: crate::model::Incomplete::default(),
         lifecycles: vec![crate::model::PHASE_LOCKFILE.into()],
+        declared_roots: false,
     })
 }
 

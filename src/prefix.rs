@@ -174,6 +174,7 @@ pub fn build_sbom(prefix: &Path, root: Root, platform: Option<&str>) -> Result<S
         declared_missing: Vec::new(),
         incomplete: crate::model::Incomplete::default(),
         lifecycles: vec![crate::model::PHASE_INSTALLED.into()],
+        declared_roots: false,
     })
 }
 

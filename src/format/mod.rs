@@ -216,6 +216,10 @@ pub fn to_value(format: Format, sbom: &Sbom, ctx: &WriteContext) -> Result<serde
 /// declared itself, plus the ones nothing else in the SBOM depends on. Without a manifest the
 /// second half is the whole answer, which is the graph-root heuristic this always used.
 pub(crate) fn top_level_ids(sbom: &Sbom) -> Vec<&str> {
+    let direct = |p: &&crate::model::Package| p.properties.contains_key(crate::manifest::DIRECT_PROPERTY);
+    if sbom.declared_roots {
+        return sbom.packages.iter().filter(direct).map(|p| p.id.as_str()).collect();
+    }
     let depended_on: std::collections::HashSet<&str> = sbom
         .packages
         .iter()
@@ -413,6 +417,7 @@ pub(crate) mod testing {
             declared_missing: Vec::new(),
             incomplete: crate::model::Incomplete::default(),
             lifecycles: vec![crate::model::PHASE_LOCKFILE.into()],
+            declared_roots: false,
         }
     }
 }
@@ -588,12 +593,14 @@ mod schema_tests {
             lockfile: String::new(),
             prefix: Some("app".into()),
             lifecycles: vec![crate::model::PHASE_INSTALLED.into()],
+            declared_roots: false,
             ..sample_sbom()
         };
         let document = |phases: &[&str]| Sbom {
             lockfile: String::new(),
             document: Some("urn:uuid:aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee".into()),
             lifecycles: phases.iter().map(|p| p.to_string()).collect(),
+            declared_roots: false,
             ..sample_sbom()
         };
         let cases = [

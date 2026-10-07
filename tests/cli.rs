@@ -7330,3 +7330,110 @@ fn explicit_spec_files_are_read_with_whatever_hashes_they_carry() {
         .code(2)
         .stderr(predicate::str::contains("an explicit spec file has none"));
 }
+
+#[test]
+fn the_manifest_beside_a_non_pixi_lockfile_says_what_the_project_declared() {
+    // #328: pyproject.toml beside uv.lock / poetry.lock, environment.yml beside conda-lock.yml.
+    let work = tempfile::tempdir().unwrap();
+    std::fs::write(work.path().join("app.py"), "import django\nimport sqlparse\n").unwrap();
+    let command = |dir: &Path, args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir)
+            .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "200")
+            .args(["-p", "linux-64"])
+            .args(args);
+        command
+    };
+    let stdout = |dir: &Path, args: &[&str]| {
+        String::from_utf8(command(dir, args).assert().success().get_output().stdout.clone()).unwrap()
+    };
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/projects");
+
+    for reader in ["uv", "poetry"] {
+        let project = examples.join(reader).join("01-django");
+        // The packages report: the features that declared each package, and the count.
+        let table = stdout(&project, &["--report", "packages"]);
+        assert!(
+            table.contains("27 packages, 12 declared by the workspace"),
+            "{reader}: {table}"
+        );
+        for (name, feature) in [
+            ("django ", "default"),
+            ("django-storages", "s3"),
+            ("pytest-django", "test"),
+            ("django-debug-toolbar", "dev"),
+        ] {
+            let row = table
+                .lines()
+                .find(|l| l.starts_with(name))
+                .unwrap_or_else(|| panic!("{reader}: {name}"));
+            assert!(row.contains(feature), "{reader}: {row}");
+        }
+        assert!(
+            table
+                .lines()
+                .find(|l| l.starts_with("asgiref"))
+                .unwrap()
+                .contains(" - "),
+            "transitive"
+        );
+
+        // The phantom report reads the same declarations: django and sqlparse are imported.
+        let phantom = stdout(
+            &project,
+            &["--report", "phantom", "--source", work.path().to_str().unwrap()],
+        );
+        assert!(
+            phantom.contains("Summary: 0 phantom, 0 undeclared, 10 unused"),
+            "{reader}: {phantom}"
+        );
+
+        // The root depends on exactly what was declared.
+        let doc: Value = serde_json::from_str(&stdout(&project, &["--output", "-"])).unwrap();
+        let root = doc["dependencies"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|d| d["ref"] == "root")
+            .unwrap();
+        assert_eq!(root["dependsOn"].as_array().unwrap().len(), 12, "{reader}");
+    }
+
+    // environment.yml beside conda-lock.yml: its conda specs and its pip list.
+    let conda = examples.join("conda-lock/01-django");
+    let table = stdout(&conda, &["--lockfile", "conda-lock.yml", "--report", "packages"]);
+    assert!(table.contains("66 packages, 9 declared by the workspace"), "{table}");
+    assert!(
+        table
+            .lines()
+            .find(|l| l.starts_with("django-environ"))
+            .unwrap()
+            .contains("default"),
+        "from the pip: list"
+    );
+
+    // A pixi workspace keeps its rule: declared packages plus what nothing depends on.
+    let pixi = workspace("with-pypi");
+    let doc: Value = serde_json::from_str(&stdout(pixi.path(), &["-e", "web", "--output", "-"])).unwrap();
+    let root = doc["dependencies"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["ref"] == "root")
+        .unwrap();
+    let direct = doc["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| {
+            c["properties"]
+                .as_array()
+                .is_some_and(|ps| ps.iter().any(|p| p["name"] == "pixi:direct"))
+        })
+        .count();
+    assert!(root["dependsOn"].as_array().unwrap().len() >= direct);
+}

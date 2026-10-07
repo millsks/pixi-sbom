@@ -276,7 +276,7 @@ records switched on, since the lockfile describes all of them. Python markers us
 `python-versions` allows. The dependency graph comes from each package's `[package.dependencies]`.
 
 The lockfile has no entry for the project itself. Its name and version come from the `pyproject.toml` beside it, and
-so does what it asked for: packages its `[project.dependencies]` declares are marked `pixi:direct`.
+so does what it asked for (see [What a project without pixi declared](#what-a-project-without-pixi-declared)).
 
 Poetry records a package's files by name and hash, but not the URL they were downloaded from. A package from an
 index therefore records which artifact this platform would install as `pixi:file-name`, with its SHA-256, and no
@@ -365,6 +365,29 @@ supplier. A `#<md5>` or `#md5:` fragment becomes the MD5 and a `#sha256:` fragme
 are in its archive's `info/index.json`, not in the file. So every package is a direct child of the document's root,
 and no edge appears that the file does not support. The packages and their hashes are exact; the structure is not
 there to read.
+
+## What a project without pixi declared
+
+With a `pixi.lock`, the workspace manifest says which packages the project asked for itself: they carry
+`pixi:direct` and `pixi:declared-in`, the root of the document depends on them, and the `packages` and `phantom`
+reports show them. The other lockfiles get the same from the manifest beside them. It is read only for what it
+declares; nothing is resolved from it.
+
+| Lockfile | Manifest | Declared |
+|---|---|---|
+| `uv.lock`, `pylock.toml`, `pdm.lock` | `pyproject.toml` | `[project.dependencies]` as `default`, each `[project.optional-dependencies]` extra under its name, each PEP 735 `[dependency-groups]` group under its name (with `include-group` expanded), and the older `[tool.uv] dev-dependencies` (`dev`) and `[tool.pdm.dev-dependencies]` groups |
+| `poetry.lock` | `pyproject.toml` | the above, and `[tool.poetry.dependencies]` (`default`, without `python`), `[tool.poetry.group.<name>.dependencies]` and the older `[tool.poetry.dev-dependencies]` (`dev`) |
+| `conda-lock.yml`, explicit spec files | `environment.yml` | its conda specs, and the requirements of its `pip:` list, as `default` |
+
+Every extra and group counts, because the readers describe all of them: `pixi:declared-in` names the ones that
+declared a package (`default`, `s3`, `test`). And because such a manifest is the only record of what the project
+asked for, the root of the document depends on exactly the packages it declared, rather than also on every package
+nothing else depends on. That second half is what a `pixi.lock` adds, and what the graph-less formats would otherwise
+turn into a claim that the project depends directly on everything. The project's name, version, authors and license
+come from `[project]` (or the `name:` of `environment.yml`).
+
+When there is no manifest beside the lockfile, the document is written without declarations, as for a bare
+lockfile before.
 
 ## Reading pylock.toml
 
