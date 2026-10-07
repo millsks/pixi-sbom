@@ -119,5 +119,34 @@ class LockfileTest(unittest.TestCase):
         self.assertIn("  - pkg-00000 >=1.0.0", text, "and later ones depend on earlier ones")
 
 
+
+class AllowanceTest(unittest.TestCase):
+    def setUp(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        self.dir = tempfile.TemporaryDirectory()
+        self.file = Path(self.dir.name) / "perf-allowance.toml"
+        self.file.write_text(
+            '[[allowance]]\nbase = "v1.6.0"\nsize_percent = 10.0\nreason = "six readers"\n', encoding="utf-8"
+        )
+
+    def tearDown(self) -> None:
+        self.dir.cleanup()
+
+    def test_an_entry_applies_to_its_own_base_only(self) -> None:
+        self.assertEqual(perf.allowance(self.file, "v1.6.0")["size_percent"], 10.0)
+        self.assertIsNone(perf.allowance(self.file, "v1.7.0-rc.1"), "a newer baseline matches nothing")
+        self.assertIsNone(perf.allowance(self.file, None))
+        self.assertIsNone(perf.allowance(None, "v1.6.0"))
+        self.assertIsNone(perf.allowance(self.file.with_name("missing.toml"), "v1.6.0"))
+
+    def test_the_committed_file_parses(self) -> None:
+        from pathlib import Path
+
+        committed = Path(perf.__file__).with_name("perf-allowance.toml")
+        entries = [perf.allowance(committed, entry) for entry in ["v1.6.0"]]
+        self.assertTrue(all(e is None or "reason" in e for e in entries))
+
 if __name__ == "__main__":
     unittest.main()

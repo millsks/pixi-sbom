@@ -202,6 +202,15 @@ to +45.4%, deliberately — did not fail on a documented decision. Every compari
 `perf.yml` finds with `git describe` when no base is given — and every one of those has mimalloc, so both sides use
 the same allocator and the real numbers are single digits again. The limit is back to 15%, where it catches far more.
 
+**Growth accepted on purpose.** Because the base is the latest release, a release that legitimately grows the
+binary past the gate would keep `main` red until it is tagged. `scripts/perf-allowance.toml` records that decision
+instead of loosening the gate the way the 60% did: each entry names the release it is measured against
+(`base = "v1.6.0"`), the raised limit (`size_percent`, `memory_percent`) and why. It applies only when the
+comparison's base is that release, so it expires by itself once a newer tag (a release candidate included) becomes
+the baseline, and the job summary prints it whenever it applied. Delete spent entries at release time. 1.7.0's six
+new lockfile readers grew the binary +8.75% (+0.9 MiB on linux-64, no new crates), and the entry for `v1.6.0`
+allows 10%.
+
 Peak memory is the child process's own high-water mark: `wait4` on Linux and macOS,
 `GetProcessMemoryInfo` on the handle of the finished child on Windows. Not a poller, which would miss the peak.
 The child is started with `posix_spawn` rather than a fork, because a forked child inherits the parent's page

@@ -89,7 +89,10 @@ jobs:
       # between two measurement methods rather than two binaries.
       - name: Keep the measurement script aside
         shell: bash
-        run: cp scripts/perf.py "${RUNNER_TEMP}/perf.py"
+        run: |
+          cp scripts/perf.py "${RUNNER_TEMP}/perf.py"
+          # The growth accepted against each release, read from this ref like the script.
+          cp scripts/perf-allowance.toml "${RUNNER_TEMP}/perf-allowance.toml"
 
       - name: Build this ref
         run: pixi run build
@@ -123,6 +126,8 @@ jobs:
           echo "Comparing ${{ github.sha }} against ${{ steps.base.outputs.ref }}." >> "$GITHUB_STEP_SUMMARY"
           pixi run python "${RUNNER_TEMP}/perf.py" \
             --compare "${RUNNER_TEMP}/base.json" "${RUNNER_TEMP}/head.json" \
+            --allowances "${RUNNER_TEMP}/perf-allowance.toml" \
+            --base-ref "${{ steps.base.outputs.ref }}" \
             --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Report this ref on its own

@@ -29,6 +29,7 @@ import statistics
 import subprocess
 import sys
 import tempfile
+import tomllib
 import time
 from pathlib import Path
 
@@ -244,6 +245,18 @@ SIZE_LIMIT_PERCENT = 5.0
 MEMORY_LIMIT_PERCENT = 15.0
 
 
+def allowance(path: Path | None, base_ref: str | None) -> dict | None:
+    """The entry of the allowance file granted against `base_ref`, if there is one.
+
+    An entry raises a limit for comparisons against that one release; a newer baseline matches
+    nothing, so a spent entry cannot go on hiding growth.
+    """
+    if path is None or not base_ref or not path.is_file():
+        return None
+    entries = tomllib.loads(path.read_text(encoding="utf-8")).get("allowance", [])
+    return next((entry for entry in entries if entry.get("base") == base_ref), None)
+
+
 def compare(base: dict, head: dict, size_limit: float, memory_limit: float) -> tuple[list[str], list[str]]:
     """A markdown report of head against base, and the regressions worth failing over."""
     lines = [
@@ -306,12 +319,25 @@ def main() -> int:
     parser.add_argument("--summary", type=Path, help="append the markdown report here as well as to stdout")
     parser.add_argument("--size-limit", type=float, default=SIZE_LIMIT_PERCENT, help="percent the binary may grow")
     parser.add_argument("--memory-limit", type=float, default=MEMORY_LIMIT_PERCENT, help="percent peak memory may grow")
+    parser.add_argument("--allowances", type=Path, help="perf-allowance.toml: growth accepted per base release")
+    parser.add_argument("--base-ref", help="the release the base side was built from, to look the allowance up")
     args = parser.parse_args()
 
     if args.compare:
         base = json.loads(args.compare[0].read_text(encoding="utf-8"))
         head = json.loads(args.compare[1].read_text(encoding="utf-8"))
-        lines, failures = compare(base, head, args.size_limit, args.memory_limit)
+        size_limit, memory_limit = args.size_limit, args.memory_limit
+        granted = allowance(args.allowances, args.base_ref)
+        if granted:
+            size_limit = max(size_limit, float(granted.get("size_percent", size_limit)))
+            memory_limit = max(memory_limit, float(granted.get("memory_percent", memory_limit)))
+        lines, failures = compare(base, head, size_limit, memory_limit)
+        if granted:
+            lines += [
+                "",
+                f"**Allowance against {args.base_ref}:** binary +{size_limit:.0f}%, peak memory +{memory_limit:.0f}%. "
+                + " ".join(str(granted.get("reason", "")).split()),
+            ]
         report = "\n".join(lines)
         sys.stdout.write(report + "\n")
         if args.summary:
