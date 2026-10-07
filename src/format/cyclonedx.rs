@@ -67,6 +67,8 @@ struct AnalysisEntry {
     state: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     justification: Option<&'static str>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    response: Vec<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     detail: Option<String>,
 }
@@ -409,6 +411,7 @@ fn vulnerability(vuln: &Vulnerability, sbom: &Sbom) -> VulnerabilityEntry {
         analysis: vuln.analysis.as_ref().map(|a| AnalysisEntry {
             state: a.state,
             justification: a.justification,
+            response: a.response.clone(),
             detail: a.detail.clone(),
         }),
         affects: vuln
@@ -450,6 +453,7 @@ pub(crate) fn vex(sbom: &Sbom, ctx: &WriteContext, open_state: &'static str) -> 
             entry.analysis = Some(entry.analysis.unwrap_or(AnalysisEntry {
                 state: open_state,
                 justification: None,
+                response: Vec::new(),
                 detail: None,
             }));
             entry.affects = vuln
@@ -1067,6 +1071,7 @@ mod tests {
             Some(Analysis {
                 state: "not_affected",
                 justification: Some("code_not_reachable"),
+                response: vec!["will_not_fix"],
                 detail: Some("only used at build time".into()),
             }),
         ));
@@ -1096,6 +1101,11 @@ mod tests {
         assert_eq!(findings[1]["analysis"]["detail"], "only used at build time");
         assert_eq!(findings[1]["analysis"]["justification"], "code_not_reachable");
         assert!(findings[0]["analysis"].get("justification").is_none());
+        assert_eq!(findings[1]["analysis"]["response"], serde_json::json!(["will_not_fix"]));
+        assert!(
+            findings[0]["analysis"].get("response").is_none(),
+            "an empty list is left out"
+        );
         assert_eq!(
             findings[0]["affects"][0]["ref"],
             format!("urn:cdx:{}/1#pkg:pypi/six@1.17.0", ctx.uuid),
@@ -1146,6 +1156,7 @@ mod tests {
             analysis: Some(crate::model::Analysis {
                 state: "not_affected",
                 justification: Some("requires_environment"),
+                response: vec![],
                 detail: Some("only used at build time".into()),
             }),
             kev: Some(crate::model::Kev {

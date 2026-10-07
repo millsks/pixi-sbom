@@ -481,7 +481,27 @@ which is what VEX consumers filter and audit on and what CISA's minimum VEX requ
 `protected_at_perimeter` and `protected_by_mitigating_control`, written to `analysis.justification`. As with the
 state, a word that is not one of these stays part of the text, and only an explicit `not_affected` is followed by
 a justification: `ID:code_not_reachable:...` is text, as it always was. A justification after any other state is
-a usage error, since it would explain a claim nobody made. An id that matches nothing is logged at debug level and
+a usage error, since it would explain a claim nobody made.
+
+After the state (and the justification, when there is one), the next segment may say what is being done about the
+finding: a comma-separated list of CycloneDX's `can_not_fix`, `will_not_fix`, `update`, `rollback` and
+`workaround_available`, written to `analysis.response`. It is the actionable part of an `exploitable` or
+`in_triage` assessment:
+
+```sh
+--ignore-vuln "GHSA-34jh-p97f-mpxf:exploitable:update,workaround_available:pin urllib3>=2 until the bump lands"
+--ignore-vuln "CVE-2023-43804:not_affected:protected_at_perimeter:can_not_fix:the WAF strips the header"
+```
+
+A list is a response only when every word in it is one, so `ID:exploitable:update later` stays text.
+
+The assessment dates, `analysis.firstIssued` and `analysis.lastUpdated`, are not written. pixi-sbom keeps no
+history of your assessments, so the only date it could put there is the run's, which says when the claim was
+re-asserted, not when it was made or changed. They need a source that records them, such as an assessments file
+kept beside the lockfile ([#349](https://github.com/millsks/pixi-sbom/issues/349)); until one exists, a VEX consumer should treat the document's own timestamp as the date
+of every assessment in it.
+
+An id that matches nothing is logged at debug level and
 otherwise ignored, so a list of accepted findings can be kept across upgrades. Findings of unknown severity
 (records without a rating) never trip the gate; the report shows them so they can be assessed. When both the
 license policy and the vulnerability gate fail, both lists are printed and the exit code is 3.

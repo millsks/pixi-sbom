@@ -2261,7 +2261,9 @@ fn vex_is_written_beside_the_document_and_links_into_it() {
         .unwrap();
     assert_eq!(detail, "not reachable from our code");
 
-    // A machine-readable justification reaches the VEX, and 1.7 accepts it as 1.6 does.
+    // A machine-readable justification and a response reach the VEX, and 1.7 accepts them as
+    // 1.6 does.
+    let other = document["vulnerabilities"][1]["id"].as_str().unwrap().to_string();
     run(&[
         "--spec-version",
         "1.7",
@@ -2271,11 +2273,25 @@ fn vex_is_written_beside_the_document_and_links_into_it() {
         vex.to_str().unwrap(),
         "--ignore-vuln",
         &format!("{assessed}:not_affected:code_not_present:the module is stripped"),
+        "--ignore-vuln",
+        &format!("{other}:exploitable:update,workaround_available:pin urllib3>=2"),
     ])
     .assert()
     .success();
     let vexed = read_json(&vex);
     assert_valid(&cyclonedx_1_7_validator(), &vexed);
+    let responded = &vexed["vulnerabilities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["id"] == other.as_str())
+        .unwrap()["analysis"];
+    assert_eq!(responded["state"], "exploitable");
+    assert_eq!(
+        responded["response"],
+        serde_json::json!(["update", "workaround_available"])
+    );
+    assert_eq!(responded["detail"], "pin urllib3>=2");
     assert_valid(&cyclonedx_1_7_validator(), &read_json(&sbom));
     let analysis = &vexed["vulnerabilities"]
         .as_array()
@@ -2623,7 +2639,7 @@ fn fail_on_severity_exits_4_after_writing_and_ignores_are_recorded() {
         "--ignore-vuln",
         "CVE-2025-66418",
         "--ignore-vuln",
-        "GHSA-q2q7-5pp4-w6pg:false_positive:wrong package",
+        "GHSA-q2q7-5pp4-w6pg:false_positive:can_not_fix:wrong package",
         "--ignore-vuln",
         "GHSA-qccp-gfcp-xxvc",
         "--ignore-vuln",
@@ -2640,6 +2656,9 @@ fn fail_on_severity_exits_4_after_writing_and_ignores_are_recorded() {
     assert_eq!(streaming["analysis"]["state"], "not_affected");
     assert_eq!(streaming["analysis"]["detail"], "streaming API unused");
     assert_eq!(streaming["analysis"]["justification"], "code_not_reachable");
+    let wrong = vulns.iter().find(|v| v["id"] == "GHSA-q2q7-5pp4-w6pg").unwrap();
+    assert_eq!(wrong["analysis"]["response"], serde_json::json!(["can_not_fix"]));
+    assert_eq!(wrong["analysis"]["detail"], "wrong package");
     let by_cve = vulns.iter().find(|v| v["id"] == "GHSA-gm62-xv2j-4w53").unwrap();
     assert_eq!(by_cve["analysis"]["state"], "not_affected");
     assert!(by_cve["analysis"].get("detail").is_none());
