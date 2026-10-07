@@ -172,7 +172,7 @@ fn no_lockfile_in_tree_fails_with_help() {
         .assert()
         .failure()
         .stderr(predicate::str::contains(
-            "no pixi.lock, uv.lock, poetry.lock or pylock.toml found",
+            "no pixi.lock, uv.lock, poetry.lock, pdm.lock or pylock.toml found",
         ))
         .stderr(predicate::str::contains("--lockfile"));
 }
@@ -6918,4 +6918,118 @@ fn poetry_lock_is_read_in_every_format_with_its_sources() {
         .code(1)
         .stderr(predicate::str::contains("lock-version 1.1 is not supported"))
         .stderr(predicate::str::contains("poetry lock"));
+}
+
+#[test]
+fn pdm_lock_is_read_in_every_format_with_extras_folded_in() {
+    // #325: pdm.lock 4.x, as current PDM writes it for a project with groups, an extra, a git
+    // dependency and an editable path.
+    let work = tempfile::tempdir().unwrap();
+    let command = |dir: &Path, args: &[&str]| {
+        let mut command = pixi_sbom();
+        command
+            .current_dir(dir)
+            .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(args);
+        command
+    };
+    let doc = |dir: &Path, args: &[&str]| -> Value {
+        let mut all = vec!["--output", "-"];
+        all.extend_from_slice(args);
+        serde_json::from_slice(&command(dir, &all).assert().success().get_output().stdout).unwrap()
+    };
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/projects");
+    let django = examples.join("pdm/01-django");
+
+    let linux = doc(&django, &["-p", "linux-64"]);
+    assert_valid(&cyclonedx_validator(), &linux);
+    assert_valid(
+        &cyclonedx_1_7_validator(),
+        &doc(&django, &["-p", "linux-64", "--spec-version", "1.7"]),
+    );
+    assert_valid(
+        &spdx_validator(),
+        &doc(&django, &["-p", "linux-64", "--format", "spdx"]),
+    );
+    assert_valid(
+        &spdx3_validator(),
+        &doc(
+            &django,
+            &["-p", "linux-64", "--format", "spdx", "--spec-version", "3.0"],
+        ),
+    );
+    let props = linux["metadata"]["properties"].as_array().unwrap();
+    assert!(
+        props
+            .iter()
+            .any(|p| p["name"] == "pixi:lockfile" && p["value"] == "pdm.lock")
+    );
+
+    let components = linux["components"].as_array().unwrap();
+    // django[argon2] is a second entry in the lock; it is one component, with argon2-cffi under it.
+    assert_eq!(components.iter().filter(|c| c["name"] == "django").count(), 1);
+    let django_ref = components.iter().find(|c| c["name"] == "django").unwrap()["bom-ref"].clone();
+    let depends_on = linux["dependencies"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["ref"] == django_ref)
+        .unwrap()["dependsOn"]
+        .clone();
+    assert!(
+        depends_on
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d.as_str().unwrap().contains("argon2-cffi")),
+        "{depends_on}"
+    );
+    let property = |name: &str, key: &str| {
+        components.iter().find(|c| c["name"] == name).unwrap()["properties"]
+            .as_array()
+            .and_then(|ps| ps.iter().find(|p| p["name"] == key))
+            .map(|p| p["value"].as_str().unwrap().to_string())
+    };
+    assert!(property("django-debug-toolbar", "pixi:source-rev").is_some_and(|r| r.len() == 40));
+    assert_eq!(
+        property("internal-utils", "pixi:direct-url").as_deref(),
+        Some("libs/internal-utils")
+    );
+
+    // PDM and uv resolved this scenario independently; they agree on what is installed.
+    let names = |d: &Value| -> std::collections::BTreeSet<String> {
+        d["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["name"].as_str().unwrap().to_lowercase())
+            .collect()
+    };
+    for platform in ["linux-64", "win-64"] {
+        assert_eq!(
+            names(&doc(&django, &["-p", platform])),
+            names(&doc(&examples.join("uv/01-django"), &["-p", platform])),
+            "{platform}"
+        );
+    }
+
+    for report in [
+        &["--report", "packages"][..],
+        &["--report", "licenses"],
+        &["--vulnerabilities", "osv", "--report", "vulnerabilities"],
+    ] {
+        command(&django, &[&["-p", "linux-64"][..], report].concat())
+            .assert()
+            .success();
+    }
+
+    let old = work.path().join("old");
+    std::fs::create_dir_all(&old).unwrap();
+    std::fs::write(old.join("pdm.lock"), "[metadata]\nlock_version = \"3.0\"\n").unwrap();
+    command(&old, &["--output", "-"])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("lock_version 3.0 is not supported"));
 }

@@ -18,7 +18,7 @@ With no options this means:
 
 | Option | Default | Effect |
 |---|---|---|
-| `--lockfile <PATH>` | upward search from cwd | Lockfile to read: a `pixi.lock`, a `uv.lock` (see [Reading uv.lock](#reading-uvlock)), a `poetry.lock` (see [Reading poetry.lock](#reading-poetrylock)), or a PEP 751 `pylock.toml` / `pylock.<name>.toml` (see [Reading pylock.toml](#reading-pylocktoml)). The file must exist; there is no fallback search when this is given. Without it, the nearest directory at or above the current one that has `pixi.lock`, `uv.lock`, `poetry.lock` or `pylock.toml` is used, in that order of preference within a directory. |
+| `--lockfile <PATH>` | upward search from cwd | Lockfile to read: a `pixi.lock`, a `uv.lock` (see [Reading uv.lock](#reading-uvlock)), a `poetry.lock` (see [Reading poetry.lock](#reading-poetrylock)), a `pdm.lock` (see [Reading pdm.lock](#reading-pdmlock)), or a PEP 751 `pylock.toml` / `pylock.<name>.toml` (see [Reading pylock.toml](#reading-pylocktoml)). The file must exist; there is no fallback search when this is given. Without it, the nearest directory at or above the current one that has `pixi.lock`, `uv.lock`, `poetry.lock`, `pdm.lock` or `pylock.toml` is used, in that order of preference within a directory. |
 | `--prefix <DIR>` | | Describe an installed environment instead of a lockfile (see below). Cannot be combined with `--lockfile`, `--environment` or the `--all-*` flags. |
 | `--root-name <NAME>`, `--root-version <VERSION>` | directory name, none | With `--prefix`: what the described application is called. |
 | `--config <PATH>` | see below | Configuration file to read before the command line. |
@@ -285,6 +285,33 @@ download location: the CycloneDX component has no `distribution` reference and t
 the package's source names another (a `legacy` source, such as the PyTorch CPU index), which then appears as
 `pixi:index-url` and the supplier. Git, directory and URL sources record what they do for `uv.lock`.
 
+## Reading pdm.lock
+
+A PDM project is described from its `pdm.lock`, which the upward search finds after `pixi.lock`, `uv.lock` and
+`poetry.lock`. Lock_version 4.x is read, which current PDM writes; another version is refused (exit 1).
+
+What is carried over:
+
+- **Every package for the platform.** PDM records on each package the environments it is needed in (`marker`),
+  evaluated as for `poetry.lock`, and on each dependency a PEP 508 requirement whose own marker decides whether
+  the edge applies there. Python markers use the lowest Python the lock's target allows.
+- **The dependency graph**, from each package's `dependencies`.
+- **Extras, as edges.** PDM writes `django[argon2]` as a second `django` entry that depends on `django` and on what
+  the extra brings. That entry is folded into the `django` component, so the component appears once and
+  `argon2-cffi` is its dependency. Which extra brought it is not recorded yet.
+- **Sources.** A git dependency records its repository and exact commit, a local path its path and `pixi:editable`,
+  and a direct URL its URL, as for the other lockfiles.
+- **The project**, its name and what `[project.dependencies]` declares, from the `pyproject.toml` beside the lock.
+
+What is not:
+
+- **Download locations and the index.** PDM records each file by name and hash, and a package's source only in
+  `pyproject.toml`, without saying which source served which package. A package records the artifact this platform
+  would install as `pixi:file-name`, with its SHA-256, and no location or supplier. A lock made with PDM's
+  `static_urls` strategy does record URLs, and those become the location.
+- **Dependency groups.** The groups each package belongs to are in the lock and are read, but not yet recorded in
+  the document.
+
 ## Reading pylock.toml
 
 A Python project that locks with the PEP 751 standard lockfile can be described without converting it to pixi.
@@ -296,7 +323,7 @@ pixi sbom --lockfile pylock.toml -p win-64 --vulnerabilities osv --report vulner
 ```
 
 The file is recognised by its name, `pylock.toml` or `pylock.<name>.toml` (a named lock records `<name>` as the
-environment). The upward search finds `pylock.toml` when a directory has no `pixi.lock`, `uv.lock` or `poetry.lock`; a named lock is
+environment). The upward search finds `pylock.toml` when a directory has none of `pixi.lock`, `uv.lock`, `poetry.lock` or `pdm.lock`; a named lock is
 read through `--lockfile`, and `--scan` still looks for `pixi.lock` only.
 
 One `pylock.toml` describes every environment it was resolved for, with an environment marker on each package

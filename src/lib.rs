@@ -72,6 +72,7 @@ pub mod osv;
 #[doc(hidden)]
 pub mod outdated;
 #[doc(hidden)]
+pub mod pdm;
 pub mod phantom;
 #[doc(hidden)]
 pub mod pkgcache;

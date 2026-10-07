@@ -99,7 +99,7 @@ entry).
 | `pixi:subdir` | conda | `linux-64`, `noarch`, ... |
 | `pixi:build` | conda | Build string |
 | `pixi:build-number` | conda | Build number |
-| `pixi:file-name` | conda binary; PyPI (`poetry.lock`) | Archive file name; for a Poetry package, the wheel or sdist this platform would install, since Poetry records no download URL |
+| `pixi:file-name` | conda binary; PyPI (`poetry.lock`, `pdm.lock`) | Archive file name; for a Poetry package, the wheel or sdist this platform would install, since Poetry records no download URL |
 | `pixi:size` | conda | Archive size in bytes |
 | `pixi:license-family` | conda | Channel-declared license family |
 | `pixi:noarch` | conda | `true` when the package is noarch |
