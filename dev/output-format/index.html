@@ -1809,8 +1809,18 @@ entry).</p>
 </tr>
 <tr>
 <td><code>pixi:python-extras</code></td>
-<td>PyPI (<code>pixi.lock</code>, <code>uv.lock</code>, <code>poetry.lock</code>, <code>pdm.lock</code>)</td>
+<td>PyPI (<code>pixi.lock</code>, <code>uv.lock</code>, <code>poetry.lock</code>, <code>pdm.lock</code>; <code>--prefix</code> with <code>--infer-extras</code>)</td>
 <td>The extras the package was installed with, comma separated, e.g. <code>socks,security</code>: what the manifest and the other packages asked of it</td>
+</tr>
+<tr>
+<td><code>pixi:python-extras-inferred</code></td>
+<td>PyPI (<code>--prefix --infer-extras</code>)</td>
+<td><code>true</code> when <code>pixi:python-extras</code> was inferred from what is installed rather than read from the input</td>
+</tr>
+<tr>
+<td><code>pixi:python-extras-evidence</code></td>
+<td>PyPI (<code>--prefix --infer-extras</code>)</td>
+<td>What an inference rests on: each extra and the installed packages it requires, e.g. <code>socks: pysocks</code></td>
 </tr>
 <tr>
 <td><code>pixi:via-extra</code></td>

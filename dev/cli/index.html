@@ -545,6 +545,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Python extras">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#inferring-extras-in-an-installed-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inferring extras in an installed environment
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1485,6 +1502,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Python extras">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#inferring-extras-in-an-installed-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inferring extras in an installed environment
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2037,6 +2071,11 @@
 <td>Add the components declared by SBOMs embedded in wheels (PEP 770, e.g. the Rust crates maturin compiled in) as dependencies of the wheel. Reads each wheel's <code>dist-info</code> like <code>--fetch-licenses</code>. With <code>--prefix</code>, also reads the <code>cargo auditable</code> crate list out of the environment's binaries.</td>
 </tr>
 <tr>
+<td><code>--infer-extras</code></td>
+<td>off</td>
+<td>With <code>--prefix</code>: infer which extras each Python package was installed with, from what is installed, and label it as inferred (see <a href="#python-extras">Python extras</a>).</td>
+</tr>
+<tr>
 <td><code>--allow-license &lt;LICENSE&gt;</code></td>
 <td></td>
 <td>Repeatable. Only these SPDX licenses are acceptable; a package whose license expression cannot be satisfied with them alone is a violation.</td>
@@ -2578,6 +2617,18 @@ were asked for, two properties record it.</p>
 <p><code>pdm.lock</code> does not say which of the project's groups are extras, so a package there for one of the project's own
 extras is labelled only through <code>pixi:declared-in</code>. An installed environment (<code>--prefix</code>) records no extras.
 <code>--explain &lt;package&gt;</code> shows both: <em>installed with extras</em> and <em>brought in by</em>.</p>
+<h3 id="inferring-extras-in-an-installed-environment">Inferring extras in an installed environment<a class="headerlink" href="#inferring-extras-in-an-installed-environment" title="Permanent link">&para;</a></h3>
+<p>A venv or conda environment records which packages are installed, not which extras they were installed with.
+<code>--infer-extras</code> (with <code>--prefix</code>, off by default; <code>infer-extras = true</code> in the configuration file) guesses: an extra
+of a package counts as active when it gates at least one <code>Requires-Dist</code> whose other markers hold for the
+environment's interpreter and platform, and every such requirement is installed. <code>requests</code> with <code>pysocks</code> installed
+is taken to have <code>socks</code>; with <code>chardet</code> missing it is not taken to have <code>use-chardet-on-py3</code>.</p>
+<p>The result is written as <code>pixi:python-extras</code>, the same as a stated extra, plus <code>pixi:python-extras-inferred = true</code>
+and <code>pixi:python-extras-evidence</code> (<code>socks: pysocks</code>), so a consumer can tell inference from fact. <code>--explain</code> says the
+extras were inferred and from which packages. The guess can be wrong: the packages an extra needs may have been
+installed for another reason, or by hand, and an extra that gates nothing on this platform is never inferred. A
+package whose extras the input already states keeps those. Without a known interpreter version (no <code>python</code>
+package, no <code>pyvenv.cfg</code>, no <code>pythonX.Y</code> path) nothing is inferred.</p>
 <p>A <code>pylock.toml</code> whose markers name extras or dependency groups (<code>'s3' in extras</code>) is read with every extra and
 group it lists counted as chosen, because the document describes all of them.</p>
 <h2 id="reading-pylocktoml">Reading pylock.toml<a class="headerlink" href="#reading-pylocktoml" title="Permanent link">&para;</a></h2>
