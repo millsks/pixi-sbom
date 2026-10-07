@@ -780,6 +780,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#network-tests-testsnetworkrs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Network tests (tests/network.rs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#schema-validation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1059,6 +1070,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#network-tests-testsnetworkrs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Network tests (tests/network.rs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#schema-validation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1216,7 +1238,7 @@ prefer adding a task.</p>
 <tr>
 <td><code>test</code></td>
 <td><code>cargo test</code></td>
-<td>Unit tests (in <code>src/</code>) and end-to-end tests (<code>tests/cli.rs</code>)</td>
+<td>Unit tests (in <code>src/</code>), end-to-end tests (<code>tests/cli.rs</code>) and network tests (<code>tests/network.rs</code>)</td>
 </tr>
 <tr>
 <td><code>test-integration</code></td>
@@ -1346,7 +1368,18 @@ When an output change is intended, review the diff and accept it:</p>
 <h3 id="end-to-end-tests-testsclirs">End-to-end tests (<code>tests/cli.rs</code>)<a class="headerlink" href="#end-to-end-tests-testsclirs" title="Permanent link">&para;</a></h3>
 <p>Run the built binary with <code>assert_cmd</code> against copies of the fixtures in temp directories, then read the file it
 wrote and validate it with the <code>jsonschema</code> crate against the schemas in <code>tests/schemas/</code>. They cover lockfile
-discovery, every option including <code>--all-environments</code>, both formats, and each error path's message and exit code.</p>
+discovery, every option including <code>--all-environments</code>, both formats, and each error path's message and exit code.
+They run with <code>PIXI_SBOM_OFFLINE=1</code>, so they never make a request.</p>
+<h3 id="network-tests-testsnetworkrs">Network tests (<code>tests/network.rs</code>)<a class="headerlink" href="#network-tests-testsnetworkrs" title="Permanent link">&para;</a></h3>
+<p>The third kind, for behaviour that only shows in how requests go over the wire: unit tests stub <code>Fetch</code> and never
+speak HTTP, and the end-to-end tests are offline. <code>tests/support/</code> is a small HTTP/1.1 server on <code>127.0.0.1</code> (the
+standard library and threads, no dependency) that answers a script and records every request: which connection
+carried it, when it started and finished, and its body. The tests run the real binary with every upstream pointed at
+it through the <code>PIXI_SBOM_*_URL</code> overrides, so nothing leaves the machine. They cover connection reuse, batched
+queries and their follow-ups overlapping, the cache counters on a cold and a warm run, batched, refused and
+partly-failed batches producing the same report, and which statuses are retried.</p>
+<p>A behaviour that is about requests (how many, on how many connections, in what order or overlap, retried or not)
+gets its test here rather than a stopwatch reading in the PR description.</p>
 <h3 id="schema-validation">Schema validation<a class="headerlink" href="#schema-validation" title="Permanent link">&para;</a></h3>
 <p><code>tests/schemas/</code> contains the official CycloneDX 1.6 and 1.7 schemas (with the <code>spdx.schema.json</code>,
 <code>jsf-0.82.schema.json</code> and <code>cryptography-defs.schema.json</code> they reference, registered under their canonical <code>$id</code>s so
@@ -1405,7 +1438,7 @@ real document; the fixtures are small by design.</p>
 <li>Rust: edition 2024, <code>rustfmt</code> defaults at 120 columns, clippy clean with <code>-D warnings</code>. Public items in every module
   carry a doc comment; error enums derive <code>thiserror::Error</code> and <code>miette::Diagnostic</code> with a <code>code(...)</code>.</li>
 <li>Every behavior change comes with a test in the layer that owns the behavior (model changes → <code>lock.rs</code> tests;
-  output changes → writer tests and snapshots; CLI changes → <code>tests/cli.rs</code>).</li>
+  output changes → writer tests and snapshots; CLI changes → <code>tests/cli.rs</code>; request behaviour → <code>tests/network.rs</code>).</li>
 <li>Dependencies: prefer what <code>rattler_lock</code> already pulls in; avoid git dependencies. <code>serde_json</code> uses
   <code>preserve_order</code> so keys are emitted in struct order.</li>
 <li>Never print to stdout; logs go through <code>tracing</code> to stderr.</li>
