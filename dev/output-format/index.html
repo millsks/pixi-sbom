@@ -1586,8 +1586,8 @@ conda source, PyPI), then name, then version.</p>
 </tr>
 <tr>
 <td>Download location</td>
-<td><code>externalReferences[]</code> of type <code>distribution</code>, or <code>vcs</code> for <code>git+</code> locations</td>
-<td><code>downloadLocation</code> (URL or <code>git+&lt;url&gt;@&lt;rev&gt;</code>); <code>NOASSERTION</code> plus <code>sourceInfo</code> for local paths</td>
+<td><code>externalReferences[]</code> of type <code>distribution</code>, or <code>vcs</code> for <code>git+</code> locations; none when nothing records one (<code>poetry.lock</code> names files, not URLs)</td>
+<td><code>downloadLocation</code> (URL or <code>git+&lt;url&gt;@&lt;rev&gt;</code>); <code>NOASSERTION</code> plus <code>sourceInfo</code> for local paths; <code>NOASSERTION</code> alone when nothing records one</td>
 </tr>
 <tr>
 <td>SHA-256, MD5</td>
@@ -1665,8 +1665,8 @@ entry).</p>
 </tr>
 <tr>
 <td><code>pixi:file-name</code></td>
-<td>conda binary</td>
-<td>Archive file name</td>
+<td>conda binary; PyPI (<code>poetry.lock</code>)</td>
+<td>Archive file name; for a Poetry package, the wheel or sdist this platform would install, since Poetry records no download URL</td>
 </tr>
 <tr>
 <td><code>pixi:size</code></td>
