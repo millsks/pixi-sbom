@@ -216,8 +216,9 @@ repository with a 4.2 scorecard, and yanks six; conda packages get no advisory (
   archives --fetch-licenses would read them from are not reachable here, so only conda-lock's PyPI package has
   one. The license gate (an allow-list) has nothing to refuse on the explicit spec; --require-license is what
   gates unknown licenses.
-- scorecard on poetry.lock and pdm.lock: they record file names and hashes, not URLs, so no wheel is read and
-  no repository is known; the gate has nothing to fail on. The prefixes' dist-info name no repository.
+- scorecard: the repository comes from the wheel, or from the PyPI JSON API's project_urls where no wheel is
+  read (poetry.lock and pdm.lock record no URLs; an installed dist-info names none here). The git and local
+  packages are not looked up by name, so 25 of 27 are scored.
 - yanked gate: six is the yanked one; inputs without it pass.
 - licenses and outdated on the Python lockfiles count 25 of 27: the git checkout (django-debug-toolbar) and the
   local directory (internal-utils) are not asked about by name, since the index would describe an unrelated

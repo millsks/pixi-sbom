@@ -124,7 +124,14 @@ fn apply(package: &mut crate::model::Package, info: WheelInfo) {
     }
     package.description = package.description.take().or(info.summary);
     package.homepage = package.homepage.take().or(info.homepage);
-    package.repository = package.repository.take().or(info.repository);
+    if package.repository.is_none()
+        && let Some(repository) = info.repository
+    {
+        package.repository = Some(repository);
+        package
+            .properties
+            .insert(crate::pypi::REPOSITORY_SOURCE_PROPERTY.into(), "wheel".into());
+    }
     package.documentation = package.documentation.take().or(info.documentation);
     if package.license_files.is_empty() && !info.license_files.is_empty() {
         package.license_files = info.license_files;

@@ -93,6 +93,7 @@ const EXPLAINED_PROPERTIES: &[&str] = &[
     crate::mapping::MAPPING_PROPERTY,
     crate::embedded::SOURCE_PROPERTY,
     crate::pypi::LICENSE_SOURCE_PROPERTY,
+    crate::pypi::REPOSITORY_SOURCE_PROPERTY,
     crate::pypi::YANKED_PROPERTY,
     crate::pypi::YANKED_REASON_PROPERTY,
     crate::pyversion::REQUIRES_PYTHON_PROPERTY,
@@ -131,6 +132,7 @@ pub fn facts(package: &Package, sbom: &Sbom, ctx: Context) -> Vec<Fact> {
     facts.push(requires_python(package, &input));
     facts.push(embedded(package, ctx, &input));
     facts.push(yanked(package, ctx));
+    facts.extend(repository(package, ctx, &input));
     facts.push(scorecard(package, ctx));
     facts.push(vulnerabilities(package, sbom, ctx));
     facts.extend(edges(package, sbom, &input));
@@ -382,6 +384,30 @@ fn yanked(package: &Package, ctx: Context) -> Fact {
             "yanked",
             vec!["the PyPI index: not asked, --fetch-licenses was not given".into()],
         ),
+    }
+}
+
+/// The repository URL and where it came from. Said to be unknown only when something looked for
+/// one: `--fetch-licenses` reads the wheel and the PyPI JSON API, and nothing else names one.
+fn repository(package: &Package, ctx: Context, input: &str) -> Option<Fact> {
+    match &package.repository {
+        Some(repository) => {
+            let source = match package
+                .properties
+                .get(crate::pypi::REPOSITORY_SOURCE_PROPERTY)
+                .map(String::as_str)
+            {
+                Some("wheel") => "the wheel's dist-info (Project-URL)".to_string(),
+                Some("pypi") => "the PyPI JSON API (project_urls); the lockfile names no wheel to read".to_string(),
+                _ => input.to_string(),
+            };
+            Some(Fact::known("repository", repository, source))
+        }
+        None if ctx.fetch_licenses && package.kind == crate::model::PackageKind::Pypi => Some(Fact::unknown(
+            "repository",
+            vec!["the wheel's dist-info and the PyPI JSON API: neither names a source repository".into()],
+        )),
+        None => None,
     }
 }
 

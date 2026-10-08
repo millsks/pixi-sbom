@@ -56,6 +56,38 @@ struct Info {
     yanked: bool,
     #[serde(default)]
     yanked_reason: Option<String>,
+    /// `null` when the release declares none.
+    #[serde(default)]
+    project_urls: Option<std::collections::BTreeMap<String, String>>,
+    #[serde(default)]
+    home_page: Option<String>,
+}
+
+/// Property naming where a package's repository URL came from: `wheel` (its dist-info) or
+/// `pypi` (the JSON API's `project_urls`, for a package whose lockfile names no wheel to read).
+pub const REPOSITORY_SOURCE_PROPERTY: &str = "pixi:repository-source";
+
+/// The repository a JSON API response names: the `project_urls` entry labelled as the source,
+/// the labels the wheel reader takes too, else any URL there (or `home_page`) on a forge the
+/// scorecard service covers. `None` when it names none.
+pub fn repository_from_metadata(json: &str) -> Option<String> {
+    let info = serde_json::from_str::<Metadata>(json).ok()?.info;
+    let urls = info.project_urls.unwrap_or_default();
+    let labelled = ["source", "source code", "repository", "code", "github"]
+        .iter()
+        .find_map(|wanted| {
+            urls.iter()
+                .find(|(label, _)| label.trim().eq_ignore_ascii_case(wanted))
+                .map(|(_, url)| url.trim().to_string())
+        });
+    labelled
+        .or_else(|| {
+            urls.values()
+                .chain(info.home_page.as_ref())
+                .find(|url| crate::scorecard::project(url).is_some())
+                .map(|url| url.trim().to_string())
+        })
+        .filter(|url| !url.is_empty())
 }
 
 /// Whether a JSON API response says the release is yanked, and why.
@@ -227,6 +259,17 @@ impl Lookup<'_> {
                 }
                 package.yanked = Some(yanked);
                 outcome.yanked += 1;
+            }
+            // A repository the wheel named wins; this fills in for a lockfile that names no wheel
+            // (poetry.lock, pdm.lock), so --scorecard has something to score.
+            if sbom.packages[job.index].repository.is_none()
+                && let Some(repository) = repository_from_metadata(&json)
+            {
+                let package = &mut sbom.packages[job.index];
+                package.repository = Some(repository);
+                package
+                    .properties
+                    .insert(REPOSITORY_SOURCE_PROPERTY.to_string(), "pypi".to_string());
             }
             if sbom.packages[job.index].license.is_some() {
                 continue;
@@ -505,6 +548,108 @@ mod tests {
         let outcome = lookup.run_with(&mut sbom, &fetch, crate::progress::Progress::default());
         assert_eq!((outcome.found, outcome.failed, outcome.missing), (0, 0, 0));
         assert_eq!(sbom.packages.iter().find(|p| p.name == "six").unwrap().license, None);
+    }
+
+    #[test]
+    fn repositories_come_from_project_urls_and_the_wheel_wins() {
+        // Parsing: the source label first, then any forge URL, else none.
+        let urls = |pairs: &[(&str, &str)], home: Option<&str>| {
+            let map: serde_json::Map<String, serde_json::Value> = pairs
+                .iter()
+                .map(|(k, v)| (k.to_string(), serde_json::json!(v)))
+                .collect();
+            serde_json::json!({ "info": { "project_urls": map, "home_page": home } }).to_string()
+        };
+        assert_eq!(
+            repository_from_metadata(&urls(
+                &[
+                    ("Homepage", "https://www.djangoproject.com/"),
+                    ("Source", "https://github.com/django/django")
+                ],
+                None
+            ))
+            .as_deref(),
+            Some("https://github.com/django/django")
+        );
+        assert_eq!(
+            repository_from_metadata(&urls(&[("source code", " https://gitlab.com/a/b ")], None)).as_deref(),
+            Some("https://gitlab.com/a/b"),
+            "labels compare without case, and the URL is trimmed"
+        );
+        assert_eq!(
+            repository_from_metadata(&urls(&[("Homepage", "https://github.com/psf/requests")], None)).as_deref(),
+            Some("https://github.com/psf/requests"),
+            "no source label, but a forge URL"
+        );
+        assert_eq!(
+            repository_from_metadata(&urls(&[], Some("https://github.com/benjaminp/six"))).as_deref(),
+            Some("https://github.com/benjaminp/six"),
+            "home_page on a forge"
+        );
+        assert_eq!(
+            repository_from_metadata(&urls(&[("Homepage", "https://example.com")], None)),
+            None
+        );
+        assert_eq!(repository_from_metadata(r#"{"info": {"project_urls": null}}"#), None);
+        assert_eq!(repository_from_metadata("nonsense"), None);
+
+        // The lookup fills a missing repository and leaves the wheel's.
+        let dir = tempfile::tempdir().unwrap();
+        let lookup = Lookup {
+            index_url: "https://pypi.example/pypi",
+            cache_dir: dir.path(),
+        };
+        let mut sbom = sample_sbom();
+        // A second PyPI package beside the sample's six.
+        let mut attrs = sbom
+            .packages
+            .iter()
+            .find(|p| p.kind == PackageKind::Pypi)
+            .unwrap()
+            .clone();
+        attrs.name = "attrs".into();
+        attrs.id = "pkg:pypi/attrs@25.4.0".into();
+        attrs.purl = attrs.id.clone();
+        attrs.version = Some("25.4.0".into());
+        sbom.packages.push(attrs);
+        let pypi: Vec<usize> = (0..sbom.packages.len())
+            .filter(|i| sbom.packages[*i].kind == PackageKind::Pypi)
+            .collect();
+        assert!(pypi.len() >= 2, "the sample has two PyPI packages");
+        for i in &pypi {
+            sbom.packages[*i].repository = None;
+            sbom.packages[*i].properties.remove(REPOSITORY_SOURCE_PROPERTY);
+        }
+        sbom.packages[pypi[1]].repository = Some("https://github.com/from/wheel".into());
+        let fetch = |url: &str| -> Result<String, Box<ureq::Error>> {
+            let name = url
+                .trim_start_matches("https://pypi.example/pypi/")
+                .split('/')
+                .next()
+                .unwrap()
+                .to_string();
+            Ok(serde_json::json!({ "info": { "project_urls": { "Source": format!("https://github.com/test/{name}") } } }).to_string())
+        };
+        lookup.run_with(&mut sbom, &fetch, crate::progress::Progress::default());
+        let first = &sbom.packages[pypi[0]];
+        assert_eq!(
+            first.repository.as_deref(),
+            Some(
+                format!(
+                    "https://github.com/test/{}",
+                    crate::purl::normalize_pypi_name(&first.name)
+                )
+                .as_str()
+            )
+        );
+        assert_eq!(first.properties[REPOSITORY_SOURCE_PROPERTY], "pypi");
+        let second = &sbom.packages[pypi[1]];
+        assert_eq!(
+            second.repository.as_deref(),
+            Some("https://github.com/from/wheel"),
+            "the wheel wins"
+        );
+        assert!(!second.properties.contains_key(REPOSITORY_SOURCE_PROPERTY));
     }
 
     #[test]

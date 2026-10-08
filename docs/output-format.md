@@ -115,6 +115,7 @@ entry).
 | `pixi:scorecard-check-<name>` | any | One per check below `--scorecard-min`, e.g. `pixi:scorecard-check-Signed-Releases=0.0` |
 | `pixi:cargo-source` | embedded (cargo) | Where a crate read from a `cargo auditable` binary came from: `crates.io`, `git`, `local`, ... |
 | `pixi:index-url` | PyPI | Index the wheel was resolved from |
+| `pixi:repository-source` | PyPI (`--fetch-licenses`) | Where the package's repository URL came from: `wheel` (its `dist-info`) or `pypi` (the JSON API's `project_urls`, for a package whose lockfile names no wheel) |
 | `pixi:resolution-markers` | PyPI (`uv.lock`) | For a package uv locked at more than one version, the environments this one is for, joined with ` \|\| ` |
 | `pixi:marker` | PyPI (`pylock.toml`) | The environment marker the lockfile put on the package, e.g. `sys_platform == 'win32'`; the package is in the document because the marker is true for its platform |
 | `pixi:direct-url` | PyPI (`pylock.toml`, `uv.lock`, `--prefix`) | Where a package installed from outside an index came from: the repository URL of a VCS source, the path of a local directory (relative to the lockfile), or the URL of an archive |
