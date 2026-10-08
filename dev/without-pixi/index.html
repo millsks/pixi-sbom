@@ -1350,10 +1350,10 @@ critical, KEV-listed advisory, an MIT license and a 4.2 scorecard, and yanks <co
 <tr>
 <td>uv.lock</td>
 <td>0: 27 rows</td>
-<td>0: 27 rows, 27 with license</td>
+<td>0: 27 rows, 25 with license</td>
 <td>0: 25 rows</td>
 <td>0: 27 unchanged</td>
-<td>0: 27 rows</td>
+<td>0: 25 rows</td>
 <td>0: 27 rows</td>
 <td>0: 12 rows</td>
 <td>0: 27 rows, 25 with score</td>
@@ -1367,10 +1367,10 @@ critical, KEV-listed advisory, an MIT license and a 4.2 scorecard, and yanks <co
 <tr>
 <td>pylock.toml</td>
 <td>0: 27 rows</td>
-<td>0: 27 rows, 26 with license</td>
+<td>0: 27 rows, 25 with license</td>
 <td>0: 25 rows</td>
 <td>0: 27 unchanged</td>
-<td>0: 26 rows</td>
+<td>0: 25 rows</td>
 <td>0: 27 rows</td>
 <td>0: 27 rows</td>
 <td>0: 27 rows, 25 with score</td>
@@ -1384,10 +1384,10 @@ critical, KEV-listed advisory, an MIT license and a 4.2 scorecard, and yanks <co
 <tr>
 <td>poetry.lock</td>
 <td>0: 27 rows</td>
-<td>0: 27 rows, 27 with license</td>
+<td>0: 27 rows, 25 with license</td>
 <td>0: 25 rows</td>
 <td>0: 27 unchanged</td>
-<td>0: 27 rows</td>
+<td>0: 25 rows</td>
 <td>0: 27 rows</td>
 <td>0: 12 rows</td>
 <td>0: 27 rows, 0 with score</td>
@@ -1401,10 +1401,10 @@ critical, KEV-listed advisory, an MIT license and a 4.2 scorecard, and yanks <co
 <tr>
 <td>pdm.lock</td>
 <td>0: 27 rows</td>
-<td>0: 27 rows, 27 with license</td>
+<td>0: 27 rows, 25 with license</td>
 <td>0: 25 rows</td>
 <td>0: 27 unchanged</td>
-<td>0: 27 rows</td>
+<td>0: 25 rows</td>
 <td>0: 27 rows</td>
 <td>0: 12 rows</td>
 <td>0: 27 rows, 0 with score</td>
@@ -1510,6 +1510,8 @@ critical, KEV-listed advisory, an MIT license and a 4.2 scorecard, and yanks <co
   package pins an interpreter, and every transitive package looks like a root, so it counts as undeclared.</li>
 <li><strong>licenses</strong> on <code>conda-lock.yml</code> and explicit specs: neither records a conda package's license; <code>--fetch-licenses</code>
   reads it from the conda archives, which the test leaves unreachable on purpose.</li>
+<li><strong>licenses</strong> and <strong>outdated</strong> on the Python lockfiles count 25 of 27: a package installed from a git checkout or a
+  local directory is not looked up on PyPI by name, where the name could belong to an unrelated project.</li>
 <li><strong>scorecard</strong> on <code>poetry.lock</code> and <code>pdm.lock</code>: they record file names, not URLs, so no wheel is read and no
   repository is known.</li>
 </ul>

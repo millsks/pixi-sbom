@@ -1908,7 +1908,7 @@ entry).</p>
 <p>A package installed from somewhere other than an index does not get a plain <code>pkg:pypi</code> purl, since that would claim
 a PyPI release which may not exist or may hold other code, and a scanner would match the wrong advisories. Where it
 came from stays in <code>pixi:direct-url</code>, <code>pixi:source-rev</code> and <code>pixi:editable</code>, from every lockfile reader and from
-<code>--prefix</code> (PEP 610 <code>direct_url.json</code>). <code>--vulnerabilities osv</code> asks about none of these purls: OSV has no ecosystem
+<code>--prefix</code> (PEP 610 <code>direct_url.json</code>). Nor are they looked up on PyPI by name for a license, a yanked status or the outdated report, since the name may belong to an unrelated project. <code>--vulnerabilities osv</code> asks about none of these purls: OSV has no ecosystem
 for <code>generic</code> or <code>github</code>, and a <code>vcs_url</code> checkout is not the release of its version. In <code>pixi.lock</code> a git or local
 source is recognised; a URL without an index is left as it is, since older lockfiles record index wheels that way.</p>
 <p>Purls double as the CycloneDX <code>bom-ref</code>, which is why they must be unique within a document; within one environment
