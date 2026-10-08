@@ -131,6 +131,8 @@ pub struct Hit {
     pub severity: Severity,
     /// Whether it is in CISA's KEV catalog.
     pub known_exploited: bool,
+    /// Its EPSS score, with `--epss`.
+    pub epss: Option<f64>,
     /// `name version` of each affected package.
     pub packages: Vec<String>,
 }
@@ -139,10 +141,11 @@ impl std::fmt::Display for Hit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} ({}{}): {}",
+            "{} ({}{}{}): {}",
             self.id,
             self.severity.name(),
             if self.known_exploited { ", known exploited" } else { "" },
+            self.epss.map(|p| format!(", EPSS {p:.3}")).unwrap_or_default(),
             self.packages.join(", ")
         )
     }
@@ -171,17 +174,60 @@ pub fn apply_ignores(sbom: &mut Sbom, ignores: &[Ignore]) -> usize {
     marked
 }
 
-/// The open findings that trip the gate: at or above `threshold` when one is given, or known
-/// exploited when `kev` is set. Worst first.
-pub fn check(sbom: &Sbom, threshold: Option<Severity>, kev: bool) -> Vec<Hit> {
+/// What trips the vulnerability gate; a finding trips it by meeting any one of these.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Rule {
+    /// `--fail-on-severity`: at or above this severity.
+    pub severity: Option<Severity>,
+    /// `--fail-on-kev`: in CISA's KEV catalog.
+    pub kev: bool,
+    /// `--fail-on-epss`: an EPSS score at or above this probability.
+    pub epss: Option<f64>,
+}
+
+impl Rule {
+    /// Whether any part of the gate is set.
+    pub fn is_set(&self) -> bool {
+        self.severity.is_some() || self.kev || self.epss.is_some()
+    }
+
+    fn trips(&self, vuln: &Vulnerability) -> bool {
+        self.severity.is_some_and(|t| vuln.severity >= t)
+            || (self.kev && vuln.kev.is_some())
+            || self
+                .epss
+                .is_some_and(|t| vuln.epss.as_ref().is_some_and(|e| e.score >= t))
+    }
+}
+
+impl std::fmt::Display for Rule {
+    /// The rule as the gate's message says it: `at or above high or known exploited`.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut parts = Vec::new();
+        if let Some(severity) = self.severity {
+            parts.push(format!("at or above {}", severity.name()));
+        }
+        if self.kev {
+            parts.push("known exploited".to_string());
+        }
+        if let Some(threshold) = self.epss {
+            parts.push(format!("with an EPSS score of {threshold} or more"));
+        }
+        f.write_str(&parts.join(" or "))
+    }
+}
+
+/// The open findings that trip the gate's `rule`. Worst first.
+pub fn check(sbom: &Sbom, rule: &Rule) -> Vec<Hit> {
     sbom.vulnerabilities
         .iter()
         .filter(|v| v.analysis.is_none())
-        .filter(|v| threshold.is_some_and(|t| v.severity >= t) || (kev && v.kev.is_some()))
+        .filter(|v| rule.trips(v))
         .map(|v| Hit {
             id: v.id.clone(),
             severity: v.severity,
             known_exploited: v.kev.is_some(),
+            epss: v.epss.as_ref().map(|e| e.score),
             packages: v
                 .affects
                 .iter()
@@ -224,6 +270,7 @@ mod tests {
             }],
             analysis: None,
             kev: None,
+            epss: None,
         }
     }
 
@@ -384,15 +431,19 @@ mod tests {
         );
         assert_eq!(sbom.vulnerabilities[1].analysis, None);
 
-        let hits = check(&sbom, Some(Severity::High), false);
+        let severity = |s: Severity| Rule {
+            severity: Some(s),
+            ..Rule::default()
+        };
+        let hits = check(&sbom, &severity(Severity::High));
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].to_string(), "GHSA-b (high): six 1.17.0");
         assert_eq!(
-            check(&sbom, Some(Severity::Low), false).len(),
+            check(&sbom, &severity(Severity::Low)).len(),
             2,
             "unknown severity never trips the gate"
         );
-        assert!(check(&sbom, Some(Severity::Critical), false).is_empty());
+        assert!(check(&sbom, &severity(Severity::Critical)).is_empty());
 
         // The KEV gate is independent of severity and also respects ignores.
         sbom.vulnerabilities[2].kev = Some(crate::model::Kev {
@@ -404,9 +455,41 @@ mod tests {
             required_action: None,
         });
         sbom.vulnerabilities[0].kev = sbom.vulnerabilities[2].kev.clone();
-        let hits = check(&sbom, None, true);
+        let kev = Rule {
+            kev: true,
+            ..Rule::default()
+        };
+        let hits = check(&sbom, &kev);
         assert_eq!(hits.len(), 1, "GHSA-a is ignored, GHSA-c is known exploited");
         assert_eq!(hits[0].to_string(), "GHSA-c (medium, known exploited): six 1.17.0");
-        assert_eq!(check(&sbom, Some(Severity::High), true).len(), 2);
+        let both = Rule {
+            severity: Some(Severity::High),
+            kev: true,
+            epss: None,
+        };
+        assert_eq!(check(&sbom, &both).len(), 2);
+        assert_eq!(both.to_string(), "at or above high or known exploited");
+
+        // The EPSS gate: at or above the threshold, unscored findings never, ignores respected.
+        let score = |p: f64| {
+            Some(crate::model::Epss {
+                cve_id: "CVE-1".into(),
+                score: p,
+                percentile: 0.5,
+                date: None,
+            })
+        };
+        sbom.vulnerabilities[0].epss = score(0.9);
+        sbom.vulnerabilities[1].epss = score(0.1);
+        let epss = |t: f64| Rule {
+            epss: Some(t),
+            ..Rule::default()
+        };
+        let hits = check(&sbom, &epss(0.1));
+        assert_eq!(hits.len(), 1, "GHSA-a is ignored and GHSA-c has no score");
+        assert_eq!(hits[0].to_string(), "GHSA-b (high, EPSS 0.100): six 1.17.0");
+        assert!(check(&sbom, &epss(0.11)).is_empty());
+        assert_eq!(epss(0.1).to_string(), "with an EPSS score of 0.1 or more");
+        assert!(epss(0.5).is_set() && kev.is_set() && !Rule::default().is_set());
     }
 }

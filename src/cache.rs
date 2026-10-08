@@ -23,6 +23,8 @@ pub enum Service {
     Osv,
     /// The CISA KEV catalog.
     Kev,
+    /// FIRST EPSS scores, per CVE.
+    Epss,
     /// Wheel `dist-info` extracted for licenses and embedded SBOMs.
     Wheels,
     /// `info/` directories extracted from conda archives, for licenses and package details.
@@ -42,6 +44,7 @@ impl Service {
             Service::Mapping => "mapping",
             Service::Osv => "osv",
             Service::Kev => "kev",
+            Service::Epss => "epss",
             Service::Wheels => "wheels",
             Service::CondaInfo => "conda-info",
             Service::Pypi => "pypi",
@@ -70,6 +73,7 @@ impl Policy {
                     Service::Mapping,
                     Service::Osv,
                     Service::Kev,
+                    Service::Epss,
                     Service::Wheels,
                     Service::CondaInfo,
                     Service::Pypi,

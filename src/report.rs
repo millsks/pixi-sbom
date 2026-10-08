@@ -317,6 +317,28 @@ pub struct VulnerabilityRow {
     /// The CISA KEV entry, with `--kev`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kev: Option<KevCell>,
+    /// The FIRST EPSS score, with `--epss`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub epss: Option<EpssCell>,
+}
+
+/// The EPSS facts a report row carries.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct EpssCell {
+    pub cve_id: String,
+    /// Probability, 0 to 1, of exploitation in the next 30 days.
+    pub score: f64,
+    /// Share of scored CVEs, 0 to 1, at or below this score.
+    pub percentile: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date: Option<String>,
+}
+
+impl EpssCell {
+    /// `0.033 (p88)`: the score and its percentile, for the table and Markdown.
+    fn display(&self) -> String {
+        format!("{:.3} (p{:.0})", self.score, (self.percentile * 100.0).floor())
+    }
 }
 
 /// The KEV facts a report row carries.
@@ -393,6 +415,10 @@ pub struct Report {
     /// Whether the licenses report is rendered one section per license.
     #[serde(skip)]
     pub grouped: bool,
+    /// Whether findings were scored with `--epss`, which adds the EPSS column (and, in CSV,
+    /// columns after the frozen ones).
+    #[serde(skip)]
+    pub epss: bool,
     /// Rows of the scorecard report.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scorecard: Option<Vec<ScorecardRow>>,
@@ -668,6 +694,7 @@ impl Report {
             explain_summary: None,
             tree: false,
             grouped: false,
+            epss: false,
         };
         match kind {
             ReportKind::Packages => {
@@ -848,6 +875,9 @@ impl Report {
             // Grouped, the license is the heading rather than a column.
             ReportKind::Licenses if self.grouped => vec!["Name", "Version", "Kind", "Family", "Source", "Files"],
             ReportKind::Licenses => vec!["Name", "Version", "Kind", "License", "Family", "Source", "Files"],
+            ReportKind::Vulnerabilities if self.epss => vec![
+                "Package", "Version", "Severity", "Score", "KEV", "EPSS", "ID", "Aliases", "Fixed", "Status", "Summary",
+            ],
             ReportKind::Vulnerabilities => vec![
                 "Package", "Version", "Severity", "Score", "KEV", "ID", "Aliases", "Fixed", "Status", "Summary",
             ],
@@ -889,7 +919,12 @@ impl Report {
             ReportKind::Scorecard => self.scorecard.iter().flatten().map(scorecard_cells).collect(),
             ReportKind::Quality => self.quality.iter().flatten().map(quality_cells).collect(),
             ReportKind::Explain => self.explain.iter().flatten().map(explain_cells).collect(),
-            ReportKind::Vulnerabilities => self.vulnerabilities.iter().flatten().map(vulnerability_cells).collect(),
+            ReportKind::Vulnerabilities => self
+                .vulnerabilities
+                .iter()
+                .flatten()
+                .map(|row| vulnerability_cells(row, self.epss))
+                .collect(),
             _ => self.packages.iter().flatten().map(|r| self.cells(r)).collect(),
         }
     }
@@ -899,6 +934,10 @@ impl Report {
     fn roles(&self) -> Vec<Role> {
         use Role::{Change, Muted, NonSpdx, Plain, Severity, Status};
         match self.kind() {
+            // Package, Version, Severity, Score, KEV, EPSS, ID, Aliases, Fixed, Status, Summary
+            ReportKind::Vulnerabilities if self.epss => vec![
+                Plain, Plain, Severity, Plain, Status, Plain, Plain, Plain, Plain, Status, Plain,
+            ],
             // Package, Version, Severity, Score, KEV, ID, Aliases, Fixed, Status, Summary
             ReportKind::Vulnerabilities => vec![
                 Plain, Plain, Severity, Plain, Status, Plain, Plain, Plain, Status, Plain,
@@ -1216,9 +1255,9 @@ fn diff_rows(diff: &crate::diff::Diff) -> Vec<Vec<String>> {
     rows
 }
 
-fn vulnerability_cells(row: &VulnerabilityRow) -> Vec<String> {
+fn vulnerability_cells(row: &VulnerabilityRow, epss: bool) -> Vec<String> {
     let dash = || "-".to_string();
-    vec![
+    let mut cells = vec![
         row.package.clone(),
         row.version.clone(),
         row.severity.to_string(),
@@ -1228,6 +1267,11 @@ fn vulnerability_cells(row: &VulnerabilityRow) -> Vec<String> {
             Some(_) => "yes".into(),
             None => dash(),
         },
+    ];
+    if epss {
+        cells.push(row.epss.as_ref().map(EpssCell::display).unwrap_or_else(dash));
+    }
+    cells.extend([
         row.id.clone(),
         if row.aliases.is_empty() {
             dash()
@@ -1237,7 +1281,8 @@ fn vulnerability_cells(row: &VulnerabilityRow) -> Vec<String> {
         row.fixed_version.clone().unwrap_or_else(dash),
         if row.ignored.is_some() { "ignored" } else { "open" }.to_string(),
         row.summary.clone().unwrap_or_else(dash),
-    ]
+    ]);
+    cells
 }
 
 /// One row per affected package of a finding.
@@ -1277,6 +1322,12 @@ fn vulnerability_rows(vuln: &Vulnerability, sbom: &Sbom) -> Vec<VulnerabilityRow
                     date_added: k.date_added.clone(),
                     due_date: k.due_date.clone(),
                     ransomware: k.ransomware,
+                }),
+                epss: vuln.epss.as_ref().map(|e| EpssCell {
+                    cve_id: e.cve_id.clone(),
+                    score: e.score,
+                    percentile: e.percentile,
+                    date: e.date.clone(),
                 }),
             }
         })
@@ -2460,13 +2511,16 @@ fn sarif(reports: &[Report]) -> serde_json::Value {
 }
 
 fn render_vulnerabilities_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
+    // The columns are frozen; EPSS's come after them, and only when it was asked for.
+    let epss = reports.iter().any(|r| r.epss);
     writeln!(
         out,
-        "environment,platform,package,version,purl,severity,score,kev,kev_due_date,id,aliases,fixed_version,status,summary,url"
+        "environment,platform,package,version,purl,severity,score,kev,kev_due_date,id,aliases,fixed_version,status,summary,url{}",
+        if epss { ",epss,epss_percentile" } else { "" }
     )?;
     for report in reports {
         for row in report.vulnerabilities.iter().flatten() {
-            let cells = [
+            let mut cells = vec![
                 report.environment.clone(),
                 report.platform.clone(),
                 row.package.clone(),
@@ -2490,6 +2544,10 @@ fn render_vulnerabilities_csv(reports: &[Report], out: &mut dyn Write) -> io::Re
                 row.summary.clone().unwrap_or_default(),
                 row.url.clone(),
             ];
+            if epss {
+                cells.push(row.epss.as_ref().map(|e| e.score.to_string()).unwrap_or_default());
+                cells.push(row.epss.as_ref().map(|e| e.percentile.to_string()).unwrap_or_default());
+            }
             writeln!(
                 out,
                 "{}",
@@ -2977,6 +3035,12 @@ mod tests {
                     ransomware: false,
                     required_action: None,
                 }),
+                epss: Some(crate::model::Epss {
+                    cve_id: "CVE-2021-33503".into(),
+                    score: 0.03273,
+                    percentile: 0.88073,
+                    date: Some("2026-10-08".into()),
+                }),
             },
             Vulnerability {
                 id: "PYSEC-2099-1".into(),
@@ -3011,6 +3075,7 @@ mod tests {
                     detail: Some("not the same zlib".into()),
                 }),
                 kev: None,
+                epss: None,
             },
         ];
         sbom
@@ -3076,6 +3141,24 @@ mod tests {
             ReportFormat::Csv,
             &[vulnerable_sbom()]
         ));
+    }
+
+    #[test]
+    fn with_epss_the_table_markdown_and_csv_carry_the_scores() {
+        let mut report = Report::new(ReportKind::Vulnerabilities, &vulnerable_sbom());
+        report.epss = true;
+        let reports = [report];
+        let table = render_string_from(&reports, ReportFormat::Table);
+        let markdown = render_string_from(&reports, ReportFormat::Markdown);
+        let csv = render_string_from(&reports, ReportFormat::Csv);
+        insta::assert_snapshot!(format!("{table}\n{markdown}\n{csv}"));
+        // Without --epss, the CSV is exactly the frozen columns.
+        let plain = render_string(ReportKind::Vulnerabilities, ReportFormat::Csv, &[vulnerable_sbom()]);
+        assert!(plain.lines().next().unwrap().ends_with(",summary,url"), "{plain}");
+        let json: serde_json::Value = serde_json::from_str(&render_string_from(&reports, ReportFormat::Json)).unwrap();
+        assert_eq!(json["vulnerabilities"][0]["epss"]["score"], 0.03273);
+        assert_eq!(json["vulnerabilities"][0]["epss"]["date"], "2026-10-08");
+        assert!(json["vulnerabilities"][1].get("epss").is_none());
     }
 
     #[test]

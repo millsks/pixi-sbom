@@ -620,6 +620,7 @@ fn vulnerability(record: Record, mut affects: Vec<Affected>) -> Vulnerability {
         affects,
         analysis: None,
         kev: None,
+        epss: None,
     }
 }
 

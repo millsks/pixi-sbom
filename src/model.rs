@@ -220,6 +220,20 @@ pub struct Vulnerability {
     pub analysis: Option<Analysis>,
     /// Set with `--kev` when a CVE alias is in CISA's Known Exploited Vulnerabilities catalog.
     pub kev: Option<Kev>,
+    /// Set with `--epss`: the highest FIRST EPSS score among the CVE aliases.
+    pub epss: Option<Epss>,
+}
+
+/// A FIRST EPSS score for one CVE.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Epss {
+    pub cve_id: String,
+    /// Probability, 0 to 1, of exploitation activity in the next 30 days.
+    pub score: f64,
+    /// Share of scored CVEs, 0 to 1, at or below this score.
+    pub percentile: f64,
+    /// `YYYY-MM-DD` the score was computed.
+    pub date: Option<String>,
 }
 
 /// A CISA Known Exploited Vulnerabilities catalog entry.

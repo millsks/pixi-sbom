@@ -137,6 +137,12 @@ struct Node {
     #[serde(rename = "security_locator", skip_serializing_if = "Option::is_none")]
     locator: Option<String>,
 
+    // security_EpssVulnAssessmentRelationship — both required.
+    #[serde(rename = "security_probability", skip_serializing_if = "Option::is_none")]
+    probability: Option<f64>,
+    #[serde(rename = "security_percentile", skip_serializing_if = "Option::is_none")]
+    percentile: Option<f64>,
+
     // security_VexNotAffectedVulnAssessmentRelationship
     #[serde(rename = "security_impactStatement", skip_serializing_if = "Option::is_none")]
     impact_statement: Option<String>,
@@ -613,6 +619,21 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
                 Some(due) => format!("CISA KEV: added {added}, remediation due {due}"),
                 None => format!("CISA KEV: added {added}"),
             });
+            let id = b.push(node);
+            elements.push(id);
+        }
+
+        if let Some(epss) = &vuln.epss {
+            let mut node = b.assessment(
+                "security_EpssVulnAssessmentRelationship",
+                &format!("assessment-epss-{i}"),
+                &vuln_id,
+                affected.clone(),
+            );
+            node.probability = Some(epss.score);
+            node.percentile = Some(epss.percentile);
+            node.published_time = epss.date.as_ref().map(|date| format!("{date}T00:00:00Z"));
+            node.comment = Some(format!("FIRST EPSS for {}", epss.cve_id));
             let id = b.push(node);
             elements.push(id);
         }

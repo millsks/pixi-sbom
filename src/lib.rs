@@ -43,6 +43,7 @@ pub mod discover;
 pub mod doctor;
 #[doc(hidden)]
 pub mod embedded;
+pub mod epss;
 #[doc(hidden)]
 pub mod explain;
 pub mod explicit;

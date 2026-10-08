@@ -14,27 +14,27 @@ this page fails the build, and so does a line on this page for something that do
 
 ## Command-line flags
 
-All 69. Their meanings are in [cli.md](cli.md); what this page promises is that none of them
+All 71. Their meanings are in [cli.md](cli.md); what this page promises is that none of them
 disappears or changes shape before 2.0.
 
 | `--against` | `--all-environments` | `--all-platforms` | `--allow-license` |
 | `--assume-used` | `--ca-bundle` | `--color` | `--concurrency` |
 | `--conda-index-kind` | `--config` | `--deny-license` | `--depth` |
-| `--doctor` | `--embedded-sboms` | `--environment` | `--exclude` |
-| `--exclude-kind` | `--explain` | `--fail-on-diff` | `--fail-on-kev` |
-| `--fail-on-phantom` | `--fail-on-scorecard` | `--fail-on-severity` | `--fail-on-yanked` |
-| `--fetch-licenses` | `--format` | `--from-sbom` | `--group-by` |
-| `--help` | `--ignore-license` | `--ignore-vuln` | `--include` |
-| `--infer-extras` | `--keep-orphans` | `--kev` | `--license-texts` |
-| `--lockfile` | `--log-format` | `--min-quality` | `--no-cache` |
-| `--no-config` | `--outdated-min` | `--output` | `--platform` |
-| `--prefix` | `--primary-purl` | `--pypi-mapping` | `--pypi-mapping-file` |
-| `--quiet` | `--refresh` | `--report` | `--report-format` |
-| `--require-license` | `--root-name` | `--root-version` | `--scan` |
-| `--scan-depth` | `--scorecard` | `--scorecard-min` | `--source` |
-| `--spec-version` | `--timings` | `--tree` | `--verbose` |
-| `--version` | `--version-details` | `--vex` | `--vex-open` |
-| `--vulnerabilities` |  |  |  |
+| `--doctor` | `--embedded-sboms` | `--environment` | `--epss` |
+| `--exclude` | `--exclude-kind` | `--explain` | `--fail-on-diff` |
+| `--fail-on-epss` | `--fail-on-kev` | `--fail-on-phantom` | `--fail-on-scorecard` |
+| `--fail-on-severity` | `--fail-on-yanked` | `--fetch-licenses` | `--format` |
+| `--from-sbom` | `--group-by` | `--help` | `--ignore-license` |
+| `--ignore-vuln` | `--include` | `--infer-extras` | `--keep-orphans` |
+| `--kev` | `--license-texts` | `--lockfile` | `--log-format` |
+| `--min-quality` | `--no-cache` | `--no-config` | `--outdated-min` |
+| `--output` | `--platform` | `--prefix` | `--primary-purl` |
+| `--pypi-mapping` | `--pypi-mapping-file` | `--quiet` | `--refresh` |
+| `--report` | `--report-format` | `--require-license` | `--root-name` |
+| `--root-version` | `--scan` | `--scan-depth` | `--scorecard` |
+| `--scorecard-min` | `--source` | `--spec-version` | `--timings` |
+| `--tree` | `--verbose` | `--version` | `--version-details` |
+| `--vex` | `--vex-open` | `--vulnerabilities` |  |
 
 ### Spellings that answer to an older name
 
@@ -65,7 +65,7 @@ the same way, recognised by a fixed vocabulary, so an existing entry never chang
 | 1 | A runtime error, or `--doctor` found a problem. A diagnostic goes to stderr. |
 | 2 | A command-line usage error: an unknown flag, conflicting flags, or a value the flag does not accept. |
 | 3 | `--allow-license` / `--deny-license` / `--require-license` was violated. |
-| 4 | `--fail-on-severity` or `--fail-on-kev` matched. |
+| 4 | `--fail-on-severity`, `--fail-on-kev` or `--fail-on-epss` matched. |
 | 6 | `--fail-on-diff` found a change it was asked to gate on. |
 | 7 | `--fail-on-yanked` found a yanked release. |
 | 8 | `--fail-on-phantom` found an undeclared import. |
@@ -111,7 +111,7 @@ stays supported.
 | `ignore-vuln` | `ignore-license` | `scorecard` | `scorecard-min` |
 | `fail-on-scorecard` | `fail-on-diff` | `source` | `assume-used` |
 | `fail-on-phantom` | `conda-index-kind` | `concurrency` | `infer-extras` |
-| `min-quality` |  |  |  |
+| `min-quality` | `epss` | `fail-on-epss` |  |
 
 An unknown key is an error, not a warning, and the diagnostic lists every key that is accepted — so
 a typo cannot pass silently and you are never left guessing at the spelling.
@@ -131,6 +131,7 @@ so they are not frozen here; they are honoured with the meanings rattler and cur
 | `PIXI_SBOM_CA_BUNDLE` | A PEM bundle to trust. |
 | `PIXI_SBOM_OSV_URL` | Where to query OSV. |
 | `PIXI_SBOM_KEV_URL` | Where to fetch the CISA catalog. |
+| `PIXI_SBOM_EPSS_URL` | Where to ask FIRST for EPSS scores. |
 | `PIXI_SBOM_PYPI_URL` | Where to read PyPI metadata. |
 | `PIXI_SBOM_ANACONDA_URL` | Where to read anaconda.org metadata. |
 | `PIXI_SBOM_CONDA_FALLBACK_CHANNEL` | The channel a mirrored package is checked against, by hash. |
@@ -154,24 +155,26 @@ says which flag produces which.
 | `pixi:build` | `pixi:build-number` | `pixi:cargo-source` |
 | `pixi:channel` | `pixi:channel-url` | `pixi:declared-in` |
 | `pixi:direct` | `pixi:direct-url` | `pixi:editable` |
-| `pixi:embedded-sbom` | `pixi:environment` | `pixi:excluded` |
-| `pixi:extracted-package-dir` | `pixi:file-name` | `pixi:identifier-hash` |
-| `pixi:incomplete` | `pixi:incomplete-detail` | `pixi:index-url` |
-| `pixi:installer` | `pixi:kev` | `pixi:kev-cve` |
-| `pixi:kev-date-added` | `pixi:kev-due-date` | `pixi:kev-ransomware` |
-| `pixi:kind` | `pixi:license-exempt` | `pixi:license-family` |
-| `pixi:license-file` | `pixi:license-files-source` | `pixi:license-raw` |
-| `pixi:license-source` | `pixi:lockfile` | `pixi:marker` |
-| `pixi:noarch` | `pixi:platform` | `pixi:prefix` |
-| `pixi:purl` | `pixi:pypi-mapping` | `pixi:python-extras` |
-| `pixi:python-extras-evidence` | `pixi:python-extras-inferred` | `pixi:python-version` |
-| `pixi:repository-source` | `pixi:requires-python` | `pixi:resolution-markers` |
-| `pixi:scorecard` | `pixi:scorecard-date` | `pixi:size` |
-| `pixi:source` | `pixi:source-branch` | `pixi:source-document` |
-| `pixi:source-git` | `pixi:source-path` | `pixi:source-rev` |
-| `pixi:source-subdirectory` | `pixi:source-tag` | `pixi:source-url` |
-| `pixi:stale-cache` | `pixi:subdir` | `pixi:vex-for` |
-| `pixi:via-extra` | `pixi:yanked` | `pixi:yanked-reason` |
+| `pixi:embedded-sbom` | `pixi:environment` | `pixi:epss` |
+| `pixi:epss-cve` | `pixi:epss-date` | `pixi:epss-percentile` |
+| `pixi:excluded` | `pixi:extracted-package-dir` | `pixi:file-name` |
+| `pixi:identifier-hash` | `pixi:incomplete` | `pixi:incomplete-detail` |
+| `pixi:index-url` | `pixi:installer` | `pixi:kev` |
+| `pixi:kev-cve` | `pixi:kev-date-added` | `pixi:kev-due-date` |
+| `pixi:kev-ransomware` | `pixi:kind` | `pixi:license-exempt` |
+| `pixi:license-family` | `pixi:license-file` | `pixi:license-files-source` |
+| `pixi:license-raw` | `pixi:license-source` | `pixi:lockfile` |
+| `pixi:marker` | `pixi:noarch` | `pixi:platform` |
+| `pixi:prefix` | `pixi:purl` | `pixi:pypi-mapping` |
+| `pixi:python-extras` | `pixi:python-extras-evidence` | `pixi:python-extras-inferred` |
+| `pixi:python-version` | `pixi:repository-source` | `pixi:requires-python` |
+| `pixi:resolution-markers` | `pixi:scorecard` | `pixi:scorecard-date` |
+| `pixi:size` | `pixi:source` | `pixi:source-branch` |
+| `pixi:source-document` | `pixi:source-git` | `pixi:source-path` |
+| `pixi:source-rev` | `pixi:source-subdirectory` | `pixi:source-tag` |
+| `pixi:source-url` | `pixi:stale-cache` | `pixi:subdir` |
+| `pixi:vex-for` | `pixi:via-extra` | `pixi:yanked` |
+| `pixi:yanked-reason` |  |  |
 
 `pixi:scorecard-check-<name>` is a family rather than one name: the suffix is the OpenSSF check,
 so the set grows when OpenSSF adds a check. The prefix is frozen; the suffixes are theirs.
@@ -184,7 +187,9 @@ so the set grows when OpenSSF adds a check. The prefix is frozen; the suffixes a
 holding an array of rows. Row field names are frozen; **row order is not**, except where the
 report documents an order (worst-first for vulnerabilities).
 
-CSV columns and their order are frozen. The Markdown and table renderings are not — see below.
+CSV columns and their order are frozen. A flag that adds data adds columns only after them and only
+when given: `--epss` appends `epss,epss_percentile` to the vulnerabilities CSV. The Markdown and
+table renderings are not frozen — see below.
 
 ## The GitHub Action
 

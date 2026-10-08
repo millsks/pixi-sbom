@@ -778,6 +778,7 @@ mod tests {
             }],
             analysis: None,
             kev: None,
+            epss: None,
         }];
         let ctx = Context {
             vulnerabilities: true,

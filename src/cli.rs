@@ -123,6 +123,7 @@ pub enum RefreshTarget {
     Mapping,
     Osv,
     Kev,
+    Epss,
     Wheels,
     CondaInfo,
     Pypi,
@@ -138,6 +139,7 @@ impl RefreshTarget {
             RefreshTarget::Mapping => crate::cache::Service::Mapping,
             RefreshTarget::Osv => crate::cache::Service::Osv,
             RefreshTarget::Kev => crate::cache::Service::Kev,
+            RefreshTarget::Epss => crate::cache::Service::Epss,
             RefreshTarget::Wheels => crate::cache::Service::Wheels,
             RefreshTarget::CondaInfo => crate::cache::Service::CondaInfo,
             RefreshTarget::Pypi => crate::cache::Service::Pypi,
@@ -518,6 +520,18 @@ pub struct Args {
     #[arg(long)]
     pub fail_on_kev: bool,
 
+    /// Score findings with FIRST's EPSS (matched by CVE alias): the probability of exploitation
+    /// in the next 30 days and its percentile, in the report and the document. Asked for in
+    /// batches and cached per CVE for a day. Requires --vulnerabilities.
+    #[arg(long)]
+    pub epss: bool,
+
+    /// Exit with code 4 after writing the document when any open finding's EPSS score is at or
+    /// above this probability (0.0 to 1.0). Findings without a score never trip it. Requires
+    /// --epss.
+    #[arg(long, value_name = "P", value_parser = parse_probability)]
+    pub fail_on_epss: Option<f64>,
+
     /// Exit with code 4 after writing the document when any finding at or above this severity
     /// remains (findings of unknown severity never trip it). Requires --vulnerabilities.
     #[arg(long, value_enum, value_name = "SEVERITY")]
@@ -656,9 +670,30 @@ pub struct Args {
     pub verbosity: Verbosity<InfoLevel>,
 }
 
+/// `--fail-on-epss`: a probability, 0.0 to 1.0.
+pub fn parse_probability(text: &str) -> Result<f64, String> {
+    match text.trim().parse::<f64>() {
+        Ok(p) if (0.0..=1.0).contains(&p) => Ok(p),
+        Ok(_) => Err(format!(
+            "{text} is not between 0.0 and 1.0; EPSS scores are probabilities"
+        )),
+        Err(_) => Err(format!("{text} is not a number between 0.0 and 1.0")),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_epss_threshold_is_a_probability() {
+        assert_eq!(parse_probability("0.1"), Ok(0.1));
+        assert_eq!(parse_probability(" 1 "), Ok(1.0));
+        assert_eq!(parse_probability("0"), Ok(0.0));
+        assert!(parse_probability("10").unwrap_err().contains("between 0.0 and 1.0"));
+        assert!(parse_probability("-0.1").is_err());
+        assert!(parse_probability("high").unwrap_err().contains("not a number"));
+    }
 
     #[test]
     fn the_log_format_is_the_flag_then_the_environment_then_text() {

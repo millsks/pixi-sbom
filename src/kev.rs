@@ -288,6 +288,7 @@ mod tests {
             }],
             analysis: None,
             kev: None,
+            epss: None,
         }
     }
 

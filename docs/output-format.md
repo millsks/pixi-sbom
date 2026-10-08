@@ -404,6 +404,7 @@ One CycloneDX entry per finding, after records describing the same vulnerability
 | `affects[]` | `{ ref }` for every affected component (`bom-ref` = the package's purl); a conda package matched through its PyPI purl is listed under its own `bom-ref` |
 | `analysis` | Only for findings accepted with `--ignore-vuln`: `{ state, justification, response, detail }`, the CycloneDX impact-analysis (VEX) block. `justification` only when one was given after `not_affected`, `response` only when one was given. `firstIssued` / `lastUpdated` are never written (see [the vulnerability gate](cli.md#looking-up-vulnerabilities)). |
 | `properties[]` | With `--kev`, for known-exploited findings: `pixi:kev=true`, `pixi:kev-cve`, `pixi:kev-date-added`, `pixi:kev-due-date`, `pixi:kev-ransomware`; the rating from `CISA KEV` is `critical` and, without a fixed version, `recommendation` carries the catalog's required action |
+| `properties[]` | With `--epss`, for findings FIRST has scored: `pixi:epss` (the probability, 0 to 1), `pixi:epss-percentile` (0 to 1), `pixi:epss-cve` (the alias the score is for, the highest when there are several) and `pixi:epss-date` |
 
 Entries are ordered by the worst rating, then id.
 
@@ -432,6 +433,7 @@ profile.
 | `Relationship` `hasAssociatedVulnerability` | One per affected package, from the package to the vulnerability: the direction a reader follows from a component. |
 | `security_CvssV2/V3/V4VulnAssessmentRelationship` | One per CVSS rating, from the vulnerability `hasAssessmentFor` the affected packages, with `security_score`, `security_severity` and `security_vectorString`. The schema requires all three together, so a rating missing any of them is left out rather than half-recorded — as is a rating whose method is not CVSS, since SPDX has no class for it. |
 | `security_ExploitCatalogVulnAssessmentRelationship` | With `--kev`, for a finding in CISA's catalog: `security_catalogType: kev`, `security_exploited: true`, and the catalog URL as `security_locator`. The added and due dates go in `comment`. |
+| `security_EpssVulnAssessmentRelationship` | With `--epss`, for a finding FIRST has scored: `security_probability` and `security_percentile` (both 0 to 1), the score's date as `security_publishedTime`, and the CVE in `comment`. |
 | `security_VexNotAffectedVulnAssessmentRelationship` | For a finding accepted with `--ignore-vuln` in the `not_affected` state, carrying your text as `security_impactStatement` and, where it has an SPDX equivalent, your justification as `security_justificationType`. The other states CycloneDX accepts have no SPDX class and stay CycloneDX-only, as do responses. |
 
 **Timestamps are rewritten.** SPDX 3 pins these fields to exactly `YYYY-MM-DDThh:mm:ssZ` — no fractional seconds, no

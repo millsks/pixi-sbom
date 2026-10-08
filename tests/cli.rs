@@ -974,6 +974,7 @@ fn doctor_probes_every_upstream_and_fails_when_one_is_unreachable() {
         "conda-forge PyPI mapping",
         "OSV",
         "CISA KEV",
+        "FIRST EPSS",
         "conda package index",
         "OpenSSF Scorecard",
     ] {
@@ -2840,6 +2841,180 @@ fn kev_marks_known_exploited_findings_and_gates_on_them() {
         .args(["--vulnerabilities", "osv", "--fail-on-kev"])
         .assert()
         .code(2);
+    // --epss needs --vulnerabilities; --fail-on-epss needs --epss and a probability.
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--epss"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("'--epss' needs '--vulnerabilities <SOURCE>'"));
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--vulnerabilities", "osv", "--fail-on-epss", "0.1"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("'--fail-on-epss' needs '--epss'"));
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--vulnerabilities", "osv", "--epss", "--fail-on-epss", "10"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("between 0.0 and 1.0"));
+}
+
+/// The recorded EPSS answer, written into the cache the way a lookup leaves it, so an offline
+/// run reads it.
+fn seed_epss_cache(cache: &Path) {
+    let answer: Value = serde_json::from_str(
+        &std::fs::read_to_string(tests_dir().join("fixtures").join("epss").join("epss.json")).unwrap(),
+    )
+    .unwrap();
+    let mut scores = serde_json::Map::new();
+    for row in answer["data"].as_array().unwrap() {
+        scores.insert(
+            row["cve"].as_str().unwrap().to_string(),
+            serde_json::json!({
+                "epss": row["epss"].as_str().unwrap().parse::<f64>().unwrap(),
+                "percentile": row["percentile"].as_str().unwrap().parse::<f64>().unwrap(),
+                "date": row["date"],
+                "fetched": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+            }),
+        );
+    }
+    std::fs::create_dir_all(cache.join("epss")).unwrap();
+    std::fs::write(
+        cache.join("epss").join("scores.json"),
+        serde_json::to_vec(&Value::Object(scores)).unwrap(),
+    )
+    .unwrap();
+}
+
+#[test]
+fn epss_scores_findings_in_every_output_and_gates_on_them() {
+    let dir = workspace_with_vulnerable_urllib3();
+    seed_epss_cache(&dir.path().join("cache"));
+    let base = |args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "240")
+            .args(["-e", "web", "-p", "linux-64", "--vulnerabilities", "osv", "--epss"])
+            .args(args)
+            .assert()
+    };
+    let assert = base(&["--output", "-"])
+        .success()
+        .stderr(predicate::str::contains("scored findings with FIRST EPSS"));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let vulns = doc["vulnerabilities"].as_array().unwrap();
+    let urllib3 = vulns.iter().find(|v| v["id"] == "GHSA-q2q7-5pp4-w6pg").unwrap();
+    let props = urllib3["properties"].as_array().unwrap();
+    let prop = |name: &str| props.iter().find(|p| p["name"] == name).map(|p| p["value"].clone());
+    assert_eq!(prop("pixi:epss"), Some(serde_json::json!("0.03273")));
+    assert_eq!(prop("pixi:epss-percentile"), Some(serde_json::json!("0.88073")));
+    assert_eq!(prop("pixi:epss-cve"), Some(serde_json::json!("CVE-2021-33503")));
+    assert_eq!(prop("pixi:epss-date"), Some(serde_json::json!("2026-10-08")));
+
+    // The report: a column in the table, fields in JSON, columns after the frozen ones in CSV.
+    let table = String::from_utf8(
+        base(&["--report", "vulnerabilities"])
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(table.contains("  EPSS  "), "{table}");
+    assert!(table.contains("0.033 (p88)  GHSA-q2q7-5pp4-w6pg"), "{table}");
+    let json_report: Value = serde_json::from_slice(
+        &base(&["--report", "vulnerabilities", "--report-format", "json"])
+            .success()
+            .get_output()
+            .stdout,
+    )
+    .unwrap();
+    let row = json_report["vulnerabilities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["id"] == "GHSA-q2q7-5pp4-w6pg")
+        .unwrap();
+    assert_eq!(row["epss"]["score"], 0.03273);
+    assert_eq!(row["epss"]["percentile"], 0.88073);
+    assert_eq!(row["epss"]["cve_id"], "CVE-2021-33503");
+    let csv = String::from_utf8(
+        base(&["--report", "vulnerabilities", "--report-format", "csv"])
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(
+        csv.lines()
+            .next()
+            .unwrap()
+            .ends_with(",summary,url,epss,epss_percentile"),
+        "{csv}"
+    );
+    assert!(csv.contains(",0.03273,0.88073\n"), "{csv}");
+    let markdown = String::from_utf8(
+        base(&["--report", "vulnerabilities", "--report-format", "markdown"])
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(markdown.contains("| EPSS |"), "{markdown}");
+
+    // SPDX 3 has a class for it.
+    let doc: Value = serde_json::from_slice(
+        &base(&["--format", "spdx", "--spec-version", "3.0", "--output", "-"])
+            .success()
+            .get_output()
+            .stdout,
+    )
+    .unwrap();
+    assert_valid(&spdx3_validator(), &doc);
+    let epss: Vec<&Value> = doc["@graph"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|n| n["type"] == "security_EpssVulnAssessmentRelationship")
+        .collect();
+    assert!(!epss.is_empty());
+    assert!(
+        epss.iter()
+            .all(|n| n["security_probability"].is_number() && n["security_percentile"].is_number())
+    );
+    assert!(
+        epss.iter()
+            .any(|n| n["security_publishedTime"] == "2026-10-08T00:00:00Z")
+    );
+
+    // The gate: exit 4 naming the finding and its score; an ignored finding leaves it.
+    base(&["--fail-on-epss", "0.03", "--output", "-"])
+        .code(4)
+        .stderr(predicate::str::contains(
+            "finding(s) with an EPSS score of 0.03 or more:",
+        ))
+        .stderr(predicate::str::contains(
+            "GHSA-q2q7-5pp4-w6pg (high, EPSS 0.033): urllib3 1.26.4",
+        ));
+    base(&["--fail-on-epss", "0.5", "--output", "-"]).success();
+    base(&[
+        "--fail-on-epss",
+        "0.03",
+        "--ignore-vuln",
+        "CVE-2021-33503:mitigated",
+        "--output",
+        "-",
+    ])
+    .success();
 }
 
 #[test]

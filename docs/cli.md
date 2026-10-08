@@ -53,6 +53,8 @@ With no options this means:
 | `--vulnerabilities <osv>` | off | Look up known vulnerabilities of every package with a purl OSV can answer and record them in the document (see below). |
 | `--kev` | off | With `--vulnerabilities`: mark findings whose CVE alias is in CISA's Known Exploited Vulnerabilities catalog (downloaded once a day). They are rated `critical`, sorted first, and carry the catalog's dates and required action. |
 | `--fail-on-kev` | off | With `--kev`: exit **4** after writing the document when any open finding is known exploited, regardless of severity. |
+| `--epss` | off | With `--vulnerabilities`: score findings with FIRST's EPSS by CVE alias: the probability of exploitation in the next 30 days and its percentile. Asked for in batches, cached per CVE for a day. |
+| `--fail-on-epss <P>` | off | With `--epss`: exit **4** after writing the document when any open finding's EPSS score is at or above `P` (0.0 to 1.0). Unscored findings never trip it. |
 | `--fail-on-severity <low\|medium\|high\|critical>` | | With `--vulnerabilities`: exit **4** after writing the document when any open finding is at or above the level. Findings of unknown severity never trip it. |
 | `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification, and `not_affected` may be followed by a machine-readable one, see below), is excluded from `--fail-on-severity` and listed separately in the report. |
 | `--vex <PATH>` | | With `--vulnerabilities` and CycloneDX output: also write a standalone CycloneDX VEX there, linked back to the SBOM. |
@@ -60,7 +62,7 @@ With no options this means:
 | `--version-details` (`--build-info`) | | Print the version with the target, the features compiled in, the caches, pixi's version and the network settings: the block to paste into a bug report. |
 | `--timings` | off | Print where the run spent its time, phase by phase, separating waiting on the network from working. |
 | `--doctor` | off | Probe every upstream this build knows about, print the configuration and the caches, and exit 1 if anything is unreachable. Naming the flags of a run narrows it to the upstreams that run uses. Needs no lockfile. |
-| `--refresh [<CACHE>...]` | off | Ignore cached answers this run and ask again; with no value every cache, else the named ones (`mapping`, `osv`, `kev`, `wheels`, `conda-info`, `pypi`, `outdated`, `scorecard`). What is fetched is still cached. |
+| `--refresh [<CACHE>...]` | off | Ignore cached answers this run and ask again; with no value every cache, else the named ones (`mapping`, `osv`, `kev`, `epss`, `wheels`, `conda-info`, `pypi`, `outdated`, `scorecard`). What is fetched is still cached. |
 | `--no-cache` | off | Neither read nor write any cache. |
 
 ### Flags that answer to an older name
@@ -182,6 +184,7 @@ That says: debug for the requests, info for everything else. The trailing `pixi_
 | `pixi_sbom::osv` | Vulnerability queries and advisory records, including the ones recorded by id alone |
 | `pixi_sbom::mapping` | The conda-forge → PyPI name mapping: download, cache age, stale fallback |
 | `pixi_sbom::kev` | The CISA KEV catalog download and its cache |
+| `pixi_sbom::epss` | The FIRST EPSS lookup and its cache |
 | `pixi_sbom::pypi` | PyPI release metadata lookups (`--fetch-licenses`) |
 | `pixi_sbom::wheel` | Wheel `dist-info` reads for licenses and embedded SBOMs |
 | `pixi_sbom::pkgcache` | Licenses read from pixi's extracted package cache |
@@ -653,6 +656,8 @@ vulnerabilities = "osv"
 kev = true
 fail-on-severity = "high"
 fail-on-kev = true
+epss = true
+fail-on-epss = 0.1
 ignore-vuln = ["GHSA-2xpw-w6gg-jr37:streaming API is not used"]
 ```
 
@@ -800,11 +805,33 @@ pixi sbom --pypi-mapping prefix --vulnerabilities osv --kev --fail-on-kev
 Python library CVEs are rarely in the catalog, so an empty *Known exploited* list is the normal outcome; the
 value is in the run that is not.
 
+### Exploit likelihood (FIRST EPSS)
+
+KEV covers what is already exploited; most findings are not in it, and severity alone does not say which of the
+rest are likely to be. `--epss` asks [FIRST's Exploit Prediction Scoring System](https://www.first.org/epss/) for
+every CVE among the findings' ids and aliases, in batches of 100, and records two numbers per finding: the
+probability (0 to 1) of exploitation activity in the next 30 days, and its percentile among every scored CVE. A
+finding with several CVE aliases takes the highest; one with no CVE alias, or one FIRST has not scored, has none.
+Scores are recomputed daily, so each CVE's answer is cached for a day (`PIXI_SBOM_EPSS_URL` names a mirror and
+`PIXI_SBOM_OFFLINE=1` uses the cached scores at any age; when a request fails, scores cached earlier stand in with
+a warning).
+
+The scores go in an `EPSS` column in the report (`0.033 (p88)`: the probability, and the percentile), as `epss`
+in its JSON rows, as `epss,epss_percentile` after the other CSV columns, as CycloneDX `pixi:epss*` properties, and
+as SPDX 3 `security_EpssVulnAssessmentRelationship`s.
+
+```sh
+pixi sbom --pypi-mapping prefix --vulnerabilities osv --epss --report vulnerabilities
+# Fail on anything with a 10% or higher chance of exploitation in the next month
+pixi sbom --pypi-mapping prefix --vulnerabilities osv --epss --fail-on-epss 0.1
+```
+
 ### Gating on vulnerabilities
 
 `--fail-on-severity` turns the lookup into a CI gate, shaped like the license policy: the document (or report) is
 still produced, the open findings at or above the level are listed on stderr, and the run exits with code **4**.
-`--fail-on-kev` does the same for known-exploited findings, independently of severity; the two combine.
+`--fail-on-kev` does the same for known-exploited findings, independently of severity, and `--fail-on-epss` for
+findings whose EPSS score reaches its threshold; they combine, and a finding that meets any one of them fails.
 `--ignore-vuln` accepts findings you have assessed, VEX style: the finding stays in the document with an
 `analysis` block, drops out of the gate, and the report lists it under *Ignored* with its justification.
 
@@ -1308,8 +1335,8 @@ counts them and lists the names the manifest declares that this environment has 
 another platform is the usual reason). Both are absent when there is no manifest to read, as with `--prefix`.
 
 The vulnerabilities report has one row per finding and affected package (package, version, severity, the highest
-CVSS score, KEV, id, aliases, fixed version, status, summary; the CSV and JSON forms add the purl, the OSV URL, the
-`--ignore-vuln` justification and the KEV due date), open findings worst first and ignored ones last, followed by
+CVSS score, KEV, with `--epss` the EPSS score and percentile, id, aliases, fixed version, status, summary; the CSV
+and JSON forms add the purl, the OSV URL, the `--ignore-vuln` justification and the KEV due date), open findings worst first and ignored ones last, followed by
 a count of open findings and affected packages, a table of open findings per severity, the known-exploited
 findings, the ignored findings with their justification, and the packages that have no purl the database could
 answer. `--report-format sarif` renders it as a SARIF 2.1.0 log instead: one run per document, one rule per
@@ -1658,6 +1685,7 @@ Six have a fixed address, and each can be pointed somewhere else:
 | conda-forge PyPI mapping | `https://conda-mapping.prefix.dev/compressed-v0/compressed_mapping.json` | `--pypi-mapping prefix` | `PIXI_SBOM_MAPPING_URL`, or `--pypi-mapping-file <FILE>` for a copy on disk |
 | OSV | `https://api.osv.dev` | `--vulnerabilities osv` | `PIXI_SBOM_OSV_URL` |
 | CISA KEV | `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json` | `--kev` | `PIXI_SBOM_KEV_URL` |
+| FIRST EPSS | `https://api.first.org/data/v1/epss` | `--epss` | `PIXI_SBOM_EPSS_URL` |
 | conda package index | `https://api.anaconda.org` | `--report outdated` | `PIXI_SBOM_ANACONDA_URL` |
 | OpenSSF Scorecard | `https://api.securityscorecards.dev` | `--scorecard` | `PIXI_SBOM_SCORECARD_URL` |
 
@@ -1723,7 +1751,7 @@ index you did not expect, says so here instead of needing `-v`:
 
 Notes that matter on a restricted network:
 
-- **`--kev` implies `--vulnerabilities`**, so enabling the KEV catalog also reaches OSV.
+- **`--kev` implies `--vulnerabilities`**, so enabling the KEV catalog also reaches OSV; so does `--epss`.
 - **`--scorecard` implies `--fetch-licenses`**, which is what collects the repository URLs, so it also reaches the
   PyPI index and the package archives.
 - **Scorecard does not contact GitHub.** It turns a repository URL into a project path and asks its own API.
@@ -1761,6 +1789,8 @@ Upstreams
                              https://api.osv.dev (default)
   CISA KEV                   ok 200, 114 ms
                              https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json (default)
+  FIRST EPSS                 ok 200, 141 ms
+                             https://api.first.org/data/v1/epss (default)
   conda package index        ok 200, 196 ms
                              https://prefix.dev/api/graphql (default)
   OpenSSF Scorecard          ok 200, 162 ms
@@ -1923,6 +1953,7 @@ To narrow the log to the part of the tool you are chasing — the requests, one 
 | `PIXI_SBOM_WHEEL_ARCHIVE_URL` | Base that PyPI wheel archives are read from, replacing each wheel's own host and keeping its path. |
 | `PIXI_SBOM_SCORECARD_URL` | Base of the OpenSSF Scorecard API used by `--scorecard` (default `https://api.securityscorecards.dev`). |
 | `PIXI_SBOM_KEV_URL` | Where `--kev` downloads CISA's Known Exploited Vulnerabilities catalog (default `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json`). |
+| `PIXI_SBOM_EPSS_URL` | Where `--epss` asks for EPSS scores (default `https://api.first.org/data/v1/epss`); a mirror answers `?cve=<id>,<id>` the same way. |
 | `PIXI_SBOM_PYPI_URL` | Base of the PyPI JSON API queried by `--fetch-licenses` (default `https://pypi.org/pypi`); point it at a mirror such as devpi or Artifactory. |
 | `PIXI_SBOM_CACHE_DIR` | Where downloaded data (the PyPI mapping, PyPI metadata, extracted conda `info` directories, wheel `dist-info` files) is cached. Default: `pixi-sbom` inside the pixi cache directory (`PIXI_CACHE_DIR` / `RATTLER_CACHE_DIR`, else `~/.cache/rattler/cache`, `~/Library/Caches/rattler/cache`, `%LOCALAPPDATA%\rattler\cache`), so `pixi clean cache` removes it too. |
 | `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY` / `NO_PROXY` | Honored for every download, either case, including `socks5://` and `socks5h://` addresses. On Windows a proxy configured only in the system settings is used as well. |
@@ -1985,7 +2016,7 @@ pixi sbom --all-environments --all-platforms --output sboms/
 | 0 | Document(s) written. |
 | 1 | A runtime error; a diagnostic is printed to stderr. |
 | 3 | The license policy was violated; the documents were written and the violations listed on stderr. |
-| 4 | The vulnerability gate (`--fail-on-severity` / `--fail-on-kev`) failed; the documents were written and the findings listed on stderr. |
+| 4 | The vulnerability gate (`--fail-on-severity` / `--fail-on-kev` / `--fail-on-epss`) failed; the documents were written and the findings listed on stderr. |
 | 6 | `--fail-on-diff` found a change it was asked to gate on; the report was printed and the sections listed on stderr. |
 | 7 | `--fail-on-yanked` found a yanked release; the documents were written and the releases listed on stderr. |
 | 8 | `--fail-on-phantom` found an import the manifest never declared; the report was printed and the packages listed on stderr. |
