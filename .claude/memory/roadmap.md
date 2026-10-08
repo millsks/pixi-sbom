@@ -301,3 +301,11 @@ with it) as a direct dependency, 2026-10-07; follow rattler if it ever moves to 
   stops matching once a newer tag is the base; delete the entry at the 1.7.0 release.
 - Follow-up not filed: scorecard for poetry.lock/pdm.lock could take the repository from PyPI JSON project_urls
   (they record no wheel URLs); a behaviour change, so asked rather than done.
+
+1.7.0 released 2026-10-08 (v1.7.0; rc.1 the day before). Published: GitHub release with 5 archives + 7 wheels,
+crates.io, PyPI (first upload, trusted publishing), the pre-commit mirror tagged v1.7.0, and `v1` moved. Verified from
+pypi.org with uvx and pip, and `pre-commit try-repo` against the mirror. Cut at the maintainer's direction before the
+rc.1 private-network checklist values came back. The perf allowance against v1.6.0 was spent and deleted after the
+release. Follow-ups offered, not filed: read a fully pinned requirements.txt directly; point unlocked inputs
+(requirements.txt with ranges, a lone pyproject.toml or environment.yml) to the command that locks them; scorecard
+repositories from PyPI project_urls for poetry.lock / pdm.lock.

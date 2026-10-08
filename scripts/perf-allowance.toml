@@ -4,10 +4,3 @@
 # raises a limit for comparisons against its `base` only: once a newer tag becomes the baseline
 # the entry no longer matches and the normal limits apply again, whether or not it is deleted.
 # Delete spent entries at release time.
-
-[[allowance]]
-base = "v1.6.0"
-size_percent = 10.0
-reason = """1.7.0 reads six more lockfile kinds (pylock, uv, Poetry, PDM, conda-lock, explicit), \
-plus extras, scopes, venvs and discovery: about 6,900 lines of our own code and +0.9 MiB (+8.75%) \
-on linux-64, with no new crates."""
