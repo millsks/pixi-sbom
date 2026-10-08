@@ -370,7 +370,9 @@ What the two do, in order:
    musllinux for x86_64 and aarch64, macOS x86_64 and arm64, Windows x86_64. Each is installed into a fresh venv and
    run (except musllinux, which the glibc runner cannot run) and attested like the archives. Once the GitHub release
    is out, a release candidate's wheels go to **TestPyPI** (`testpypi` job) and a final release's to **PyPI**
-   (`pypi` job), through trusted publishing: no token, PyPI checks the run's OIDC identity. There is no sdist,
+   (`pypi` job), through trusted publishing: no token, PyPI checks the run's OIDC identity. The
+   `attach-wheels` job also adds them to the GitHub release as assets, once the release and every wheel exist; the
+   `publish` job takes only the archives, so the release's assets never depend on which job finished first. There is no sdist,
    which would need a Rust toolchain and the crates.io index at install time.
 
 10. **pre-commit mirror.** After a final release's wheels are on PyPI, the `pre-commit-mirror` job renders

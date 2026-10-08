@@ -183,8 +183,12 @@ jobs:
         with:
           environments: default
           cache: true
+      # Only the archives: the wheel jobs run beside `build`, and an unnamed download takes whatever
+      # artifacts exist at that moment, so the release got a different set of wheels each time.
+      # `attach-wheels` adds them once they all exist.
       - uses: actions/download-artifact@v4
         with:
+          pattern: pixi-sbom-*
           path: dist
           merge-multiple: true
 
@@ -218,6 +222,11 @@ jobs:
             echo "| \`pixi-sbom-${TAG}-win-64.zip\` | Windows x86_64 |"
             echo
             echo "Each archive has a \`.sha256\` and a signed \`.sigstore.json\` provenance bundle beside it."
+            echo
+            echo "The same binary is attached as Python wheels (\`pixi_sbom-*.whl\`, no Python code) for Linux glibc and musl"
+            echo "x86_64 and aarch64, macOS x86_64 and arm64, and Windows x86_64, published to PyPI (TestPyPI for a release"
+            echo "candidate) as well. Where PyPI is out of reach, install one straight from this release:"
+            echo "\`pip install https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/<wheel>\`."
             echo
             echo "To check an archive was built by this repository's release workflow, from this tag, on a GitHub-hosted runner:"
             echo
@@ -347,6 +356,37 @@ jobs:
         with:
           name: wheel-${{ matrix.platform }}
           path: dist/*.whl
+
+  # The wheels as release assets too, once the release and every wheel exist. A job of its own so a
+  # wheel that fails to build holds back neither the archives nor the release; the wheels' own
+  # provenance was attested where they were built.
+  attach-wheels:
+    name: Attach the wheels to the release
+    needs: [tag, wheels, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.tag.outputs.tag }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
+          path: wheels
+          merge-multiple: true
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ls wheels/*.whl
+          # --clobber: a re-run (workflow_dispatch) replaces the files rather than failing on them.
+          gh release upload "$TAG" wheels/*.whl --repo "$GITHUB_REPOSITORY" --clobber
+          {
+            echo "### Wheels attached to ${TAG}"
+            echo
+            for wheel in wheels/*.whl; do echo "- \`$(basename "$wheel")\`"; done
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # Trusted publishing: no token, PyPI checks this workflow's OIDC identity against the
   # publisher registered for the project (repository millsks/pixi-sbom, workflow
