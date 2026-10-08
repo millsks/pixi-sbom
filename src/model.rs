@@ -432,6 +432,14 @@ pub struct Package {
 }
 
 impl Package {
+    /// Whether this is a PyPI release an index can answer for by name. Not one installed from a
+    /// git checkout, a local path or an archive URL (the readers record those as
+    /// `pixi:direct-url`): asked about by name, the index would describe whatever unrelated
+    /// project owns that name.
+    pub fn from_index(&self) -> bool {
+        self.kind == PackageKind::Pypi && !self.properties.contains_key("pixi:direct-url")
+    }
+
     /// Sort key that keeps output deterministic.
     pub fn sort_key(&self) -> (PackageKind, &str, Option<&str>) {
         (self.kind, &self.name, self.version.as_deref())

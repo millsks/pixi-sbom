@@ -17,7 +17,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use serde::Deserialize;
 
 use crate::http;
-use crate::model::{PackageKind, Sbom, Yanked};
+use crate::model::{Sbom, Yanked};
 
 /// Default base of the JSON API; `PIXI_SBOM_PYPI_URL` overrides it (mirrors, devpi, ...).
 pub const DEFAULT_INDEX_URL: &str = "https://pypi.org/pypi";
@@ -188,7 +188,7 @@ impl Lookup<'_> {
             .packages
             .iter()
             .enumerate()
-            .filter(|(_, p)| p.kind == PackageKind::Pypi)
+            .filter(|(_, p)| p.from_index())
             .filter_map(|(index, package)| {
                 Some(Job {
                     index,
@@ -315,6 +315,7 @@ pub fn index_url() -> String {
 mod tests {
     use super::*;
     use crate::format::testing::sample_sbom;
+    use crate::model::PackageKind;
     use std::sync::Mutex;
 
     fn meta(expression: Option<&str>, license: Option<&str>, classifiers: &[&str]) -> String {
@@ -484,6 +485,26 @@ mod tests {
         );
         assert_eq!(six.properties[YANKED_PROPERTY], "true");
         assert_eq!(six.properties[YANKED_REASON_PROPERTY], "broken wheels");
+    }
+
+    #[test]
+    fn a_package_from_outside_an_index_is_not_looked_up_by_name() {
+        // A local `six` (a path or git install) is not PyPI's six: asking about it by name would
+        // borrow an unrelated release's license and yanked status.
+        let dir = tempfile::tempdir().unwrap();
+        let mut sbom = sample_sbom();
+        let six = sbom.packages.iter_mut().find(|p| p.name == "six").unwrap();
+        six.license = None;
+        six.properties.insert("pixi:direct-url".into(), "libs/six".into());
+        assert!(!six.from_index());
+        let fetch = |url: &str| -> Result<String, Box<ureq::Error>> { panic!("asked the index about {url}") };
+        let lookup = Lookup {
+            index_url: DEFAULT_INDEX_URL,
+            cache_dir: dir.path(),
+        };
+        let outcome = lookup.run_with(&mut sbom, &fetch, crate::progress::Progress::default());
+        assert_eq!((outcome.found, outcome.failed, outcome.missing), (0, 0, 0));
+        assert_eq!(sbom.packages.iter().find(|p| p.name == "six").unwrap().license, None);
     }
 
     #[test]

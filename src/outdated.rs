@@ -812,6 +812,8 @@ impl Lookup<'_> {
         let mut jobs = Vec::new();
         for (index, package) in sbom.packages.iter().enumerate() {
             let job = match package.kind {
+                // A git, path or URL install has no index release to compare with.
+                PackageKind::Pypi if !package.from_index() => None,
                 PackageKind::Pypi => {
                     let name = crate::purl::normalize_pypi_name(&package.name);
                     Some(Job {

@@ -145,7 +145,7 @@ In SPDX these appear in the package `comment` because SPDX 2.3 has no free-form 
 A package installed from somewhere other than an index does not get a plain `pkg:pypi` purl, since that would claim
 a PyPI release which may not exist or may hold other code, and a scanner would match the wrong advisories. Where it
 came from stays in `pixi:direct-url`, `pixi:source-rev` and `pixi:editable`, from every lockfile reader and from
-`--prefix` (PEP 610 `direct_url.json`). `--vulnerabilities osv` asks about none of these purls: OSV has no ecosystem
+`--prefix` (PEP 610 `direct_url.json`). Nor are they looked up on PyPI by name for a license, a yanked status or the outdated report, since the name may belong to an unrelated project. `--vulnerabilities osv` asks about none of these purls: OSV has no ecosystem
 for `generic` or `github`, and a `vcs_url` checkout is not the release of its version. In `pixi.lock` a git or local
 source is recognised; a URL without an index is left as it is, since older lockfiles record index wheels that way.
 

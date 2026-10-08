@@ -219,6 +219,9 @@ repository with a 4.2 scorecard, and yanks six; conda packages get no advisory (
 - scorecard on poetry.lock and pdm.lock: they record file names and hashes, not URLs, so no wheel is read and
   no repository is known; the gate has nothing to fail on. The prefixes' dist-info name no repository.
 - yanked gate: six is the yanked one; inputs without it pass.
+- licenses and outdated on the Python lockfiles count 25 of 27: the git checkout (django-debug-toolbar) and the
+  local directory (internal-utils) are not asked about by name, since the index would describe an unrelated
+  project of that name.
 ";
 
 /// One input kind: how to point the tool at it.

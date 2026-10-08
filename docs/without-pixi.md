@@ -134,10 +134,10 @@ critical, KEV-listed advisory, an MIT license and a 4.2 scorecard, and yanks `si
 | input | packages | licenses | vulnerabilities | diff | outdated | python | phantom | scorecard | explain | license gate | severity gate | KEV gate | yanked gate | scorecard gate |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | pixi.lock | 0: 30 rows | 0: 30 rows, 30 with license | 0: 6 rows | 0: 30 unchanged | 0: 30 rows | 0: 6 rows | 0: 2 rows | 0: 30 rows, 6 with score | 0 | 3 | 4 | 4 | 7 | 9 |
-| uv.lock | 0: 27 rows | 0: 27 rows, 27 with license | 0: 25 rows | 0: 27 unchanged | 0: 27 rows | 0: 27 rows | 0: 12 rows | 0: 27 rows, 25 with score | 0 | 3 | 4 | 4 | 7 | 9 |
-| pylock.toml | 0: 27 rows | 0: 27 rows, 26 with license | 0: 25 rows | 0: 27 unchanged | 0: 26 rows | 0: 27 rows | 0: 27 rows | 0: 27 rows, 25 with score | 0 | 3 | 4 | 4 | 7 | 9 |
-| poetry.lock | 0: 27 rows | 0: 27 rows, 27 with license | 0: 25 rows | 0: 27 unchanged | 0: 27 rows | 0: 27 rows | 0: 12 rows | 0: 27 rows, 0 with score | 0 | 3 | 4 | 4 | 7 | 0 |
-| pdm.lock | 0: 27 rows | 0: 27 rows, 27 with license | 0: 25 rows | 0: 27 unchanged | 0: 27 rows | 0: 27 rows | 0: 12 rows | 0: 27 rows, 0 with score | 0 | 3 | 4 | 4 | 7 | 0 |
+| uv.lock | 0: 27 rows | 0: 27 rows, 25 with license | 0: 25 rows | 0: 27 unchanged | 0: 25 rows | 0: 27 rows | 0: 12 rows | 0: 27 rows, 25 with score | 0 | 3 | 4 | 4 | 7 | 9 |
+| pylock.toml | 0: 27 rows | 0: 27 rows, 25 with license | 0: 25 rows | 0: 27 unchanged | 0: 25 rows | 0: 27 rows | 0: 27 rows | 0: 27 rows, 25 with score | 0 | 3 | 4 | 4 | 7 | 9 |
+| poetry.lock | 0: 27 rows | 0: 27 rows, 25 with license | 0: 25 rows | 0: 27 unchanged | 0: 25 rows | 0: 27 rows | 0: 12 rows | 0: 27 rows, 0 with score | 0 | 3 | 4 | 4 | 7 | 0 |
+| pdm.lock | 0: 27 rows | 0: 27 rows, 25 with license | 0: 25 rows | 0: 27 unchanged | 0: 25 rows | 0: 27 rows | 0: 12 rows | 0: 27 rows, 0 with score | 0 | 3 | 4 | 4 | 7 | 0 |
 | conda-lock.yml | 0: 66 rows | 0: 66 rows, 1 with license | 0: 1 rows | 0: 66 unchanged | 0: 66 rows | 0: 1 rows | 0: 1 rows | 0: 66 rows, 1 with score | 0 | 3 | 4 | 4 | 0 | 9 |
 | explicit spec | 0: 65 rows | 0: 65 rows, 0 with license | 0: 0 rows | 0: 65 unchanged | 0: 65 rows | 0: 0 rows | 0: 58 rows | 0: 65 rows, 0 with score | 0 | 0 | 0 | 0 | 0 | 0 |
 | --prefix (conda) | 0: 4 rows | 0: 4 rows, 4 with license | 0: 1 rows | 0: 4 unchanged | 0: 4 rows | 0: 1 rows | 0: 0 rows | 0: 4 rows, 0 with score | 0 | 3 | 4 | 4 | 7 | 0 |
@@ -152,5 +152,7 @@ Where a cell is smaller than its neighbours, the input does not record what the 
   package pins an interpreter, and every transitive package looks like a root, so it counts as undeclared.
 - **licenses** on `conda-lock.yml` and explicit specs: neither records a conda package's license; `--fetch-licenses`
   reads it from the conda archives, which the test leaves unreachable on purpose.
+- **licenses** and **outdated** on the Python lockfiles count 25 of 27: a package installed from a git checkout or a
+  local directory is not looked up on PyPI by name, where the name could belong to an unrelated project.
 - **scorecard** on `poetry.lock` and `pdm.lock`: they record file names, not URLs, so no wheel is read and no
   repository is known.
