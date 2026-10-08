@@ -3275,6 +3275,12 @@ checks:</p>
 repositories the service covers (github.com and gitlab.com). Answers are cached for a week under the pixi-sbom
 cache directory — a repository is rescored weekly at most — so a second run costs nothing, and
 <code>PIXI_SBOM_SCORECARD_URL</code> points the lookup elsewhere.</p>
+<p>The repository is the one the package names itself. For a wheel that is its <code>dist-info</code> (<code>Project-URL: Source</code>,
+read by <code>--fetch-licenses</code>). Where no wheel is read, because <code>poetry.lock</code> and <code>pdm.lock</code> record file names but no
+URLs, or because an installed <code>dist-info</code> names none, it comes from the PyPI JSON API's <code>project_urls</code>: the entry
+labelled <code>Source</code>, <code>Source Code</code>, <code>Repository</code>, <code>Code</code> or <code>GitHub</code>, else any GitHub or GitLab URL there. A repository
+from the wheel wins. <code>pixi:repository-source</code> (<code>wheel</code> or <code>pypi</code>) records which, and <code>--explain</code> says so. A package
+installed from a git checkout or a local directory is not looked up by name.</p>
 <p>Each scored package carries <code>pixi:scorecard</code> (the aggregate), <code>pixi:scorecard-date</code>, and one
 <code>pixi:scorecard-check-&lt;name&gt;</code> property per check below <code>--scorecard-min</code> — a check that passed is not recorded,
 and neither is one the service could not run. <code>--report scorecard</code> lists the packages worst first with their

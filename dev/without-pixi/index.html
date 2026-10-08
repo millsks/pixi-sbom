@@ -1390,13 +1390,13 @@ critical, KEV-listed advisory, an MIT license and a 4.2 scorecard, and yanks <co
 <td>0: 25 rows</td>
 <td>0: 27 rows</td>
 <td>0: 12 rows</td>
-<td>0: 27 rows, 0 with score</td>
+<td>0: 27 rows, 25 with score</td>
 <td>0</td>
 <td>3</td>
 <td>4</td>
 <td>4</td>
 <td>7</td>
-<td>0</td>
+<td>9</td>
 </tr>
 <tr>
 <td>pdm.lock</td>
@@ -1407,13 +1407,13 @@ critical, KEV-listed advisory, an MIT license and a 4.2 scorecard, and yanks <co
 <td>0: 25 rows</td>
 <td>0: 27 rows</td>
 <td>0: 12 rows</td>
-<td>0: 27 rows, 0 with score</td>
+<td>0: 27 rows, 25 with score</td>
 <td>0</td>
 <td>3</td>
 <td>4</td>
 <td>4</td>
 <td>7</td>
-<td>0</td>
+<td>9</td>
 </tr>
 <tr>
 <td>conda-lock.yml</td>
@@ -1458,13 +1458,13 @@ critical, KEV-listed advisory, an MIT license and a 4.2 scorecard, and yanks <co
 <td>0: 4 rows</td>
 <td>0: 1 rows</td>
 <td>0: 0 rows</td>
-<td>0: 4 rows, 0 with score</td>
+<td>0: 4 rows, 1 with score</td>
 <td>0</td>
 <td>3</td>
 <td>4</td>
 <td>4</td>
 <td>7</td>
-<td>0</td>
+<td>9</td>
 </tr>
 <tr>
 <td>--prefix (venv)</td>
@@ -1475,13 +1475,13 @@ critical, KEV-listed advisory, an MIT license and a 4.2 scorecard, and yanks <co
 <td>0: 6 rows</td>
 <td>0: 6 rows</td>
 <td>0: 2 rows</td>
-<td>0: 6 rows, 0 with score</td>
+<td>0: 6 rows, 6 with score</td>
 <td>0</td>
 <td>3</td>
 <td>4</td>
 <td>4</td>
 <td>0</td>
-<td>0</td>
+<td>9</td>
 </tr>
 <tr>
 <td>--from-sbom</td>
@@ -1512,8 +1512,8 @@ critical, KEV-listed advisory, an MIT license and a 4.2 scorecard, and yanks <co
   reads it from the conda archives, which the test leaves unreachable on purpose.</li>
 <li><strong>licenses</strong> and <strong>outdated</strong> on the Python lockfiles count 25 of 27: a package installed from a git checkout or a
   local directory is not looked up on PyPI by name, where the name could belong to an unrelated project.</li>
-<li><strong>scorecard</strong> on <code>poetry.lock</code> and <code>pdm.lock</code>: they record file names, not URLs, so no wheel is read and no
-  repository is known.</li>
+<li><strong>scorecard</strong> takes the repository from the wheel, or from the PyPI JSON API's <code>project_urls</code> where no wheel is
+  read: <code>poetry.lock</code> and <code>pdm.lock</code> record file names, not URLs, and an installed <code>dist-info</code> may name none.</li>
 </ul>
 
 
