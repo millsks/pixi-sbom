@@ -2862,6 +2862,161 @@ fn kev_marks_known_exploited_findings_and_gates_on_them() {
         .stderr(predicate::str::contains("between 0.0 and 1.0"));
 }
 
+#[test]
+fn a_vendors_vex_clears_the_findings_it_covers_and_reports_the_rest() {
+    let dir = workspace_with_vulnerable_urllib3();
+    let kev_dir = dir.path().join("cache").join("kev");
+    std::fs::create_dir_all(&kev_dir).unwrap();
+    std::fs::copy(
+        tests_dir()
+            .join("fixtures")
+            .join("kev")
+            .join("known_exploited_vulnerabilities.json"),
+        kev_dir.join("known_exploited_vulnerabilities.json"),
+    )
+    .unwrap();
+    let vex = |name: &str| tests_dir().join("fixtures").join("vex-in").join(name);
+    let openvex = vex("vendor.openvex.json");
+    let cdx = vex("vendor.cdx.json");
+    let base = |args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("COLUMNS", "220")
+            .args([
+                "-e",
+                "web",
+                "-p",
+                "linux-64",
+                "--vulnerabilities",
+                "osv",
+                "--kev",
+                "--fail-on-kev",
+            ])
+            .args(args)
+            .assert()
+    };
+    // Without a VEX the known-exploited urllib3 finding fails the gate.
+    base(&["--output", "-"]).code(4);
+
+    // The vendor's OpenVEX says the product is not affected: the gate passes, the finding stays
+    // in the document with the statement and where it came from, and the statements that
+    // matched nothing here are named.
+    let assert = base(&["--vex-in", openvex.to_str().unwrap(), "--output", "-"])
+        .success()
+        .stderr(predicate::str::contains("read VEX statements"))
+        .stderr(predicate::str::contains("a VEX statement matches no finding"))
+        .stderr(predicate::str::contains(
+            "CVE-2023-32681 for pkg:pypi/requests (vendor.openvex.json)",
+        ));
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &doc);
+    let urllib3 = doc["vulnerabilities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["id"] == "GHSA-q2q7-5pp4-w6pg")
+        .unwrap();
+    assert_eq!(urllib3["analysis"]["state"], "not_affected");
+    assert_eq!(urllib3["analysis"]["justification"], "code_not_reachable");
+    assert!(
+        urllib3["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["name"] == "pixi:vex-source" && p["value"] == "vendor.openvex.json")
+    );
+
+    // The same from the CycloneDX form, and the report says whose statement it was.
+    let table = String::from_utf8(
+        base(&["--vex-in", cdx.to_str().unwrap(), "--report", "vulnerabilities"])
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(
+        table.contains("GHSA-q2q7-5pp4-w6pg (not_affected, from vendor.cdx.json): Only reachable with a proxy"),
+        "{table}"
+    );
+    let json: Value = serde_json::from_slice(
+        &base(&[
+            "--vex-in",
+            cdx.to_str().unwrap(),
+            "--report",
+            "vulnerabilities",
+            "--report-format",
+            "json",
+        ])
+        .success()
+        .get_output()
+        .stdout,
+    )
+    .unwrap();
+    let row = json["vulnerabilities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["id"] == "GHSA-q2q7-5pp4-w6pg")
+        .unwrap();
+    assert_eq!(row["ignored"], "not_affected");
+    assert_eq!(row["vex"], "not_affected (vendor.cdx.json)");
+
+    // --explain names the statement.
+    let explained = String::from_utf8(
+        base(&["--vex-in", openvex.to_str().unwrap(), "--explain", "urllib3"])
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(
+        explained.contains("GHSA-q2q7-5pp4-w6pg (not_affected, from vendor.openvex.json)"),
+        "{explained}"
+    );
+
+    // A local --ignore-vuln wins over the vendor's statement.
+    let doc: Value = serde_json::from_slice(
+        &base(&[
+            "--vex-in",
+            openvex.to_str().unwrap(),
+            "--ignore-vuln",
+            "CVE-2021-33503:false_positive:our own reading",
+            "--output",
+            "-",
+        ])
+        .success()
+        .get_output()
+        .stdout,
+    )
+    .unwrap();
+    let urllib3 = doc["vulnerabilities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["id"] == "GHSA-q2q7-5pp4-w6pg")
+        .unwrap();
+    assert_eq!(urllib3["analysis"]["state"], "false_positive");
+    assert_eq!(urllib3["analysis"]["detail"], "our own reading");
+
+    // A file that is not a VEX is an error naming what is read, and the flag needs findings.
+    base(&["--vex-in", "pixi.toml", "--output", "-"])
+        .code(1)
+        .stderr(predicate::str::contains("cannot parse the VEX"));
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["--vex-in", openvex.to_str().unwrap()])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains(
+            "'--vex-in' needs '--vulnerabilities <SOURCE>'",
+        ));
+}
+
 /// The recorded EPSS answer, written into the cache the way a lookup leaves it, so an offline
 /// run reads it.
 fn seed_epss_cache(cache: &Path) {

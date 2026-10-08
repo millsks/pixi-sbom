@@ -547,6 +547,14 @@ pub struct Args {
     #[arg(long, value_name = "ID[:STATE][:TEXT]")]
     pub ignore_vuln: Vec<String>,
 
+    /// Apply somebody else's VEX to the findings before the gate runs (repeatable): a CycloneDX
+    /// document (a VEX, or an SBOM with `vulnerabilities[].analysis`) or OpenVEX. Statements match
+    /// by vulnerability id or alias and package purl; `not_affected`, `false_positive` and
+    /// `resolved` clear a finding from the gate, `exploitable` and `in_triage` are only recorded.
+    /// --ignore-vuln wins over it. Requires --vulnerabilities.
+    #[arg(long, value_name = "PATH")]
+    pub vex_in: Vec<PathBuf>,
+
     /// Also write a standalone CycloneDX VEX document here: every finding with its analysis,
     /// linked back to the SBOM this run writes. Needs --vulnerabilities, a single document, and
     /// CycloneDX output.

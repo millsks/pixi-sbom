@@ -8,7 +8,7 @@ use pixi_sbom::{
     auditable, batch, cache, cli, concurrency, condaarchive, condalock, config, diff, discover, doctor, embedded, epss,
     explain, explicit, filter, format, fromsbom, http, imports, kev, license, lock, manifest, mapping, mirror, model,
     osv, outdated, pdm, phantom, pkgcache, poetry, policy, prefix, progress, pylock, pypi, report, requirements,
-    scorecard, style, timings, uv, vulnpolicy, wheel,
+    scorecard, style, timings, uv, vexin, vulnpolicy, wheel,
 };
 
 /// The system allocator on macOS and Windows is slow under the many small allocations a
@@ -356,6 +356,13 @@ fn main() -> Result<()> {
         exclude_kinds: args.exclude_kind.iter().map(|k| k.package_kind()).collect(),
         keep_orphans: args.keep_orphans,
     };
+    let mut vex_statements = Vec::new();
+    for path in &args.vex_in {
+        let statements = vexin::load(path)?;
+        tracing::info!(path = %path.display(), statements = statements.len(), "read VEX statements");
+        vex_statements.extend(statements);
+    }
+    let mut vex_applied = vec![false; vex_statements.len()];
     let vulnerability_rule = vulnpolicy::Rule {
         severity: args.fail_on_severity.map(|s| s.severity()),
         kev: args.fail_on_kev,
@@ -489,6 +496,17 @@ fn main() -> Result<()> {
                 let scored = epss::apply(&mut sbom, &scores);
                 tracing::info!(cves = cves.len(), scored, "scored findings with FIRST EPSS");
             }
+            if !vex_statements.is_empty() {
+                let applied = vexin::apply(&mut sbom, &vex_statements);
+                tracing::info!(
+                    applied = applied.iter().filter(|a| **a).count(),
+                    "applied VEX statements to the findings"
+                );
+                for (seen, now) in vex_applied.iter_mut().zip(applied) {
+                    *seen |= now;
+                }
+            }
+            // After the VEX, so a local decision wins over the vendor's.
             let ignored = vulnpolicy::apply_ignores(&mut sbom, &ignores);
             if vulnerability_rule.is_set() {
                 let hits = vulnpolicy::check(&sbom, &vulnerability_rule);
@@ -817,6 +835,14 @@ fn main() -> Result<()> {
             .into_diagnostic()
             .wrap_err("cannot write the report to stdout")?;
     }
+    for (statement, applied) in vex_statements.iter().zip(&vex_applied) {
+        if !applied {
+            tracing::warn!(
+                statement = statement.describe(),
+                "a VEX statement matches no finding: no such vulnerability here, or not for these package versions"
+            );
+        }
+    }
     if !gate_hits.is_empty() {
         let mut stderr = std::io::stderr().lock();
         let _ = writeln!(
@@ -1060,6 +1086,7 @@ fn validate(args: &cli::Args) {
             (args.epss, "--epss"),
             (args.fail_on_severity.is_some(), "--fail-on-severity"),
             (!args.ignore_vuln.is_empty(), "--ignore-vuln"),
+            (!args.vex_in.is_empty(), "--vex-in"),
             (
                 args.report == Some(report::ReportKind::Vulnerabilities),
                 "--report vulnerabilities",

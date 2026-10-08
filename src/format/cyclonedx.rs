@@ -409,6 +409,9 @@ fn vulnerability(vuln: &Vulnerability, sbom: &Sbom) -> VulnerabilityEntry {
             upgrades.push(format!("CISA KEV: {action}"));
         }
     }
+    if let Some(source) = vuln.analysis.as_ref().and_then(|a| a.source.as_ref()) {
+        properties.push(property("pixi:vex-source", source));
+    }
     if let Some(epss) = &vuln.epss {
         properties.push(property("pixi:epss", &epss.score.to_string()));
         properties.push(property("pixi:epss-percentile", &epss.percentile.to_string()));
@@ -1109,6 +1112,7 @@ mod tests {
                 justification: Some("code_not_reachable"),
                 response: vec!["will_not_fix"],
                 detail: Some("only used at build time".into()),
+                source: None,
             }),
         ));
 
@@ -1194,6 +1198,7 @@ mod tests {
                 justification: Some("requires_environment"),
                 response: vec![],
                 detail: Some("only used at build time".into()),
+                source: None,
             }),
             kev: Some(crate::model::Kev {
                 cve_id: "CVE-2021-33503".into(),

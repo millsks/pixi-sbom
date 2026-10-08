@@ -72,6 +72,7 @@ expression: "surface.join(\"\\n\")"
       --fail-on-severity <SEVERITY>
           [possible values: low, medium, high, critical]
       --ignore-vuln <ID[:STATE][:TEXT]>
+      --vex-in <PATH>
       --vex <PATH>
       --vex-open <STATE>
           - in-triage:   Somebody still has to look at it

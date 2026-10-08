@@ -58,6 +58,7 @@ With no options this means:
 | `--fail-on-severity <low\|medium\|high\|critical>` | | With `--vulnerabilities`: exit **4** after writing the document when any open finding is at or above the level. Findings of unknown severity never trip it. |
 | `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification, and `not_affected` may be followed by a machine-readable one, see below), is excluded from `--fail-on-severity` and listed separately in the report. |
 | `--vex <PATH>` | | With `--vulnerabilities` and CycloneDX output: also write a standalone CycloneDX VEX there, linked back to the SBOM. |
+| `--vex-in <PATH>` | | Repeatable, with `--vulnerabilities`. Apply somebody else's VEX (CycloneDX or OpenVEX) to the findings before the gate: `not_affected`, `false_positive` and `resolved` clear a finding, `exploitable` and `in_triage` are recorded only. See [Applying a vendor's VEX](#applying-a-vendors-vex). |
 | `--vex-open <in-triage\|exploitable>` | `in-triage` | The analysis state the VEX gives findings nobody assessed with `--ignore-vuln`. |
 | `--version-details` (`--build-info`) | | Print the version with the target, the features compiled in, the caches, pixi's version and the network settings: the block to paste into a bug report. |
 | `--timings` | off | Print where the run spent its time, phase by phase, separating waiting on the network from working. |
@@ -906,6 +907,42 @@ expect, and it validates against the CycloneDX schema like everything else this 
 `--all-environments`, `--all-platforms` or `--scan`. The VEX is CycloneDX and its links only resolve against a
 CycloneDX SBOM, so `--format spdx` is refused too. With SPDX, use `--spec-version 3.0`: the document records
 the assessments itself, in its security profile.
+
+### Applying a vendor's VEX
+
+A vendor that ships an SBOM often ships a VEX saying which of its findings do not affect the product. Without it,
+the gate fires on those findings, typically with `--from-sbom`, and the only way through is to copy each one into
+`--ignore-vuln`. `--vex-in <PATH>` (repeatable) reads the statements and applies them before the gate runs:
+
+```sh
+pixi sbom --from-sbom vendor.cdx.json --vulnerabilities osv --fail-on-severity high \
+  --vex-in vendor.openvex.json
+```
+
+Two formats are read:
+
+- **CycloneDX**: a standalone VEX, or an SBOM whose `vulnerabilities[]` carry an `analysis`. Each vulnerability's
+  id and `references[].id` name it. Its `affects[].ref` is resolved through the document's components to a purl,
+  or read as the fragment of a BOM-Link (`urn:cdx:<serial>/1#pkg:pypi/urllib3@1.26.4`); the VEX `--vex` writes
+  reads back this way.
+- **OpenVEX**: each statement's vulnerability `name` and `aliases`, and its products' purls (`@id` or
+  `identifiers.purl`), or their `subcomponents` when a product lists any. Statuses map onto CycloneDX states:
+  `not_affected` stays `not_affected`, `fixed` becomes `resolved`, `affected` becomes `exploitable` and
+  `under_investigation` becomes `in_triage`. Justifications map to their CycloneDX equivalents, and the impact
+  statement becomes the detail.
+
+A statement applies to a finding when it names the finding's id or one of its aliases, and covers every package
+the finding affects. A product purl without a version covers every version, and a statement with no product
+covers every package. `not_affected`, `false_positive` and `resolved` clear the finding from the gate, the way
+`--ignore-vuln` does: the finding stays in the document with the statement as its `analysis`, plus a
+`pixi:vex-source` property naming the file, and the report lists it under *Ignored* with the file. `exploitable`
+and `in_triage` are recorded the same way but leave the finding open; the report lists them under *Assessed in a
+VEX, still open*.
+
+When two statements cover one finding, the later one wins, including across files. A local `--ignore-vuln` entry
+wins over both. `--explain` names the statement behind each assessed finding. A statement that matches nothing,
+because the vulnerability is not found here or the package version differs, is logged as a warning rather than
+dropped silently. SPDX and CSAF VEX documents are refused with a message saying which formats are read.
 
 ## How far behind the environment is
 

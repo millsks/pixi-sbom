@@ -1,0 +1,35 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://vendor.example/vex/2026-10-08",
+  "author": "Vendor Security Team",
+  "timestamp": "2026-10-08T12:00:00Z",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2021-33503",
+        "aliases": ["GHSA-q2q7-5pp4-w6pg"]
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/vendor-app@sha256%3A0123",
+          "subcomponents": [{ "@id": "pkg:pypi/urllib3@1.26.4" }]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "The product never parses URLs from untrusted input."
+    },
+    {
+      "vulnerability": { "name": "CVE-2023-32681" },
+      "products": [{ "@id": "pkg:pypi/requests" }],
+      "status": "under_investigation"
+    },
+    {
+      "vulnerability": "CVE-2099-0002",
+      "products": ["pkg:pypi/six@1.17.0"],
+      "status": "fixed",
+      "justification": "component_not_present"
+    }
+  ]
+}

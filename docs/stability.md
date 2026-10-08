@@ -14,7 +14,7 @@ this page fails the build, and so does a line on this page for something that do
 
 ## Command-line flags
 
-All 71. Their meanings are in [cli.md](cli.md); what this page promises is that none of them
+All 72. Their meanings are in [cli.md](cli.md); what this page promises is that none of them
 disappears or changes shape before 2.0.
 
 | `--against` | `--all-environments` | `--all-platforms` | `--allow-license` |
@@ -34,7 +34,7 @@ disappears or changes shape before 2.0.
 | `--root-version` | `--scan` | `--scan-depth` | `--scorecard` |
 | `--scorecard-min` | `--source` | `--spec-version` | `--timings` |
 | `--tree` | `--verbose` | `--version` | `--version-details` |
-| `--vex` | `--vex-open` | `--vulnerabilities` |  |
+| `--vex` | `--vex-in` | `--vex-open` | `--vulnerabilities` |
 
 ### Spellings that answer to an older name
 
@@ -111,7 +111,7 @@ stays supported.
 | `ignore-vuln` | `ignore-license` | `scorecard` | `scorecard-min` |
 | `fail-on-scorecard` | `fail-on-diff` | `source` | `assume-used` |
 | `fail-on-phantom` | `conda-index-kind` | `concurrency` | `infer-extras` |
-| `min-quality` | `epss` | `fail-on-epss` |  |
+| `min-quality` | `epss` | `fail-on-epss` | `vex-in` |
 
 An unknown key is an error, not a warning, and the diagnostic lists every key that is accepted — so
 a typo cannot pass silently and you are never left guessing at the spelling.
@@ -173,8 +173,8 @@ says which flag produces which.
 | `pixi:source-document` | `pixi:source-git` | `pixi:source-path` |
 | `pixi:source-rev` | `pixi:source-subdirectory` | `pixi:source-tag` |
 | `pixi:source-url` | `pixi:stale-cache` | `pixi:subdir` |
-| `pixi:vex-for` | `pixi:via-extra` | `pixi:yanked` |
-| `pixi:yanked-reason` |  |  |
+| `pixi:vex-for` | `pixi:vex-source` | `pixi:via-extra` |
+| `pixi:yanked` | `pixi:yanked-reason` |  |
 
 `pixi:scorecard-check-<name>` is a family rather than one name: the suffix is the OpenSSF check,
 so the set grows when OpenSSF adds a check. The prefix is frozen; the suffixes are theirs.

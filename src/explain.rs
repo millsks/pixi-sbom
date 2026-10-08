@@ -449,11 +449,23 @@ fn vulnerabilities(package: &Package, sbom: &Sbom, ctx: Context) -> Fact {
             vec!["OSV: not queried, --vulnerabilities was not given".into()],
         );
     }
-    let ids: Vec<&str> = sbom
+    // A finding somebody assessed says by whom: the VEX file, or --ignore-vuln.
+    let ids: Vec<String> = sbom
         .vulnerabilities
         .iter()
         .filter(|v| v.affects.iter().any(|a| a.package_id == package.id))
-        .map(|v| v.id.as_str())
+        .map(|v| match &v.analysis {
+            Some(analysis) => format!(
+                "{} ({}, {})",
+                v.id,
+                analysis.state,
+                analysis
+                    .source
+                    .as_ref()
+                    .map_or("--ignore-vuln".to_string(), |source| format!("from {source}"))
+            ),
+            None => v.id.clone(),
+        })
         .collect();
     if ids.is_empty() {
         let queryable = std::iter::once(&package.purl)
@@ -789,6 +801,24 @@ mod tests {
         let six_facts = facts(&six, &sbom, ctx);
         assert_eq!(fact(&six_facts, "vulnerabilities").source.as_deref(), Some("OSV"));
         assert_eq!(fact(&six_facts, "vulnerabilities").value.as_deref(), Some("GHSA-xxxx"));
+        // An assessed finding says who assessed it.
+        let mut assessed = sbom.clone();
+        assessed.vulnerabilities[0].analysis = Some(crate::model::Analysis {
+            state: "not_affected",
+            justification: None,
+            response: vec![],
+            detail: None,
+            source: Some("vendor.openvex.json".into()),
+        });
+        assert_eq!(
+            fact(&facts(&six, &assessed, ctx), "vulnerabilities").value.as_deref(),
+            Some("GHSA-xxxx (not_affected, from vendor.openvex.json)")
+        );
+        assessed.vulnerabilities[0].analysis.as_mut().unwrap().source = None;
+        assert_eq!(
+            fact(&facts(&six, &assessed, ctx), "vulnerabilities").value.as_deref(),
+            Some("GHSA-xxxx (not_affected, --ignore-vuln)")
+        );
         assert_eq!(
             fact(&six_facts, "scorecard").considered,
             ["the OpenSSF Scorecard service: not asked, no repository URL is known for this package"]

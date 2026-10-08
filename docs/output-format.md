@@ -404,6 +404,7 @@ One CycloneDX entry per finding, after records describing the same vulnerability
 | `affects[]` | `{ ref }` for every affected component (`bom-ref` = the package's purl); a conda package matched through its PyPI purl is listed under its own `bom-ref` |
 | `analysis` | Only for findings accepted with `--ignore-vuln`: `{ state, justification, response, detail }`, the CycloneDX impact-analysis (VEX) block. `justification` only when one was given after `not_affected`, `response` only when one was given. `firstIssued` / `lastUpdated` are never written (see [the vulnerability gate](cli.md#looking-up-vulnerabilities)). |
 | `properties[]` | With `--kev`, for known-exploited findings: `pixi:kev=true`, `pixi:kev-cve`, `pixi:kev-date-added`, `pixi:kev-due-date`, `pixi:kev-ransomware`; the rating from `CISA KEV` is `critical` and, without a fixed version, `recommendation` carries the catalog's required action |
+| `properties[]` | With `--vex-in`, for a finding a statement applied to: `pixi:vex-source`, the file the statement came from (the `analysis` is the statement's) |
 | `properties[]` | With `--epss`, for findings FIRST has scored: `pixi:epss` (the probability, 0 to 1), `pixi:epss-percentile` (0 to 1), `pixi:epss-cve` (the alias the score is for, the highest when there are several) and `pixi:epss-date` |
 
 Entries are ordered by the worst rating, then id.

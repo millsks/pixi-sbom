@@ -11,7 +11,7 @@ pub const GATE_EXIT_CODE: i32 = 4;
 pub const DEFAULT_STATE: &str = "not_affected";
 
 /// The CycloneDX impact-analysis states `--ignore-vuln` accepts.
-const STATES: [&str; 6] = [
+pub const STATES: [&str; 6] = [
     "resolved",
     "resolved_with_pedigree",
     "exploitable",
@@ -163,6 +163,7 @@ pub fn apply_ignores(sbom: &mut Sbom, ignores: &[Ignore]) -> usize {
                 justification: ignore.justification,
                 response: ignore.response.clone(),
                 detail: ignore.detail.clone(),
+                source: None,
             });
             marked += 1;
             any = true;
@@ -221,7 +222,7 @@ impl std::fmt::Display for Rule {
 pub fn check(sbom: &Sbom, rule: &Rule) -> Vec<Hit> {
     sbom.vulnerabilities
         .iter()
-        .filter(|v| v.analysis.is_none())
+        .filter(|v| v.is_open())
         .filter(|v| rule.trips(v))
         .map(|v| Hit {
             id: v.id.clone(),
@@ -426,7 +427,8 @@ mod tests {
                 state: "not_affected",
                 justification: None,
                 response: vec![],
-                detail: Some("not reachable".into())
+                detail: Some("not reachable".into()),
+                source: None
             })
         );
         assert_eq!(sbom.vulnerabilities[1].analysis, None);

@@ -89,6 +89,7 @@ pub struct Config {
     pub fail_on_epss: Option<f64>,
     pub fail_on_severity: Option<String>,
     pub ignore_vuln: Option<Vec<String>>,
+    pub vex_in: Option<Vec<PathBuf>>,
     pub ignore_license: Option<Vec<String>>,
     pub scorecard: Option<bool>,
     pub scorecard_min: Option<f64>,
@@ -467,6 +468,7 @@ pub fn apply(loaded: &Loaded, args: &mut Args, matches: &ArgMatches) -> Result<(
         }
     }
     set!(source, "source", config.source.clone());
+    set!(vex_in, "vex_in", config.vex_in.clone());
     set!(assume_used, "assume_used", config.assume_used.clone());
     set!(fail_on_phantom, "fail_on_phantom", config.fail_on_phantom);
     applied.sort();
@@ -563,6 +565,7 @@ mod tests {
             ignore-vuln = ["GHSA-1:not reachable"]
             fail-on-diff = ["added", "removed"]
             source = ["src", "tests"]
+            vex-in = ["vendor.openvex.json"]
             assume-used = ["pytest-*"]
             fail-on-phantom = true
             "#,
@@ -586,6 +589,7 @@ mod tests {
         assert_eq!(a.vulnerabilities, Some(VulnerabilitySource::Osv));
         assert!(a.kev);
         assert!(a.epss);
+        assert_eq!(a.vex_in, [PathBuf::from("vendor.openvex.json")]);
         assert_eq!(a.fail_on_epss, Some(0.1));
         assert_eq!(a.fail_on_severity, Some(FailOnSeverity::High));
         assert_eq!(a.ignore_vuln, ["GHSA-1:not reachable"]);

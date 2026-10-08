@@ -320,6 +320,10 @@ pub struct VulnerabilityRow {
     /// The FIRST EPSS score, with `--epss`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub epss: Option<EpssCell>,
+    /// The `--vex-in` statement that applied, as `state (file)`, whether or not it cleared the
+    /// finding.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vex: Option<String>,
 }
 
 /// The EPSS facts a report row carries.
@@ -363,6 +367,10 @@ pub struct VulnerabilitySummary {
     pub affected_packages: usize,
     /// Findings accepted with `--ignore-vuln`, as `id (state): justification`.
     pub ignored: Vec<String>,
+    /// Open findings a `--vex-in` statement assessed without clearing them (`exploitable`,
+    /// `in_triage`), as `id (state, from file)`.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub vex_open: Vec<String>,
     /// Open findings in CISA's KEV catalog, as `id (CVE, due date)`.
     pub known_exploited: Vec<String>,
     /// Packages with no purl the vulnerability database can answer (conda-only identities).
@@ -722,8 +730,8 @@ impl Report {
                 let rows: Vec<VulnerabilityRow> = sbom
                     .vulnerabilities
                     .iter()
-                    .filter(|v| v.analysis.is_none())
-                    .chain(sbom.vulnerabilities.iter().filter(|v| v.analysis.is_some()))
+                    .filter(|v| v.is_open())
+                    .chain(sbom.vulnerabilities.iter().filter(|v| !v.is_open()))
                     .flat_map(|v| vulnerability_rows(v, sbom))
                     .collect();
                 report.vulnerability_summary = Some(summarize_vulnerabilities(&rows, sbom));
@@ -1292,6 +1300,7 @@ fn vulnerability_rows(vuln: &Vulnerability, sbom: &Sbom) -> Vec<VulnerabilityRow
         .iter()
         .filter_map(|r| r.score)
         .fold(None, |best: Option<f64>, s| Some(best.map_or(s, |b| b.max(s))));
+    let accepted = vuln.analysis.as_ref().filter(|_| !vuln.is_open());
     vuln.affects
         .iter()
         .map(|affected| {
@@ -1315,8 +1324,12 @@ fn vulnerability_rows(vuln: &Vulnerability, sbom: &Sbom) -> Vec<VulnerabilityRow
                         .map(|l| l.trim().to_string())
                 }),
                 url: vuln.url.clone(),
-                ignored: vuln.analysis.as_ref().map(|a| a.state.to_string()),
-                justification: vuln.analysis.as_ref().and_then(|a| a.detail.clone()),
+                ignored: accepted.map(|a| a.state.to_string()),
+                justification: accepted.and_then(|a| a.detail.clone()),
+                vex: vuln.analysis.as_ref().and_then(|a| {
+                    let source = a.source.as_ref()?;
+                    Some(format!("{} ({source})", a.state))
+                }),
                 kev: vuln.kev.as_ref().map(|k| KevCell {
                     cve_id: k.cve_id.clone(),
                     date_added: k.date_added.clone(),
@@ -1334,6 +1347,20 @@ fn vulnerability_rows(vuln: &Vulnerability, sbom: &Sbom) -> Vec<VulnerabilityRow
         .collect()
 }
 
+/// `id (state): detail`, with `, from <file>` after the state for a `--vex-in` statement.
+fn analysis_line(vuln: &Vulnerability) -> Option<String> {
+    let analysis = vuln.analysis.as_ref()?;
+    let from = analysis
+        .source
+        .as_ref()
+        .map(|source| format!(", from {source}"))
+        .unwrap_or_default();
+    Some(match &analysis.detail {
+        Some(detail) => format!("{} ({}{from}): {detail}", vuln.id, analysis.state),
+        None => format!("{} ({}{from})", vuln.id, analysis.state),
+    })
+}
+
 fn summarize_vulnerabilities(rows: &[VulnerabilityRow], sbom: &Sbom) -> VulnerabilitySummary {
     let mut by_severity = Vec::new();
     for severity in [
@@ -1347,7 +1374,7 @@ fn summarize_vulnerabilities(rows: &[VulnerabilityRow], sbom: &Sbom) -> Vulnerab
         let count = sbom
             .vulnerabilities
             .iter()
-            .filter(|v| v.analysis.is_none() && v.severity == severity)
+            .filter(|v| v.is_open() && v.severity == severity)
             .count();
         if count > 0 {
             by_severity.push((severity.name().to_string(), count));
@@ -1373,24 +1400,25 @@ fn summarize_vulnerabilities(rows: &[VulnerabilityRow], sbom: &Sbom) -> Vulnerab
     // empty table means "nothing was asked", which is a different answer from "nothing found".
     let queryable = sbom.packages.len() > without_identity.len();
     VulnerabilitySummary {
-        findings: sbom.vulnerabilities.iter().filter(|v| v.analysis.is_none()).count(),
+        findings: sbom.vulnerabilities.iter().filter(|v| v.is_open()).count(),
         by_severity,
         affected_packages,
         ignored: sbom
             .vulnerabilities
             .iter()
-            .filter_map(|v| {
-                let analysis = v.analysis.as_ref()?;
-                Some(match &analysis.detail {
-                    Some(detail) => format!("{} ({}): {detail}", v.id, analysis.state),
-                    None => format!("{} ({})", v.id, analysis.state),
-                })
-            })
+            .filter(|v| !v.is_open())
+            .filter_map(analysis_line)
+            .collect(),
+        vex_open: sbom
+            .vulnerabilities
+            .iter()
+            .filter(|v| v.is_open())
+            .filter_map(analysis_line)
             .collect(),
         known_exploited: sbom
             .vulnerabilities
             .iter()
-            .filter(|v| v.analysis.is_none())
+            .filter(|v| v.is_open())
             .filter_map(|v| {
                 let kev = v.kev.as_ref()?;
                 Some(match &kev.due_date {
@@ -2066,6 +2094,12 @@ fn render_vulnerability_summary(
     if !summary.ignored.is_empty() {
         writeln!(out, "Ignored ({}):", summary.ignored.len())?;
         for line in &summary.ignored {
+            writeln!(out, "  {line}")?;
+        }
+    }
+    if !summary.vex_open.is_empty() {
+        writeln!(out, "Assessed in a VEX, still open ({}):", summary.vex_open.len())?;
+        for line in &summary.vex_open {
             writeln!(out, "  {line}")?;
         }
     }
@@ -3073,6 +3107,7 @@ mod tests {
                     justification: None,
                     response: vec![],
                     detail: Some("not the same zlib".into()),
+                    source: None,
                 }),
                 kev: None,
                 epss: None,
@@ -3141,6 +3176,35 @@ mod tests {
             ReportFormat::Csv,
             &[vulnerable_sbom()]
         ));
+    }
+
+    #[test]
+    fn a_vex_statement_that_does_not_clear_a_finding_leaves_it_open_and_listed() {
+        let mut sbom = vulnerable_sbom();
+        sbom.vulnerabilities[0].analysis = Some(crate::model::Analysis {
+            state: "in_triage",
+            justification: None,
+            response: vec![],
+            detail: None,
+            source: Some("vendor.cdx.json".into()),
+        });
+        let report = Report::new(ReportKind::Vulnerabilities, &sbom);
+        let summary = report.vulnerability_summary.as_ref().unwrap();
+        assert_eq!(summary.findings, 1, "still open");
+        assert_eq!(
+            summary.vex_open,
+            ["GHSA-q2q7-5pp4-w6pg (in_triage, from vendor.cdx.json)"]
+        );
+        let row = &report.vulnerabilities.as_ref().unwrap()[0];
+        assert_eq!(row.ignored, None);
+        assert_eq!(row.vex.as_deref(), Some("in_triage (vendor.cdx.json)"));
+        let text = render_string_from(&[report], ReportFormat::Table);
+        assert!(
+            text.contains(
+                "Assessed in a VEX, still open (1):\n  GHSA-q2q7-5pp4-w6pg (in_triage, from vendor.cdx.json)"
+            ),
+            "{text}"
+        );
     }
 
     #[test]

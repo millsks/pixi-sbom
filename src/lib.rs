@@ -109,6 +109,7 @@ pub mod style;
 pub mod timings;
 pub mod unlocked;
 pub mod uv;
+pub mod vexin;
 #[doc(hidden)]
 pub mod vulnpolicy;
 #[doc(hidden)]

@@ -261,6 +261,23 @@ pub struct Analysis {
     pub response: Vec<&'static str>,
     /// Free-text justification.
     pub detail: Option<String>,
+    /// The `--vex-in` file the statement came from; `None` for `--ignore-vuln`.
+    pub source: Option<String>,
+}
+
+/// The analysis states that take a finding out of the gate when a `--vex-in` statement gives
+/// them. An `--ignore-vuln` entry is a deliberate acceptance whatever its state.
+pub const SUPPRESSING_STATES: [&str; 4] = ["not_affected", "false_positive", "resolved", "resolved_with_pedigree"];
+
+impl Vulnerability {
+    /// Whether the finding still counts: no analysis, or a `--vex-in` statement that does not
+    /// clear it (`exploitable`, `in_triage`).
+    pub fn is_open(&self) -> bool {
+        match &self.analysis {
+            None => true,
+            Some(analysis) => analysis.source.is_some() && !SUPPRESSING_STATES.contains(&analysis.state),
+        }
+    }
 }
 
 impl Sbom {
