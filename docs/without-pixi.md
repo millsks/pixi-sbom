@@ -29,7 +29,8 @@ by a test (`tests/fixtures/lockfile-routes`).
 | Poetry | `poetry lock` | `poetry.lock` |
 | PDM | `pdm lock` | `pdm.lock` |
 | pip, with a `requirements.txt` | `pip lock -r requirements.txt -o pylock.toml` (pip 25.1 and later; experimental there) | `pylock.toml` |
-| any `requirements.txt`, pip-tools' pinned one with hashes included | `uv pip compile requirements.txt -o pylock.toml` | `pylock.toml` |
+| pip-tools, or any fully pinned `requirements.txt` (`name==version` on every line) | nothing: `pixi-sbom --lockfile requirements.txt` reads it directly | the requirements file |
+| a `requirements.txt` with ranges | `uv pip compile requirements.txt -o pylock.toml`, or `pip-compile --generate-hashes` | `pylock.toml`, or the pinned file |
 | a Pipenv project (dependencies added with `pipenv install`, so they are in `Pipfile.lock`) | `pipenv requirements > requirements.txt`, then `uv pip compile requirements.txt -o pylock.toml` | `pylock.toml` |
 | a venv you installed into with `pip install` | nothing: `pixi-sbom --prefix .venv` | the installed environment |
 | a conda environment | `conda list --explicit --md5 > explicit.txt` in it, or `conda list -p <env> --explicit --md5` | the explicit spec |
@@ -43,14 +44,14 @@ then the lock. `pip lock` locks for the interpreter that runs it, so its `pylock
 
 ### Tools you need
 
-Only the tool for your route, and note that the `requirements.txt` and Pipenv routes end in `uv pip compile`, so they
-need **uv** as well. Every tool here is on conda-forge (`pixi global install <tool>`, or `conda install -c conda-forge
-<tool>`); the Python ones are also on PyPI (`uv tool install <tool>`, `pipx install <tool>`). "Tested with" is the
-version each command above was run with.
+Only the tool for your route, and note that the routes for a `requirements.txt` with ranges and for Pipenv end in `uv
+pip compile`, so they need **uv** as well; a fully pinned one (pip-tools') is read directly. Every tool here is on
+conda-forge (`pixi global install <tool>`, or `conda install -c conda-forge <tool>`); the Python ones are also on PyPI
+(`uv tool install <tool>`, `pipx install <tool>`). "Tested with" is the version each command above was run with.
 
 | Tool | Needed for | Tested with |
 |---|---|---|
-| [uv](https://docs.astral.sh/uv/) | `uv lock`; `uv pip compile` in the `requirements.txt`, pip-tools and Pipenv routes | 0.12.20 |
+| [uv](https://docs.astral.sh/uv/) | `uv lock`; `uv pip compile` in the routes for a `requirements.txt` with ranges and for Pipenv | 0.12.20 |
 | [Poetry](https://python-poetry.org/) | `poetry lock` | 2.0.1 |
 | [PDM](https://pdm-project.org/) | `pdm lock` | 2.26.9 |
 | [pip](https://pip.pypa.io/) | `pip lock`, which needs pip 25.1 or later (`python -m pip install -U pip`) | 26.2.1 |
@@ -94,6 +95,7 @@ pixi-sbom --prefix .venv --against uv.lock --report diff
 | `poetry.lock` | the packages, the graph, groups and extras; file names and hashes, not URLs | the packages for the platform and the graph; no download URL, so nothing that needs the wheel ([Reading poetry.lock](cli.md#reading-poetrylock)) |
 | `pdm.lock` | the packages, the graph, groups; file names and hashes | as for Poetry ([Reading pdm.lock](cli.md#reading-pdmlock)) |
 | `conda-lock.yml` | conda and pip packages for several platforms, with the graph and categories | conda and PyPI packages for one platform (or `--all-platforms`), `scope` from categories ([Reading conda-lock.yml](cli.md#reading-conda-lockyml)) |
+| a pinned `requirements.txt` (pip-compile, `uv pip compile`) | exact versions, hashes, markers, and pip-compile's `# via` comments | the packages for one platform, edges from `# via`, what `# via -r` names as declared ([Reading a pinned requirements.txt](cli.md#reading-a-pinned-requirementstxt)) |
 | explicit spec (`conda list --explicit --md5`) | exact conda package URLs and hashes for one platform | the conda packages, without a graph ([Reading an explicit spec file](cli.md#reading-an-explicit-spec-file)) |
 | `--prefix` on a venv or a Python installation | what is installed: each `dist-info`, `REQUESTED`, `direct_url.json` | the installed packages, what was asked for by name as direct, the interpreter version ([Describing an installed environment](cli.md#describing-an-installed-environment)) |
 
@@ -138,6 +140,7 @@ critical, KEV-listed advisory, an MIT license and a 4.2 scorecard, and yanks `si
 | pylock.toml | 0: 27 rows | 0: 27 rows, 25 with license | 0: 25 rows | 0: 27 unchanged | 0: 25 rows | 0: 27 rows | 0: 27 rows | 0: 27 rows, 25 with score | 0 | 3 | 4 | 4 | 7 | 9 |
 | poetry.lock | 0: 27 rows | 0: 27 rows, 25 with license | 0: 25 rows | 0: 27 unchanged | 0: 25 rows | 0: 27 rows | 0: 12 rows | 0: 27 rows, 25 with score | 0 | 3 | 4 | 4 | 7 | 9 |
 | pdm.lock | 0: 27 rows | 0: 27 rows, 25 with license | 0: 25 rows | 0: 27 unchanged | 0: 25 rows | 0: 27 rows | 0: 12 rows | 0: 27 rows, 25 with score | 0 | 3 | 4 | 4 | 7 | 9 |
+| requirements.txt (pip-compile) | 0: 9 rows | 0: 9 rows, 9 with license | 0: 9 rows | 0: 9 unchanged | 0: 9 rows | 0: 9 rows | 0: 2 rows | 0: 9 rows, 9 with score | 0 | 3 | 4 | 4 | 0 | 9 |
 | conda-lock.yml | 0: 66 rows | 0: 66 rows, 1 with license | 0: 1 rows | 0: 66 unchanged | 0: 66 rows | 0: 1 rows | 0: 1 rows | 0: 66 rows, 1 with score | 0 | 3 | 4 | 4 | 0 | 9 |
 | explicit spec | 0: 65 rows | 0: 65 rows, 0 with license | 0: 0 rows | 0: 65 unchanged | 0: 65 rows | 0: 0 rows | 0: 58 rows | 0: 65 rows, 0 with score | 0 | 0 | 0 | 0 | 0 | 0 |
 | --prefix (conda) | 0: 4 rows | 0: 4 rows, 4 with license | 0: 1 rows | 0: 4 unchanged | 0: 4 rows | 0: 1 rows | 0: 0 rows | 0: 4 rows, 1 with score | 0 | 3 | 4 | 4 | 7 | 9 |

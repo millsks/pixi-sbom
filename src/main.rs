@@ -7,8 +7,8 @@
 use pixi_sbom::{
     auditable, batch, cache, cli, concurrency, condaarchive, condalock, config, diff, discover, doctor, embedded,
     explain, explicit, filter, format, fromsbom, http, imports, kev, license, lock, manifest, mapping, mirror, model,
-    osv, outdated, pdm, phantom, pkgcache, poetry, policy, prefix, progress, pylock, pypi, report, scorecard, style,
-    timings, uv, vulnpolicy, wheel,
+    osv, outdated, pdm, phantom, pkgcache, poetry, policy, prefix, progress, pylock, pypi, report, requirements,
+    scorecard, style, timings, uv, vulnpolicy, wheel,
 };
 
 /// The system allocator on macOS and Windows is slow under the many small allocations a
@@ -227,6 +227,14 @@ fn main() -> Result<()> {
             let targets = match &input {
                 Input::Lock { lock, .. } => resolve_targets(&args, lock, &lockfile, None)?,
                 Input::CondaLock { lock, .. } => condalock_targets(&args, lock, &lockfile),
+                Input::Requirements { .. } => {
+                    refuse_workspace_flags(&args, "a requirements file");
+                    vec![Target {
+                        environment: "default".to_string(),
+                        platform: args.platform.clone(),
+                        output: discover::resolve_output(args.output.as_deref(), &lockfile, args.format),
+                    }]
+                }
                 Input::Explicit { .. } => {
                     refuse_workspace_flags(&args, "an explicit spec file");
                     vec![Target {
@@ -1670,6 +1678,16 @@ fn read_input(lockfile: &Path) -> Result<Input> {
             manifest: manifest(),
         });
     }
+    // A pinned requirements file (pip-compile's), by its name and its plain requirement lines.
+    if requirements::is_requirements(lockfile) {
+        let requirements::Loaded { requirements, contents } =
+            timings::time(timings::Phase::Input, || requirements::load(lockfile))?;
+        return Ok(Input::Requirements {
+            requirements,
+            contents,
+            manifest: manifest(),
+        });
+    }
     let lock::LoadedLock { lock, contents } = timings::time(timings::Phase::Input, || lock::load(lockfile))?;
     Ok(Input::Lock {
         lock,
@@ -1728,6 +1746,13 @@ enum Input {
         contents: String,
         manifest: manifest::Manifest,
     },
+    /// A fully pinned requirements file, with its text and the manifest beside it (for the
+    /// project's name; the file's own `# via -r` lines say what it declared).
+    Requirements {
+        requirements: requirements::Requirements,
+        contents: String,
+        manifest: manifest::Manifest,
+    },
     /// An explicit conda spec file (`@EXPLICIT`), with its text and the manifest beside it.
     Explicit {
         explicit: explicit::Explicit,
@@ -1782,6 +1807,7 @@ impl Input {
         match self {
             Input::Lock { manifest, .. }
             | Input::Explicit { manifest, .. }
+            | Input::Requirements { manifest, .. }
             | Input::CondaLock { manifest, .. }
             | Input::Pdm { manifest, .. }
             | Input::Poetry { manifest, .. }
@@ -1888,6 +1914,19 @@ fn model_for(workspace: &Workspace, environment: &str, platform: Option<&str>) -
             )?;
             // What the workspace asked for itself, as opposed to what came along.
             manifest.apply(&mut sbom);
+            (sbom, contents.clone())
+        }
+        Input::Requirements {
+            requirements,
+            contents,
+            manifest,
+        } => {
+            let sbom = requirements::build_sbom(
+                requirements,
+                platform,
+                manifest.root.clone(),
+                &discover::lockfile_name(lockfile),
+            )?;
             (sbom, contents.clone())
         }
         Input::Explicit {

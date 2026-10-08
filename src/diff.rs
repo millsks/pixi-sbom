@@ -70,6 +70,7 @@ fn is_other_lockfile(path: &Path) -> bool {
         || crate::pdm::is_pdm_lock_name(path)
         || crate::condalock::is_conda_lock_name(path)
         || crate::explicit::is_explicit(path)
+        || crate::requirements::is_requirements(path)
 }
 
 /// Decide what `--against` points at, and read what can be read once. A lockfile and a prefix

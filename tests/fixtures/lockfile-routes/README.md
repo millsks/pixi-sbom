@@ -7,6 +7,7 @@ lockfile" table in `docs/without-pixi.md`. `tests/cli.rs` reads each one.
 |---|---|
 | `pylock.pip-tools.toml` | `pip-compile --generate-hashes requirements.in -o requirements.txt`, then `uv pip compile requirements.txt -o pylock.toml` |
 | `pylock.pipenv.toml` | `pipenv install requests==2.32.3`, `pipenv requirements > requirements.txt`, then `uv pip compile requirements.txt -o pylock.toml` |
+| `requirements.txt` | `pip-compile --generate-hashes --strip-extras requirements.in -o requirements.txt` (pip-tools 7.6), read directly (#393) |
 | `pylock.pip.toml` | `pip lock -r requirements.in -o pylock.toml` (pip 26) |
 | `explicit-micromamba.txt` | `micromamba env export -p <env> --explicit --md5` (micromamba 1.5.12; 2.9.0 writes the same packages) |
 | `explicit-conda.txt` | `conda list -p <env> --explicit --md5`, on the same environment |

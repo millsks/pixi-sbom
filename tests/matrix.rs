@@ -281,6 +281,10 @@ fn inputs(work: &Path) -> Vec<Input> {
             args: lockfile(examples.join("pdm/01-django/pdm.lock")),
         },
         Input {
+            name: "requirements.txt (pip-compile)",
+            args: lockfile(fixtures.join("lockfile-routes/requirements.txt")),
+        },
+        Input {
             name: "conda-lock.yml",
             args: lockfile(examples.join("conda-lock/01-django/conda-lock.yml")),
         },

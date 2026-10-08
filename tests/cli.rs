@@ -8154,6 +8154,7 @@ fn what_each_common_setup_writes_is_read() {
     let routes = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/lockfile-routes");
     for (file, platform, expect) in [
         ("pylock.pip-tools.toml", "linux-64", "requests"),
+        ("requirements.txt", "osx-arm64", "requests"),
         ("pylock.pipenv.toml", "linux-64", "requests"),
         ("pylock.pip.toml", "osx-arm64", "requests"),
         ("explicit-micromamba.txt", "osx-arm64", "requests"),

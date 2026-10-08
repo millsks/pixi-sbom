@@ -95,6 +95,7 @@ pub mod pypi;
 pub mod pyversion;
 #[doc(hidden)]
 pub mod report;
+pub mod requirements;
 #[doc(hidden)]
 pub mod scope;
 pub mod scorecard;
