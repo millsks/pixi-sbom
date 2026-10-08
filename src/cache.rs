@@ -248,9 +248,15 @@ fn how_old(age: Duration) -> String {
 /// What one service's cache did this run, in the words the timings table uses. `None` when that
 /// cache was never consulted, so a phase that did no caching says nothing rather than `0 cached`.
 pub fn describe(service: Service) -> Option<String> {
-    let counts = tally()
-        .into_iter()
-        .find_map(|(found, counts)| (found == service).then_some(counts))?;
+    describe_from(&tally(), service)
+}
+
+/// [`describe`] for a given tally, which is what makes it testable: the real one is shared by
+/// every test in the process, any of which may have touched any service.
+fn describe_from(tally: &[(Service, Counts)], service: Service) -> Option<String> {
+    let counts = tally
+        .iter()
+        .find_map(|(found, counts)| (*found == service).then_some(counts))?;
     Some(format!("{} fetched, {} cached", counts.misses, counts.hits))
 }
 
@@ -286,8 +292,23 @@ mod tests {
     #[test]
     fn a_cache_that_was_never_consulted_describes_as_nothing() {
         // `0 fetched, 0 cached` on a phase that does no caching would be a statement about work
-        // that never happened; saying nothing is the honest row.
-        assert_eq!(super::describe(super::Service::Kev), None);
+        // that never happened; saying nothing is the honest row. On a tally of its own: the
+        // process-wide one is shared with every test that touches a cache, so asserting that a
+        // service is absent from it raced with them (stale_data_is_remembered_with_the_worst_age).
+        assert_eq!(super::describe_from(&[], super::Service::Kev), None);
+        let used = super::Counts {
+            hits: 2,
+            misses: 1,
+            ..super::Counts::default()
+        };
+        assert_eq!(
+            super::describe_from(&[(super::Service::Kev, used)], super::Service::Kev).as_deref(),
+            Some("1 fetched, 2 cached")
+        );
+        assert_eq!(
+            super::describe_from(&[(super::Service::Osv, used)], super::Service::Kev),
+            None
+        );
     }
 
     use super::*;
