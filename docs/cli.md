@@ -48,6 +48,7 @@ With no options this means:
 | `--scorecard` | off | With `--fetch-licenses`: ask the OpenSSF Scorecard service how each package's repository is maintained and record the score in the document. |
 | `--scorecard-min <N>` | `5` | With `--scorecard`: the score a package or a check has to reach to be left alone. |
 | `--fail-on-scorecard <N>` | | With `--scorecard`: exit **9** when a scored package is below this. Unscored packages never fail. |
+| `--min-quality <N>` | | Exit **10** (document written first) when the document's quality score, out of 100, is below this; see [How complete the document is](#how-complete-the-document-is). Most useful with `--from-sbom`. |
 | `--fail-on-yanked` | off | With `--fetch-licenses`: exit **7** after writing the document when any PyPI package is a yanked release (PEP 592). |
 | `--vulnerabilities <osv>` | off | Look up known vulnerabilities of every package with a purl OSV can answer and record them in the document (see below). |
 | `--kev` | off | With `--vulnerabilities`: mark findings whose CVE alias is in CISA's Known Exploited Vulnerabilities catalog (downloaded once a day). They are rated `critical`, sorted first, and carry the catalog's dates and required action. |
@@ -75,7 +76,7 @@ and always will be** — they are hidden from `--help` so there is one name to l
 `--pypi-licenses` likewise still works as an alias of `--fetch-licenses`, with a warning, as it has since 0.4.0.
 Nothing in this table is scheduled for removal; dropping any of it would be a major version with its own notice.
 [What 1.0 freezes](stability.md) is the full contract.
-| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom\|scorecard>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
+| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom\|scorecard\|quality>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`. |
 | `--tree` | off | With `--report packages`: draw the dependency graph from the root downward instead of a flat list. |
 | `--depth <N>` | unlimited | With `--tree`: how deep to go (`0` shows what the root depends on and nothing below). |
 | `--group-by license` | | With `--report licenses`: one section per license instead of one row per package. |
@@ -1081,6 +1082,40 @@ weakest checks, a table of how many fall in each band, and the ones below the th
 or one with no repository to ask about, is reported as unknown and never fails the gate: the answer is missing,
 not bad.
 
+## How complete the document is
+
+An SBOM can pass every gate by leaving things out: a vendor document without purls has no advisories to match, one
+without a graph hides what pulled a package in. Before gating on somebody else's document, grade it:
+
+```sh
+pixi sbom --from-sbom vendor.cdx.json --report quality
+pixi sbom --from-sbom vendor.cdx.json --min-quality 70 --vulnerabilities osv --fail-on-severity high --output -
+```
+
+`--report quality` scores nine elements out of 100: the seven NTIA minimum elements (supplier, name, version,
+unique identifier, dependency relationships, author, timestamp) and license and hash coverage. A per-package element
+is the share of packages that have it: a purl for the unique identifier, a place in the dependency graph (depending
+on something, or depended on, past the root's own edges) for the relationships. The author is the document's named
+authors (the generating tool is recorded separately and does not count); the timestamp is always there, since the
+document is written now. The overall score is the mean of the nine, and the NTIA score the mean of the seven.
+
+```text
+Element                   Score  Covers                                                          NTIA minimum
+-------------------------------------------------------------------------------------------------------------
+supplier                  0      0 of 15 packages name a supplier                                yes
+unique identifier         60     9 of 15 packages have a purl                                    yes
+dependency relationships  53     8 of 15 packages are in the dependency graph                    yes
+hash                      0      0 of 15 packages have a hash                                    -
+...
+Quality: 51 of 100 for 15 packages (NTIA minimum elements: 59 of 100)
+```
+
+That is a document syft wrote for a venv; a `pixi.lock` document scores 86, losing only the author it was never
+given and the licenses of its six PyPI packages, which a lockfile does not record and `--fetch-licenses` adds. The grade is of the document as this run would write it, so
+`--fetch-licenses` and the other enrichment count. `--min-quality <N>` fails the run with exit 10 below `N`, after
+writing the document, and names the weakest elements on stderr. It applies to every input, and is also the
+configuration key `min-quality`.
+
 ## What is imported but never declared
 
 <p align="center">
@@ -1955,6 +1990,7 @@ pixi sbom --all-environments --all-platforms --output sboms/
 | 7 | `--fail-on-yanked` found a yanked release; the documents were written and the releases listed on stderr. |
 | 8 | `--fail-on-phantom` found an import the manifest never declared; the report was printed and the packages listed on stderr. |
 | 9 | `--fail-on-scorecard` found a scored repository below the threshold; the document was written and the packages listed on stderr. |
+| 10 | `--min-quality` found the document's quality score below the threshold; the document was written and the weakest elements listed on stderr. |
 
 Several gates can fail in one run. Each prints its own list, and the run then says which of them fired and which
 one chose the exit code, because in CI the code is the headline and the log is long:
@@ -1965,7 +2001,7 @@ Exiting 3 (license policy); the others would have been 4.
 ```
 
 The precedence is the order of the table above: the license policy first, then vulnerabilities, yanked releases,
-phantom imports, the comparison, and scorecards last.
+phantom imports, the comparison, scorecards, and quality last.
 | 2 | Command-line usage error (unknown option, conflicting options such as `--output -` with `--all-environments` or `--all-platforms`, or a `--spec-version` of the other format, or a `--allow-license` / `--deny-license` value that is not an SPDX identifier). |
 
 Runtime diagnostics carry a stable code you can grep for in CI logs:

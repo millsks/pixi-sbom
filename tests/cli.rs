@@ -8245,3 +8245,72 @@ fn an_unlocked_input_is_pointed_to_the_command_that_locks_it() {
         "{stderr}"
     );
 }
+
+#[test]
+fn the_quality_report_grades_a_complete_and_a_sparse_document() {
+    // #336: a pixi.lock document and a document syft wrote, graded the same way; the gate is
+    // exit 10, named in the gate summary, and the document is written first.
+    let work = tempfile::tempdir().unwrap();
+    let run = |dir: &Path, args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir)
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+            .env("NO_COLOR", "1")
+            .env("COLUMNS", "160")
+            .args(args)
+            .output()
+            .unwrap()
+    };
+    let complete = workspace("with-pypi");
+    let output = run(complete.path(), &["-e", "web", "-p", "linux-64", "--report", "quality"]);
+    assert!(output.status.success());
+    insta::assert_snapshot!("quality_complete", String::from_utf8(output.stdout).unwrap());
+
+    let syft = tests_dir().join("fixtures/syft/app.cdx.json");
+    let output = run(
+        work.path(),
+        &["--from-sbom", syft.to_str().unwrap(), "--report", "quality"],
+    );
+    assert!(output.status.success());
+    insta::assert_snapshot!("quality_sparse", String::from_utf8(output.stdout).unwrap());
+
+    let output = run(
+        work.path(),
+        &[
+            "--from-sbom",
+            syft.to_str().unwrap(),
+            "--report",
+            "quality",
+            "--report-format",
+            "json",
+        ],
+    );
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(report["report"], "quality");
+    assert_eq!(report["summary"]["overall"], 51);
+    assert_eq!(report["quality"].as_array().unwrap().len(), 9);
+
+    let document = work.path().join("out.cdx.json");
+    let output = run(
+        work.path(),
+        &[
+            "--from-sbom",
+            syft.to_str().unwrap(),
+            "--min-quality",
+            "80",
+            "--output",
+            document.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(output.status.code(), Some(10));
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("SBOM quality below 80"), "{stderr}");
+    assert!(stderr.contains("Gate failed: quality (1). Exiting 10."), "{stderr}");
+    assert!(document.is_file(), "the document is written before the gate fails");
+    let output = run(
+        complete.path(),
+        &["-e", "web", "-p", "linux-64", "--min-quality", "80", "--output", "-"],
+    );
+    assert!(output.status.success(), "86 passes 80");
+}

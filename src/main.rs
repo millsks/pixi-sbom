@@ -337,6 +337,7 @@ fn main() -> Result<()> {
     let mut phantoms: Vec<(String, String, String)> = Vec::new();
     let mut diff_hits: Vec<(String, String, String)> = Vec::new();
     let mut low_scores: Vec<(String, String, String)> = Vec::new();
+    let mut low_quality: Vec<(String, String, String)> = Vec::new();
     let assume_used = parse_globs(&args.assume_used, "--assume-used");
     let explain_patterns = parse_globs(&args.explain, "--explain");
     let explain_context = explain::Context {
@@ -532,6 +533,22 @@ fn main() -> Result<()> {
                     .into_iter()
                     .map(|v| (sbom.environment.clone(), sbom.platform.clone(), v)),
             );
+        }
+        // The quality gate grades the document as it stands after the enrichment that fills it in
+        // (licenses, hashes, repositories); before the reports that end this target's turn early.
+        if let Some(min) = args.min_quality {
+            let grade = pixi_sbom::quality::assess(&sbom);
+            if grade.overall < min {
+                low_quality.push((
+                    sbom.environment.clone(),
+                    sbom.platform.clone(),
+                    format!(
+                        "{} of 100, weakest: {}",
+                        grade.overall,
+                        pixi_sbom::quality::weakest(&grade, 3).join(", ")
+                    ),
+                ));
+            }
         }
         if args.report == Some(report::ReportKind::Outdated) {
             let cache_dir = mapping::cache_dir();
@@ -811,6 +828,19 @@ fn main() -> Result<()> {
         }
         let _ = stderr.flush();
     }
+    if !low_quality.is_empty() {
+        let mut stderr = std::io::stderr().lock();
+        let min = args.min_quality.unwrap_or_default();
+        let _ = writeln!(stderr, "SBOM quality below {min} (--report quality says why):");
+        for (environment, platform, line) in &low_quality {
+            let _ = if targets.len() > 1 {
+                writeln!(stderr, "  [{environment}/{platform}] {line}")
+            } else {
+                writeln!(stderr, "  {line}")
+            };
+        }
+        let _ = stderr.flush();
+    }
     if !low_scores.is_empty() {
         let mut stderr = std::io::stderr().lock();
         let min = args.fail_on_scorecard.unwrap_or_default();
@@ -890,6 +920,7 @@ fn main() -> Result<()> {
         ),
         Gate::new("the comparison", diff_hits.len(), diff::DIFF_EXIT_CODE),
         Gate::new("scorecards", low_scores.len(), SCORECARD_EXIT_CODE),
+        Gate::new("quality", low_quality.len(), pixi_sbom::quality::QUALITY_EXIT_CODE),
     ];
     let failed: Vec<&Gate> = failed.iter().filter(|gate| gate.count > 0).collect();
     if let Some(first) = failed.first() {

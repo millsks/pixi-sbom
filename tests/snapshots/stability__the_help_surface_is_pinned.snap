@@ -60,6 +60,7 @@ expression: "surface.join(\"\\n\")"
       --scorecard
       --scorecard-min <N>
           [default: 5]
+      --min-quality <N>
       --fail-on-scorecard <N>
       --fail-on-yanked
       --vulnerabilities <SOURCE>
@@ -97,6 +98,7 @@ expression: "surface.join(\"\\n\")"
           - python:          Python: which packages constrain the interpreter version
           - phantom:         Phantom: imports and declarations that do not line up
           - scorecard:       Scorecard: how each package's repository is maintained
+          - quality:         Quality: how complete the document is, element by element (the NTIA minimum elements, license and hash coverage), with an overall score out of 100
       --explain <PACKAGE>
       --report-format <REPORT_FORMAT>
           - table:    Aligned columns for a terminal

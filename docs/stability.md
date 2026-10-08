@@ -14,7 +14,7 @@ this page fails the build, and so does a line on this page for something that do
 
 ## Command-line flags
 
-All 68. Their meanings are in [cli.md](cli.md); what this page promises is that none of them
+All 69. Their meanings are in [cli.md](cli.md); what this page promises is that none of them
 disappears or changes shape before 2.0.
 
 | `--against` | `--all-environments` | `--all-platforms` | `--allow-license` |
@@ -26,14 +26,15 @@ disappears or changes shape before 2.0.
 | `--fetch-licenses` | `--format` | `--from-sbom` | `--group-by` |
 | `--help` | `--ignore-license` | `--ignore-vuln` | `--include` |
 | `--infer-extras` | `--keep-orphans` | `--kev` | `--license-texts` |
-| `--lockfile` | `--log-format` | `--no-cache` | `--no-config` |
-| `--outdated-min` | `--output` | `--platform` | `--prefix` |
-| `--primary-purl` | `--pypi-mapping` | `--pypi-mapping-file` | `--quiet` |
-| `--refresh` | `--report` | `--report-format` | `--require-license` |
-| `--root-name` | `--root-version` | `--scan` | `--scan-depth` |
-| `--scorecard` | `--scorecard-min` | `--source` | `--spec-version` |
-| `--timings` | `--tree` | `--verbose` | `--version` |
-| `--version-details` | `--vex` | `--vex-open` | `--vulnerabilities` |
+| `--lockfile` | `--log-format` | `--min-quality` | `--no-cache` |
+| `--no-config` | `--outdated-min` | `--output` | `--platform` |
+| `--prefix` | `--primary-purl` | `--pypi-mapping` | `--pypi-mapping-file` |
+| `--quiet` | `--refresh` | `--report` | `--report-format` |
+| `--require-license` | `--root-name` | `--root-version` | `--scan` |
+| `--scan-depth` | `--scorecard` | `--scorecard-min` | `--source` |
+| `--spec-version` | `--timings` | `--tree` | `--verbose` |
+| `--version` | `--version-details` | `--vex` | `--vex-open` |
+| `--vulnerabilities` |  |  |  |
 
 ### Spellings that answer to an older name
 
@@ -69,13 +70,14 @@ the same way, recognised by a fixed vocabulary, so an existing entry never chang
 | 7 | `--fail-on-yanked` found a yanked release. |
 | 8 | `--fail-on-phantom` found an undeclared import. |
 | 9 | `--fail-on-scorecard` found a repository below the threshold. |
+| 10 | `--min-quality` found the document's quality score below the threshold. |
 
 Every gate above 2 writes its document or report first and lists what tripped it on stderr, so a
 failing gate still leaves you the artifact.
 
 **5 is deliberately unused.** It has never been assigned — not in any release — and it stays free
 rather than being filled by the next gate, so that a script testing for a specific code is never
-surprised by a number that used to mean nothing. A future gate takes 10 and upward.
+surprised by a number that used to mean nothing. Gates take 10 and upward: `--min-quality` is 10, and the next one takes 11.
 
 ## Configuration keys
 
@@ -109,6 +111,7 @@ stays supported.
 | `ignore-vuln` | `ignore-license` | `scorecard` | `scorecard-min` |
 | `fail-on-scorecard` | `fail-on-diff` | `source` | `assume-used` |
 | `fail-on-phantom` | `conda-index-kind` | `concurrency` | `infer-extras` |
+| `min-quality` |  |  |  |
 
 An unknown key is an error, not a warning, and the diagnostic lists every key that is accepted — so
 a typo cannot pass silently and you are never left guessing at the spelling.
@@ -176,7 +179,8 @@ so the set grows when OpenSSF adds a check. The prefix is frozen; the suffixes a
 ## Report JSON
 
 `--report <kind> --report-format json` writes an object with one key named after the report —
-`packages`, `licenses`, `vulnerabilities`, `diff`, `outdated`, `python`, `phantom`, `scorecard` —
+`packages`, `licenses`, `vulnerabilities`, `diff`, `outdated`, `python`, `phantom`, `scorecard`,
+`quality` —
 holding an array of rows. Row field names are frozen; **row order is not**, except where the
 report documents an order (worst-first for vulnerabilities).
 

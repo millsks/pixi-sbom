@@ -91,6 +91,7 @@ pub struct Config {
     pub scorecard: Option<bool>,
     pub scorecard_min: Option<f64>,
     pub fail_on_scorecard: Option<f64>,
+    pub min_quality: Option<u8>,
     pub fail_on_diff: Option<Vec<String>>,
     pub source: Option<Vec<PathBuf>>,
     pub assume_used: Option<Vec<String>>,
@@ -417,6 +418,12 @@ pub fn apply(loaded: &Loaded, args: &mut Args, matches: &ArgMatches) -> Result<(
         note!("fail_on_scorecard");
         if !on_cli(matches, "fail_on_scorecard") {
             args.fail_on_scorecard = Some(min);
+        }
+    }
+    if let Some(min) = config.min_quality {
+        note!("min_quality");
+        if !on_cli(matches, "min_quality") {
+            args.min_quality = Some(min.min(100));
         }
     }
     set!(fail_on_yanked, "fail_on_yanked", config.fail_on_yanked);

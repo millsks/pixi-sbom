@@ -37,6 +37,9 @@ pub enum ReportKind {
     Phantom,
     /// Scorecard: how each package's repository is maintained.
     Scorecard,
+    /// Quality: how complete the document is, element by element (the NTIA minimum elements,
+    /// license and hash coverage), with an overall score out of 100.
+    Quality,
     /// Explain: every fact about the packages `--explain` names and where each one came from.
     /// Not a `--report` value: it is reached through `--explain <PACKAGE>` alone.
     #[value(skip)]
@@ -278,6 +281,16 @@ pub struct OutdatedSummary {
     pub unavailable: Vec<String>,
 }
 
+/// The quality report's totals.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct QualitySummary {
+    /// The mean of every element, out of 100.
+    pub overall: u8,
+    /// The mean of the NTIA minimum elements alone.
+    pub ntia: u8,
+    pub packages: usize,
+}
+
 /// One finding for one affected package, as the vulnerabilities report sees it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct VulnerabilityRow {
@@ -385,6 +398,11 @@ pub struct Report {
     pub scorecard: Option<Vec<ScorecardRow>>,
     #[serde(rename = "summary", skip_serializing_if = "Option::is_none")]
     pub scorecard_summary: Option<ScorecardSummary>,
+    /// Rows of the quality report: one per graded element.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quality: Option<Vec<crate::quality::Element>>,
+    #[serde(rename = "summary", skip_serializing_if = "Option::is_none")]
+    pub quality_summary: Option<QualitySummary>,
     /// Rows of the phantom report.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phantom: Option<Vec<PhantomRow>>,
@@ -621,6 +639,7 @@ impl Report {
                 ReportKind::Python => "python",
                 ReportKind::Phantom => "phantom",
                 ReportKind::Scorecard => "scorecard",
+                ReportKind::Quality => "quality",
                 ReportKind::Explain => "explain",
             },
             workspace: sbom.root.name.clone(),
@@ -643,6 +662,8 @@ impl Report {
             phantom_summary: None,
             scorecard: None,
             scorecard_summary: None,
+            quality: None,
+            quality_summary: None,
             explain: None,
             explain_summary: None,
             tree: false,
@@ -703,6 +724,15 @@ impl Report {
                         })
                         .collect(),
                 );
+            }
+            ReportKind::Quality => {
+                let grade = crate::quality::assess(sbom);
+                report.quality_summary = Some(QualitySummary {
+                    overall: grade.overall,
+                    ntia: grade.ntia,
+                    packages: sbom.packages.len(),
+                });
+                report.quality = Some(grade.elements);
             }
             ReportKind::Diff
             | ReportKind::Outdated
@@ -803,6 +833,7 @@ impl Report {
             "python" => ReportKind::Python,
             "phantom" => ReportKind::Phantom,
             "scorecard" => ReportKind::Scorecard,
+            "quality" => ReportKind::Quality,
             "explain" => ReportKind::Explain,
             _ => ReportKind::Packages,
         }
@@ -827,6 +858,7 @@ impl Report {
             ReportKind::Python => vec!["Package", "Version", "Requires-Python", "Satisfied", "Ceiling"],
             ReportKind::Phantom => vec!["Finding", "Package", "Kind", "Version", "Modules", "Imported by"],
             ReportKind::Scorecard => vec!["Package", "Version", "Score", "Scored", "Weakest checks"],
+            ReportKind::Quality => vec!["Element", "Score", "Covers", "NTIA minimum"],
             ReportKind::Explain => vec!["Package", "Fact", "Value", "Source"],
         }
     }
@@ -855,6 +887,7 @@ impl Report {
             ReportKind::Python => self.python.iter().flatten().map(python_cells).collect(),
             ReportKind::Phantom => self.phantom.iter().flatten().map(phantom_cells).collect(),
             ReportKind::Scorecard => self.scorecard.iter().flatten().map(scorecard_cells).collect(),
+            ReportKind::Quality => self.quality.iter().flatten().map(quality_cells).collect(),
             ReportKind::Explain => self.explain.iter().flatten().map(explain_cells).collect(),
             ReportKind::Vulnerabilities => self.vulnerabilities.iter().flatten().map(vulnerability_cells).collect(),
             _ => self.packages.iter().flatten().map(|r| self.cells(r)).collect(),
@@ -880,6 +913,7 @@ impl Report {
             ReportKind::Phantom => vec![Change, Plain, Plain, Plain, Plain, Muted],
             // Package, Version, Score, Scored, Weakest checks
             ReportKind::Scorecard => vec![Plain, Plain, Severity, Plain, Muted],
+            ReportKind::Quality => vec![Plain, Plain, Muted, Plain],
             // Package, Fact, Value, Source
             ReportKind::Explain => vec![Plain, Plain, Plain, Muted],
             // Name, Version, Kind, Family, Source, Files
@@ -1020,6 +1054,15 @@ fn plain_cells(rows: &[Vec<String>]) -> Vec<Vec<Cell>> {
 }
 
 /// One scorecard row as cells.
+fn quality_cells(element: &crate::quality::Element) -> Vec<String> {
+    vec![
+        element.element.to_string(),
+        element.score.to_string(),
+        element.detail.clone(),
+        if element.ntia { "yes".into() } else { "-".into() },
+    ]
+}
+
 fn scorecard_cells(row: &ScorecardRow) -> Vec<String> {
     let dash = || "-".to_string();
     vec![
@@ -1519,6 +1562,17 @@ pub fn render_with_width(
                 }
                 if let Some(summary) = &report.vulnerability_summary {
                     render_vulnerability_summary(summary, format, &palette, out)?;
+                }
+                if let Some(summary) = &report.quality_summary {
+                    writeln!(out)?;
+                    let line = format!(
+                        "Quality: {} of 100 for {} packages (NTIA minimum elements: {} of 100)",
+                        summary.overall, summary.packages, summary.ntia
+                    );
+                    match format {
+                        ReportFormat::Markdown => writeln!(out, "**{line}**")?,
+                        _ => writeln!(out, "{}", palette.header(&line))?,
+                    }
                 }
                 if let Some(summary) = &report.scorecard_summary {
                     writeln!(out)?;
@@ -2122,6 +2176,27 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
         }
         return Ok(());
     }
+    if kind == ReportKind::Quality {
+        writeln!(out, "environment,platform,element,score,covers,ntia")?;
+        for report in reports {
+            for element in report.quality.iter().flatten() {
+                let cells = [
+                    report.environment.clone(),
+                    report.platform.clone(),
+                    element.element.to_string(),
+                    element.score.to_string(),
+                    element.detail.clone(),
+                    element.ntia.to_string(),
+                ];
+                writeln!(
+                    out,
+                    "{}",
+                    cells.iter().map(|c| csv_field(c)).collect::<Vec<_>>().join(",")
+                )?;
+            }
+        }
+        return Ok(());
+    }
     if kind == ReportKind::Diff {
         writeln!(out, "environment,platform,change,package,kind,before,after")?;
         for report in reports {
@@ -2146,6 +2221,7 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
         | ReportKind::Python
         | ReportKind::Phantom
         | ReportKind::Scorecard
+        | ReportKind::Quality
         | ReportKind::Explain => {
             vec![
                 "name",
@@ -2184,6 +2260,7 @@ fn render_csv(reports: &[Report], out: &mut dyn Write) -> io::Result<()> {
                 | ReportKind::Python
                 | ReportKind::Phantom
                 | ReportKind::Scorecard
+                | ReportKind::Quality
                 | ReportKind::Explain => vec![
                     row.name.clone(),
                     row.version.clone(),

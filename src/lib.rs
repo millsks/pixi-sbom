@@ -93,6 +93,7 @@ pub mod pylock;
 pub mod pypi;
 #[doc(hidden)]
 pub mod pyversion;
+pub mod quality;
 #[doc(hidden)]
 pub mod report;
 pub mod requirements;

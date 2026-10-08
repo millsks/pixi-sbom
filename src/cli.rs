@@ -485,6 +485,12 @@ pub struct Args {
     #[arg(long, value_name = "N", default_value_t = 5.0, requires = "scorecard")]
     pub scorecard_min: f64,
 
+    /// Exit with code 10 after writing the document (or report) when its quality score, out of 100,
+    /// is below this: the mean of the NTIA minimum elements and license and hash coverage that
+    /// --report quality lists. Most useful with --from-sbom, before gating on somebody else's SBOM.
+    #[arg(long, value_name = "N", value_parser = clap::value_parser!(u8).range(0..=100))]
+    pub min_quality: Option<u8>,
+
     /// Exit with code 9 after writing the document when a scored package is below this.
     /// Packages the service has never scored never fail the gate.
     #[arg(long, value_name = "N", requires = "scorecard")]

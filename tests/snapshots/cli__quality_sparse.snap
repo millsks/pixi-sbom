@@ -1,0 +1,17 @@
+---
+source: tests/cli.rs
+expression: "String::from_utf8(output.stdout).unwrap()"
+---
+Element                   Score  Covers                                                          NTIA minimum
+-------------------------------------------------------------------------------------------------------------
+supplier                  0      0 of 15 packages name a supplier                                yes
+name                      100    15 of 15 packages have a name                                   yes
+version                   100    15 of 15 packages have a version                                yes
+unique identifier         60     9 of 15 packages have a purl                                    yes
+dependency relationships  53     8 of 15 packages are in the dependency graph                    yes
+author                    0      the document names no author (the generating tool is recorded)  yes
+timestamp                 100    written when the document is                                    yes
+license                   53     8 of 15 packages have a license                                 -
+hash                      0      0 of 15 packages have a hash                                    -
+
+Quality: 51 of 100 for 15 packages (NTIA minimum elements: 59 of 100)
