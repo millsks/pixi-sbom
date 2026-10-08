@@ -1960,13 +1960,21 @@ fn merge_workspaces(args: &cli::Args, dir: &Path, workspaces: &[Workspace]) -> R
     let mut inputs = Vec::new();
     let mut loaded = Vec::new();
     for workspace in workspaces {
-        let relative = workspace.lockfile.strip_prefix(dir).unwrap_or(&workspace.lockfile);
+        // With `/` on every platform, so the same tree gives the same document anywhere.
+        let relative = workspace
+            .lockfile
+            .strip_prefix(dir)
+            .unwrap_or(&workspace.lockfile)
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy())
+            .collect::<Vec<_>>()
+            .join("/");
         for target in &workspace.targets {
             let (sbom, contents) = model_for(workspace, &target.environment, target.platform.as_deref())?;
             let name = if workspace.targets.len() > 1 {
-                format!("{} ({}/{})", relative.display(), sbom.environment, sbom.platform)
+                format!("{relative} ({}/{})", sbom.environment, sbom.platform)
             } else {
-                relative.display().to_string()
+                relative.clone()
             };
             loaded.push(fromsbom::Loaded {
                 sbom: sbom.clone(),
