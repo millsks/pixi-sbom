@@ -17,6 +17,38 @@ Linux (glibc and musl) x86_64 and aarch64, macOS x86_64 and arm64, and Windows x
 binstall pixi-sbom`, the release archives and conda-forge are the other ways; see [Installation](installation.md).
 Installed this way, the command is `pixi-sbom` rather than `pixi sbom`.
 
+## Getting a lockfile
+
+pixi-sbom reads a lock, never a list of requirements (see [It never resolves](#it-never-resolves)), so the first step
+is the lock your project's own tool writes. Every command below was run with the tool named, and what it wrote is read
+by a test (`tests/fixtures/lockfile-routes`).
+
+| Your setup | Run | pixi-sbom reads |
+|---|---|---|
+| uv | `uv lock` | `uv.lock` |
+| Poetry | `poetry lock` | `poetry.lock` |
+| PDM | `pdm lock` | `pdm.lock` |
+| pip, with a `requirements.txt` | `pip lock -r requirements.txt -o pylock.toml` (pip 25.1 and later; experimental there) | `pylock.toml` |
+| any `requirements.txt`, pip-tools' pinned one with hashes included | `uv pip compile requirements.txt -o pylock.toml` | `pylock.toml` |
+| Pipenv | `pipenv requirements > requirements.txt`, then `uv pip compile requirements.txt -o pylock.toml` | `pylock.toml` |
+| a conda environment | `conda list --explicit --md5 > explicit.txt` in it, or `conda list -p <env> --explicit --md5` | the explicit spec |
+| a mamba / micromamba environment | `micromamba env export -p <env> --explicit --md5 > explicit.txt` | the explicit spec |
+| an `environment.yml` | `conda-lock -f environment.yml -p linux-64 -p osx-arm64` (any platforms you need) | `conda-lock.yml` |
+| an environment that is already installed | nothing: `pixi-sbom --prefix <env>` reads it as it is | the installed environment |
+
+`uv pip compile -o pylock.toml` writes PEP 751 because of the file name. It resolves, so a fully pinned
+`requirements.txt` gives back exactly its pins, and one with ranges gives today's answer for them; that answer is
+then the lock. `pip lock` locks for the interpreter that runs it, so its `pylock.toml` carries no markers.
+
+Some files a tool writes are not read, and each has its way in:
+
+| Not read | Why | Way in |
+|---|---|---|
+| Pipenv's `Pipfile.lock` | Pipenv's own format | `pipenv requirements`, then the pip route above, or `--prefix` on the virtualenv Pipenv made |
+| Rye's `requirements.lock` | Rye's own format; Rye's maintainers point its users to uv | `uv lock` in the project, or `--prefix` on its `.venv` |
+| `conda env export` | versions without builds or URLs, so not a lock | `conda list --explicit --md5`, or `conda-lock` |
+| `pip freeze` | a list of installed versions, no hashes or sources | `--prefix` on the environment it came from, which reads the same packages with more |
+
 ## What it reads
 
 Without `--lockfile`, it looks for a lockfile in the working directory and upward, and picks the first in a fixed

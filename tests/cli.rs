@@ -8146,3 +8146,40 @@ fn the_without_pixi_page_runs_and_shows_the_tested_matrix() {
         );
     }
 }
+
+#[test]
+fn what_each_common_setup_writes_is_read() {
+    // #389: the "Getting a lockfile" table in docs/without-pixi.md, one real tool output per row
+    // (tests/fixtures/lockfile-routes/README.md says how each was made).
+    let routes = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/lockfile-routes");
+    for (file, platform, expect) in [
+        ("pylock.pip-tools.toml", "linux-64", "requests"),
+        ("pylock.pipenv.toml", "linux-64", "requests"),
+        ("pylock.pip.toml", "osx-arm64", "requests"),
+        ("explicit-micromamba.txt", "osx-arm64", "requests"),
+        ("explicit-conda.txt", "osx-arm64", "requests"),
+        ("conda-lock.yml", "linux-64", "requests"),
+        ("conda-linux-64.lock", "linux-64", "requests"),
+    ] {
+        let work = tempfile::tempdir().unwrap();
+        let output = pixi_sbom()
+            .current_dir(work.path())
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+            .args(["--lockfile", routes.join(file).to_str().unwrap(), "-p", platform])
+            .args(["--report", "packages", "--report-format", "json"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        let report: Value = serde_json::from_slice(&output).unwrap();
+        let names: Vec<&str> = report["packages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| p["name"].as_str().unwrap())
+            .collect();
+        assert!(names.contains(&expect), "{file}: {names:?}");
+    }
+}

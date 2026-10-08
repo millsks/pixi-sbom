@@ -341,6 +341,9 @@ What is not:
 
 ## Reading conda-lock.yml
 
+`conda-lock -f environment.yml -p linux-64 -p osx-arm64` writes one from an `environment.yml`, for the platforms
+named.
+
 A conda environment locked with conda-lock is described from its unified `conda-lock.yml` (version 1, which
 conda-lock writes by default), through `--lockfile`:
 

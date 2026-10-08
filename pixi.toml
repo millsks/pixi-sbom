@@ -114,6 +114,8 @@ conda-lock = "*"
 # CONDA_OVERRIDE_OSX="" and micromamba 2 reads that as macOS version "", so every osx-arm64 Python
 # 3.13+ (which needs __osx >=11.0) becomes unsolvable.
 micromamba = "<2"
+pipenv = ">=2026.8.0,<2027"
+pip-tools = ">=7.6.1,<8"
 
 # `pip lock` locks for the interpreter running it, so the pylock examples it writes use 3.14.
 [feature.examples-pip.dependencies]
