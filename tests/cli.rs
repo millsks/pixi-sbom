@@ -3755,6 +3755,161 @@ fn scan_writes_one_document_per_workspace_in_the_tree() {
 }
 
 #[test]
+fn scan_merge_writes_one_document_for_the_whole_tree() {
+    let dir = monorepo();
+    let out = dir.path().join("product.cdx.json");
+    pixi_sbom()
+        .current_dir(dir.path())
+        .env("SOURCE_DATE_EPOCH", "0")
+        .args(["-p", "linux-64", "--merge", "--root-name", "product", "--scan"])
+        .arg(dir.path())
+        .arg("--output")
+        .arg(&out)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("merged the documents into one documents=2"));
+    let document = read_json(&out);
+    assert_valid(&cyclonedx_validator(), &document);
+    assert_eq!(document["metadata"]["component"]["name"], "product");
+    let components = document["components"].as_array().unwrap();
+    let named = |name: &str| components.iter().find(|c| c["name"] == name).cloned();
+    let api = named("with-pypi").expect("each workspace's root is a component");
+    assert!(named("conda-only").is_some());
+    let source = |c: &Value| {
+        c["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == "pixi:source-document")
+            .map(|p| p["value"].as_str().unwrap().to_string())
+    };
+    assert_eq!(source(&api).as_deref(), Some("services/api/pixi.lock"));
+    // The root depends on the two workspace roots, which keep their own graphs.
+    let dependencies = document["dependencies"].as_array().unwrap();
+    let root_ref = document["metadata"]["component"]["bom-ref"].as_str().unwrap();
+    let root = dependencies.iter().find(|d| d["ref"] == root_ref).unwrap();
+    assert_eq!(root["dependsOn"].as_array().unwrap().len(), 2, "{root}");
+    let api_edges = dependencies.iter().find(|d| d["ref"] == api["bom-ref"]).unwrap();
+    assert!(!api_edges["dependsOn"].as_array().unwrap().is_empty());
+    // One document, so it can go to stdout.
+    let stdout = pixi_sbom()
+        .current_dir(dir.path())
+        .env("SOURCE_DATE_EPOCH", "0")
+        .args([
+            "-p",
+            "linux-64",
+            "--merge",
+            "--root-name",
+            "product",
+            "--output",
+            "-",
+            "--scan",
+        ])
+        .arg(dir.path())
+        .assert()
+        .success();
+    let streamed: Value = serde_json::from_slice(&stdout.get_output().stdout).unwrap();
+    assert_eq!(streamed["components"], document["components"]);
+    // Without --scan, --merge is refused.
+    pixi_sbom().current_dir(dir.path()).args(["--merge"]).assert().code(2);
+}
+
+#[test]
+fn from_sbom_twice_merges_a_cyclonedx_and_an_spdx_document() {
+    let dir = workspace("with-pypi");
+    let write = |args: &[&str], out: &str| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("SOURCE_DATE_EPOCH", "0")
+            .args(["-p", "linux-64"])
+            .args(args)
+            .args(["--output", out])
+            .assert()
+            .success();
+        read_json(&dir.path().join(out))
+    };
+    let cdx = write(&["-e", "default"], "app.cdx.json");
+    let mut spdx = write(&["-e", "web", "--format", "spdx"], "vendor.spdx.json");
+    // The two overlap; make the vendor's document disagree about one shared package's license.
+    let shared: Vec<String> = cdx["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|c| c["name"].as_str().map(str::to_string))
+        .collect();
+    let package = spdx["packages"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|p| shared.iter().any(|name| p["name"] == name.as_str()))
+        .expect("the environments share packages");
+    let name = package["name"].as_str().unwrap().to_string();
+    package["licenseConcluded"] = "GPL-3.0-only".into();
+    package["licenseDeclared"] = "GPL-3.0-only".into();
+    std::fs::write(dir.path().join("vendor.spdx.json"), spdx.to_string()).unwrap();
+
+    let run = |args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .args([
+                "--from-sbom",
+                "app.cdx.json",
+                "--from-sbom",
+                "vendor.spdx.json",
+                "--root-name",
+                "product",
+            ])
+            .args(args)
+            .assert()
+            .success()
+    };
+    let assert = run(&["--output", "-"])
+        .stderr(predicate::str::contains(
+            "the merged documents disagree; keeping the first",
+        ))
+        .stderr(predicate::str::contains("merged the documents into one documents=2"));
+    let merged: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &merged);
+    assert_eq!(merged["metadata"]["component"]["name"], "product");
+    let components = merged["components"].as_array().unwrap();
+    let copies: Vec<&Value> = components.iter().filter(|c| c["name"] == name.as_str()).collect();
+    assert_eq!(copies.len(), 1, "deduplicated by purl");
+    let props = copies[0]["properties"].as_array().unwrap();
+    let prop = |key: &str| {
+        props
+            .iter()
+            .find(|p| p["name"] == key)
+            .map(|p| p["value"].as_str().unwrap().to_string())
+    };
+    assert!(
+        prop("pixi:source-document").unwrap().contains(", "),
+        "both inputs named"
+    );
+    assert!(
+        prop("pixi:merge-conflict").unwrap().contains("vs GPL-3.0-only"),
+        "{props:?}"
+    );
+    // Both inputs' roots are kept under the new one.
+    assert_eq!(components.iter().filter(|c| c["name"] == "with-pypi").count(), 2);
+
+    // SPDX output of the merge validates too, and --explain shows the conflict.
+    let assert = run(&["--format", "spdx", "--output", "-"]);
+    assert_valid(
+        &spdx_validator(),
+        &serde_json::from_slice(&assert.get_output().stdout).unwrap(),
+    );
+    let explained = String::from_utf8(
+        run(&["--explain", &name, "--report-format", "json"])
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(explained.contains("merge conflict"), "{explained}");
+    assert!(explained.contains("vs GPL-3.0-only"), "{explained}");
+}
+
+#[test]
 fn scan_reports_and_gates_across_every_workspace() {
     let dir = monorepo();
     // One report over the whole tree: a section per workspace, and the license policy sees

@@ -68,6 +68,7 @@ pub mod lock;
 pub mod manifest;
 #[doc(hidden)]
 pub mod mapping;
+pub mod merge;
 pub mod mirror;
 #[doc(hidden)]
 pub mod model;

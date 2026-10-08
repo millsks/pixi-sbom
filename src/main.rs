@@ -6,8 +6,8 @@
 
 use pixi_sbom::{
     auditable, batch, cache, cli, concurrency, condaarchive, condalock, config, diff, discover, doctor, embedded, epss,
-    explain, explicit, filter, format, fromsbom, http, imports, kev, license, lock, manifest, mapping, mirror, model,
-    osv, outdated, pdm, phantom, pkgcache, poetry, policy, prefix, progress, pylock, pypi, report, requirements,
+    explain, explicit, filter, format, fromsbom, http, imports, kev, license, lock, manifest, mapping, merge, mirror,
+    model, osv, outdated, pdm, phantom, pkgcache, poetry, policy, prefix, progress, pylock, pypi, report, requirements,
     scorecard, style, timings, uv, vexin, vulnpolicy, wheel,
 };
 
@@ -50,7 +50,7 @@ fn main() -> Result<()> {
     // With --prefix there is no lockfile; a stand-in path in the working directory keeps the
     // output and configuration lookups (which are relative to the lockfile) working.
     // --doctor describes the network rather than a workspace, so it needs no lockfile at all.
-    let lockfile = match (&args.prefix, &args.scan, &args.from_sbom) {
+    let lockfile = match (&args.prefix, &args.scan, args.from_sbom.first()) {
         _ if args.doctor => cwd.join(discover::LOCKFILE_NAME),
         // With --prefix or --from-sbom there is no lockfile, and with --scan there are many; a
         // stand-in path keeps the configuration lookup (which is relative to the lockfile)
@@ -171,21 +171,41 @@ fn main() -> Result<()> {
     }
 
     let input = match (&args.prefix, &args.scan) {
-        _ if args.from_sbom.is_some() => {
-            let path = args.from_sbom.as_deref().expect("just checked");
+        _ if !args.from_sbom.is_empty() => {
             let root = model::Root {
                 name: args.root_name.clone().unwrap_or_default(),
                 version: args.root_version.clone(),
                 ..model::Root::default()
             };
-            let loaded = fromsbom::read(path, root, args.platform.as_deref())?;
-            tracing::info!(
-                path = %path.display(),
-                format = %loaded.format,
-                packages = loaded.sbom.packages.len(),
-                "read the source document"
-            );
-            Some(Input::Document(Box::new(loaded)))
+            // Merged, --root-name names the new root; each input keeps its own.
+            let root = if args.from_sbom.len() > 1 {
+                model::Root::default()
+            } else {
+                root
+            };
+            let mut documents = Vec::with_capacity(args.from_sbom.len());
+            for path in &args.from_sbom {
+                let loaded = fromsbom::read(path, root.clone(), args.platform.as_deref())?;
+                tracing::info!(
+                    path = %path.display(),
+                    format = %loaded.format,
+                    packages = loaded.sbom.packages.len(),
+                    "read the source document"
+                );
+                documents.push(loaded);
+            }
+            if documents.len() == 1 {
+                documents.pop().map(|loaded| Input::Document(Box::new(loaded)))
+            } else {
+                let inputs: Vec<merge::Input> = documents
+                    .iter()
+                    .map(|loaded| merge::Input {
+                        name: loaded.sbom.document.clone().unwrap_or_default(),
+                        sbom: loaded.sbom.clone(),
+                    })
+                    .collect();
+                Some(Input::Document(Box::new(merged_document(&args, &inputs, &documents))))
+            }
         }
         (Some(dir), _) => Some(Input::Prefix {
             dir: dir.clone(),
@@ -217,10 +237,15 @@ fn main() -> Result<()> {
         Some(dir) => {
             let found = discover::scan(dir, args.scan_depth)?;
             tracing::info!(lockfiles = found.len(), dir = %dir.display(), "scanned for workspaces");
-            found
+            let workspaces: Vec<Workspace> = found
                 .into_iter()
                 .map(|lockfile| scanned_workspace(&args, dir, lockfile))
-                .collect::<Result<_>>()?
+                .collect::<Result<_>>()?;
+            if args.merge {
+                vec![merge_workspaces(&args, dir, &workspaces)?]
+            } else {
+                workspaces
+            }
         }
         None => {
             let input = input.expect("only a scan leaves the input unread");
@@ -1169,7 +1194,7 @@ fn validate(args: &cli::Args) {
             }
         }
     }
-    if args.from_sbom.is_some() {
+    if !args.from_sbom.is_empty() {
         for (set, flag) in [
             (args.all_environments, "--all-environments"),
             (args.all_platforms, "--all-platforms"),
@@ -1182,7 +1207,8 @@ fn validate(args: &cli::Args) {
             }
         }
     }
-    if args.scan.is_some() {
+    // Merged, a scan is one document again, and these apply.
+    if args.scan.is_some() && !args.merge {
         if args.against.is_some() {
             usage(
                 ArgumentConflict,
@@ -1288,7 +1314,7 @@ const SCORECARD_EXIT_CODE: i32 = 9;
 /// starts — which lockfile, which manifest beside it, which configuration file, and for a scan
 /// which directory the configuration came from — and none of them used to be visible.
 fn describe_input(args: &cli::Args, lockfile: &Path, cwd: &Path) {
-    let (input, how) = match (&args.prefix, &args.scan, &args.from_sbom) {
+    let (input, how) = match (&args.prefix, &args.scan, args.from_sbom.first()) {
         (Some(dir), _, _) => (dir.display().to_string(), "--prefix: an installed environment"),
         (_, _, Some(file)) => (file.display().to_string(), "--from-sbom: an existing document"),
         (_, Some(dir), _) => (
@@ -1309,7 +1335,7 @@ fn describe_input(args: &cli::Args, lockfile: &Path, cwd: &Path) {
     if args.scan.is_some() {
         tracing::debug!("with --scan the configuration comes from the scanned directory, not from each workspace");
     }
-    if args.prefix.is_some() || args.from_sbom.is_some() {
+    if args.prefix.is_some() || !args.from_sbom.is_empty() {
         return;
     }
     let dir = lockfile.parent().unwrap_or(Path::new("."));
@@ -1893,6 +1919,74 @@ impl Input {
             _ => None,
         }
     }
+}
+
+/// Several documents merged into one, as the input a single `--from-sbom` would have been.
+fn merged_document(args: &cli::Args, inputs: &[merge::Input], loaded: &[fromsbom::Loaded]) -> fromsbom::Loaded {
+    let root = model::Root {
+        name: args.root_name.clone().unwrap_or_else(|| "merged".to_string()),
+        version: args.root_version.clone(),
+        ..model::Root::default()
+    };
+    let sbom = merge::merge(inputs, root);
+    let conflicts = sbom
+        .packages
+        .iter()
+        .filter(|p| p.properties.contains_key(merge::CONFLICT_PROPERTY))
+        .count();
+    tracing::info!(
+        documents = inputs.len(),
+        packages = sbom.packages.len(),
+        conflicts,
+        "merged the documents into one"
+    );
+    fromsbom::Loaded {
+        sbom,
+        // What identifies the input for the document's own identity: every source's text.
+        contents: loaded
+            .iter()
+            .map(|l| l.contents.as_str())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        format: format!(
+            "merged ({})",
+            loaded.iter().map(|l| l.format.as_str()).collect::<Vec<_>>().join(", ")
+        ),
+    }
+}
+
+/// `--scan --merge`: every workspace's documents merged into one, written once.
+fn merge_workspaces(args: &cli::Args, dir: &Path, workspaces: &[Workspace]) -> Result<Workspace> {
+    let mut inputs = Vec::new();
+    let mut loaded = Vec::new();
+    for workspace in workspaces {
+        let relative = workspace.lockfile.strip_prefix(dir).unwrap_or(&workspace.lockfile);
+        for target in &workspace.targets {
+            let (sbom, contents) = model_for(workspace, &target.environment, target.platform.as_deref())?;
+            let name = if workspace.targets.len() > 1 {
+                format!("{} ({}/{})", relative.display(), sbom.environment, sbom.platform)
+            } else {
+                relative.display().to_string()
+            };
+            loaded.push(fromsbom::Loaded {
+                sbom: sbom.clone(),
+                contents,
+                format: "lockfile".to_string(),
+            });
+            inputs.push(merge::Input { name, sbom });
+        }
+    }
+    let lockfile = dir.join(discover::LOCKFILE_NAME);
+    let document = merged_document(args, &inputs, &loaded);
+    Ok(Workspace {
+        targets: vec![Target {
+            environment: document.sbom.environment.clone(),
+            platform: args.platform.clone(),
+            output: discover::resolve_output(args.output.as_deref(), &lockfile, args.format),
+        }],
+        input: Input::Document(Box::new(document)),
+        lockfile,
+    })
 }
 
 /// One document to write: an environment, a platform (`None` = host), and where it goes.

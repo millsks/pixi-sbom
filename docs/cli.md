@@ -87,8 +87,9 @@ Nothing in this table is scheduled for removal; dropping any of it would be a ma
 | `--source <DIR>` | the lockfile's directory | With `--report phantom`: where the workspace's Python sources are (repeatable). |
 | `--assume-used <GLOB>` | | With `--report phantom`: packages matching this are never reported as unused or undeclared (repeatable). |
 | `--fail-on-phantom` | off | With `--report phantom`: exit **8** when the workspace imports a package it never declared. |
-| `--from-sbom <FILE>` | | Read an existing document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON) instead of a lockfile and run the reports, the license policy and the vulnerability gate on it. |
-| `--scan <DIR>` | | Describe every project under the directory: one document per directory with a lockfile of any kind it finds (see [Which lockfile is found](#which-lockfile-is-found)). Cannot be combined with `--lockfile`, `--prefix`, `--against` or `--output -`. |
+| `--from-sbom <FILE>` | | Read an existing document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON) instead of a lockfile and run the reports, the license policy and the vulnerability gate on it. Repeatable: several documents are merged into one, see [Merging documents](#merging-documents). |
+| `--scan <DIR>` | | Describe every project under the directory: one document per directory with a lockfile of any kind it finds (see [Which lockfile is found](#which-lockfile-is-found)). Cannot be combined with `--lockfile` or `--prefix`, nor, without `--merge`, with `--against` or `--output -`. |
+| `--merge` | off | With `--scan`: write one document for the whole tree instead of one per workspace (and then `--output -` and `--against` apply). See [Merging documents](#merging-documents). |
 | `--scan-depth <N>` | unlimited | With `--scan`: how far below the directory to walk (`0` is the directory itself). |
 | `--against <PATH>` | | With `--report diff`: what to compare with — a document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON), any lockfile `--lockfile` reads (`pixi.lock`, `uv.lock`, `pylock.toml`, `poetry.lock`, `pdm.lock`, `conda-lock.yml`, an explicit spec file), or the directory of an installed environment (conda, venv or plain Python). |
 | `--fail-on-diff [<SECTION>...]` | off | With `--report diff`: exit **6** when the named sections (`added`, `removed`, `version`, `license`, `build`, `pip`) are not empty. The bare flag means any change. |
@@ -1484,6 +1485,32 @@ What is written carries `pixi:source-document` — the source's serial number or
 (`--pypi-mapping`, the package-cache license reads) has nothing to work with and finds nothing; everything keyed on
 purls works unchanged. `--all-environments` and `--all-platforms` do not apply, since a document is one
 environment.
+
+### Merging documents
+
+A consumer that takes one document per product needs a monorepo's per-project documents, or an application and
+the SBOMs of the vendor components it ships, as one. `--from-sbom` given more than once reads every document and
+writes one; `--scan --merge` does the same for every workspace under a directory:
+
+```sh
+pixi sbom --from-sbom app.cdx.json --from-sbom vendor.spdx.json --root-name product --output product.cdx.json
+pixi sbom --scan . --merge --root-name product --output product.cdx.json
+```
+
+- **Packages** with the same purl are one package. The first input's copy is kept; later ones add their extra
+  purls and any property, license, hash, supplier, homepage or repository it lacks. When two inputs disagree on
+  the license or a hash, the first is kept, a warning is logged, and the package records the disagreement as
+  `pixi:merge-conflict` (`license: MIT (a) vs GPL-3.0-only (b)`), which `--explain` shows. A package without a
+  purl is never merged with another. When two inputs reuse one id for different packages (two SPDX documents'
+  `SPDXRef-Package-1`), the ids are made unique.
+- **The graph**: each input's root becomes a package of its own (kind `external`, `pkg:generic/<name>@<version>`)
+  that depends on whatever that root depended on. The new root, named by `--root-name` (`merged` by default),
+  depends on each of them. Every input's edges are kept; a package two inputs share keeps both inputs' edges.
+- **Provenance**: every package's `pixi:source-document` names the inputs it came from: a document's serial
+  number or namespace, or a scanned workspace's lockfile path relative to the scanned directory.
+
+The merged model is what everything else sees: the output format, the reports, the license policy, the
+vulnerability lookup and its gates.
 
 ## A monorepo: every workspace in one run
 

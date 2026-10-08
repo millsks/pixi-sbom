@@ -305,9 +305,16 @@ pub struct Args {
     pub lockfile: Option<PathBuf>,
 
     /// Read an existing SBOM instead of a lockfile (CycloneDX 1.4-1.7, SPDX 2.x or SPDX 3.0
-    /// JSON) and run the reports, the license policy and the vulnerability gate on it.
+    /// JSON) and run the reports, the license policy and the vulnerability gate on it. Given more
+    /// than once, the documents are merged into one: packages deduplicated by purl, each input's
+    /// root kept under a new one.
     #[arg(long, value_name = "FILE", conflicts_with_all = ["lockfile", "prefix", "scan"])]
-    pub from_sbom: Option<PathBuf>,
+    pub from_sbom: Vec<PathBuf>,
+
+    /// With --scan: write one document for the whole tree, every workspace's packages merged
+    /// under one root, instead of one document per workspace.
+    #[arg(long, requires = "scan")]
+    pub merge: bool,
 
     /// Describe every pixi workspace under this directory: one document per `pixi.lock`
     /// found, in sorted order. Hidden directories, node_modules, target, build, dist, venv and

@@ -14,7 +14,7 @@ this page fails the build, and so does a line on this page for something that do
 
 ## Command-line flags
 
-All 72. Their meanings are in [cli.md](cli.md); what this page promises is that none of them
+All 73. Their meanings are in [cli.md](cli.md); what this page promises is that none of them
 disappears or changes shape before 2.0.
 
 | `--against` | `--all-environments` | `--all-platforms` | `--allow-license` |
@@ -27,14 +27,15 @@ disappears or changes shape before 2.0.
 | `--from-sbom` | `--group-by` | `--help` | `--ignore-license` |
 | `--ignore-vuln` | `--include` | `--infer-extras` | `--keep-orphans` |
 | `--kev` | `--license-texts` | `--lockfile` | `--log-format` |
-| `--min-quality` | `--no-cache` | `--no-config` | `--outdated-min` |
-| `--output` | `--platform` | `--prefix` | `--primary-purl` |
-| `--pypi-mapping` | `--pypi-mapping-file` | `--quiet` | `--refresh` |
-| `--report` | `--report-format` | `--require-license` | `--root-name` |
-| `--root-version` | `--scan` | `--scan-depth` | `--scorecard` |
-| `--scorecard-min` | `--source` | `--spec-version` | `--timings` |
-| `--tree` | `--verbose` | `--version` | `--version-details` |
-| `--vex` | `--vex-in` | `--vex-open` | `--vulnerabilities` |
+| `--merge` | `--min-quality` | `--no-cache` | `--no-config` |
+| `--outdated-min` | `--output` | `--platform` | `--prefix` |
+| `--primary-purl` | `--pypi-mapping` | `--pypi-mapping-file` | `--quiet` |
+| `--refresh` | `--report` | `--report-format` | `--require-license` |
+| `--root-name` | `--root-version` | `--scan` | `--scan-depth` |
+| `--scorecard` | `--scorecard-min` | `--source` | `--spec-version` |
+| `--timings` | `--tree` | `--verbose` | `--version` |
+| `--version-details` | `--vex` | `--vex-in` | `--vex-open` |
+| `--vulnerabilities` |  |  |  |
 
 ### Spellings that answer to an older name
 
@@ -164,17 +165,17 @@ says which flag produces which.
 | `pixi:kev-ransomware` | `pixi:kind` | `pixi:license-exempt` |
 | `pixi:license-family` | `pixi:license-file` | `pixi:license-files-source` |
 | `pixi:license-raw` | `pixi:license-source` | `pixi:lockfile` |
-| `pixi:marker` | `pixi:noarch` | `pixi:platform` |
-| `pixi:prefix` | `pixi:purl` | `pixi:pypi-mapping` |
-| `pixi:python-extras` | `pixi:python-extras-evidence` | `pixi:python-extras-inferred` |
-| `pixi:python-version` | `pixi:repository-source` | `pixi:requires-python` |
-| `pixi:resolution-markers` | `pixi:scorecard` | `pixi:scorecard-date` |
-| `pixi:size` | `pixi:source` | `pixi:source-branch` |
-| `pixi:source-document` | `pixi:source-git` | `pixi:source-path` |
-| `pixi:source-rev` | `pixi:source-subdirectory` | `pixi:source-tag` |
-| `pixi:source-url` | `pixi:stale-cache` | `pixi:subdir` |
-| `pixi:vex-for` | `pixi:vex-source` | `pixi:via-extra` |
-| `pixi:yanked` | `pixi:yanked-reason` |  |
+| `pixi:marker` | `pixi:merge-conflict` | `pixi:noarch` |
+| `pixi:platform` | `pixi:prefix` | `pixi:purl` |
+| `pixi:pypi-mapping` | `pixi:python-extras` | `pixi:python-extras-evidence` |
+| `pixi:python-extras-inferred` | `pixi:python-version` | `pixi:repository-source` |
+| `pixi:requires-python` | `pixi:resolution-markers` | `pixi:scorecard` |
+| `pixi:scorecard-date` | `pixi:size` | `pixi:source` |
+| `pixi:source-branch` | `pixi:source-document` | `pixi:source-git` |
+| `pixi:source-path` | `pixi:source-rev` | `pixi:source-subdirectory` |
+| `pixi:source-tag` | `pixi:source-url` | `pixi:stale-cache` |
+| `pixi:subdir` | `pixi:vex-for` | `pixi:vex-source` |
+| `pixi:via-extra` | `pixi:yanked` | `pixi:yanked-reason` |
 
 `pixi:scorecard-check-<name>` is a family rather than one name: the suffix is the OpenSSF check,
 so the set grows when OpenSSF adds a check. The prefix is frozen; the suffixes are theirs.

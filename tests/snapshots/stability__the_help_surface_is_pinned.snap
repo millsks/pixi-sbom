@@ -4,6 +4,7 @@ expression: "surface.join(\"\\n\")"
 ---
       --lockfile <PATH>
       --from-sbom <FILE>
+      --merge
       --scan <DIR>
       --scan-depth <N>
       --prefix <DIR>

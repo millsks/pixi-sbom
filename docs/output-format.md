@@ -298,6 +298,11 @@ With `--from-sbom` the document describes what another document described: the m
 is carried over, including the `pixi:*` properties, so a document this tool wrote round-trips unchanged; a package
 whose purl is neither `pkg:conda` nor `pkg:pypi`, or which has no purl, gets `pixi:kind=external`.
 
+Merged (`--from-sbom` more than once, or `--scan --merge`), the metadata property lists every input, and each
+package carries `pixi:source-document` naming the inputs it came from. Each input's root is a component of its own
+(`pkg:generic/<name>@<version>`). A package whose inputs disagree about its license or a hash carries
+`pixi:merge-conflict`, `license: <kept> (<input>) vs <other> (<input>)`, with several separated by `; `.
+
 ### Yanked releases
 
 With `--fetch-licenses`, a PyPI package whose release the index has yanked (PEP 592) carries `pixi:yanked=true`
