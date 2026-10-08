@@ -404,6 +404,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#getting-a-lockfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Getting a lockfile
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Getting a lockfile">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tools-you-need" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tools you need
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-not-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is not read
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-it-reads" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -879,6 +918,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#getting-a-lockfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Getting a lockfile
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Getting a lockfile">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tools-you-need" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tools you need
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-not-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is not read
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-it-reads" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -960,6 +1038,168 @@ conda-lock and pip's PEP 751 <code>pylock.toml</code> as well as <code>pixi.lock
 Linux (glibc and musl) x86_64 and aarch64, macOS x86_64 and arm64, and Windows x86_64, from 1.7.0 on. <code>cargo
 binstall pixi-sbom</code>, the release archives and conda-forge are the other ways; see <a href="../installation/">Installation</a>.
 Installed this way, the command is <code>pixi-sbom</code> rather than <code>pixi sbom</code>.</p>
+<h2 id="getting-a-lockfile">Getting a lockfile<a class="headerlink" href="#getting-a-lockfile" title="Permanent link">&para;</a></h2>
+<p>pixi-sbom reads a lock, never a list of requirements (see <a href="#it-never-resolves">It never resolves</a>), so the first step
+is the lock your project's own tool writes. Every command below was run with the tool named, and what it wrote is read
+by a test (<code>tests/fixtures/lockfile-routes</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Your setup</th>
+<th>Run</th>
+<th>pixi-sbom reads</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>uv</td>
+<td><code>uv lock</code></td>
+<td><code>uv.lock</code></td>
+</tr>
+<tr>
+<td>Poetry</td>
+<td><code>poetry lock</code></td>
+<td><code>poetry.lock</code></td>
+</tr>
+<tr>
+<td>PDM</td>
+<td><code>pdm lock</code></td>
+<td><code>pdm.lock</code></td>
+</tr>
+<tr>
+<td>pip, with a <code>requirements.txt</code></td>
+<td><code>pip lock -r requirements.txt -o pylock.toml</code> (pip 25.1 and later; experimental there)</td>
+<td><code>pylock.toml</code></td>
+</tr>
+<tr>
+<td>any <code>requirements.txt</code>, pip-tools' pinned one with hashes included</td>
+<td><code>uv pip compile requirements.txt -o pylock.toml</code></td>
+<td><code>pylock.toml</code></td>
+</tr>
+<tr>
+<td>Pipenv</td>
+<td><code>pipenv requirements &gt; requirements.txt</code>, then <code>uv pip compile requirements.txt -o pylock.toml</code></td>
+<td><code>pylock.toml</code></td>
+</tr>
+<tr>
+<td>a conda environment</td>
+<td><code>conda list --explicit --md5 &gt; explicit.txt</code> in it, or <code>conda list -p &lt;env&gt; --explicit --md5</code></td>
+<td>the explicit spec</td>
+</tr>
+<tr>
+<td>a mamba / micromamba environment</td>
+<td><code>micromamba env export -p &lt;env&gt; --explicit --md5 &gt; explicit.txt</code></td>
+<td>the explicit spec</td>
+</tr>
+<tr>
+<td>an <code>environment.yml</code></td>
+<td><code>conda-lock -f environment.yml -p linux-64 -p osx-arm64</code> (any platforms you need)</td>
+<td><code>conda-lock.yml</code></td>
+</tr>
+<tr>
+<td>an environment that is already installed</td>
+<td>nothing: <code>pixi-sbom --prefix &lt;env&gt;</code> reads it as it is</td>
+<td>the installed environment</td>
+</tr>
+</tbody>
+</table>
+<p><code>uv pip compile -o pylock.toml</code> writes PEP 751 because of the file name. It resolves, so a fully pinned
+<code>requirements.txt</code> gives back exactly its pins, and one with ranges gives today's answer for them; that answer is
+then the lock. <code>pip lock</code> locks for the interpreter that runs it, so its <code>pylock.toml</code> carries no markers.</p>
+<h3 id="tools-you-need">Tools you need<a class="headerlink" href="#tools-you-need" title="Permanent link">&para;</a></h3>
+<p>Only the tool for your route, and note that the <code>requirements.txt</code> and Pipenv routes end in <code>uv pip compile</code>, so they
+need <strong>uv</strong> as well. Every tool here is on conda-forge (<code>pixi global install &lt;tool&gt;</code>, or <code>conda install -c conda-forge
+&lt;tool&gt;</code>); the Python ones are also on PyPI (<code>uv tool install &lt;tool&gt;</code>, <code>pipx install &lt;tool&gt;</code>). "Tested with" is the
+version each command above was run with.</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Needed for</th>
+<th>Tested with</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://docs.astral.sh/uv/">uv</a></td>
+<td><code>uv lock</code>; <code>uv pip compile</code> in the <code>requirements.txt</code>, pip-tools and Pipenv routes</td>
+<td>0.12.20</td>
+</tr>
+<tr>
+<td><a href="https://python-poetry.org/">Poetry</a></td>
+<td><code>poetry lock</code></td>
+<td>2.0.1</td>
+</tr>
+<tr>
+<td><a href="https://pdm-project.org/">PDM</a></td>
+<td><code>pdm lock</code></td>
+<td>2.26.9</td>
+</tr>
+<tr>
+<td><a href="https://pip.pypa.io/">pip</a></td>
+<td><code>pip lock</code>, which needs pip 25.1 or later (<code>python -m pip install -U pip</code>)</td>
+<td>26.2.1</td>
+</tr>
+<tr>
+<td><a href="https://pip-tools.readthedocs.io/">pip-tools</a></td>
+<td><code>pip-compile</code>, if that is how your <code>requirements.txt</code> is made</td>
+<td>7.6.1</td>
+</tr>
+<tr>
+<td><a href="https://pipenv.pypa.io/">Pipenv</a></td>
+<td><code>pipenv requirements</code></td>
+<td>2026.8.0</td>
+</tr>
+<tr>
+<td><a href="https://docs.conda.io/">conda</a></td>
+<td><code>conda list --explicit --md5</code> (from <a href="https://conda-forge.org/download/">Miniforge</a>, or any conda install)</td>
+<td>26.9.1</td>
+</tr>
+<tr>
+<td><a href="https://mamba.readthedocs.io/">micromamba</a></td>
+<td><code>micromamba env export --explicit --md5</code></td>
+<td>1.5.12 and 2.9.0</td>
+</tr>
+<tr>
+<td><a href="https://conda.github.io/conda-lock/">conda-lock</a></td>
+<td><code>conda-lock -f environment.yml</code> and <code>conda-lock render</code></td>
+<td>4.0.0</td>
+</tr>
+</tbody>
+</table>
+<h3 id="what-is-not-read">What is not read<a class="headerlink" href="#what-is-not-read" title="Permanent link">&para;</a></h3>
+<p>Some files a tool writes are not read, and each has its way in:</p>
+<table>
+<thead>
+<tr>
+<th>Not read</th>
+<th>Why</th>
+<th>Way in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pipenv's <code>Pipfile.lock</code></td>
+<td>Pipenv's own format</td>
+<td><code>pipenv requirements</code>, then the pip route above, or <code>--prefix</code> on the virtualenv Pipenv made</td>
+</tr>
+<tr>
+<td>Rye's <code>requirements.lock</code></td>
+<td>Rye's own format; Rye's maintainers point its users to uv</td>
+<td><code>uv lock</code> in the project, or <code>--prefix</code> on its <code>.venv</code></td>
+</tr>
+<tr>
+<td><code>conda env export</code></td>
+<td>versions without builds or URLs, so not a lock</td>
+<td><code>conda list --explicit --md5</code>, or <code>conda-lock</code></td>
+</tr>
+<tr>
+<td><code>pip freeze</code></td>
+<td>a list of installed versions, no hashes or sources</td>
+<td><code>--prefix</code> on the environment it came from, which reads the same packages with more</td>
+</tr>
+</tbody>
+</table>
 <h2 id="what-it-reads">What it reads<a class="headerlink" href="#what-it-reads" title="Permanent link">&para;</a></h2>
 <p>Without <code>--lockfile</code>, it looks for a lockfile in the working directory and upward, and picks the first in a fixed
 order when a directory has several (see <a href="../cli/#which-lockfile-is-found">Which lockfile is found</a>).</p>

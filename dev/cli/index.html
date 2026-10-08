@@ -2593,6 +2593,8 @@ the package's source names another (a <code>legacy</code> source, such as the Py
   the document.</li>
 </ul>
 <h2 id="reading-conda-lockyml">Reading conda-lock.yml<a class="headerlink" href="#reading-conda-lockyml" title="Permanent link">&para;</a></h2>
+<p><code>conda-lock -f environment.yml -p linux-64 -p osx-arm64</code> writes one from an <code>environment.yml</code>, for the platforms
+named.</p>
 <p>A conda environment locked with conda-lock is described from its unified <code>conda-lock.yml</code> (version 1, which
 conda-lock writes by default), through <code>--lockfile</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>conda-lock.yml<span class="w"> </span>-p<span class="w"> </span>linux-64
