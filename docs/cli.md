@@ -865,9 +865,12 @@ pixi sbom --report outdated --outdated-min major --report-format markdown
 | `Step` | `patch`, `minor` or `major`, by the leading numeric segments; `current` when nothing is newer |
 
 Rows are ordered furthest behind first, then oldest. PyPI packages are read from the project document
-(`/pypi/<name>/json`). Conda packages are asked of whichever index `--conda-index-kind` selects. Source packages
-and anything the index cannot answer for are listed under *No releases to compare against* rather than guessed at.
-Documents are cached for a day, so a second run is free.
+(`/pypi/<name>/json`). Conda packages are asked of whichever index `--conda-index-kind` selects. A package the index
+has no releases for (one from a private channel, say) is listed under *No releases to compare against* rather than
+guessed at. A package no index covers at all (a source package pixi built, another ecosystem's purl, none, a git or
+local install) is listed under *Not checked* instead, and an index that did not answer under *Could not be checked*:
+three different reasons for one missing answer, each counted (`not_checked`, `unknown` and `unavailable` in the JSON
+report). Documents are cached for a day, so a second run is free.
 
 A package installed from a mirror is a case of its own. Its channel is named after the local repository, so no
 index has heard of it, and asking by name returns nothing. The lockfile records a sha256 and a proxying mirror
@@ -1322,7 +1325,8 @@ pixi sbom --from-sbom sbom.cdx.json --format spdx --output sbom.spdx.json   # co
 
 The reader is the one behind `--against`, so CycloneDX 1.4–1.7, SPDX 2.x and SPDX 3.0.1 are all accepted. From
 CycloneDX and SPDX 2.x it takes the packages, versions, purls, licenses, hashes, descriptions, download locations,
-the dependency graph and the `pixi:*` properties a document this tool wrote carries — so a document of ours
+the repository (a CycloneDX `vcs` reference, or an SPDX `downloadLocation` that is a VCS URL) and homepage, the
+dependency graph and the `pixi:*` properties a document this tool wrote carries — so a document of ours
 round-trips unchanged, declared dependencies and all. SPDX 3.0.1 is read as packages, versions, purls and
 licenses; its graph, hashes and properties do not come back.
 
@@ -1330,7 +1334,15 @@ The described application's name and version come from the document's own root c
 `--root-version` say otherwise, and the environment and platform from what the document records (`default` and
 empty when it records nothing, or whatever `--platform` says). A purl that is neither `pkg:conda` nor `pkg:pypi`,
 and a package with no purl at all, is recorded as the `external` kind: the document is the only thing that knows
-what it is.
+what it is. What a scanner lists besides packages is left out: syft, for one, adds every file it read
+(CycloneDX `"type": "file"`) and the scanned directory (SPDX `primaryPackagePurpose: FILE`).
+
+The reports that look packages up work from the purls. `--report outdated` asks PyPI and the conda index about the
+`pkg:pypi` and `pkg:conda` ones and lists the rest under *Not checked*, counted rather than dropped. `--scorecard`
+scores the repository the document names, or for a PyPI package the one PyPI's `project_urls` name (see
+[How well each dependency is looked after](#how-well-each-dependency-is-looked-after)); syft names none, so for its
+documents every score comes from there. A document syft wrote for a venv gives the same answers in CycloneDX and in
+SPDX, which `tests/matrix.rs` checks.
 
 What is written carries `pixi:source-document` — the source's serial number or namespace — in place of
 `pixi:lockfile`, so the derivation is traceable. Enrichment that needs a lockfile or a local package cache

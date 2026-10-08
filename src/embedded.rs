@@ -44,6 +44,11 @@ pub struct Component {
     pub sha256: Option<String>,
     pub md5: Option<String>,
     pub location: Option<String>,
+    /// The source repository the document names: a CycloneDX `vcs` reference, or an SPDX
+    /// `downloadLocation` that is a VCS URL.
+    pub repository: Option<String>,
+    /// A CycloneDX `website` reference, or the SPDX `homepage`.
+    pub homepage: Option<String>,
     /// References of the components this one depends on.
     pub depends_on: Vec<String>,
     /// The `pixi:*` facts the document records, which is how a document this tool wrote keeps
@@ -82,6 +87,9 @@ struct CdxMetadata {
 struct CdxComponent {
     #[serde(rename = "bom-ref")]
     bom_ref: Option<String>,
+    /// `library`, `application`, `file`, ...
+    #[serde(rename = "type", default)]
+    kind: Option<String>,
     name: String,
     version: Option<String>,
     purl: Option<String>,
@@ -156,6 +164,11 @@ fn parse_cyclonedx(text: &str) -> Option<Fragment> {
         .collect();
     let mut fragment = Fragment::default();
     for (i, c) in doc.components.iter().enumerate() {
+        // A file a scanner read on the way (syft lists every dist-info METADATA it opened) is
+        // not a package.
+        if c.kind.as_deref() == Some("file") {
+            continue;
+        }
         let reference = c
             .bom_ref
             .clone()
@@ -183,6 +196,16 @@ fn parse_cyclonedx(text: &str) -> Option<Fragment> {
                 .external_references
                 .iter()
                 .find(|r| r.kind == "distribution" || r.kind == "vcs")
+                .map(|r| r.url.clone()),
+            repository: c
+                .external_references
+                .iter()
+                .find(|r| r.kind == "vcs")
+                .and_then(|r| vcs_repository(&r.url)),
+            homepage: c
+                .external_references
+                .iter()
+                .find(|r| r.kind == "website")
                 .map(|r| r.url.clone()),
             properties: c
                 .properties
@@ -231,6 +254,10 @@ struct Spdx {
 struct SpdxPackage {
     #[serde(rename = "SPDXID")]
     spdx_id: String,
+    #[serde(rename = "primaryPackagePurpose", default)]
+    primary_package_purpose: Option<String>,
+    #[serde(default)]
+    homepage: Option<String>,
     name: String,
     #[serde(rename = "versionInfo")]
     version_info: Option<String>,
@@ -273,6 +300,30 @@ struct SpdxRelationship {
     related: String,
 }
 
+/// The repository a VCS URL names: `git+https://github.com/o/r@<rev>#<path>` is
+/// `https://github.com/o/r`. `None` for anything that is not a VCS URL (a download, a path).
+pub fn vcs_repository(url: &str) -> Option<String> {
+    let url = url.trim();
+    let rest = ["git+", "hg+", "svn+", "bzr+"]
+        .iter()
+        .find_map(|prefix| url.strip_prefix(prefix));
+    let plain_git = url.starts_with("git://") || url.starts_with("git@") || url.ends_with(".git");
+    let rest = rest.or_else(|| plain_git.then_some(url))?;
+    let rest = rest.split('#').next().unwrap_or(rest);
+    // `@<rev>` after the path, not the `user@` of `ssh://git@host`.
+    let (scheme, path) = rest.split_once("://").map_or(("", rest), |(s, p)| (s, p));
+    let path = match path.rsplit_once('@') {
+        Some((before, _)) if before.contains('/') => before,
+        _ => path,
+    };
+    let repository = if scheme.is_empty() {
+        path.to_string()
+    } else {
+        format!("{scheme}://{path}")
+    };
+    (!repository.is_empty()).then_some(repository)
+}
+
 fn parse_spdx(text: &str) -> Option<Fragment> {
     let doc: Spdx = serde_json::from_str(text).ok()?;
     if !doc.spdx_version.starts_with("SPDX-2") {
@@ -290,6 +341,11 @@ fn parse_spdx(text: &str) -> Option<Fragment> {
     }
     let mut fragment = Fragment::default();
     for p in &doc.packages {
+        // A directory or file a scanner described (syft's scanned directory is one) is not a
+        // package.
+        if p.primary_package_purpose.as_deref() == Some("FILE") {
+            continue;
+        }
         let noassertion = |v: &Option<String>| v.clone().filter(|s| s != "NOASSERTION" && s != "NONE");
         fragment.components.push(Component {
             reference: p.spdx_id.clone(),
@@ -313,6 +369,8 @@ fn parse_spdx(text: &str) -> Option<Fragment> {
                 .find(|c| c.algorithm.eq_ignore_ascii_case("MD5"))
                 .map(|c| c.checksum_value.to_lowercase()),
             location: noassertion(&p.download_location),
+            repository: noassertion(&p.download_location).as_deref().and_then(vcs_repository),
+            homepage: noassertion(&p.homepage),
             depends_on: depends.get(p.spdx_id.as_str()).cloned().unwrap_or_default(),
             // SPDX has no properties, so this writer (and others) put `key=value` lines in the
             // comment; anything else in there is not a `pixi:` key and is ignored.
@@ -499,6 +557,57 @@ mod tests {
           {"type":"library","name":"gamma","version":"3.0"}
         ],
         "dependencies":[{"ref":"root","dependsOn":["a"]},{"ref":"a","dependsOn":["b"]},{"ref":"b","dependsOn":[]}]}"#;
+
+    #[test]
+    fn scanner_files_are_not_packages_and_repositories_are_read() {
+        // CycloneDX: a `file` component is skipped; `vcs` and `website` references are kept.
+        let cdx = r#"{"bomFormat":"CycloneDX","specVersion":"1.6","components":[
+          {"type":"file","bom-ref":"f","name":"/work/app/lib/x.dist-info/METADATA"},
+          {"type":"library","bom-ref":"a","name":"alpha","version":"1","purl":"pkg:pypi/alpha@1",
+           "externalReferences":[{"type":"vcs","url":"git+https://github.com/o/alpha@v1"},{"type":"website","url":"https://alpha.dev"}]}
+        ]}"#;
+        let fragment = parse(cdx).unwrap();
+        let names: Vec<&str> = fragment.components.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, ["alpha"]);
+        assert_eq!(
+            fragment.components[0].repository.as_deref(),
+            Some("https://github.com/o/alpha")
+        );
+        assert_eq!(fragment.components[0].homepage.as_deref(), Some("https://alpha.dev"));
+
+        // SPDX 2.3: a FILE-purpose package (syft's scanned directory) is skipped; a VCS download
+        // location is the repository, and `homepage` is read.
+        let spdx = r#"{"spdxVersion":"SPDX-2.3","SPDXID":"SPDXRef-DOCUMENT","packages":[
+          {"SPDXID":"SPDXRef-dir","name":"/work/app","primaryPackagePurpose":"FILE","downloadLocation":"NOASSERTION"},
+          {"SPDXID":"SPDXRef-b","name":"beta","versionInfo":"2","downloadLocation":"git+https://gitlab.com/o/beta.git@abc#sub",
+           "homepage":"https://beta.dev","externalRefs":[{"referenceCategory":"PACKAGE-MANAGER","referenceType":"purl","referenceLocator":"pkg:pypi/beta@2"}]},
+          {"SPDXID":"SPDXRef-c","name":"gamma","versionInfo":"3","downloadLocation":"https://files.example/gamma-3.tar.gz"}
+        ],"relationships":[]}"#;
+        let fragment = parse(spdx).unwrap();
+        let names: Vec<&str> = fragment.components.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, ["beta", "gamma"]);
+        assert_eq!(
+            fragment.components[0].repository.as_deref(),
+            Some("https://gitlab.com/o/beta.git")
+        );
+        assert_eq!(fragment.components[0].homepage.as_deref(), Some("https://beta.dev"));
+        assert_eq!(
+            fragment.components[1].repository, None,
+            "a download is not a repository"
+        );
+
+        for (url, repository) in [
+            ("git+https://github.com/o/r@v1.0#subdir", Some("https://github.com/o/r")),
+            ("git+ssh://git@github.com/o/r.git", Some("ssh://git@github.com/o/r.git")),
+            ("git://example.org/r", Some("git://example.org/r")),
+            ("https://github.com/o/r.git", Some("https://github.com/o/r.git")),
+            ("hg+https://hg.example/r@tip", Some("https://hg.example/r")),
+            ("https://files.example/r-1.tar.gz", None),
+            ("libs/local", None),
+        ] {
+            assert_eq!(vcs_repository(url).as_deref(), repository, "{url}");
+        }
+    }
 
     #[test]
     fn parses_cyclonedx_components_licenses_and_graph() {

@@ -399,6 +399,7 @@ fn repository(package: &Package, ctx: Context, input: &str) -> Option<Fact> {
             {
                 Some("wheel") => "the wheel's dist-info (Project-URL)".to_string(),
                 Some("pypi") => "the PyPI JSON API (project_urls); the lockfile names no wheel to read".to_string(),
+                Some("document") => "the source document's VCS reference".to_string(),
                 _ => input.to_string(),
             };
             Some(Fact::known("repository", repository, source))

@@ -267,6 +267,10 @@ pub struct OutdatedSummary {
     pub by_step: Vec<(String, usize)>,
     /// Packages no index could be asked about (private channels, source packages).
     pub unknown: Vec<String>,
+    /// Packages of a kind no index covers: a component with no purl or another ecosystem's, a
+    /// git or local install. Kept apart from `unknown`, which an index could have answered for.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub not_checked: Vec<String>,
     /// Packages whose index could not be reached — rate limited, refused or down. Kept apart from
     /// `unknown` because the two look identical in a report and mean opposite things: one has no
     /// upstream, the other has one we failed to ask.
@@ -732,6 +736,7 @@ impl Report {
         let mut report = Self::new(ReportKind::Outdated, sbom);
         let mut rows = Vec::new();
         let mut unknown = Vec::new();
+        let mut not_checked = Vec::new();
         let mut could_not_ask = Vec::new();
         let mut by_step: BTreeMap<&str, usize> = BTreeMap::new();
         for (index, (package, status)) in sbom
@@ -743,8 +748,10 @@ impl Report {
             let Some(status) = status else {
                 if unavailable.get(index).copied().unwrap_or(false) {
                     could_not_ask.push(package.name.clone());
-                } else {
+                } else if package.from_index() || package.kind == crate::model::PackageKind::CondaBinary {
                     unknown.push(package.name.clone());
+                } else {
+                    not_checked.push(package.name.clone());
                 }
                 continue;
             };
@@ -780,6 +787,7 @@ impl Report {
                 .filter_map(|step| by_step.get(step).map(|count| (step.to_string(), *count)))
                 .collect(),
             unknown,
+            not_checked,
             unavailable: could_not_ask,
         });
         report.outdated = Some(rows);
@@ -1675,6 +1683,17 @@ pub fn render_with_width(
                             "No releases to compare against ({}): {}",
                             summary.unknown.len(),
                             summary.unknown.join(", ")
+                        )?;
+                    }
+                    // Packages no index covers at all: another ecosystem's purl, none, a git or local
+                    // install. Counted, so a document from another tool cannot shrink the report
+                    // without saying so.
+                    if !summary.not_checked.is_empty() {
+                        writeln!(
+                            out,
+                            "Not checked ({}), no index covers them: {}",
+                            summary.not_checked.len(),
+                            summary.not_checked.join(", ")
                         )?;
                     }
                     // Said separately and after, because this is a failure of the run rather than
@@ -3244,7 +3263,60 @@ mod tests {
         let summary = report.outdated_summary.as_ref().unwrap();
         assert_eq!(summary.checked, 3);
         assert_eq!(summary.by_step, [("major".to_string(), 1), ("patch".to_string(), 1)]);
-        assert_eq!(summary.unknown, ["mylib"]);
+        assert!(summary.unknown.is_empty());
+        assert_eq!(summary.not_checked, ["mylib"], "a source package has no index to ask");
+    }
+
+    #[test]
+    fn packages_no_index_covers_are_not_checked_rather_than_unknown() {
+        // #335: a component of another ecosystem, or a git install, has no index to ask; one the
+        // index had nothing for is unknown; one whose index did not answer is unavailable.
+        let mut sbom = sample_sbom();
+        let template = sbom
+            .packages
+            .iter()
+            .find(|p| p.kind == crate::model::PackageKind::Pypi)
+            .unwrap()
+            .clone();
+        let mut launcher = template.clone();
+        launcher.name = "Simple Launcher".into();
+        launcher.kind = crate::model::PackageKind::External;
+        let mut git = template.clone();
+        git.name = "toolbar".into();
+        git.properties
+            .insert("pixi:direct-url".into(), "https://github.com/o/toolbar".into());
+        let mut private = template;
+        private.name = "acme-internal".into();
+        sbom.packages = vec![launcher, git, private.clone(), private];
+        let report = Report::outdated(
+            &sbom,
+            &[None, None, None, None],
+            &[false, false, false, true],
+            std::time::UNIX_EPOCH,
+        );
+        let summary = report.outdated_summary.as_ref().unwrap();
+        assert_eq!(summary.not_checked, ["Simple Launcher", "toolbar"]);
+        assert_eq!(summary.unknown, ["acme-internal"]);
+        assert_eq!(summary.unavailable, ["acme-internal"]);
+        let mut out = Vec::new();
+        render(
+            std::slice::from_ref(&report),
+            ReportFormat::Table,
+            Palette::new(false),
+            &mut out,
+        )
+        .unwrap();
+        let text = String::from_utf8(out).unwrap();
+        assert!(
+            text.contains("Not checked (2), no index covers them: Simple Launcher, toolbar"),
+            "{text}"
+        );
+        let value = serde_json::to_value(&report).unwrap();
+        assert_eq!(
+            value["summary"]["not_checked"].as_array().map(Vec::len),
+            Some(2),
+            "{value}"
+        );
     }
 
     #[test]
@@ -3309,7 +3381,7 @@ mod tests {
         assert_eq!(value["report"], "outdated");
         assert_eq!(value["outdated"][0]["name"], "zlib");
         assert_eq!(value["outdated"][0]["behind"], 12);
-        assert_eq!(value["summary"]["unknown"][0], "mylib");
+        assert_eq!(value["summary"]["not_checked"][0], "mylib");
         assert!(value.get("packages").is_none());
     }
 

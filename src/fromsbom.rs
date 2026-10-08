@@ -312,8 +312,8 @@ fn packages_of(text: &str, value: &serde_json::Value) -> Option<Vec<Package>> {
                         license: c.license.clone(),
                         license_files: Vec::new(),
                         description: c.description.clone(),
-                        homepage: None,
-                        repository: None,
+                        homepage: c.homepage.clone(),
+                        repository: c.repository.clone(),
                         documentation: None,
                         yanked: None,
                         // `pixi:kind` is derived from the purl and written again, so carrying
@@ -323,6 +323,19 @@ fn packages_of(text: &str, value: &serde_json::Value) -> Option<Vec<Package>> {
                             .iter()
                             .filter(|(key, _)| key.as_str() != "pixi:kind")
                             .map(|(key, value)| (key.clone(), value.clone()))
+                            // Where the repository came from: what the document says, if it is one this
+                            // tool wrote, else the document itself.
+                            .chain(
+                                c.repository
+                                    .as_ref()
+                                    .filter(|_| !c.properties.contains_key(crate::pypi::REPOSITORY_SOURCE_PROPERTY))
+                                    .map(|_| {
+                                        (
+                                            crate::pypi::REPOSITORY_SOURCE_PROPERTY.to_string(),
+                                            "document".to_string(),
+                                        )
+                                    }),
+                            )
                             .collect(),
                         dependencies,
                     }

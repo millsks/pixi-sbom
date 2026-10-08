@@ -143,6 +143,8 @@ critical, KEV-listed advisory, an MIT license and a 4.2 scorecard, and yanks `si
 | --prefix (conda) | 0: 4 rows | 0: 4 rows, 4 with license | 0: 1 rows | 0: 4 unchanged | 0: 4 rows | 0: 1 rows | 0: 0 rows | 0: 4 rows, 1 with score | 0 | 3 | 4 | 4 | 7 | 9 |
 | --prefix (venv) | 0: 6 rows | 0: 6 rows, 6 with license | 0: 6 rows | 0: 6 unchanged | 0: 6 rows | 0: 6 rows | 0: 2 rows | 0: 6 rows, 6 with score | 0 | 3 | 4 | 4 | 0 | 9 |
 | --from-sbom | 0: 30 rows | 0: 30 rows, 30 with license | 0: 6 rows | 0: 30 unchanged | 0: 30 rows | 0: 6 rows | 0: 2 rows | 0: 30 rows, 6 with score | 0 | 3 | 4 | 4 | 7 | 9 |
+| --from-sbom (syft CycloneDX) | 0: 15 rows | 0: 15 rows, 9 with license | 0: 9 rows | 0: 10 unchanged | 0: 9 rows | 0: 9 rows | 0: 0 rows | 0: 15 rows, 9 with score | 0 | 3 | 4 | 4 | 0 | 9 |
+| --from-sbom (syft SPDX) | 0: 15 rows | 0: 15 rows, 9 with license | 0: 9 rows | 0: 10 unchanged | 0: 9 rows | 0: 9 rows | 0: 0 rows | 0: 15 rows, 9 with score | 0 | 3 | 4 | 4 | 0 | 9 |
 
 Where a cell is smaller than its neighbours, the input does not record what the column needs:
 
@@ -154,5 +156,8 @@ Where a cell is smaller than its neighbours, the input does not record what the 
   reads it from the conda archives, which the test leaves unreachable on purpose.
 - **licenses** and **outdated** on the Python lockfiles count 25 of 27: a package installed from a git checkout or a
   local directory is not looked up on PyPI by name, where the name could belong to an unrelated project.
+- **`--from-sbom` on syft's documents** (a venv, in CycloneDX and in SPDX): the same answers from both. The 6
+  executables syft found have no purl, so the outdated report lists them as not checked, and the diff matches the
+  six by their one name.
 - **scorecard** takes the repository from the wheel, or from the PyPI JSON API's `project_urls` where no wheel is
   read: `poetry.lock` and `pdm.lock` record file names, not URLs, and an installed `dist-info` may name none.

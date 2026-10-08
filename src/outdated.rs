@@ -1639,7 +1639,7 @@ mod tests {
         assert_eq!(outcome.checked, 0);
 
         // The distinction the report depends on: a package we could not ask about is not a package
-        // that has no upstream. `mylib` is a source package no index carries, so it stays unknown
+        // that has no upstream. `mylib` is a source package no index carries, so it is not checked
         // however the network behaves.
         let named: Vec<&str> = sbom
             .packages
@@ -1657,7 +1657,7 @@ mod tests {
         let report = crate::report::Report::outdated(&sbom, &statuses, &unavailable, SystemTime::now());
         let summary = report.outdated_summary.as_ref().unwrap();
         assert!(summary.unavailable.contains(&"zlib".to_string()), "{summary:?}");
-        assert!(summary.unknown.contains(&"mylib".to_string()), "{summary:?}");
+        assert!(summary.not_checked.contains(&"mylib".to_string()), "{summary:?}");
         assert!(!summary.unknown.contains(&"zlib".to_string()), "{summary:?}");
     }
 

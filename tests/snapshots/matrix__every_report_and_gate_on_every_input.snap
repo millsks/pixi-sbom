@@ -14,6 +14,8 @@ expression: table
 | --prefix (conda) | 0: 4 rows | 0: 4 rows, 4 with license | 0: 1 rows | 0: 4 unchanged | 0: 4 rows | 0: 1 rows | 0: 0 rows | 0: 4 rows, 1 with score | 0 | 3 | 4 | 4 | 7 | 9 |
 | --prefix (venv) | 0: 6 rows | 0: 6 rows, 6 with license | 0: 6 rows | 0: 6 unchanged | 0: 6 rows | 0: 6 rows | 0: 2 rows | 0: 6 rows, 6 with score | 0 | 3 | 4 | 4 | 0 | 9 |
 | --from-sbom | 0: 30 rows | 0: 30 rows, 30 with license | 0: 6 rows | 0: 30 unchanged | 0: 30 rows | 0: 6 rows | 0: 2 rows | 0: 30 rows, 6 with score | 0 | 3 | 4 | 4 | 7 | 9 |
+| --from-sbom (syft CycloneDX) | 0: 15 rows | 0: 15 rows, 9 with license | 0: 9 rows | 0: 10 unchanged | 0: 9 rows | 0: 9 rows | 0: 0 rows | 0: 15 rows, 9 with score | 0 | 3 | 4 | 4 | 0 | 9 |
+| --from-sbom (syft SPDX) | 0: 15 rows | 0: 15 rows, 9 with license | 0: 9 rows | 0: 10 unchanged | 0: 9 rows | 0: 9 rows | 0: 0 rows | 0: 15 rows, 9 with score | 0 | 3 | 4 | 4 | 0 | 9 |
 
 Exit codes: 0 ok, 3 license policy, 4 vulnerability gate (severity or KEV), 7 yanked, 9 scorecard gate.
 The upstream gives every PyPI package a critical, KEV-listed advisory, a newer release, an MIT license, a
@@ -33,6 +35,10 @@ repository with a 4.2 scorecard, and yanks six; conda packages get no advisory (
   read (poetry.lock and pdm.lock record no URLs; an installed dist-info names none here). The git and local
   packages are not looked up by name, so 25 of 27 are scored.
 - yanked gate: six is the yanked one; inputs without it pass.
+- the syft documents (tests/fixtures/syft) describe a venv: 9 PyPI packages and 6 executables syft found
+  ('Simple Launcher', no purl), which outdated lists as not checked. syft names no repositories, so the scores
+  come from the PyPI lookup. The diff counts 10, not 15: it matches by kind and name, and the six executables
+  share one.
 - licenses and outdated on the Python lockfiles count 25 of 27: the git checkout (django-debug-toolbar) and the
   local directory (internal-utils) are not asked about by name, since the index would describe an unrelated
   project of that name.
