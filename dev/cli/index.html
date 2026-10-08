@@ -2376,7 +2376,8 @@ there:</p>
 <p>One directory is one project, so a project with both a <code>pixi.lock</code> and a <code>uv.lock</code> gets one document, not two; pass
 <code>--lockfile</code> to read the other. An explicit conda spec file has no fixed name, so it is never discovered and only
 read through <code>--lockfile</code>. When nothing is found, <code>pixi_sbom::discover::not_found</code> (or <code>none_found</code> for <code>--scan</code>)
-lists the names it looked for:</p>
+lists the names it looked for, and <code>not_found</code> first names the nearest manifest it passed with no lockfile beside it
+and the command that locks it ("pyproject.toml is a Poetry project's manifest: run <code>poetry lock</code> beside it"):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>  × no pixi.lock, uv.lock, pylock.toml, poetry.lock, pdm.lock or conda-lock.yml found in /work/app or any parent directory
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  help: write one with your project's tool (`pixi lock`, `uv lock`, `poetry lock`, `pdm lock`, `pip lock`, `conda-lock`),
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>        or pass --lockfile with the path to one; an explicit conda spec file is only read that way

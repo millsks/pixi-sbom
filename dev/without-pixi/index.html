@@ -1307,6 +1307,52 @@ of anything. So these are not inputs, and each has a tool that turns it into one
 </tbody>
 </table>
 <p>A manifest beside a lockfile is still read, for what it declares; only resolving is ruled out.</p>
+<p>Given one of these instead of a lockfile, pixi-sbom says which command makes the lock rather than failing to parse it
+(<code>pixi_sbom::input::not_a_lock</code>). It tells a Poetry, PDM, uv or pixi <code>pyproject.toml</code> apart by its <code>[tool.*]</code> tables,
+and <code>conda env export</code> output from a hand-written <code>environment.yml</code> by its <code>prefix:</code> line:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>  × pyproject.toml is a Poetry project's manifest, not a lock: pixi-sbom reads a lockfile and never resolves one
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  help: run `poetry lock` beside it, then pass poetry.lock (or leave --lockfile out)
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Given</th>
+<th>It says</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pyproject.toml</code></td>
+<td><code>uv lock</code>, <code>poetry lock</code>, <code>pdm lock</code> or <code>pixi lock</code>, by its <code>[tool.*]</code> tables; all three Python tools when it has none</td>
+</tr>
+<tr>
+<td><code>pixi.toml</code></td>
+<td><code>pixi lock</code></td>
+</tr>
+<tr>
+<td><code>environment.yml</code></td>
+<td><code>conda-lock -f environment.yml -p …</code>, or <code>conda list --explicit --md5</code> in the environment</td>
+</tr>
+<tr>
+<td><code>conda env export</code> output</td>
+<td><code>conda list --explicit --md5</code>, or <code>--prefix</code> on the environment</td>
+</tr>
+<tr>
+<td><code>Pipfile</code>, <code>Pipfile.lock</code></td>
+<td><code>pipenv requirements</code> and the pip route, or <code>--prefix $(pipenv --venv)</code></td>
+</tr>
+<tr>
+<td><code>setup.py</code>, <code>setup.cfg</code></td>
+<td><code>uv pip compile setup.py -o pylock.toml</code></td>
+</tr>
+<tr>
+<td>a <code>requirements.txt</code> with a range</td>
+<td><code>uv pip compile</code> or <code>pip-compile --generate-hashes</code> (<code>pixi_sbom::requirements::not_pinned</code>, naming the line)</td>
+</tr>
+</tbody>
+</table>
+<p>When no lockfile is found at all, the upward search names the nearest of these it passed, with its command, before
+the general advice.</p>
 <h2 id="in-ci-and-before-a-commit">In CI and before a commit<a class="headerlink" href="#in-ci-and-before-a-commit" title="Permanent link">&para;</a></h2>
 <p>The GitHub Action downloads its own binary, so the runner needs neither pixi nor Rust; <code>lockfile</code>, <code>prefix</code> and
 <code>scan</code> take every kind above (<a href="../github-action/#without-pixi-uv-poetry-pdm-pylock-and-venvs">GitHub Action</a>). The
