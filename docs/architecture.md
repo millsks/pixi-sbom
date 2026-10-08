@@ -1,6 +1,6 @@
 # Architecture
 
-`pixi-sbom` is a single Rust binary (~18.5k lines of source, ~34k counting tests) organized as a short pipeline. Each stage has one
+`pixi-sbom` is a single Rust binary (~41k lines under `src/` counting its unit tests, plus ~10k of integration tests) organized as a short pipeline. Each stage has one
 job and one module, and the stages meet at a format-agnostic model so that lockfile interpretation happens exactly
 once no matter how many output formats exist.
 
@@ -11,7 +11,12 @@ once no matter how many output formats exist.
    purl.rs ──────┘             │
    manifest.rs ────────────────┘   (workspace metadata and declared dependencies)
    prefix.rs ───── --prefix: conda-meta records + site-packages dist-info (conda env, venv, plain Python)
+   uv.rs, poetry.rs, pdm.rs, pylock.rs, condalock.rs, explicit.rs, requirements.rs
+                 ─ the other lockfile kinds, each into the same model (markers via pylock.rs)
+   unlocked.rs ─── a manifest given as the input: names the command that locks it
+   extras.rs, scope.rs ─ which extra or dependency group brought a package in, and its scope
    fromsbom.rs ─── --from-sbom: an existing CycloneDX / SPDX document into the same model
+   merge.rs ────── --from-sbom repeated / --scan --merge: several models into one
    auditable.rs ── --prefix: the cargo auditable crate list inside installed binaries
    config.rs ───── pixi-sbom.toml / [tool.pixi-sbom]: fills what the command line did not say
    filter.rs ───── --include/--exclude/--exclude-kind: drops packages and re-closes the graph first
@@ -33,7 +38,11 @@ once no matter how many output formats exist.
    policy.rs ───── --allow/--deny/--require-license: violations -> exit 3 after writing
    osv.rs ──────── --vulnerabilities osv: findings from the OSV API into model::Sbom (via http.rs, cvss.rs)
    kev.rs ──────── --kev: CISA's Known Exploited Vulnerabilities catalog onto the findings (via http.rs)
-   vulnpolicy.rs ─ --fail-on-severity / --fail-on-kev / --ignore-vuln: analysis blocks and exit 4 after writing
+   epss.rs ─────── --epss: FIRST EPSS scores onto the findings (via http.rs)
+   vexin.rs ────── --vex-in: a vendor's CycloneDX / OpenVEX statements onto the findings
+   vulnpolicy.rs ─ --fail-on-severity / --fail-on-kev / --fail-on-epss / --ignore-vuln: exit 4 after writing
+   quality.rs ──── --report quality / --min-quality: NTIA minimum elements and coverage, exit 10
+   auth.rs, mirror.rs ─ credentials for private hosts, and archive hosts repointed at a mirror
    license.rs ◀── used by both writers
    discover.rs ── finds the lockfile, decides output paths
    cli.rs ──────── clap definitions
@@ -70,13 +79,30 @@ once no matter how many output formats exist.
 | `format/spdx.rs` | Same for SPDX 2.3, including `SPDXRef` id assignment and `LicenseRef` extraction. | serde |
 | `osv.rs` | `--vulnerabilities osv`: collects every queryable purl (conda purls excluded), asks OSV's `querybatch` in thousands, fetches each record in parallel, caches queries (one hour) and records (until `modified` moves), merges GHSA / PYSEC twins by alias, picks the fixed version above the installed one, and fills `Sbom::vulnerabilities`. A failed query is fatal; a failed record is not. | serde_json, http.rs, cvss.rs, concurrency.rs |
 | `kev.rs` | `--kev`: downloads CISA's KEV catalog (cached a day, stale copy on failure), looks each finding's CVE aliases up, and marks hits critical with the catalog's dates and required action. | serde_json, http.rs |
+| `epss.rs` | `--epss`: asks FIRST's EPSS API about every CVE among the findings' ids and aliases, 100 per request, caches each CVE's score (or its absence) for a day, falls back to stale scores when a request fails, and gives each finding the highest score among its CVEs. | serde_json, http.rs, cache.rs |
+| `vexin.rs` | `--vex-in`: reads CycloneDX VEX (standalone or inside an SBOM, `affects[].ref` resolved through the components or a BOM-Link) and OpenVEX (statuses and justifications mapped onto CycloneDX's), and applies each statement to the findings it names by id or alias and covers by purl. Clearing states take a finding out of the gate; the others are recorded with their source file. | serde_json, vulnpolicy.rs, purl.rs |
+| `merge.rs` | Several models as one: packages deduplicated by purl (the first input's copy kept, conflicts recorded as `pixi:merge-conflict`), colliding ids made unique, each input's root turned into a package under a new root, and every package's inputs recorded in `pixi:source-document`. | fromsbom.rs, format/mod.rs |
+| `quality.rs` | `--report quality` / `--min-quality`: grades a model on the seven NTIA minimum elements plus license and hash coverage, 0 to 100 each, and the weakest elements for the gate's message; exit code 10 is applied in `main`. | model.rs |
+| `uv.rs` | `uv.lock`: packages reached from the workspace members along edges whose markers hold for the platform, extras requested along an edge, and the members' extras and dependency groups. | toml, pylock.rs, extras.rs |
+| `poetry.rs` | `poetry.lock` (lock-version 2.x): per-package markers evaluated for the platform with every recorded extra on, and the project's own requests from the `pyproject.toml` beside it. | toml, pylock.rs, extras.rs |
+| `pdm.rs` | `pdm.lock` (lock_version 4.x): per-package markers, PEP 508 dependency strings whose markers decide each edge, and extras as separate entries folded into the package they extend. | toml, pylock.rs, extras.rs |
+| `pylock.rs` | PEP 751 `pylock.toml`, and the PEP 508 marker evaluation the other Python lockfile readers share: a package whose marker is false for the platform is left out. | toml, pep508_rs |
+| `condalock.rs` | `conda-lock.yml` (version 1): one platform's entries, conda packages described exactly as the `pixi.lock` reader describes the same archive, `manager: pip` entries as PyPI packages, and categories as scopes. | serde_yaml, purl.rs, scope.rs |
+| `explicit.rs` | Explicit conda spec files (`conda list --explicit`, `conda-lock render --kind explicit`), recognised by the `@EXPLICIT` line: one archive URL per line with an optional hash fragment. | condalock.rs, purl.rs |
+| `requirements.rs` | A fully pinned `requirements.txt` read as a lock: `name==version` with hashes and markers, the graph from the `# via` comments pip-compile and uv write, `-r` / `-c` includes followed once, and a range refused with the command that pins it. | pylock.rs, purl.rs |
+| `unlocked.rs` | A manifest given where a lock was expected (`pyproject.toml` by its `[tool.*]` tables, `pixi.toml`, `environment.yml`, `conda env export` output, `Pipfile`, `setup.py`), and the nearest one the upward search found: names the command that turns it into a lock this tool reads. | — |
+| `extras.rs` | Which extras a package was installed with and which packages are present only because of an extra, recorded as `pixi:python-extras` and `pixi:via-extra` from what each reader reports. | model.rs |
+| `scope.rs` | Required, optional or development scope for inputs that distinguish them (dependency groups, extras, conda-lock categories), written as CycloneDX `scope` and the SPDX relationship types. | model.rs |
+| `auth.rs` | Credentials for private channels and indexes, read from where pixi already keeps them (`RATTLER_AUTH_FILE`, `~/.rattler/credentials.json`, `~/.netrc`), matched by host. The platform keyring is not read. | serde_json |
+| `mirror.rs` | Repointing per-package archive hosts at a mirror (`PIXI_SBOM_CONDA_ARCHIVE_URL`, `PIXI_SBOM_WHEEL_ARCHIVE_URL`), since those reads have no fixed upstream to override. | — |
+| `lib.rs` | The library the binary, the integration tests and the benchmarks share. Every module is `#[doc(hidden)]` and none of it is a semver-covered API. | — |
 | `fromsbom.rs` | `--from-sbom`: reads an existing CycloneDX / SPDX document into `model::Sbom` through the same reader `--against` uses, keeping the graph, the hashes and the `pixi:*` properties so a document of ours round-trips. | embedded.rs, diff.rs |
 | `auditable.rs` | `--prefix --embedded-sboms`: finds the `.dep-v0` section in the environment's ELF / Mach-O / PE binaries, inflates the `cargo auditable` crate list and attaches the crates under the conda package that ships the binary. | object, flate2, serde |
 | `imports.rs` | Reading the workspace's `.py` files for the top-level modules they import, and the modules the workspace provides itself. No Python is executed and no parser crate is used. | — |
 | `phantom.rs` | `--report phantom`: which package provides which module (from an installed environment's `dist-info`, else the wheel names), and the phantom / undeclared / unused findings. | — |
 | `stdlib.rs` | The standard library's module names, so an `import os` is never a missing dependency. | — |
 | `scorecard.rs` | `--scorecard`: turns each package's repository URL into an OpenSSF Scorecard project path, fetches the score (cached a week) and records it and the failing checks as properties. | http.rs, concurrency.rs, serde |
-| `vulnpolicy.rs` | `--fail-on-severity` / `--fail-on-kev` / `--ignore-vuln`: parses ignore entries (`ID[:STATE][:TEXT]`), marks matching findings (by id or alias) with an `Analysis`, and lists the open findings at or above the threshold or known exploited; exit code 4 is applied in `main`. | model.rs |
+| `vulnpolicy.rs` | `--fail-on-severity` / `--fail-on-kev` / `--fail-on-epss` / `--ignore-vuln`: parses ignore entries (`ID[:STATE][:TEXT]`), marks matching findings (by id or alias) with an `Analysis`, and lists the open findings a `Rule` trips (at or above a severity, known exploited, or an EPSS score at or above a threshold); exit code 4 is applied in `main`. | model.rs |
 | `cvss.rs` | CVSS v3.0 / v3.1 base scores from vector strings, for advisories that carry a vector but no qualitative severity. | |
 | `progress.rs` | Whether progress bars are drawn (terminal, not `-v`/`-q`, not `TERM=dumb`/`CI`/`PIXI_SBOM_NO_PROGRESS`) and the bar itself; one global `MultiProgress` so the tracing writer can suspend every live bar while a log line prints. | indicatif |
 | `style.rs` | `--color` resolution (`NO_COLOR`, `CLICOLOR_FORCE`, `TERM=dumb`, terminal detection) and the palette: comfy-table cell styling for tables (so widths are measured on unstyled text) and `anstyle` for the plain lines around them. | anstyle, comfy-table, clap |
@@ -85,7 +111,7 @@ once no matter how many output formats exist.
 | `diff.rs` | `--report diff --against`: resolves the other side — a CycloneDX / SPDX 2.x document through `embedded::parse`, an SPDX 3.0.1 graph directly, a `pixi.lock`, or an installed environment — reduces both sides to (purl type, normalized name, version, normalized license, build string, installer) and lists added, removed, version-, license- and build-changed packages, what pip installed, and the `--fail-on-diff` gate. | embedded.rs, license.rs, lock.rs, prefix.rs |
 | `policy.rs` | `--allow-license` / `--deny-license` / `--require-license`: parses licensees, canonicalizes ids (base, `-or-later`, exception) and evaluates each package's expression with the `spdx` crate's `evaluate`, returning violations; exit code 3 is applied in `main`. | spdx, license.rs |
 | `report.rs` | `--report`: the `packages` and `licenses` views built from the model, rendered as an aligned table, Markdown, CSV or JSON. Owns no I/O beyond the writer it is handed. | serde_json |
-| `cache.rs` | What each cache is allowed to do this run and what it did: the eight caches behind the network features, the `--refresh` selection and the offline rule, and the summary a run reports. | — |
+| `cache.rs` | What each cache is allowed to do this run and what it did: the nine caches behind the network features, the `--refresh` selection and the offline rule, and the summary a run reports. | — |
 | `doctor.rs` | `--doctor`: asks every upstream this build knows about whether it answers, prints how the run is set up and what the caches hold, and exits non-zero if anything is unreachable. Needs no lockfile. | http.rs, cache.rs |
 | `explain.rs` | `--explain <PACKAGE>`: every fact the tool holds about one package and where that fact came from, and for a fact it does not hold, which sources were consulted and what each said. | model.rs |
 | `timings.rs` | `--timings`: where the run spent its time, phase by phase, separating work from waiting on the network. | — |

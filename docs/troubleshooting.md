@@ -174,6 +174,7 @@ does allow:
 | `PIXI_SBOM_PREFIX_INDEX_URL` | prefix.dev's GraphQL endpoint, which `--report outdated` uses by default |
 | `PIXI_SBOM_SCORECARD_URL` | The OpenSSF Scorecard API |
 | `PIXI_SBOM_KEV_URL` | The CISA KEV catalog |
+| `PIXI_SBOM_EPSS_URL` | The FIRST EPSS API (`--epss`) |
 | `PIXI_SBOM_MAPPING_URL` | The conda-to-PyPI name mapping |
 | `PIXI_SBOM_CONDA_ARCHIVE_URL` | Base for conda package archives, replacing each package's own host |
 | `PIXI_SBOM_WHEEL_ARCHIVE_URL` | Base for PyPI wheel archives, replacing each wheel's host and keeping its path |

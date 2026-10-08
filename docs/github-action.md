@@ -76,13 +76,35 @@ project and a venv, on a runner with no pixi installed.
 | `diff-against` | | Also compare the environment with the document at this path and put the comparison in the job summary; the file has to be there already (the action fetches nothing) |
 | `fail-on-diff` | | With `diff-against`: `true` fails the step (exit code 6) on any change, or name the sections — `added removed version license` |
 | `attest`, `attest-subject` | `false`, | Sign the documents with a GitHub artifact attestation (see below) |
-| `extra-args` | | Any other CLI arguments |
+| `extra-args` | | Any other CLI arguments, split on whitespace: the flags without an input of their own, such as `--epss`, `--fail-on-epss`, `--vex-in`, `--min-quality` and `--merge` (see below) |
 | `upload-artifact`, `artifact-name` | `true`, `sboms` | Artifact upload |
 
 Outputs: `version`, `output`, `document` (the file, in single-document mode), `policy-violated`,
 `vulnerabilities-found`, `diff-changed`, `sarif`, `attestation-url`. The action runs on Linux (x64, arm64), macOS (Intel, Apple
 Silicon) and Windows runners, and describes any platform in the lockfile regardless of the runner (`platform:
 linux-64` on a macOS runner is fine).
+
+### Flags without an input
+
+Newer flags reach the action through `extra-args`. The gates behave as they do on the command line: a tripped
+`--fail-on-epss` is the vulnerability gate (exit code 4, so `fail-on-vulnerabilities: "false"` turns it into a
+warning like the others), and `--min-quality` fails the step with exit code 10. Paths given this way must not
+contain spaces, because the value is split on whitespace.
+
+```yaml
+- uses: millsks/pixi-sbom@v1
+  with:
+    from-sbom: vendor/sbom.cdx.json
+    vulnerabilities: osv
+    fail-on-severity: high
+    extra-args: >-
+      --min-quality 70
+      --vex-in vendor/vex.openvex.json
+      --epss --fail-on-epss 0.1
+```
+
+The `from-sbom` input takes one file; to merge several documents into one, give the first there and the rest as
+`--from-sbom <FILE>` in `extra-args`.
 
 ## Without the action
 

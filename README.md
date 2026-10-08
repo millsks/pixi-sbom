@@ -34,10 +34,10 @@ Each report has a recording of its own in the [command-line reference](https://m
 | | |
 |---|---|
 | **Writes** | CycloneDX 1.6 / 1.7 and SPDX 2.3 / 3.0.1, validated against each spec's own schema in CI |
-| **Reads** | `pixi.lock` (formats 1–7), `uv.lock`, `pylock.toml`, `poetry.lock`, `pdm.lock`, `conda-lock.yml`, explicit conda specs, an installed conda environment or venv, a tree of projects, or another tool's SBOM (`--from-sbom`) |
+| **Reads** | `pixi.lock` (formats 1–7), `uv.lock`, `pylock.toml`, `poetry.lock`, `pdm.lock`, `conda-lock.yml`, explicit conda specs, a fully pinned `requirements.txt`, an installed conda environment or venv, a tree of projects, or other tools' SBOMs (`--from-sbom`, several merged into one) |
 | **Covers** | conda and PyPI packages together, with purls a scanner can match, license expressions and texts, and the dependency graph |
-| **Finds** | vulnerabilities from OSV with CISA KEV flags, yanked releases, outdated packages, OpenSSF scorecards, undeclared imports |
-| **Gates** | a license policy, a severity threshold, a KEV hit, an SBOM diff — each its own exit code, document still written |
+| **Finds** | vulnerabilities from OSV with CISA KEV flags and FIRST EPSS scores, yanked releases, outdated packages, OpenSSF scorecards, undeclared imports, how complete a document is |
+| **Gates** | a license policy, a severity threshold, a KEV hit, an EPSS score, an SBOM diff, a quality score — each its own exit code, document still written; a vendor's VEX can clear the findings it covers |
 | **Fits CI** | a GitHub Action, SARIF for code scanning, VEX output, JSON / CSV / Markdown reports, signed build provenance |
 
 What it is **not**: a scanner (it feeds one), a package manager, or a stable Rust library — the
@@ -163,6 +163,9 @@ pixi sbom --pypi-mapping prefix --vulnerabilities osv --output sbom.cdx.json --v
 # Flag what CISA lists as actively exploited, and fail on it
 pixi sbom --pypi-mapping prefix --vulnerabilities osv --kev --fail-on-kev
 
+# Rank the rest by how likely exploitation is (FIRST EPSS), and fail at a 10% chance
+pixi sbom --pypi-mapping prefix --vulnerabilities osv --epss --fail-on-epss 0.1
+
 # Just look: an inventory (with what the manifest declared) or a license table, nothing written
 pixi sbom --report packages
 
@@ -184,8 +187,18 @@ pixi sbom --doctor --fetch-licenses --vulnerabilities osv
 # Somebody else's SBOM: the same reports, policy and vulnerability gate
 pixi sbom --from-sbom sbom.cdx.json --vulnerabilities osv --report vulnerabilities
 
+# ... graded first, and with the vendor's VEX applied before the gate
+pixi sbom --from-sbom vendor.cdx.json --report quality
+pixi sbom --from-sbom vendor.cdx.json --min-quality 70 --vulnerabilities osv --fail-on-severity high --vex-in vendor.openvex.json
+
+# Several documents as one: an application and the vendor components it ships
+pixi sbom --from-sbom app.cdx.json --from-sbom vendor.spdx.json --root-name product --output product.cdx.json
+
 # Every pixi workspace in a monorepo, one document each under sboms/
 pixi sbom --scan . --output sboms
+
+# ... or one document for the whole tree
+pixi sbom --scan . --merge --root-name product --output product.cdx.json
 
 # Explicit lockfile and output path
 pixi sbom --lockfile /path/to/pixi.lock --output /tmp/my-project.cdx.json
@@ -233,12 +246,15 @@ pixi sbom --all-environments --all-platforms --output reports/
 | `--allow-license` / `--deny-license` / `--require-license` | | License policy; violations are listed and the run exits 3 after writing the document |
 | `--vulnerabilities osv` | off | Look every package with a PyPI / crates.io / npm purl up on [OSV](https://osv.dev) and record the findings in CycloneDX `vulnerabilities[]` (severity, CVSS, fixed version, aliases) |
 | `--kev` / `--fail-on-kev` | off | Mark findings in CISA's Known Exploited Vulnerabilities catalog (rated critical, with due dates); optionally exit 4 on them |
+| `--epss` / `--fail-on-epss <P>` | off | Score findings with FIRST's EPSS (probability of exploitation in the next 30 days, and its percentile); optionally exit 4 at or above `P` |
+| `--vex-in <PATH>` | | Apply a vendor's VEX (CycloneDX or OpenVEX) before the gate: `not_affected`, `false_positive` and `resolved` clear a finding, `exploitable` and `in_triage` are only recorded |
 | `--fail-on-severity` / `--ignore-vuln` | | Vulnerability gate: exit 4 on open findings at or above a severity; accepted findings keep a VEX-style `analysis` block |
 | `--embedded-sboms` | off | Attach the components declared by SBOMs embedded in wheels (PEP 770, e.g. Rust crates) under the wheel; with `--prefix`, also the `cargo auditable` crate list inside the environment's binaries |
-| `--from-sbom <FILE>` | | Read an existing document (CycloneDX, SPDX 2.x or SPDX 3.0 JSON) instead of a lockfile and run the reports, policy and vulnerability gate on it |
+| `--from-sbom <FILE>` | | Read an existing document (CycloneDX, SPDX 2.x or SPDX 3.0 JSON) instead of a lockfile and run the reports, policy and vulnerability gate on it; given more than once, the documents are merged into one |
+| `--min-quality <N>` | | Exit 10 when the document's quality score (NTIA minimum elements, license and hash coverage; see `--report quality`) is below `N` out of 100 |
 | `--doctor` | off | Probe every upstream, print the configuration and caches, exit 1 if anything is unreachable |
-| `--scan <DIR>` | | Describe every pixi workspace under the directory: one document per `pixi.lock`, written under `--output` at the same relative path |
-| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom\|scorecard>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`, plus `sarif` for vulnerabilities); `diff --against <previous>` lists what changed, `outdated` how far behind each package is, `python` what caps the interpreter, `phantom` which imports and declarations do not line up |
+| `--scan <DIR>` | | Describe every project under the directory: one document per lockfile, written under `--output` at the same relative path; `--merge` writes one document for the whole tree instead |
+| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom\|scorecard\|quality>` | | Print a table to the terminal instead of writing a document (`--report-format table\|markdown\|csv\|json`, plus `sarif` for vulnerabilities); `diff --against <previous>` lists what changed, `outdated` how far behind each package is, `python` what caps the interpreter, `phantom` which imports and declarations do not line up, `quality` how complete the document is |
 | `--explain <PACKAGE>` | | Print every fact the tool has about the packages matching this name or pattern and where each came from, including the sources that were consulted and came back empty; prints instead of writing, like `--report` |
 | `--color <auto\|always\|never>` | `auto` | Colour the terminal table (honours `NO_COLOR` / `CLICOLOR_FORCE`); fetches show a progress bar on an interactive terminal |
 | `-v` / `-q` | info | More / less logging on stderr |
