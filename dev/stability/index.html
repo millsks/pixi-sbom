@@ -1124,26 +1124,26 @@ the name exists, takes the same kind of value, and means the same thing.</p>
 <p>Every list here is checked against the code by <code>tests/stability.rs</code>. A flag added without a line on
 this page fails the build, and so does a line on this page for something that does not exist.</p>
 <h2 id="command-line-flags">Command-line flags<a class="headerlink" href="#command-line-flags" title="Permanent link">&para;</a></h2>
-<p>All 69. Their meanings are in <a href="../cli/">cli.md</a>; what this page promises is that none of them
+<p>All 71. Their meanings are in <a href="../cli/">cli.md</a>; what this page promises is that none of them
 disappears or changes shape before 2.0.</p>
 <p>| <code>--against</code> | <code>--all-environments</code> | <code>--all-platforms</code> | <code>--allow-license</code> |
 | <code>--assume-used</code> | <code>--ca-bundle</code> | <code>--color</code> | <code>--concurrency</code> |
 | <code>--conda-index-kind</code> | <code>--config</code> | <code>--deny-license</code> | <code>--depth</code> |
-| <code>--doctor</code> | <code>--embedded-sboms</code> | <code>--environment</code> | <code>--exclude</code> |
-| <code>--exclude-kind</code> | <code>--explain</code> | <code>--fail-on-diff</code> | <code>--fail-on-kev</code> |
-| <code>--fail-on-phantom</code> | <code>--fail-on-scorecard</code> | <code>--fail-on-severity</code> | <code>--fail-on-yanked</code> |
-| <code>--fetch-licenses</code> | <code>--format</code> | <code>--from-sbom</code> | <code>--group-by</code> |
-| <code>--help</code> | <code>--ignore-license</code> | <code>--ignore-vuln</code> | <code>--include</code> |
-| <code>--infer-extras</code> | <code>--keep-orphans</code> | <code>--kev</code> | <code>--license-texts</code> |
-| <code>--lockfile</code> | <code>--log-format</code> | <code>--min-quality</code> | <code>--no-cache</code> |
-| <code>--no-config</code> | <code>--outdated-min</code> | <code>--output</code> | <code>--platform</code> |
-| <code>--prefix</code> | <code>--primary-purl</code> | <code>--pypi-mapping</code> | <code>--pypi-mapping-file</code> |
-| <code>--quiet</code> | <code>--refresh</code> | <code>--report</code> | <code>--report-format</code> |
-| <code>--require-license</code> | <code>--root-name</code> | <code>--root-version</code> | <code>--scan</code> |
-| <code>--scan-depth</code> | <code>--scorecard</code> | <code>--scorecard-min</code> | <code>--source</code> |
-| <code>--spec-version</code> | <code>--timings</code> | <code>--tree</code> | <code>--verbose</code> |
-| <code>--version</code> | <code>--version-details</code> | <code>--vex</code> | <code>--vex-open</code> |
-| <code>--vulnerabilities</code> |  |  |  |</p>
+| <code>--doctor</code> | <code>--embedded-sboms</code> | <code>--environment</code> | <code>--epss</code> |
+| <code>--exclude</code> | <code>--exclude-kind</code> | <code>--explain</code> | <code>--fail-on-diff</code> |
+| <code>--fail-on-epss</code> | <code>--fail-on-kev</code> | <code>--fail-on-phantom</code> | <code>--fail-on-scorecard</code> |
+| <code>--fail-on-severity</code> | <code>--fail-on-yanked</code> | <code>--fetch-licenses</code> | <code>--format</code> |
+| <code>--from-sbom</code> | <code>--group-by</code> | <code>--help</code> | <code>--ignore-license</code> |
+| <code>--ignore-vuln</code> | <code>--include</code> | <code>--infer-extras</code> | <code>--keep-orphans</code> |
+| <code>--kev</code> | <code>--license-texts</code> | <code>--lockfile</code> | <code>--log-format</code> |
+| <code>--min-quality</code> | <code>--no-cache</code> | <code>--no-config</code> | <code>--outdated-min</code> |
+| <code>--output</code> | <code>--platform</code> | <code>--prefix</code> | <code>--primary-purl</code> |
+| <code>--pypi-mapping</code> | <code>--pypi-mapping-file</code> | <code>--quiet</code> | <code>--refresh</code> |
+| <code>--report</code> | <code>--report-format</code> | <code>--require-license</code> | <code>--root-name</code> |
+| <code>--root-version</code> | <code>--scan</code> | <code>--scan-depth</code> | <code>--scorecard</code> |
+| <code>--scorecard-min</code> | <code>--source</code> | <code>--spec-version</code> | <code>--timings</code> |
+| <code>--tree</code> | <code>--verbose</code> | <code>--version</code> | <code>--version-details</code> |
+| <code>--vex</code> | <code>--vex-open</code> | <code>--vulnerabilities</code> |  |</p>
 <h3 id="spellings-that-answer-to-an-older-name">Spellings that answer to an older name<a class="headerlink" href="#spellings-that-answer-to-an-older-name" title="Permanent link">&para;</a></h3>
 <p>Accepted permanently, hidden from <code>--help</code> so there is one name to learn. Removing any of these
 would be a major version with its own notice.</p>
@@ -1212,7 +1212,7 @@ the same way, recognised by a fixed vocabulary, so an existing entry never chang
 </tr>
 <tr>
 <td>4</td>
-<td><code>--fail-on-severity</code> or <code>--fail-on-kev</code> matched.</td>
+<td><code>--fail-on-severity</code>, <code>--fail-on-kev</code> or <code>--fail-on-epss</code> matched.</td>
 </tr>
 <tr>
 <td>6</td>
@@ -1334,8 +1334,8 @@ stays supported.</p>
 </tr>
 <tr>
 <td><code>min-quality</code></td>
-<td></td>
-<td></td>
+<td><code>epss</code></td>
+<td><code>fail-on-epss</code></td>
 <td></td>
 </tr>
 </tbody>
@@ -1384,6 +1384,10 @@ so they are not frozen here; they are honoured with the meanings rattler and cur
 <tr>
 <td><code>PIXI_SBOM_KEV_URL</code></td>
 <td>Where to fetch the CISA catalog.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_EPSS_URL</code></td>
+<td>Where to ask FIRST for EPSS scores.</td>
 </tr>
 <tr>
 <td><code>PIXI_SBOM_PYPI_URL</code></td>
@@ -1452,92 +1456,102 @@ says which flag produces which.</p>
 <tr>
 <td><code>pixi:embedded-sbom</code></td>
 <td><code>pixi:environment</code></td>
-<td><code>pixi:excluded</code></td>
+<td><code>pixi:epss</code></td>
 </tr>
 <tr>
+<td><code>pixi:epss-cve</code></td>
+<td><code>pixi:epss-date</code></td>
+<td><code>pixi:epss-percentile</code></td>
+</tr>
+<tr>
+<td><code>pixi:excluded</code></td>
 <td><code>pixi:extracted-package-dir</code></td>
 <td><code>pixi:file-name</code></td>
-<td><code>pixi:identifier-hash</code></td>
 </tr>
 <tr>
+<td><code>pixi:identifier-hash</code></td>
 <td><code>pixi:incomplete</code></td>
 <td><code>pixi:incomplete-detail</code></td>
-<td><code>pixi:index-url</code></td>
 </tr>
 <tr>
+<td><code>pixi:index-url</code></td>
 <td><code>pixi:installer</code></td>
 <td><code>pixi:kev</code></td>
-<td><code>pixi:kev-cve</code></td>
 </tr>
 <tr>
+<td><code>pixi:kev-cve</code></td>
 <td><code>pixi:kev-date-added</code></td>
 <td><code>pixi:kev-due-date</code></td>
-<td><code>pixi:kev-ransomware</code></td>
 </tr>
 <tr>
+<td><code>pixi:kev-ransomware</code></td>
 <td><code>pixi:kind</code></td>
 <td><code>pixi:license-exempt</code></td>
-<td><code>pixi:license-family</code></td>
 </tr>
 <tr>
+<td><code>pixi:license-family</code></td>
 <td><code>pixi:license-file</code></td>
 <td><code>pixi:license-files-source</code></td>
-<td><code>pixi:license-raw</code></td>
 </tr>
 <tr>
+<td><code>pixi:license-raw</code></td>
 <td><code>pixi:license-source</code></td>
 <td><code>pixi:lockfile</code></td>
-<td><code>pixi:marker</code></td>
 </tr>
 <tr>
+<td><code>pixi:marker</code></td>
 <td><code>pixi:noarch</code></td>
 <td><code>pixi:platform</code></td>
-<td><code>pixi:prefix</code></td>
 </tr>
 <tr>
+<td><code>pixi:prefix</code></td>
 <td><code>pixi:purl</code></td>
 <td><code>pixi:pypi-mapping</code></td>
-<td><code>pixi:python-extras</code></td>
 </tr>
 <tr>
+<td><code>pixi:python-extras</code></td>
 <td><code>pixi:python-extras-evidence</code></td>
 <td><code>pixi:python-extras-inferred</code></td>
-<td><code>pixi:python-version</code></td>
 </tr>
 <tr>
+<td><code>pixi:python-version</code></td>
 <td><code>pixi:repository-source</code></td>
 <td><code>pixi:requires-python</code></td>
-<td><code>pixi:resolution-markers</code></td>
 </tr>
 <tr>
+<td><code>pixi:resolution-markers</code></td>
 <td><code>pixi:scorecard</code></td>
 <td><code>pixi:scorecard-date</code></td>
-<td><code>pixi:size</code></td>
 </tr>
 <tr>
+<td><code>pixi:size</code></td>
 <td><code>pixi:source</code></td>
 <td><code>pixi:source-branch</code></td>
-<td><code>pixi:source-document</code></td>
 </tr>
 <tr>
+<td><code>pixi:source-document</code></td>
 <td><code>pixi:source-git</code></td>
 <td><code>pixi:source-path</code></td>
-<td><code>pixi:source-rev</code></td>
 </tr>
 <tr>
+<td><code>pixi:source-rev</code></td>
 <td><code>pixi:source-subdirectory</code></td>
 <td><code>pixi:source-tag</code></td>
-<td><code>pixi:source-url</code></td>
 </tr>
 <tr>
+<td><code>pixi:source-url</code></td>
 <td><code>pixi:stale-cache</code></td>
 <td><code>pixi:subdir</code></td>
-<td><code>pixi:vex-for</code></td>
 </tr>
 <tr>
+<td><code>pixi:vex-for</code></td>
 <td><code>pixi:via-extra</code></td>
 <td><code>pixi:yanked</code></td>
+</tr>
+<tr>
 <td><code>pixi:yanked-reason</code></td>
+<td></td>
+<td></td>
 </tr>
 </tbody>
 </table>
@@ -1549,7 +1563,9 @@ so the set grows when OpenSSF adds a check. The prefix is frozen; the suffixes a
 <code>quality</code> —
 holding an array of rows. Row field names are frozen; <strong>row order is not</strong>, except where the
 report documents an order (worst-first for vulnerabilities).</p>
-<p>CSV columns and their order are frozen. The Markdown and table renderings are not — see below.</p>
+<p>CSV columns and their order are frozen. A flag that adds data adds columns only after them and only
+when given: <code>--epss</code> appends <code>epss,epss_percentile</code> to the vulnerabilities CSV. The Markdown and
+table renderings are not frozen — see below.</p>
 <h2 id="the-github-action">The GitHub Action<a class="headerlink" href="#the-github-action" title="Permanent link">&para;</a></h2>
 <p>Inputs and outputs of <code>action.yml</code>. An input maps to the flag of the same name; <code>extra-args</code>
 passes anything through.</p>
