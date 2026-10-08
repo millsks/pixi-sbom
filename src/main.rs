@@ -1678,6 +1678,11 @@ fn read_input(lockfile: &Path) -> Result<Input> {
             manifest: manifest(),
         });
     }
+    // A manifest that declares rather than locks: say which command locks it, rather than failing
+    // to parse it as a pixi.lock.
+    if let Some(not_a_lock) = pixi_sbom::unlocked::diagnose(lockfile) {
+        return Err(miette::Report::new(not_a_lock));
+    }
     // A pinned requirements file (pip-compile's), by its name and its plain requirement lines.
     if requirements::is_requirements(lockfile) {
         let requirements::Loaded { requirements, contents } =

@@ -135,7 +135,8 @@ there:
 One directory is one project, so a project with both a `pixi.lock` and a `uv.lock` gets one document, not two; pass
 `--lockfile` to read the other. An explicit conda spec file has no fixed name, so it is never discovered and only
 read through `--lockfile`. When nothing is found, `pixi_sbom::discover::not_found` (or `none_found` for `--scan`)
-lists the names it looked for:
+lists the names it looked for, and `not_found` first names the nearest manifest it passed with no lockfile beside it
+and the command that locks it ("pyproject.toml is a Poetry project's manifest: run `poetry lock` beside it"):
 
 ```text
   × no pixi.lock, uv.lock, pylock.toml, poetry.lock, pdm.lock or conda-lock.yml found in /work/app or any parent directory

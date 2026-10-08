@@ -8184,3 +8184,64 @@ fn what_each_common_setup_writes_is_read() {
         assert!(names.contains(&expect), "{file}: {names:?}");
     }
 }
+
+#[test]
+fn an_unlocked_input_is_pointed_to_the_command_that_locks_it() {
+    // #394: given (or found) something that declares rather than locks, say what locks it.
+    let dir = tempfile::tempdir().unwrap();
+    let write = |name: &str, text: &str| std::fs::write(dir.path().join(name), text).unwrap();
+    write("pixi.toml", "[workspace]\nname = \"w\"\n");
+    write("Pipfile", "[packages]\nrequests = \"*\"\n");
+    write("environment.yml", "name: app\ndependencies:\n  - python=3.12\n");
+    write(
+        "export.yml",
+        "name: app\ndependencies:\n  - python=3.12.1=h1_0\nprefix: /opt/conda/envs/app\n",
+    );
+    write("requirements.txt", "django>=5.2\n");
+    std::fs::create_dir_all(dir.path().join("poetry")).unwrap();
+    std::fs::write(
+        dir.path().join("poetry/pyproject.toml"),
+        "[project]\nname = \"p\"\n[tool.poetry]\n",
+    )
+    .unwrap();
+    for (file, code, command) in [
+        ("poetry/pyproject.toml", "pixi_sbom::input::not_a_lock", "poetry lock"),
+        ("pixi.toml", "pixi_sbom::input::not_a_lock", "pixi lock"),
+        ("Pipfile", "pixi_sbom::input::not_a_lock", "pipenv requirements"),
+        (
+            "environment.yml",
+            "pixi_sbom::input::not_a_lock",
+            "conda-lock -f environment.yml",
+        ),
+        (
+            "export.yml",
+            "pixi_sbom::input::not_a_lock",
+            "conda list --explicit --md5",
+        ),
+        (
+            "requirements.txt",
+            "pixi_sbom::requirements::not_pinned",
+            "uv pip compile requirements.txt",
+        ),
+    ] {
+        let assert = pixi_sbom()
+            .current_dir(dir.path())
+            .args(["--lockfile", file])
+            .assert()
+            .failure();
+        let stderr = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+        assert!(stderr.contains(code), "{file}: {stderr}");
+        assert!(stderr.contains(command), "{file}: {stderr}");
+    }
+
+    // The upward search: no lockfile anywhere, but a Poetry manifest one level up.
+    let nested = dir.path().join("poetry/src");
+    std::fs::create_dir_all(&nested).unwrap();
+    let assert = pixi_sbom().current_dir(&nested).assert().failure();
+    let stderr = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+    assert!(stderr.contains("pixi_sbom::discover::not_found"), "{stderr}");
+    assert!(
+        stderr.contains("is a Poetry project's manifest: run `poetry lock` beside it"),
+        "{stderr}"
+    );
+}

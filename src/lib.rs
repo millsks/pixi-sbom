@@ -105,6 +105,7 @@ pub mod stdlib;
 pub mod style;
 #[doc(hidden)]
 pub mod timings;
+pub mod unlocked;
 pub mod uv;
 #[doc(hidden)]
 pub mod vulnpolicy;

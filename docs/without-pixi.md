@@ -117,6 +117,28 @@ of anything. So these are not inputs, and each has a tool that turns it into one
 
 A manifest beside a lockfile is still read, for what it declares; only resolving is ruled out.
 
+Given one of these instead of a lockfile, pixi-sbom says which command makes the lock rather than failing to parse it
+(`pixi_sbom::input::not_a_lock`). It tells a Poetry, PDM, uv or pixi `pyproject.toml` apart by its `[tool.*]` tables,
+and `conda env export` output from a hand-written `environment.yml` by its `prefix:` line:
+
+```text
+  × pyproject.toml is a Poetry project's manifest, not a lock: pixi-sbom reads a lockfile and never resolves one
+  help: run `poetry lock` beside it, then pass poetry.lock (or leave --lockfile out)
+```
+
+| Given | It says |
+|---|---|
+| `pyproject.toml` | `uv lock`, `poetry lock`, `pdm lock` or `pixi lock`, by its `[tool.*]` tables; all three Python tools when it has none |
+| `pixi.toml` | `pixi lock` |
+| `environment.yml` | `conda-lock -f environment.yml -p …`, or `conda list --explicit --md5` in the environment |
+| `conda env export` output | `conda list --explicit --md5`, or `--prefix` on the environment |
+| `Pipfile`, `Pipfile.lock` | `pipenv requirements` and the pip route, or `--prefix $(pipenv --venv)` |
+| `setup.py`, `setup.cfg` | `uv pip compile setup.py -o pylock.toml` |
+| a `requirements.txt` with a range | `uv pip compile` or `pip-compile --generate-hashes` (`pixi_sbom::requirements::not_pinned`, naming the line) |
+
+When no lockfile is found at all, the upward search names the nearest of these it passed, with its command, before
+the general advice.
+
 ## In CI and before a commit
 
 The GitHub Action downloads its own binary, so the runner needs neither pixi nor Rust; `lockfile`, `prefix` and

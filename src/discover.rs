@@ -75,13 +75,16 @@ pub enum DiscoverError {
     #[diagnostic(
         code(pixi_sbom::discover::not_found),
         help(
-            "write one with your project's tool (`pixi lock`, `uv lock`, `poetry lock`, `pdm lock`, `pip lock`, \
+            "{hint}write one with your project's tool (`pixi lock`, `uv lock`, `poetry lock`, `pdm lock`, `pip lock`, \
              `conda-lock`), or pass --lockfile with the path to one; an explicit conda spec file is only read that way"
         )
     )]
     NotFound {
         /// Directory the search started from.
         start: PathBuf,
+        /// The nearest manifest that had no lockfile beside it, and how to lock it, as a sentence
+        /// ending in a space; empty when there was none.
+        hint: String,
     },
 
     /// The lockfile path given on the command line does not exist.
@@ -186,6 +189,9 @@ pub fn resolve_lockfile(explicit: Option<&Path>, start: &Path) -> Result<PathBuf
         }),
         None => find_upward(start).ok_or_else(|| DiscoverError::NotFound {
             start: start.to_path_buf(),
+            hint: crate::unlocked::nearest_manifest(start)
+                .map(|(path, found)| format!("{} is {}: {}. Otherwise, ", path.display(), found.what, found.next))
+                .unwrap_or_default(),
         }),
     }
 }
@@ -369,6 +375,7 @@ mod tests {
         for err in [
             DiscoverError::NotFound {
                 start: PathBuf::from("/workspace"),
+                hint: String::new(),
             },
             DiscoverError::Missing {
                 path: PathBuf::from("/workspace/pixi.lock"),
