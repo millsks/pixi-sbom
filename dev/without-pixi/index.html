@@ -1077,9 +1077,14 @@ by a test (<code>tests/fixtures/lockfile-routes</code>).</p>
 <td><code>pylock.toml</code></td>
 </tr>
 <tr>
-<td>Pipenv</td>
+<td>a Pipenv project (dependencies added with <code>pipenv install</code>, so they are in <code>Pipfile.lock</code>)</td>
 <td><code>pipenv requirements &gt; requirements.txt</code>, then <code>uv pip compile requirements.txt -o pylock.toml</code></td>
 <td><code>pylock.toml</code></td>
+</tr>
+<tr>
+<td>a venv you installed into with <code>pip install</code></td>
+<td>nothing: <code>pixi-sbom --prefix .venv</code></td>
+<td>the installed environment</td>
 </tr>
 <tr>
 <td>a conda environment</td>
@@ -1181,7 +1186,7 @@ version each command above was run with.</p>
 <tr>
 <td>Pipenv's <code>Pipfile.lock</code></td>
 <td>Pipenv's own format</td>
-<td><code>pipenv requirements</code>, then the pip route above, or <code>--prefix</code> on the virtualenv Pipenv made</td>
+<td><code>pipenv requirements</code>, then the pip route above, or <code>--prefix</code> on the virtualenv Pipenv made. <code>pipenv requirements</code> prints <code>Pipfile.lock</code>, not what is installed: a package added with <code>pip install</code> is not in it, so for those <code>--prefix</code> is the route</td>
 </tr>
 <tr>
 <td>Rye's <code>requirements.lock</code></td>
