@@ -1699,7 +1699,9 @@ That is what semver already means by the suffix, and a flag could contradict the
    musllinux for x86_64 and aarch64, macOS x86_64 and arm64, Windows x86_64. Each is installed into a fresh venv and
    run (except musllinux, which the glibc runner cannot run) and attested like the archives. Once the GitHub release
    is out, a release candidate's wheels go to <strong>TestPyPI</strong> (<code>testpypi</code> job) and a final release's to <strong>PyPI</strong>
-   (<code>pypi</code> job), through trusted publishing: no token, PyPI checks the run's OIDC identity. There is no sdist,
+   (<code>pypi</code> job), through trusted publishing: no token, PyPI checks the run's OIDC identity. The
+   <code>attach-wheels</code> job also adds them to the GitHub release as assets, once the release and every wheel exist; the
+   <code>publish</code> job takes only the archives, so the release's assets never depend on which job finished first. There is no sdist,
    which would need a Rust toolchain and the crates.io index at install time.</p>
 </li>
 <li>
