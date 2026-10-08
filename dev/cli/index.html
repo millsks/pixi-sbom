@@ -3109,9 +3109,12 @@ the pinned one, and when each was published:</p>
 </tbody>
 </table>
 <p>Rows are ordered furthest behind first, then oldest. PyPI packages are read from the project document
-(<code>/pypi/&lt;name&gt;/json</code>). Conda packages are asked of whichever index <code>--conda-index-kind</code> selects. Source packages
-and anything the index cannot answer for are listed under <em>No releases to compare against</em> rather than guessed at.
-Documents are cached for a day, so a second run is free.</p>
+(<code>/pypi/&lt;name&gt;/json</code>). Conda packages are asked of whichever index <code>--conda-index-kind</code> selects. A package the index
+has no releases for (one from a private channel, say) is listed under <em>No releases to compare against</em> rather than
+guessed at. A package no index covers at all (a source package pixi built, another ecosystem's purl, none, a git or
+local install) is listed under <em>Not checked</em> instead, and an index that did not answer under <em>Could not be checked</em>:
+three different reasons for one missing answer, each counted (<code>not_checked</code>, <code>unknown</code> and <code>unavailable</code> in the JSON
+report). Documents are cached for a day, so a second run is free.</p>
 <p>A package installed from a mirror is a case of its own. Its channel is named after the local repository, so no
 index has heard of it, and asking by name returns nothing. The lockfile records a sha256 and a proxying mirror
 serves the upstream bytes unchanged, so the channel is <strong>confirmed rather than guessed</strong>: its releases are used
@@ -3547,14 +3550,22 @@ be done to an SBOM somebody else wrote — including one from a project that doe
 </code></pre></div>
 <p>The reader is the one behind <code>--against</code>, so CycloneDX 1.4–1.7, SPDX 2.x and SPDX 3.0.1 are all accepted. From
 CycloneDX and SPDX 2.x it takes the packages, versions, purls, licenses, hashes, descriptions, download locations,
-the dependency graph and the <code>pixi:*</code> properties a document this tool wrote carries — so a document of ours
+the repository (a CycloneDX <code>vcs</code> reference, or an SPDX <code>downloadLocation</code> that is a VCS URL) and homepage, the
+dependency graph and the <code>pixi:*</code> properties a document this tool wrote carries — so a document of ours
 round-trips unchanged, declared dependencies and all. SPDX 3.0.1 is read as packages, versions, purls and
 licenses; its graph, hashes and properties do not come back.</p>
 <p>The described application's name and version come from the document's own root component unless <code>--root-name</code> and
 <code>--root-version</code> say otherwise, and the environment and platform from what the document records (<code>default</code> and
 empty when it records nothing, or whatever <code>--platform</code> says). A purl that is neither <code>pkg:conda</code> nor <code>pkg:pypi</code>,
 and a package with no purl at all, is recorded as the <code>external</code> kind: the document is the only thing that knows
-what it is.</p>
+what it is. What a scanner lists besides packages is left out: syft, for one, adds every file it read
+(CycloneDX <code>"type": "file"</code>) and the scanned directory (SPDX <code>primaryPackagePurpose: FILE</code>).</p>
+<p>The reports that look packages up work from the purls. <code>--report outdated</code> asks PyPI and the conda index about the
+<code>pkg:pypi</code> and <code>pkg:conda</code> ones and lists the rest under <em>Not checked</em>, counted rather than dropped. <code>--scorecard</code>
+scores the repository the document names, or for a PyPI package the one PyPI's <code>project_urls</code> name (see
+<a href="#how-well-each-dependency-is-looked-after">How well each dependency is looked after</a>); syft names none, so for its
+documents every score comes from there. A document syft wrote for a venv gives the same answers in CycloneDX and in
+SPDX, which <code>tests/matrix.rs</code> checks.</p>
 <p>What is written carries <code>pixi:source-document</code> — the source's serial number or namespace — in place of
 <code>pixi:lockfile</code>, so the derivation is traceable. Enrichment that needs a lockfile or a local package cache
 (<code>--pypi-mapping</code>, the package-cache license reads) has nothing to work with and finds nothing; everything keyed on

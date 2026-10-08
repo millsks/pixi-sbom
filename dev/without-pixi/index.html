@@ -1500,6 +1500,40 @@ critical, KEV-listed advisory, an MIT license and a 4.2 scorecard, and yanks <co
 <td>7</td>
 <td>9</td>
 </tr>
+<tr>
+<td>--from-sbom (syft CycloneDX)</td>
+<td>0: 15 rows</td>
+<td>0: 15 rows, 9 with license</td>
+<td>0: 9 rows</td>
+<td>0: 10 unchanged</td>
+<td>0: 9 rows</td>
+<td>0: 9 rows</td>
+<td>0: 0 rows</td>
+<td>0: 15 rows, 9 with score</td>
+<td>0</td>
+<td>3</td>
+<td>4</td>
+<td>4</td>
+<td>0</td>
+<td>9</td>
+</tr>
+<tr>
+<td>--from-sbom (syft SPDX)</td>
+<td>0: 15 rows</td>
+<td>0: 15 rows, 9 with license</td>
+<td>0: 9 rows</td>
+<td>0: 10 unchanged</td>
+<td>0: 9 rows</td>
+<td>0: 9 rows</td>
+<td>0: 0 rows</td>
+<td>0: 15 rows, 9 with score</td>
+<td>0</td>
+<td>3</td>
+<td>4</td>
+<td>4</td>
+<td>0</td>
+<td>9</td>
+</tr>
 </tbody>
 </table>
 <p>Where a cell is smaller than its neighbours, the input does not record what the column needs:</p>
@@ -1512,6 +1546,9 @@ critical, KEV-listed advisory, an MIT license and a 4.2 scorecard, and yanks <co
   reads it from the conda archives, which the test leaves unreachable on purpose.</li>
 <li><strong>licenses</strong> and <strong>outdated</strong> on the Python lockfiles count 25 of 27: a package installed from a git checkout or a
   local directory is not looked up on PyPI by name, where the name could belong to an unrelated project.</li>
+<li><strong><code>--from-sbom</code> on syft's documents</strong> (a venv, in CycloneDX and in SPDX): the same answers from both. The 6
+  executables syft found have no purl, so the outdated report lists them as not checked, and the diff matches the
+  six by their one name.</li>
 <li><strong>scorecard</strong> takes the repository from the wheel, or from the PyPI JSON API's <code>project_urls</code> where no wheel is
   read: <code>poetry.lock</code> and <code>pdm.lock</code> record file names, not URLs, and an installed <code>dist-info</code> may name none.</li>
 </ul>
