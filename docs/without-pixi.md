@@ -30,7 +30,8 @@ by a test (`tests/fixtures/lockfile-routes`).
 | PDM | `pdm lock` | `pdm.lock` |
 | pip, with a `requirements.txt` | `pip lock -r requirements.txt -o pylock.toml` (pip 25.1 and later; experimental there) | `pylock.toml` |
 | any `requirements.txt`, pip-tools' pinned one with hashes included | `uv pip compile requirements.txt -o pylock.toml` | `pylock.toml` |
-| Pipenv | `pipenv requirements > requirements.txt`, then `uv pip compile requirements.txt -o pylock.toml` | `pylock.toml` |
+| a Pipenv project (dependencies added with `pipenv install`, so they are in `Pipfile.lock`) | `pipenv requirements > requirements.txt`, then `uv pip compile requirements.txt -o pylock.toml` | `pylock.toml` |
+| a venv you installed into with `pip install` | nothing: `pixi-sbom --prefix .venv` | the installed environment |
 | a conda environment | `conda list --explicit --md5 > explicit.txt` in it, or `conda list -p <env> --explicit --md5` | the explicit spec |
 | a mamba / micromamba environment | `micromamba env export -p <env> --explicit --md5 > explicit.txt` | the explicit spec |
 | an `environment.yml` | `conda-lock -f environment.yml -p linux-64 -p osx-arm64` (any platforms you need) | `conda-lock.yml` |
@@ -65,7 +66,7 @@ Some files a tool writes are not read, and each has its way in:
 
 | Not read | Why | Way in |
 |---|---|---|
-| Pipenv's `Pipfile.lock` | Pipenv's own format | `pipenv requirements`, then the pip route above, or `--prefix` on the virtualenv Pipenv made |
+| Pipenv's `Pipfile.lock` | Pipenv's own format | `pipenv requirements`, then the pip route above, or `--prefix` on the virtualenv Pipenv made. `pipenv requirements` prints `Pipfile.lock`, not what is installed: a package added with `pip install` is not in it, so for those `--prefix` is the route |
 | Rye's `requirements.lock` | Rye's own format; Rye's maintainers point its users to uv | `uv lock` in the project, or `--prefix` on its `.venv` |
 | `conda env export` | versions without builds or URLs, so not a lock | `conda list --explicit --md5`, or `conda-lock` |
 | `pip freeze` | a list of installed versions, no hashes or sources | `--prefix` on the environment it came from, which reads the same packages with more |
