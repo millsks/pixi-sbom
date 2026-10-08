@@ -1124,7 +1124,7 @@ the name exists, takes the same kind of value, and means the same thing.</p>
 <p>Every list here is checked against the code by <code>tests/stability.rs</code>. A flag added without a line on
 this page fails the build, and so does a line on this page for something that does not exist.</p>
 <h2 id="command-line-flags">Command-line flags<a class="headerlink" href="#command-line-flags" title="Permanent link">&para;</a></h2>
-<p>All 71. Their meanings are in <a href="../cli/">cli.md</a>; what this page promises is that none of them
+<p>All 72. Their meanings are in <a href="../cli/">cli.md</a>; what this page promises is that none of them
 disappears or changes shape before 2.0.</p>
 <p>| <code>--against</code> | <code>--all-environments</code> | <code>--all-platforms</code> | <code>--allow-license</code> |
 | <code>--assume-used</code> | <code>--ca-bundle</code> | <code>--color</code> | <code>--concurrency</code> |
@@ -1143,7 +1143,7 @@ disappears or changes shape before 2.0.</p>
 | <code>--root-version</code> | <code>--scan</code> | <code>--scan-depth</code> | <code>--scorecard</code> |
 | <code>--scorecard-min</code> | <code>--source</code> | <code>--spec-version</code> | <code>--timings</code> |
 | <code>--tree</code> | <code>--verbose</code> | <code>--version</code> | <code>--version-details</code> |
-| <code>--vex</code> | <code>--vex-open</code> | <code>--vulnerabilities</code> |  |</p>
+| <code>--vex</code> | <code>--vex-in</code> | <code>--vex-open</code> | <code>--vulnerabilities</code> |</p>
 <h3 id="spellings-that-answer-to-an-older-name">Spellings that answer to an older name<a class="headerlink" href="#spellings-that-answer-to-an-older-name" title="Permanent link">&para;</a></h3>
 <p>Accepted permanently, hidden from <code>--help</code> so there is one name to learn. Removing any of these
 would be a major version with its own notice.</p>
@@ -1336,7 +1336,7 @@ stays supported.</p>
 <td><code>min-quality</code></td>
 <td><code>epss</code></td>
 <td><code>fail-on-epss</code></td>
-<td></td>
+<td><code>vex-in</code></td>
 </tr>
 </tbody>
 </table>
@@ -1545,12 +1545,12 @@ says which flag produces which.</p>
 </tr>
 <tr>
 <td><code>pixi:vex-for</code></td>
+<td><code>pixi:vex-source</code></td>
 <td><code>pixi:via-extra</code></td>
-<td><code>pixi:yanked</code></td>
 </tr>
 <tr>
+<td><code>pixi:yanked</code></td>
 <td><code>pixi:yanked-reason</code></td>
-<td></td>
 <td></td>
 </tr>
 </tbody>
