@@ -1124,7 +1124,7 @@ the name exists, takes the same kind of value, and means the same thing.</p>
 <p>Every list here is checked against the code by <code>tests/stability.rs</code>. A flag added without a line on
 this page fails the build, and so does a line on this page for something that does not exist.</p>
 <h2 id="command-line-flags">Command-line flags<a class="headerlink" href="#command-line-flags" title="Permanent link">&para;</a></h2>
-<p>All 72. Their meanings are in <a href="../cli/">cli.md</a>; what this page promises is that none of them
+<p>All 73. Their meanings are in <a href="../cli/">cli.md</a>; what this page promises is that none of them
 disappears or changes shape before 2.0.</p>
 <p>| <code>--against</code> | <code>--all-environments</code> | <code>--all-platforms</code> | <code>--allow-license</code> |
 | <code>--assume-used</code> | <code>--ca-bundle</code> | <code>--color</code> | <code>--concurrency</code> |
@@ -1136,14 +1136,15 @@ disappears or changes shape before 2.0.</p>
 | <code>--from-sbom</code> | <code>--group-by</code> | <code>--help</code> | <code>--ignore-license</code> |
 | <code>--ignore-vuln</code> | <code>--include</code> | <code>--infer-extras</code> | <code>--keep-orphans</code> |
 | <code>--kev</code> | <code>--license-texts</code> | <code>--lockfile</code> | <code>--log-format</code> |
-| <code>--min-quality</code> | <code>--no-cache</code> | <code>--no-config</code> | <code>--outdated-min</code> |
-| <code>--output</code> | <code>--platform</code> | <code>--prefix</code> | <code>--primary-purl</code> |
-| <code>--pypi-mapping</code> | <code>--pypi-mapping-file</code> | <code>--quiet</code> | <code>--refresh</code> |
-| <code>--report</code> | <code>--report-format</code> | <code>--require-license</code> | <code>--root-name</code> |
-| <code>--root-version</code> | <code>--scan</code> | <code>--scan-depth</code> | <code>--scorecard</code> |
-| <code>--scorecard-min</code> | <code>--source</code> | <code>--spec-version</code> | <code>--timings</code> |
-| <code>--tree</code> | <code>--verbose</code> | <code>--version</code> | <code>--version-details</code> |
-| <code>--vex</code> | <code>--vex-in</code> | <code>--vex-open</code> | <code>--vulnerabilities</code> |</p>
+| <code>--merge</code> | <code>--min-quality</code> | <code>--no-cache</code> | <code>--no-config</code> |
+| <code>--outdated-min</code> | <code>--output</code> | <code>--platform</code> | <code>--prefix</code> |
+| <code>--primary-purl</code> | <code>--pypi-mapping</code> | <code>--pypi-mapping-file</code> | <code>--quiet</code> |
+| <code>--refresh</code> | <code>--report</code> | <code>--report-format</code> | <code>--require-license</code> |
+| <code>--root-name</code> | <code>--root-version</code> | <code>--scan</code> | <code>--scan-depth</code> |
+| <code>--scorecard</code> | <code>--scorecard-min</code> | <code>--source</code> | <code>--spec-version</code> |
+| <code>--timings</code> | <code>--tree</code> | <code>--verbose</code> | <code>--version</code> |
+| <code>--version-details</code> | <code>--vex</code> | <code>--vex-in</code> | <code>--vex-open</code> |
+| <code>--vulnerabilities</code> |  |  |  |</p>
 <h3 id="spellings-that-answer-to-an-older-name">Spellings that answer to an older name<a class="headerlink" href="#spellings-that-answer-to-an-older-name" title="Permanent link">&para;</a></h3>
 <p>Accepted permanently, hidden from <code>--help</code> so there is one name to learn. Removing any of these
 would be a major version with its own notice.</p>
@@ -1500,58 +1501,58 @@ says which flag produces which.</p>
 </tr>
 <tr>
 <td><code>pixi:marker</code></td>
+<td><code>pixi:merge-conflict</code></td>
 <td><code>pixi:noarch</code></td>
-<td><code>pixi:platform</code></td>
 </tr>
 <tr>
+<td><code>pixi:platform</code></td>
 <td><code>pixi:prefix</code></td>
 <td><code>pixi:purl</code></td>
-<td><code>pixi:pypi-mapping</code></td>
 </tr>
 <tr>
+<td><code>pixi:pypi-mapping</code></td>
 <td><code>pixi:python-extras</code></td>
 <td><code>pixi:python-extras-evidence</code></td>
-<td><code>pixi:python-extras-inferred</code></td>
 </tr>
 <tr>
+<td><code>pixi:python-extras-inferred</code></td>
 <td><code>pixi:python-version</code></td>
 <td><code>pixi:repository-source</code></td>
-<td><code>pixi:requires-python</code></td>
 </tr>
 <tr>
+<td><code>pixi:requires-python</code></td>
 <td><code>pixi:resolution-markers</code></td>
 <td><code>pixi:scorecard</code></td>
-<td><code>pixi:scorecard-date</code></td>
 </tr>
 <tr>
+<td><code>pixi:scorecard-date</code></td>
 <td><code>pixi:size</code></td>
 <td><code>pixi:source</code></td>
-<td><code>pixi:source-branch</code></td>
 </tr>
 <tr>
+<td><code>pixi:source-branch</code></td>
 <td><code>pixi:source-document</code></td>
 <td><code>pixi:source-git</code></td>
-<td><code>pixi:source-path</code></td>
 </tr>
 <tr>
+<td><code>pixi:source-path</code></td>
 <td><code>pixi:source-rev</code></td>
 <td><code>pixi:source-subdirectory</code></td>
-<td><code>pixi:source-tag</code></td>
 </tr>
 <tr>
+<td><code>pixi:source-tag</code></td>
 <td><code>pixi:source-url</code></td>
 <td><code>pixi:stale-cache</code></td>
-<td><code>pixi:subdir</code></td>
 </tr>
 <tr>
+<td><code>pixi:subdir</code></td>
 <td><code>pixi:vex-for</code></td>
 <td><code>pixi:vex-source</code></td>
-<td><code>pixi:via-extra</code></td>
 </tr>
 <tr>
+<td><code>pixi:via-extra</code></td>
 <td><code>pixi:yanked</code></td>
 <td><code>pixi:yanked-reason</code></td>
-<td></td>
 </tr>
 </tbody>
 </table>
