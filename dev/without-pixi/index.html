@@ -1072,9 +1072,14 @@ by a test (<code>tests/fixtures/lockfile-routes</code>).</p>
 <td><code>pylock.toml</code></td>
 </tr>
 <tr>
-<td>any <code>requirements.txt</code>, pip-tools' pinned one with hashes included</td>
-<td><code>uv pip compile requirements.txt -o pylock.toml</code></td>
-<td><code>pylock.toml</code></td>
+<td>pip-tools, or any fully pinned <code>requirements.txt</code> (<code>name==version</code> on every line)</td>
+<td>nothing: <code>pixi-sbom --lockfile requirements.txt</code> reads it directly</td>
+<td>the requirements file</td>
+</tr>
+<tr>
+<td>a <code>requirements.txt</code> with ranges</td>
+<td><code>uv pip compile requirements.txt -o pylock.toml</code>, or <code>pip-compile --generate-hashes</code></td>
+<td><code>pylock.toml</code>, or the pinned file</td>
 </tr>
 <tr>
 <td>a Pipenv project (dependencies added with <code>pipenv install</code>, so they are in <code>Pipfile.lock</code>)</td>
@@ -1112,10 +1117,10 @@ by a test (<code>tests/fixtures/lockfile-routes</code>).</p>
 <code>requirements.txt</code> gives back exactly its pins, and one with ranges gives today's answer for them; that answer is
 then the lock. <code>pip lock</code> locks for the interpreter that runs it, so its <code>pylock.toml</code> carries no markers.</p>
 <h3 id="tools-you-need">Tools you need<a class="headerlink" href="#tools-you-need" title="Permanent link">&para;</a></h3>
-<p>Only the tool for your route, and note that the <code>requirements.txt</code> and Pipenv routes end in <code>uv pip compile</code>, so they
-need <strong>uv</strong> as well. Every tool here is on conda-forge (<code>pixi global install &lt;tool&gt;</code>, or <code>conda install -c conda-forge
-&lt;tool&gt;</code>); the Python ones are also on PyPI (<code>uv tool install &lt;tool&gt;</code>, <code>pipx install &lt;tool&gt;</code>). "Tested with" is the
-version each command above was run with.</p>
+<p>Only the tool for your route, and note that the routes for a <code>requirements.txt</code> with ranges and for Pipenv end in <code>uv
+pip compile</code>, so they need <strong>uv</strong> as well; a fully pinned one (pip-tools') is read directly. Every tool here is on
+conda-forge (<code>pixi global install &lt;tool&gt;</code>, or <code>conda install -c conda-forge &lt;tool&gt;</code>); the Python ones are also on PyPI
+(<code>uv tool install &lt;tool&gt;</code>, <code>pipx install &lt;tool&gt;</code>). "Tested with" is the version each command above was run with.</p>
 <table>
 <thead>
 <tr>
@@ -1127,7 +1132,7 @@ version each command above was run with.</p>
 <tbody>
 <tr>
 <td><a href="https://docs.astral.sh/uv/">uv</a></td>
-<td><code>uv lock</code>; <code>uv pip compile</code> in the <code>requirements.txt</code>, pip-tools and Pipenv routes</td>
+<td><code>uv lock</code>; <code>uv pip compile</code> in the routes for a <code>requirements.txt</code> with ranges and for Pipenv</td>
 <td>0.12.20</td>
 </tr>
 <tr>
@@ -1250,6 +1255,11 @@ order when a directory has several (see <a href="../cli/#which-lockfile-is-found
 <td><code>conda-lock.yml</code></td>
 <td>conda and pip packages for several platforms, with the graph and categories</td>
 <td>conda and PyPI packages for one platform (or <code>--all-platforms</code>), <code>scope</code> from categories (<a href="../cli/#reading-conda-lockyml">Reading conda-lock.yml</a>)</td>
+</tr>
+<tr>
+<td>a pinned <code>requirements.txt</code> (pip-compile, <code>uv pip compile</code>)</td>
+<td>exact versions, hashes, markers, and pip-compile's <code># via</code> comments</td>
+<td>the packages for one platform, edges from <code># via</code>, what <code># via -r</code> names as declared (<a href="../cli/#reading-a-pinned-requirementstxt">Reading a pinned requirements.txt</a>)</td>
 </tr>
 <tr>
 <td>explicit spec (<code>conda list --explicit --md5</code>)</td>
@@ -1413,6 +1423,23 @@ critical, KEV-listed advisory, an MIT license and a 4.2 scorecard, and yanks <co
 <td>4</td>
 <td>4</td>
 <td>7</td>
+<td>9</td>
+</tr>
+<tr>
+<td>requirements.txt (pip-compile)</td>
+<td>0: 9 rows</td>
+<td>0: 9 rows, 9 with license</td>
+<td>0: 9 rows</td>
+<td>0: 9 unchanged</td>
+<td>0: 9 rows</td>
+<td>0: 9 rows</td>
+<td>0: 2 rows</td>
+<td>0: 9 rows, 9 with score</td>
+<td>0</td>
+<td>3</td>
+<td>4</td>
+<td>4</td>
+<td>0</td>
 <td>9</td>
 </tr>
 <tr>
