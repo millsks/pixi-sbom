@@ -883,8 +883,9 @@
 <p>A <a href="https://pixi.sh">pixi</a> extension that writes a Software Bill of Materials from a lockfile: every conda and PyPI
 package of one environment on one platform, with purls, licenses and the dependency graph, as
 <a href="https://cyclonedx.org">CycloneDX</a> 1.6 / 1.7 or <a href="https://spdx.dev">SPDX</a> 2.3 / 3.0.1 JSON that validates against the
-official schemas. It reads <code>pixi.lock</code>, <code>uv.lock</code>, <code>pylock.toml</code>, <code>poetry.lock</code>, <code>pdm.lock</code>, <code>conda-lock.yml</code> and
-explicit conda specs, or an installed conda environment or venv, and needs neither an installed environment nor pixi
+official schemas. It reads <code>pixi.lock</code>, <code>uv.lock</code>, <code>pylock.toml</code>, <code>poetry.lock</code>, <code>pdm.lock</code>, <code>conda-lock.yml</code>,
+explicit conda specs and fully pinned <code>requirements.txt</code> files, an installed conda environment or venv, or other
+tools' SBOMs (one, or several merged into one), and needs neither an installed environment nor pixi
 itself: a uv or Poetry project runs it as <code>uvx pixi-sbom</code> (<a href="without-pixi/">Using pixi-sbom without pixi</a>).</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pixi<span class="w"> </span>global<span class="w"> </span>install<span class="w"> </span>pixi-sbom
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
