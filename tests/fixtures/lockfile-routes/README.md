@@ -8,7 +8,7 @@ lockfile" table in `docs/without-pixi.md`. `tests/cli.rs` reads each one.
 | `pylock.pip-tools.toml` | `pip-compile --generate-hashes requirements.in -o requirements.txt`, then `uv pip compile requirements.txt -o pylock.toml` |
 | `pylock.pipenv.toml` | `pipenv install requests==2.32.3`, `pipenv requirements > requirements.txt`, then `uv pip compile requirements.txt -o pylock.toml` |
 | `pylock.pip.toml` | `pip lock -r requirements.in -o pylock.toml` (pip 26) |
-| `explicit-micromamba.txt` | `micromamba env export -p <env> --explicit --md5` (micromamba 1.5) |
+| `explicit-micromamba.txt` | `micromamba env export -p <env> --explicit --md5` (micromamba 1.5.12; 2.9.0 writes the same packages) |
 | `explicit-conda.txt` | `conda list -p <env> --explicit --md5`, on the same environment |
 | `conda-lock.yml` | `conda-lock -f environment.yml -p linux-64 -p osx-arm64` (conda-lock 4.0) |
 | `conda-linux-64.lock` | `conda-lock render --kind explicit -p linux-64 conda-lock.yml` |

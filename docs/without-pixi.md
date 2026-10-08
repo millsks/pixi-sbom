@@ -40,6 +40,27 @@ by a test (`tests/fixtures/lockfile-routes`).
 `requirements.txt` gives back exactly its pins, and one with ranges gives today's answer for them; that answer is
 then the lock. `pip lock` locks for the interpreter that runs it, so its `pylock.toml` carries no markers.
 
+### Tools you need
+
+Only the tool for your route, and note that the `requirements.txt` and Pipenv routes end in `uv pip compile`, so they
+need **uv** as well. Every tool here is on conda-forge (`pixi global install <tool>`, or `conda install -c conda-forge
+<tool>`); the Python ones are also on PyPI (`uv tool install <tool>`, `pipx install <tool>`). "Tested with" is the
+version each command above was run with.
+
+| Tool | Needed for | Tested with |
+|---|---|---|
+| [uv](https://docs.astral.sh/uv/) | `uv lock`; `uv pip compile` in the `requirements.txt`, pip-tools and Pipenv routes | 0.12.20 |
+| [Poetry](https://python-poetry.org/) | `poetry lock` | 2.0.1 |
+| [PDM](https://pdm-project.org/) | `pdm lock` | 2.26.9 |
+| [pip](https://pip.pypa.io/) | `pip lock`, which needs pip 25.1 or later (`python -m pip install -U pip`) | 26.2.1 |
+| [pip-tools](https://pip-tools.readthedocs.io/) | `pip-compile`, if that is how your `requirements.txt` is made | 7.6.1 |
+| [Pipenv](https://pipenv.pypa.io/) | `pipenv requirements` | 2026.8.0 |
+| [conda](https://docs.conda.io/) | `conda list --explicit --md5` (from [Miniforge](https://conda-forge.org/download/), or any conda install) | 26.9.1 |
+| [micromamba](https://mamba.readthedocs.io/) | `micromamba env export --explicit --md5` | 1.5.12 and 2.9.0 |
+| [conda-lock](https://conda.github.io/conda-lock/) | `conda-lock -f environment.yml` and `conda-lock render` | 4.0.0 |
+
+### What is not read
+
 Some files a tool writes are not read, and each has its way in:
 
 | Not read | Why | Way in |
