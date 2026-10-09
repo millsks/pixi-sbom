@@ -24,6 +24,11 @@ pixi sbom --fetch-licenses --deny-license GPL-3.0-only --require-license   # a l
 
     pixi global, a release binary, or a build from source; how pixi finds the extension.
 
+-   **[Field manual](field-manual/index.md)**
+
+    Playbooks by job: gate CI, take in a vendor's SBOM, one SBOM for a product, "are we exposed?", restricted
+    networks, signed releases.
+
 -   **[Try it on the examples](try-the-examples.md)**
 
     More than a hundred real projects for every lockfile kind, and a tour of what to run on them.

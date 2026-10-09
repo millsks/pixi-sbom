@@ -27,6 +27,15 @@ nav:
   - What's new: whats-new.md
   - Without pixi: without-pixi.md
   - Try it on the examples: try-the-examples.md
+  - Field manual:
+      - Overview: field-manual/index.md
+      - Gate a repository in CI: field-manual/ci-gate.md
+      - Take in a vendor's SBOM: field-manual/vendor-sbom.md
+      - One SBOM for a product: field-manual/product-sbom.md
+      - Are we exposed?: field-manual/are-we-exposed.md
+      - A restricted network: field-manual/restricted-network.md
+      - A project without pixi: field-manual/without-pixi.md
+      - Release with a signed SBOM: field-manual/signed-release.md
   - Command-line reference: cli.md
   - GitHub Action: github-action.md
   - CI recipes: ci-recipes.md

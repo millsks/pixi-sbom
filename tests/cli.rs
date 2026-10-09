@@ -9157,3 +9157,144 @@ fn every_recording_is_recorded_named_and_shown() {
     }
     assert!(tapes >= 12, "the tapes were found ({tapes})");
 }
+
+/// A shell line as the field manual writes it: leading `VAR=value` assignments, then words, quotes
+/// honoured, and nothing after a pipe or a redirect (those belong to the shell, not to the tool).
+fn shell_words(line: &str) -> (Vec<(String, String)>, Vec<String>) {
+    let mut words = Vec::new();
+    let mut word = String::new();
+    let mut quote: Option<char> = None;
+    let mut started = false;
+    for c in line.chars() {
+        match (quote, c) {
+            (Some(q), c) if c == q => quote = None,
+            (Some(_), c) => word.push(c),
+            (None, '"' | '\'') => {
+                quote = Some(c);
+                started = true;
+            }
+            (None, '|' | '>') if !started => break,
+            (None, c) if c.is_whitespace() => {
+                if started {
+                    words.push(std::mem::take(&mut word));
+                    started = false;
+                }
+            }
+            (None, c) => {
+                word.push(c);
+                started = true;
+            }
+        }
+    }
+    if started {
+        words.push(word);
+    }
+    let mut env = Vec::new();
+    while let Some((key, value)) = words.first().and_then(|w| w.split_once('=')).filter(|(k, _)| {
+        !k.is_empty()
+            && k.chars()
+                .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+    }) {
+        env.push((key.to_string(), value.to_string()));
+        words.remove(0);
+    }
+    (env, words)
+}
+
+#[test]
+fn shell_words_split_like_the_shell_the_manual_is_written_for() {
+    let (env, words) =
+        shell_words(r#"PIXI_SBOM_OFFLINE=1 pixi sbom --ignore-vuln "CVE-1:not reachable" --output - | grep x > y"#);
+    assert_eq!(env, [("PIXI_SBOM_OFFLINE".to_string(), "1".to_string())]);
+    assert_eq!(
+        words,
+        ["pixi", "sbom", "--ignore-vuln", "CVE-1:not reachable", "--output", "-"]
+    );
+}
+
+/// Every `pixi sbom` line in the field manual runs as written, page by page in the order the
+/// navigation lists them, in one project that has what the playbooks name: a pixi workspace,
+/// a vendor's CycloneDX, SPDX and OpenVEX documents, and a pinned requirements.txt. A plain line
+/// succeeds; `# exit N` exits N; `# needs the network` is held offline to parsing and to the
+/// files it names existing.
+#[test]
+fn the_field_manual_runs_as_written() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let work = tempfile::tempdir().unwrap();
+    let project = root.join("examples/projects/pixi/01-django");
+    for file in walkdir(&project) {
+        let target = work.path().join(file.strip_prefix(&project).unwrap());
+        std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+        std::fs::copy(&file, &target).unwrap();
+    }
+    for (from, to) in [
+        ("tests/fixtures/syft/app.cdx.json", "vendor.cdx.json"),
+        ("tests/fixtures/syft/app.spdx.json", "vendor.spdx.json"),
+        ("tests/fixtures/vex-in/vendor.openvex.json", "vendor.openvex.json"),
+        (
+            "examples/projects/requirements/01-django/requirements.txt",
+            "requirements.txt",
+        ),
+    ] {
+        std::fs::copy(root.join(from), work.path().join(to)).unwrap();
+    }
+
+    let nav = std::fs::read_to_string(root.join("mkdocs.yml")).unwrap();
+    let pages: Vec<&str> = nav
+        .lines()
+        .filter_map(|line| line.trim().split_once(": field-manual/").map(|(_, page)| page))
+        .collect();
+    assert!(pages.len() >= 8, "the field manual is in the navigation: {pages:?}");
+    let (mut ran, mut online) = (0, 0);
+    for page in pages {
+        let text = std::fs::read_to_string(root.join("docs/field-manual").join(page)).unwrap();
+        let mut in_shell = false;
+        for line in text.lines() {
+            if line.starts_with("```") {
+                in_shell = line == "```sh";
+                continue;
+            }
+            if !in_shell || !line.contains("pixi sbom ") {
+                continue;
+            }
+            let (command, comment) = line.split_once(" # ").unwrap_or((line, ""));
+            let (env, words) = shell_words(command);
+            let Some(args) = words.strip_prefix(&["pixi".to_string(), "sbom".to_string()]) else {
+                continue;
+            };
+            let mut cmd = pixi_sbom();
+            cmd.current_dir(work.path())
+                .env("PIXI_SBOM_OFFLINE", "1")
+                .env("PIXI_CACHE_DIR", work.path().join(".empty-pkgs-cache"))
+                .env("PIXI_SBOM_CACHE_DIR", work.path().join(".cache"))
+                .args(args);
+            for (key, value) in &env {
+                cmd.env(key, value);
+            }
+            let output = cmd.output().unwrap();
+            let code = output.status.code();
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            match comment.trim() {
+                "needs the network" => {
+                    assert_ne!(code, Some(2), "{page}: {line}: a usage error\n{stderr}");
+                    assert!(
+                        !stderr.contains("No such file"),
+                        "{page}: {line}: a file it names is missing\n{stderr}"
+                    );
+                    online += 1;
+                }
+                "" => assert_eq!(code, Some(0), "{page}: {line}\n{stderr}"),
+                other => {
+                    let expected: i32 = other
+                        .strip_prefix("exit ")
+                        .and_then(|n| n.parse().ok())
+                        .unwrap_or_else(|| panic!("{page}: {line}: an annotation this test does not know: {other}"));
+                    assert_eq!(code, Some(expected), "{page}: {line}\n{stderr}");
+                }
+            }
+            ran += 1;
+        }
+    }
+    assert!(ran >= 25, "the playbooks' commands were found and run ({ran})");
+    assert!(online >= 10, "and the ones that need the network are marked ({online})");
+}
