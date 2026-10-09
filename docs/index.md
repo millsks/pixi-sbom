@@ -24,6 +24,10 @@ pixi sbom --fetch-licenses --deny-license GPL-3.0-only --require-license   # a l
 
     pixi global, a release binary, or a build from source; how pixi finds the extension.
 
+-   **[Training lab](lab.md)**
+
+    Seven hands-on modules on the examples, offline, with expected output and self-checks. 60 to 90 minutes.
+
 -   **[Field manual](field-manual/index.md)**
 
     Playbooks by job: gate CI, take in a vendor's SBOM, one SBOM for a product, "are we exposed?", restricted

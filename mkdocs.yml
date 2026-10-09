@@ -27,6 +27,7 @@ nav:
   - What's new: whats-new.md
   - Without pixi: without-pixi.md
   - Try it on the examples: try-the-examples.md
+  - Training lab: lab.md
   - Field manual:
       - Overview: field-manual/index.md
       - Gate a repository in CI: field-manual/ci-gate.md
@@ -91,6 +92,9 @@ markdown_extensions:
       anchor_linenums: true
   - pymdownx.inlinehilite
   - pymdownx.superfences
+  - pymdownx.tasklist:
+      custom_checkbox: true
+      clickable_checkbox: true
   - pymdownx.tabbed:
       alternate_style: true
 
@@ -110,3 +114,6 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/millsks/pixi-sbom
+
+extra_javascript:
+  - javascripts/lab-progress.js

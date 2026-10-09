@@ -1,0 +1,16 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://example.invalid/vex/flask-example-0.1.0",
+  "author": "Training lab (an illustrative vendor statement, not a real assessment)",
+  "timestamp": "2026-10-09T00:00:00Z",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": { "name": "CVE-2023-32681", "aliases": ["GHSA-j8r2-6x86-q33q"] },
+      "products": [{ "@id": "pkg:pypi/requests@2.25.1" }],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "The service never configures a proxy, so no Proxy-Authorization header is ever sent."
+    }
+  ]
+}

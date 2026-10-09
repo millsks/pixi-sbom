@@ -9298,3 +9298,83 @@ fn the_field_manual_runs_as_written() {
     assert!(ran >= 25, "the playbooks' commands were found and run ({ran})");
     assert!(online >= 10, "and the ones that need the network are marked ({online})");
 }
+
+/// The training lab runs as written, offline, from the cache it ships with: every `pixi sbom` line
+/// in order, `# exit N` honoured, and every line of each expected-output block found in what the
+/// command before it printed. A release that changes what a learner sees fails here rather than in
+/// a classroom.
+#[test]
+fn the_training_lab_runs_as_written_and_shows_what_it_says() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let page = std::fs::read_to_string(root.join("docs/lab.md")).unwrap();
+    let work = tempfile::tempdir().unwrap();
+    let examples = root.join("examples");
+    for file in walkdir(&examples) {
+        let target = work.path().join("examples").join(file.strip_prefix(&examples).unwrap());
+        std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+        std::fs::copy(&file, &target).unwrap();
+    }
+    let cache = work.path().join("examples/lab-cache");
+
+    // The page says when its answers were recorded, and the cache says the same.
+    let recorded = |text: &str, marker: &str| {
+        let at = text.find(marker).unwrap_or_else(|| panic!("no '{marker}'")) + marker.len();
+        text[at..at + 10].to_string()
+    };
+    let readme = std::fs::read_to_string(cache.join("README.md")).unwrap();
+    assert_eq!(
+        recorded(&page, "recorded into `examples/lab-cache/` on "),
+        recorded(&readme, "commands were run on "),
+        "docs/lab.md and examples/lab-cache disagree about when the cache was recorded: run `pixi run lab-cache`"
+    );
+
+    let (mut ran, mut checked) = (0, 0);
+    let mut block: Option<&str> = None;
+    let mut last = String::new();
+    for line in page.lines() {
+        if let Some(fence) = line.strip_prefix("```") {
+            block = match block {
+                Some(_) => None,
+                None => Some(fence),
+            };
+            continue;
+        }
+        match block {
+            Some("sh") if line.starts_with("pixi sbom ") => {
+                let (command, comment) = line.split_once(" # ").unwrap_or((line, ""));
+                let (_, words) = shell_words(command);
+                let output = pixi_sbom()
+                    .current_dir(work.path())
+                    .env("PIXI_SBOM_OFFLINE", "1")
+                    .env("PIXI_SBOM_CACHE_DIR", &cache)
+                    .env("PIXI_CACHE_DIR", work.path().join(".empty-pkgs-cache"))
+                    .env("COLUMNS", "120")
+                    .args(&words[2..])
+                    .output()
+                    .unwrap();
+                last = format!(
+                    "{}{}",
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                );
+                let expected = comment
+                    .trim()
+                    .strip_prefix("exit ")
+                    .map_or(0, |n| n.parse::<i32>().unwrap());
+                assert_eq!(output.status.code(), Some(expected), "{line}\n{last}");
+                ran += 1;
+            }
+            Some("text") if !line.trim().is_empty() => {
+                assert!(
+                    last.contains(line.trim()),
+                    "docs/lab.md expects `{}` from the command before it, which printed:\n{last}",
+                    line.trim()
+                );
+                checked += 1;
+            }
+            _ => {}
+        }
+    }
+    assert!(ran >= 14, "the lab's commands were found and run ({ran})");
+    assert!(checked >= 12, "and its expected outputs checked ({checked})");
+}
