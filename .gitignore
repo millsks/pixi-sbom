@@ -43,3 +43,6 @@ __pycache__/
 
 # Generated beside the papers; the Markdown and the PDF are the committed pair
 docs/papers/*.html
+
+# Worktrees Claude Code creates for background agents; each is its own checkout, never content of this one
+.claude/worktrees/

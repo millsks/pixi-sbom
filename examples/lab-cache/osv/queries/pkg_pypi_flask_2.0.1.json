@@ -1,0 +1,1 @@
+{"purl":"pkg:pypi/flask@2.0.1","fetched_at":1791583845,"vulns":[{"id":"GHSA-68rp-wp8r-4726","modified":"2026-09-10T03:49:54.354981Z"},{"id":"GHSA-m2qf-hxjv-5gpq","modified":"2026-09-10T03:50:01.763387Z"},{"id":"PYSEC-2023-62","modified":"2023-11-08T04:12:28.231927Z"},{"id":"PYSEC-2026-2151","modified":"2026-07-13T07:15:25.033843Z"}]}
