@@ -9040,3 +9040,80 @@ fn the_whats_new_page_covers_every_release_since_1_0() {
     );
     assert!(released.contains(&(1, 8, 1)), "the changelog was read");
 }
+
+/// Every `pixi sbom` line on the examples tour runs as written, in order, against a copy of
+/// `examples/projects`. A plain line succeeds; `# exit N` exits with N; `# needs the network`
+/// cannot be judged offline, so it is held to what offline can check: the flags parse and every
+/// example it names exists.
+#[test]
+fn the_examples_tour_runs_as_written() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let page = std::fs::read_to_string(root.join("docs/try-the-examples.md")).unwrap();
+    let work = tempfile::tempdir().unwrap();
+    let examples = root.join("examples/projects");
+    for file in walkdir(&examples) {
+        let target = work
+            .path()
+            .join("examples/projects")
+            .join(file.strip_prefix(&examples).unwrap());
+        std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+        std::fs::copy(&file, &target).unwrap();
+    }
+
+    let (mut ran, mut online) = (0, 0);
+    let mut in_shell = false;
+    for line in page.lines() {
+        if line.starts_with("```") {
+            in_shell = line == "```sh";
+            continue;
+        }
+        let Some(command) = line.strip_prefix("pixi sbom ").filter(|_| in_shell) else {
+            continue;
+        };
+        let (args, comment) = command.split_once('#').unwrap_or((command, ""));
+        let args: Vec<&str> = args.split_whitespace().collect();
+        let comment = comment.trim();
+        for path in args.iter().filter(|a| a.starts_with("examples/")) {
+            assert!(work.path().join(path).exists(), "{line}: {path} does not exist");
+        }
+        let assert = pixi_sbom()
+            .current_dir(work.path())
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("PIXI_CACHE_DIR", work.path().join(".empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", work.path().join(".cache"))
+            .args(&args)
+            .assert();
+        let code = assert.get_output().status.code();
+        match comment {
+            "needs the network" => {
+                assert_ne!(code, Some(2), "{line}: a usage error");
+                online += 1;
+            }
+            "" => assert_eq!(
+                code,
+                Some(0),
+                "{line}: {}",
+                String::from_utf8_lossy(&assert.get_output().stderr)
+            ),
+            other => {
+                let expected: i32 = other
+                    .strip_prefix("exit ")
+                    .and_then(|n| n.parse().ok())
+                    .unwrap_or_else(|| panic!("{line}: an annotation this test does not know: {other}"));
+                assert_eq!(code, Some(expected), "{line}");
+            }
+        }
+        ran += 1;
+    }
+    assert!(ran >= 20, "the page's commands were found and run ({ran})");
+    assert!(online >= 5, "and the ones that need the network are marked ({online})");
+    // What the tour wrote is there for the next section to use.
+    for written in ["sboms", "app.cdx.json", "vendor.spdx.json"] {
+        assert!(work.path().join(written).exists(), "{written}");
+    }
+    assert_eq!(
+        std::fs::read_dir(work.path().join("sboms")).unwrap().count(),
+        4,
+        "one per environment"
+    );
+}

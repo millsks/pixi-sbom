@@ -65,6 +65,9 @@ pixi-sbom merges them, so its own count is lower. New advisories are published a
 
 ## Trying them
 
+The documentation site has a guided tour of these: [Try it on the examples](https://millsks.github.io/pixi-sbom/latest/try-the-examples/),
+one feature at a time, every command tested. A few to start with:
+
 ```sh
 # The SBOM, with known advisories looked up
 pixi sbom --lockfile examples/projects/uv/01-django/uv.lock --vulnerabilities osv
@@ -79,8 +82,10 @@ pixi sbom --lockfile examples/projects/requirements/01-django/requirements-dev.t
 pixi sbom --lockfile examples/projects/uv/02-flask/uv.lock --vulnerabilities osv --report vulnerabilities
 pixi sbom --lockfile examples/projects/poetry/04-data-analysis/poetry.lock --report outdated
 pixi sbom --lockfile examples/projects/uv/07-web-scraping/uv.lock --fetch-licenses --report licenses
+# html2text declares the free text "GNU GPL 3", which no SPDX deny list matches; --require-license
+# makes a license that is not an SPDX expression a violation, so this exits 3 naming it
 pixi sbom --lockfile examples/projects/uv/07-web-scraping/uv.lock --fetch-licenses \
-  --deny-license GPL-3.0-only --deny-license GPL-3.0-or-later   # html2text declares only "GNU GPL 3"
+  --deny-license GPL-3.0-only --deny-license GPL-3.0-or-later --require-license
 
 # Before and after an upgrade
 pixi sbom --lockfile examples/projects/uv/14-django-upgraded/uv.lock \

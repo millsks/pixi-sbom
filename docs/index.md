@@ -24,6 +24,10 @@ pixi sbom --fetch-licenses --deny-license GPL-3.0-only --require-license   # a l
 
     pixi global, a release binary, or a build from source; how pixi finds the extension.
 
+-   **[Try it on the examples](try-the-examples.md)**
+
+    More than a hundred real projects for every lockfile kind, and a tour of what to run on them.
+
 -   **[Command-line reference](cli.md)**
 
     Every option, the license policy, terminal reports, batch mode, environment variables, exit codes and error

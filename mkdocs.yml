@@ -26,6 +26,7 @@ nav:
   - Installation: installation.md
   - What's new: whats-new.md
   - Without pixi: without-pixi.md
+  - Try it on the examples: try-the-examples.md
   - Command-line reference: cli.md
   - GitHub Action: github-action.md
   - CI recipes: ci-recipes.md

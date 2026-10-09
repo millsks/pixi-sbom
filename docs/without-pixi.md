@@ -3,6 +3,7 @@
 pixi-sbom is a pixi extension, but nothing in it needs pixi. It is one self-contained binary that reads a lockfile
 (or an installed environment) and writes CycloneDX or SPDX, and it reads the lockfiles of uv, Poetry, PDM,
 conda-lock and pip's PEP 751 `pylock.toml` as well as `pixi.lock`. A uv or Poetry project uses it as it is.
+[Try it on the examples](try-the-examples.md) has a project of every kind to try it on.
 
 ## Installing it
 
