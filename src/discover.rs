@@ -76,7 +76,8 @@ pub enum DiscoverError {
         code(pixi_sbom::discover::not_found),
         help(
             "{hint}write one with your project's tool (`pixi lock`, `uv lock`, `poetry lock`, `pdm lock`, `pip lock`, \
-             `conda-lock`), or pass --lockfile with the path to one; an explicit conda spec file is only read that way"
+             `conda-lock`), or pass --lockfile with the path to one; an explicit conda spec file or a pinned requirements.txt is \
+             only read that way"
         )
     )]
     NotFound {

@@ -128,17 +128,38 @@ pub fn is_requirements(path: &Path) -> bool {
         if line == "@EXPLICIT" || line.starts_with('[') || line.starts_with('{') || line.starts_with("---") {
             return false;
         }
+        // An editable install is a requirement line, if not a pinned one; the parser says so.
+        if line.starts_with("-e ") || line.starts_with("--editable") {
+            saw_requirement = true;
+            continue;
+        }
         if line.starts_with('-') {
             continue;
         }
         let first = line.chars().next().unwrap_or(' ');
         if !(first.is_ascii_alphanumeric()) {
+            // A path or URL line. In a file named for requirements it is one, which the parser
+            // refuses by line; anywhere else it says the file is something else.
+            if named {
+                saw_requirement = true;
+                continue;
+            }
             return false;
         }
         saw_requirement = true;
         saw_pin |= line.contains("==");
     }
     saw_requirement && (named || saw_pin)
+}
+
+/// A requirement line that is a bare path or URL (`./libs/x`, `/opt/wheels/x.whl`,
+/// `https://.../x.whl`, `C:\\wheels\\x.whl`), as pip accepts in place of a name.
+fn is_direct_reference(requirement: &str) -> bool {
+    let first = requirement.chars().next().unwrap_or(' ');
+    let windows_drive = requirement.as_bytes().get(1) == Some(&b':') && first.is_ascii_alphabetic();
+    matches!(first, '.' | '/' | '~' | '\\')
+        || windows_drive
+        || (requirement.contains("://") && !requirement.contains(" @ "))
 }
 
 /// Read and parse the file at `path`, following `-r` and `-c` includes.
@@ -245,6 +266,14 @@ fn parse_into(
             Some(at) => (&body[..at], &body[at..]),
             None => (body, ""),
         };
+        // A path or URL with no name is a direct reference: not pinned, whatever it points at.
+        if is_direct_reference(requirement) {
+            return Err(RequirementsError::NotPinned {
+                path: origin.clone(),
+                line,
+                text: requirement.to_string(),
+            });
+        }
         let parsed = Requirement::<VerbatimUrl>::from_str(requirement).map_err(|err| RequirementsError::Parse {
             path: origin.clone(),
             line,
@@ -578,5 +607,43 @@ requests==2.32.3 \\
             assert!(!is_requirements(&dir.path().join(name)), "{name}");
         }
         assert!(!is_requirements(&dir.path().join("absent-requirements.txt")));
+
+        // A file named for requirements is read even when its only lines are an editable
+        // install or a path, so the parser can refuse the line rather than the lockfile
+        // reader rejecting the whole file as something it is not.
+        for text in [
+            "-e ./libs/internal-utils\n",
+            "--editable ./libs/internal-utils\n",
+            "./libs/internal-utils\n",
+        ] {
+            std::fs::write(dir.path().join("requirements.txt"), text).unwrap();
+            assert!(is_requirements(&dir.path().join("requirements.txt")), "{text}");
+        }
+        std::fs::write(dir.path().join("notes.txt"), "./libs/internal-utils\n").unwrap();
+        assert!(!is_requirements(&dir.path().join("notes.txt")), "not named for it");
+    }
+
+    #[test]
+    fn a_bare_path_or_url_is_refused_as_unpinned_by_line() {
+        for (text, line) in [
+            ("django==4.2.16\n./libs/internal-utils\n", 2),
+            ("/opt/wheels/x-1.0-py3-none-any.whl\n", 1),
+            (
+                "https://files.pythonhosted.org/packages/x/django-4.2.16-py3-none-any.whl\n",
+                1,
+            ),
+            ("C:\\wheels\\x-1.0-py3-none-any.whl\n", 1),
+            ("~/src/thing\n", 1),
+        ] {
+            match parse(text, Path::new("requirements.txt")) {
+                Err(RequirementsError::NotPinned { line: got, .. }) => assert_eq!(got, line, "{text}"),
+                other => panic!("{text}: {other:?}"),
+            }
+        }
+        assert!(!is_direct_reference("django==4.2.16"));
+        assert!(
+            !is_direct_reference("pkg @ https://example.com/pkg.whl"),
+            "named; pep508 judges it"
+        );
     }
 }
