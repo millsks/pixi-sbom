@@ -333,6 +333,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../whats-new/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What's new
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../without-pixi/" class="md-nav__link">
         
   
@@ -591,10 +618,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" checked>
         
           
-          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="">
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="">
             
   
   
@@ -612,8 +639,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_12">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_13">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1660,7 +1687,11 @@ operator action, two runs.</p>
 </tr>
 </tbody>
 </table>
-<p>A <strong>pre-release is expressed in the version</strong>, not by a separate flag: <code>1.0.0-rc.1</code> is one and <code>1.0.0</code> is not.
+<p>A <strong>pre-release is expressed in the version</strong>, not by a separate flag: <code>1.0.0-rc.1</code> is one and <code>1.0.0</code> is not.</p>
+<p><strong>Write the release up in <a href="../whats-new/">What's new</a></strong> in the pull request after the release, while it is fresh:
+one section per final release, saying what it means for someone using the tool, not what the commits were.
+<code>the_whats_new_page_covers_every_release_since_1_0</code> in <code>tests/cli.rs</code> fails the build until that section exists,
+and fails it for a section naming a release that does not. Release candidates do not get one; their final does.
 That is what semver already means by the suffix, and a flag could contradict the version it was attached to.</p>
 <p>What the two do, in order:</p>
 <ol>
