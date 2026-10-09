@@ -9006,3 +9006,37 @@ fn the_whole_examples_tree_scans_clean() {
         "one report per lockfile"
     );
 }
+
+/// The what's-new page has a section for every release since 1.0, and none for a release that
+/// does not exist: a release that ships without one fails the next build, which is how it gets
+/// written while the release is still fresh.
+#[test]
+fn the_whats_new_page_covers_every_release_since_1_0() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let version_of = |line: &str, prefix: &str| -> Option<(u32, u32, u32)> {
+        let rest = line.strip_prefix(prefix)?;
+        let version = rest.split_whitespace().next()?;
+        if version.contains('-') {
+            return None; // a release candidate
+        }
+        let mut parts = version.split('.').map(|p| p.parse::<u32>());
+        Some((parts.next()?.ok()?, parts.next()?.ok()?, parts.next()?.ok()?))
+    };
+    let changelog = std::fs::read_to_string(root.join("CHANGELOG.md")).unwrap();
+    let released: std::collections::BTreeSet<(u32, u32, u32)> = changelog
+        .lines()
+        .filter_map(|l| version_of(l, "## "))
+        .filter(|v| *v > (1, 0, 0))
+        .collect();
+    let page = std::fs::read_to_string(root.join("docs/whats-new.md")).unwrap();
+    let covered: std::collections::BTreeSet<(u32, u32, u32)> =
+        page.lines().filter_map(|l| version_of(l, "## ")).collect();
+    let missing: Vec<_> = released.difference(&covered).collect();
+    let invented: Vec<_> = covered.difference(&released).collect();
+    assert!(missing.is_empty(), "docs/whats-new.md has no section for {missing:?}");
+    assert!(
+        invented.is_empty(),
+        "docs/whats-new.md describes releases that do not exist: {invented:?}"
+    );
+    assert!(released.contains(&(1, 8, 1)), "the changelog was read");
+}

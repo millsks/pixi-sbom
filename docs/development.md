@@ -332,6 +332,11 @@ operator action, two runs.
 | `force_recreate` | false | Delete an existing tag and release of that version first, then recreate them. |
 
 A **pre-release is expressed in the version**, not by a separate flag: `1.0.0-rc.1` is one and `1.0.0` is not.
+
+**Write the release up in [What's new](whats-new.md)** in the pull request after the release, while it is fresh:
+one section per final release, saying what it means for someone using the tool, not what the commits were.
+`the_whats_new_page_covers_every_release_since_1_0` in `tests/cli.rs` fails the build until that section exists,
+and fails it for a section naming a release that does not. Release candidates do not get one; their final does.
 That is what semver already means by the suffix, and a flag could contradict the version it was attached to.
 
 What the two do, in order:

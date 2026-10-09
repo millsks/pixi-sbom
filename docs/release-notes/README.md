@@ -10,3 +10,6 @@ the commit list *is* the story. A release where it is not, like 1.0.0, gets a fi
 
 These are excluded from the documentation site (`exclude_docs` in `mkdocs.yml`): they are release
 copy, and the site already carries the changelog.
+
+The account of every release that *is* on the site, in prose, is [What's new](../whats-new.md). A
+preamble here is for the GitHub release page; it is not a substitute for that section.
