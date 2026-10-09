@@ -1,0 +1,21 @@
+<section id="rules" data-transition="fade" style="background:#F7F8F6; color:#10212B; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:44px">
+<h2 style="font-size:72px; font-weight:600; line-height:1.1">The rules that already ask for this list</h2>
+<table style="font-family:'IBM Plex Sans', Verdana, sans-serif; font-size:32px; color:#10212B; padding:20px 24px">
+<tr style="background:#10212B">
+<th style="width:40%; text-align:left; color:#F7F8F6; font-size:30px">Rule</th>
+<th style="width:42%; text-align:left; color:#F7F8F6; font-size:30px">Who it covers</th>
+<th style="width:18%; text-align:left; color:#F7F8F6; font-size:30px">In force</th>
+</tr>
+<tr><td><b>PCI DSS 4.0</b></td><td>Banks and anyone handling card data</td><td><b>Mar 2025</b></td></tr>
+<tr style="background:#EFF2EE"><td><b>EU DORA</b></td><td>EU banks, insurers, investment firms</td><td><b>Jan 2025</b></td></tr>
+<tr><td><b>EU Cyber Resilience Act</b></td><td>Anyone selling software in the EU</td><td><b>Dec 2027</b></td></tr>
+<tr style="background:#EFF2EE"><td><b>US Executive Order 14028</b></td><td>Software sold to federal agencies</td><td><b>2021</b></td></tr>
+</table>
+<p style="font-size:32px; line-height:1.4; color:#4A5568; width:1620px">The two financial rules apply today. Each asks for an inventory of the software we build and the components inside it.</p>
+<p style="position:absolute; left:128px; bottom:64px; font-size:24px; color:#6A7179">Sources: PCI DSS v4.0 Req. 6.3.2 · Commission Delegated Reg. (EU) 2024/1774 Art. 10(2)(d) · Reg. (EU) 2024/2847 · EO 14028</p>
+<aside>One point to land: for a financial institution this is not a future requirement. Do not read the table; say which rows apply to us.
+PCI DSS 4.0, Requirement 6.3.2: keep an inventory of our own software and the third-party components built into it, for vulnerability and patch management. Assessed since 31 March 2025, for anyone who stores, processes or transmits card data.
+EU DORA, Commission Delegated Regulation 2024/1774, Article 10(2)(d): track the third-party libraries, open source included, in the services behind critical or important functions. Applies since 17 January 2025.
+Cyber Resilience Act: a machine-readable SBOM for products sold in the EU from 11 December 2027; reporting of exploited vulnerabilities from 11 September 2026.
+If asked: neither financial rule uses the word "SBOM". An SBOM is how we show an auditor the inventory they require, produced the same way at every build. Have compliance confirm which rows apply to us before the meeting.</aside>
+</section>

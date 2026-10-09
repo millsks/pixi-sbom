@@ -1,23 +1,20 @@
-<section id="why-now" data-transition="fade" style="background:#F7F8F6; color:#10212B; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:48px">
+<section id="why-now" data-transition="fade" style="background:#F7F8F6; color:#10212B; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:36px">
 <h2 style="font-size:72px; font-weight:600; line-height:1.1">Why we're being asked for this now</h2>
-<div style="display:flex; gap:32px">
-<div style="flex:1; background:#FFFFFF; border:1px solid #DFE3DE; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:14px">
-<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:24px; font-weight:600; letter-spacing:2px; color:#C2571A">UNITED STATES</p>
-<h3 style="font-size:36px; font-weight:600; line-height:1.2">Executive Order 14028</h3>
-<p style="font-size:30px; line-height:1.35; color:#4A5568">Software sold to the federal government has to ship with an SBOM. NTIA's minimum elements spell out the fields.</p>
-</div>
-<div style="flex:1; background:#FFFFFF; border:1px solid #DFE3DE; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:14px">
-<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:24px; font-weight:600; letter-spacing:2px; color:#C2571A">EUROPEAN UNION</p>
-<h3 style="font-size:36px; font-weight:600; line-height:1.2">Cyber Resilience Act</h3>
-<p style="font-size:30px; line-height:1.35; color:#4A5568">Anyone putting a product with digital elements on the EU market has to draw up an SBOM. It phases in through 2027.</p>
-</div>
-<div style="flex:1; background:#FFFFFF; border:1px solid #DFE3DE; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:14px">
-<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:24px; font-weight:600; letter-spacing:2px; color:#C2571A">CUSTOMERS</p>
-<h3 style="font-size:36px; font-weight:600; line-height:1.2">Security questionnaires</h3>
-<p style="font-size:30px; line-height:1.35; color:#4A5568">These arrive one deal at a time, on someone else's deadline. Today we answer them by hand.</p>
-</div>
-</div>
-<p style="font-size:32px; line-height:1.4; color:#10212B; width:1600px">All three want the same thing from us: a list we can produce on demand, built the same way every time.</p>
-<p style="position:absolute; left:128px; bottom:64px; font-size:24px; color:#6A7179">Check the current regulatory dates before presenting — these timelines have shifted before.</p>
-<aside>The compliance people in this room know these rules better than you do, so state them plainly and don't stretch them. What's actually settled is the direction, even where a specific deadline isn't. Check the current CRA timeline and anything sector-specific that applies to us, then delete the footer note. If someone asks whether we're in scope today, the honest answer is that the third card already applies no matter what: customers are asking us now.</aside>
+<table style="font-size:26px; line-height:1.3; width:1664px">
+<tr><th style="width:420px; text-align:left; padding:12px 20px 12px 0; color:#C2571A; border-bottom:2px solid #10212B">Rule</th><th style="width:400px; text-align:left; padding:12px 20px; color:#C2571A; border-bottom:2px solid #10212B">Who it covers</th><th style="width:580px; text-align:left; padding:12px 20px; color:#C2571A; border-bottom:2px solid #10212B">What it asks for</th><th style="width:264px; text-align:left; padding:12px 0 12px 20px; color:#C2571A; border-bottom:2px solid #10212B">Since</th></tr>
+<tr><td style="padding:14px 20px 14px 0; border-bottom:1px solid #DFE3DE"><b>PCI DSS 4.0, Req. 6.3.2</b></td><td style="padding:14px 20px; border-bottom:1px solid #DFE3DE; color:#4A5568">Banks and anyone else handling card data</td><td style="padding:14px 20px; border-bottom:1px solid #DFE3DE; color:#4A5568">An inventory of our own software and the third-party components in it</td><td style="padding:14px 0 14px 20px; border-bottom:1px solid #DFE3DE"><b>31 Mar 2025</b></td></tr>
+<tr><td style="padding:14px 20px 14px 0; border-bottom:1px solid #DFE3DE"><b>EU DORA, RTS 2024/1774 Art. 10</b></td><td style="padding:14px 20px; border-bottom:1px solid #DFE3DE; color:#4A5568">EU banks, insurers and investment firms</td><td style="padding:14px 20px; border-bottom:1px solid #DFE3DE; color:#4A5568">Track third-party libraries, open source included, in services behind critical functions</td><td style="padding:14px 0 14px 20px; border-bottom:1px solid #DFE3DE"><b>17 Jan 2025</b></td></tr>
+<tr><td style="padding:14px 20px 14px 0; border-bottom:1px solid #DFE3DE"><b>EU Cyber Resilience Act</b></td><td style="padding:14px 20px; border-bottom:1px solid #DFE3DE; color:#4A5568">Anyone selling software in the EU</td><td style="padding:14px 20px; border-bottom:1px solid #DFE3DE; color:#4A5568">A machine-readable SBOM for each product</td><td style="padding:14px 0 14px 20px; border-bottom:1px solid #DFE3DE"><b>11 Dec 2027</b></td></tr>
+<tr><td style="padding:14px 20px 14px 0; border-bottom:1px solid #DFE3DE"><b>US Executive Order 14028</b></td><td style="padding:14px 20px; border-bottom:1px solid #DFE3DE; color:#4A5568">Software sold to federal agencies</td><td style="padding:14px 20px; border-bottom:1px solid #DFE3DE; color:#4A5568">An SBOM when an agency asks, with NTIA's minimum elements</td><td style="padding:14px 0 14px 20px; border-bottom:1px solid #DFE3DE"><b>2021</b></td></tr>
+<tr><td style="padding:14px 20px 14px 0"><b>Customers</b></td><td style="padding:14px 20px; color:#4A5568">Every deal with a security review</td><td style="padding:14px 20px; color:#4A5568">Questionnaires we answer by hand today</td><td style="padding:14px 0 14px 20px"><b>Now</b></td></tr>
+</table>
+<p style="font-size:30px; line-height:1.4; color:#10212B; width:1600px">The two financial rules already apply. Neither says "SBOM"; an SBOM is how we show the inventory they require.</p>
+<p style="position:absolute; left:128px; bottom:64px; font-size:24px; color:#6A7179">Sources: PCI DSS v4.0 Req. 6.3.2 · Commission Delegated Reg. (EU) 2024/1774 Art. 10(2)(d) · Reg. (EU) 2024/2847 · EO 14028</p>
+<aside>The compliance people in this room know these rules better than you do, so state them plainly and don't stretch them.
+PCI DSS 4.0 Requirement 6.3.2: maintain an inventory of bespoke and custom software, and of the third-party software components built into it, to support vulnerability and patch management. It was a best practice until 31 March 2025 and is assessed from then on. It covers any organization that stores, processes or transmits cardholder data.
+DORA: Commission Delegated Regulation (EU) 2024/1774, Article 10(2)(d), requires financial entities to track the usage of third-party libraries, including open-source libraries, used by ICT services that support critical or important functions, and to monitor their versions and updates. It also covers software the entity develops itself. DORA has applied since 17 January 2025.
+Cyber Resilience Act, Regulation (EU) 2024/2847: vulnerability reporting applies from 11 September 2026; the SBOM and the other main obligations from 11 December 2027.
+Neither financial rule names SBOMs. Say that if asked: an SBOM is the auditable, machine-readable form of the inventory both require, not a separate obligation.
+Not on the slide on purpose: NYDFS Part 500.13 (asset inventory of information systems, from 1 November 2025) and the 2023 US interagency guidance on third-party risk. Both are relevant to a bank, but neither asks for a component-level inventory.
+If someone asks whether we're in scope today: for card data and EU financial entities, yes, already. Customers are asking either way.</aside>
 </section>
