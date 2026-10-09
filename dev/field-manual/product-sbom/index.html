@@ -1278,9 +1278,10 @@ input's root is kept as a component under a new root you name:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--output<span class="w"> </span>app.cdx.json
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--from-sbom<span class="w"> </span>app.cdx.json<span class="w"> </span>--from-sbom<span class="w"> </span>vendor.cdx.json<span class="w"> </span>--from-sbom<span class="w"> </span>vendor.spdx.json<span class="w"> </span>--root-name<span class="w"> </span>product<span class="w"> </span>--output<span class="w"> </span>product.cdx.json
 </code></pre></div>
-<p>CycloneDX and SPDX inputs mix freely. When two inputs disagree about a package's license or hash, the first
-input's value is kept, a warning is logged, and the package records the disagreement as <code>pixi:merge-conflict</code>,
-which <code>--explain</code> shows:</p>
+<p>CycloneDX and SPDX inputs mix freely. When two inputs disagree about a package's license, or about the hash of a
+package whose purl names one file (a conda build), the first input's value is kept, a warning is logged, and the
+package records the disagreement as <code>pixi:merge-conflict</code>, which <code>--explain</code> shows. Two documents that recorded
+different files of one PyPI release (a wheel, the sdist) do not disagree:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--from-sbom<span class="w"> </span>app.cdx.json<span class="w"> </span>--from-sbom<span class="w"> </span>vendor.cdx.json<span class="w"> </span>--root-name<span class="w"> </span>product<span class="w"> </span>--explain<span class="w"> </span>six
 </code></pre></div>
 <h2 id="every-project-in-a-repository">Every project in a repository<a class="headerlink" href="#every-project-in-a-repository" title="Permanent link">&para;</a></h2>

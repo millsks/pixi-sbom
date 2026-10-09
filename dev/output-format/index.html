@@ -2473,7 +2473,7 @@ is carried over, including the <code>pixi:*</code> properties, so a document thi
 whose purl is neither <code>pkg:conda</code> nor <code>pkg:pypi</code>, or which has no purl, gets <code>pixi:kind=external</code>.</p>
 <p>Merged (<code>--from-sbom</code> more than once, or <code>--scan --merge</code>), the metadata property lists every input, and each
 package carries <code>pixi:source-document</code> naming the inputs it came from. Each input's root is a component of its own
-(<code>pkg:generic/&lt;name&gt;@&lt;version&gt;</code>). A package whose inputs disagree about its license or a hash carries
+(<code>pkg:generic/&lt;name&gt;@&lt;version&gt;</code>). A package whose inputs disagree about its license, or about the hash of a purl that names one file, carries
 <code>pixi:merge-conflict</code>, <code>license: &lt;kept&gt; (&lt;input&gt;) vs &lt;other&gt; (&lt;input&gt;)</code>, with several separated by <code>;</code>.</p>
 <h3 id="yanked-releases">Yanked releases<a class="headerlink" href="#yanked-releases" title="Permanent link">&para;</a></h3>
 <p>With <code>--fetch-licenses</code>, a PyPI package whose release the index has yanked (PEP 592) carries <code>pixi:yanked=true</code>
