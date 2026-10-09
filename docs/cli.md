@@ -1512,8 +1512,11 @@ pixi sbom --scan . --merge --root-name product --output product.cdx.json
 
 - **Packages** with the same purl are one package. The first input's copy is kept; later ones add their extra
   purls and any property, license, hash, supplier, homepage or repository it lacks. When two inputs disagree on
-  the license or a hash, the first is kept, a warning is logged, and the package records the disagreement as
-  `pixi:merge-conflict` (`license: MIT (a) vs GPL-3.0-only (b)`), which `--explain` shows. A package without a
+  the license, the first is kept, a warning is logged, and the package records the disagreement as
+  `pixi:merge-conflict` (`license: MIT (a) vs GPL-3.0-only (b)`), which `--explain` shows. Different hashes are a
+  disagreement only when the purl names one file: a conda build, or a `file_name` qualifier. A bare
+  `pkg:pypi/six@1.17.0` is every file of that release, so one document recording the wheel's hash and another the
+  sdist's is not a conflict. A package without a
   purl is never merged with another. When two inputs reuse one id for different packages (two SPDX documents'
   `SPDXRef-Package-1`), the ids are made unique.
 - **The graph**: each input's root becomes a package of its own (kind `external`, `pkg:generic/<name>@<version>`)

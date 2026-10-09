@@ -300,7 +300,7 @@ whose purl is neither `pkg:conda` nor `pkg:pypi`, or which has no purl, gets `pi
 
 Merged (`--from-sbom` more than once, or `--scan --merge`), the metadata property lists every input, and each
 package carries `pixi:source-document` naming the inputs it came from. Each input's root is a component of its own
-(`pkg:generic/<name>@<version>`). A package whose inputs disagree about its license or a hash carries
+(`pkg:generic/<name>@<version>`). A package whose inputs disagree about its license, or about the hash of a purl that names one file, carries
 `pixi:merge-conflict`, `license: <kept> (<input>) vs <other> (<input>)`, with several separated by `; `.
 
 ### Yanked releases

@@ -4,8 +4,8 @@
 //!
 //! Packages are the same package when their purls are; the first input's copy is kept, the
 //! others add their extra purls and the properties it lacks, and a disagreement about the
-//! license or a hash is logged and recorded on the package (`pixi:merge-conflict`) rather than
-//! settled silently. Each input's root becomes a package of its own that depends on what that
+//! license, or about the hash of a purl that names one file, is logged and recorded on the package
+//! (`pixi:merge-conflict`) rather than settled silently. Each input's root becomes a package of its own that depends on what that
 //! input's root depended on, and the merged root depends on each of them, so every input's graph
 //! survives. Every package names the inputs it came from (`pixi:source-document`).
 
@@ -76,9 +76,24 @@ fn conflicts(kept: &Package, kept_from: &str, other: &Package, other_from: &str)
         }
     };
     check("license", &kept.license, &other.license);
-    check("sha256", &kept.sha256, &other.sha256);
-    check("md5", &kept.md5, &other.md5);
+    // A hash names one file. Two hashes only disagree when the purl names one file too: a conda
+    // build, or a `file_name` qualifier. `pkg:pypi/six@1.17.0` is every file of that release (a
+    // wheel per tag, an sdist), and two documents that recorded different ones agree (#423).
+    if names_one_file(&kept.purl) {
+        check("sha256", &kept.sha256, &other.sha256);
+        check("md5", &kept.md5, &other.md5);
+    }
     found
+}
+
+/// Whether a purl identifies a single file rather than a release of several.
+fn names_one_file(purl: &str) -> bool {
+    let Some((_, qualifiers)) = purl.split('#').next().unwrap_or("").split_once('?') else {
+        return false;
+    };
+    qualifiers
+        .split('&')
+        .any(|pair| pair.starts_with("build=") || pair.starts_with("file_name="))
 }
 
 /// Merge `inputs` into one document under `root`.
@@ -294,6 +309,64 @@ mod tests {
                 .contains(&"pkg:conda/conda-forge/six@1.17.0".to_string())
         );
         assert_eq!(merged.environment, "merged", "the inputs disagree");
+    }
+
+    #[test]
+    fn two_files_of_one_pypi_release_do_not_conflict_but_two_conda_builds_do() {
+        // #423: a wheel's hash in one document, the sdist's in another, same release.
+        let mut a = sample_sbom();
+        let mut b = sample_sbom();
+        let six = |sbom: &mut Sbom| sbom.packages.iter_mut().find(|p| p.name == "six").unwrap().clone();
+        let six_purl = six(&mut a).purl;
+        assert!(!names_one_file(&six_purl), "{six_purl}");
+        a.packages.iter_mut().find(|p| p.name == "six").unwrap().sha256 = Some("aa".repeat(32));
+        b.packages.iter_mut().find(|p| p.name == "six").unwrap().sha256 = Some("bb".repeat(32));
+        let merged = merge(
+            &[input("a.json", a.clone()), input("b.json", b.clone())],
+            Root::default(),
+        );
+        let six = named(&merged, "six")[0];
+        assert!(!six.properties.contains_key(CONFLICT_PROPERTY), "{:?}", six.properties);
+        assert_eq!(
+            six.sha256.as_deref(),
+            Some("aa".repeat(32).as_str()),
+            "the first input's is kept"
+        );
+
+        // A license disagreement on the same pair still is one.
+        b.packages.iter_mut().find(|p| p.name == "six").unwrap().license = Some("GPL-3.0-only".into());
+        a.packages.iter_mut().find(|p| p.name == "six").unwrap().license = Some("MIT".into());
+        let merged = merge(&[input("a.json", a), input("b.json", b)], Root::default());
+        assert!(named(&merged, "six")[0].properties[CONFLICT_PROPERTY].starts_with("license: "));
+
+        // A conda build, or a purl naming its file, is one file: different hashes disagree.
+        assert!(names_one_file(
+            "pkg:conda/conda-forge/python@3.12.1?build=h1_0&subdir=linux-64"
+        ));
+        assert!(names_one_file(
+            "pkg:pypi/six@1.17.0?file_name=six-1.17.0-py2.py3-none-any.whl"
+        ));
+        assert!(!names_one_file("pkg:pypi/six@1.17.0"));
+        assert!(!names_one_file("pkg:conda/conda-forge/python@3.12.1"));
+        let mut c = sample_sbom();
+        let mut d = sample_sbom();
+        for (sbom, hash) in [(&mut c, "cc"), (&mut d, "dd")] {
+            let conda = sbom
+                .packages
+                .iter_mut()
+                .find(|p| p.purl.starts_with("pkg:conda/"))
+                .unwrap();
+            conda.purl = "pkg:conda/conda-forge/libzlib@1.3.1?build=h1_0&subdir=linux-64".into();
+            conda.sha256 = Some(hash.repeat(32));
+        }
+        let merged = merge(&[input("c.json", c), input("d.json", d)], Root::default());
+        assert!(
+            merged.packages.iter().any(|p| p
+                .properties
+                .get(CONFLICT_PROPERTY)
+                .is_some_and(|c| c.starts_with("sha256: "))),
+            "two builds of one conda package disagree"
+        );
     }
 
     #[test]

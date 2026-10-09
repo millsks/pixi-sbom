@@ -13,9 +13,10 @@ pixi sbom -p linux-64 --output app.cdx.json
 pixi sbom --from-sbom app.cdx.json --from-sbom vendor.cdx.json --from-sbom vendor.spdx.json --root-name product --output product.cdx.json
 ```
 
-CycloneDX and SPDX inputs mix freely. When two inputs disagree about a package's license or hash, the first
-input's value is kept, a warning is logged, and the package records the disagreement as `pixi:merge-conflict`,
-which `--explain` shows:
+CycloneDX and SPDX inputs mix freely. When two inputs disagree about a package's license, or about the hash of a
+package whose purl names one file (a conda build), the first input's value is kept, a warning is logged, and the
+package records the disagreement as `pixi:merge-conflict`, which `--explain` shows. Two documents that recorded
+different files of one PyPI release (a wheel, the sdist) do not disagree:
 
 ```sh
 pixi sbom --from-sbom app.cdx.json --from-sbom vendor.cdx.json --root-name product --explain six
