@@ -269,10 +269,14 @@ struct AnacondaAttrs {
 
 /// The versions a package has, and the first build of the installed one.
 ///
-/// `orderBy CREATED_AT ASC` with `limit:1` is the whole trick: the server caps a page, so taking
-/// the minimum of a page gives the earliest of the *newest* builds rather than the earliest build.
-/// Asking the server to sort and returning one row is exact in a single request, however many
-/// builds a version has.
+/// `orderBy CREATED_AT ASC` is the whole trick for the date: the server caps a page at 50 rows
+/// whatever the limit asks, so the minimum of an unsorted page could be the earliest of the
+/// *newest* builds. Sorted oldest first by the server, the first page holds the earliest build,
+/// however many pages a version's builds fill.
+///
+/// The versions are capped the same way and come newest first, so the first page is enough to
+/// know the latest release but not always how far behind the installed one is: that takes the
+/// pages down to it, which [`Lookup::resolve`] asks for (#416).
 pub fn prefix_versions_query(channel: &str, name: &str, installed: &str, build: &str) -> String {
     // `build` asks for the one build installed here rather than a page of the version's builds.
     // A page is capped, so a version with more builds than fit could hide the installed one in
@@ -291,7 +295,7 @@ pub fn prefix_versions_query(channel: &str, name: &str, installed: &str, build: 
 
 /// What is asked of every package, whether alone or in a batch. One definition so the two cannot
 /// drift apart: a batch that selected different fields would silently produce different reports.
-const PREFIX_FIELDS: &str = "versions(limit:500) { page { version } } \
+const PREFIX_FIELDS: &str = "versions(limit:500) { pages page { version } } \
      current: variants(limit:200, version:$V, orderBy:{byField:{field:CREATED_AT, direction:ASC}}) \
      { page { createdAt rawIndex } } \
      build: variants(limit:5, version:$V, buildString:$B) { page { sha256 } }";
@@ -371,6 +375,24 @@ pub fn prefix_alias(json: &str, index: usize) -> Option<String> {
     Some(serde_json::json!({ "data": { "package": package } }).to_string())
 }
 
+/// prefix.dev answers at most this many versions a page, whatever `limit` asks for.
+pub const PREFIX_VERSIONS_PAGE: usize = 50;
+
+/// How many further pages of versions one package may take: enough for 500 releases newer than
+/// the installed one, and a bound on a package whose installed version the channel never had.
+const PREFIX_MORE_PAGES: u32 = 9;
+
+/// One later page of a package's versions, newest first; page 0 came with the first query.
+pub fn prefix_versions_page_query(channel: &str, name: &str, page: u32) -> String {
+    let query = "query($c:String!,$n:String!,$p:Int){ package(channelName:$c, name:$n) { \
+                 versions(limit:500, page:$p) { pages page { version } } } }";
+    serde_json::json!({
+        "query": query,
+        "variables": { "c": channel, "n": name, "p": page },
+    })
+    .to_string()
+}
+
 /// The first build of one named version.
 pub fn prefix_version_date_query(channel: &str, name: &str, version: &str) -> String {
     let query = "query($c:String!,$n:String!,$v:String){ package(channelName:$c, name:$n) { \
@@ -409,6 +431,9 @@ struct PrefixPackage {
 
 #[derive(Debug, Deserialize)]
 struct PrefixVersionPage {
+    /// How many pages the versions fill.
+    #[serde(default)]
+    pages: Option<u32>,
     #[serde(default)]
     page: Vec<PrefixVersion>,
 }
@@ -470,6 +495,10 @@ pub struct PrefixDocument {
     /// package from a mirror is matched to the channel it was mirrored from.
     #[serde(default)]
     pub installed_hashes: Vec<String>,
+    /// How many pages of versions the index has; only the first is in `versions` until the rest
+    /// are asked for. Not cached: the cached document holds every version it needed.
+    #[serde(skip)]
+    pub version_pages: u32,
 }
 
 /// The versions and the installed version's first build, from one `prefix_versions_query`.
@@ -480,6 +509,7 @@ pub fn prefix_page(json: &str, installed: &str) -> PrefixDocument {
     let Some(package) = envelope.data.and_then(|data| data.package) else {
         return PrefixDocument::default();
     };
+    let version_pages = package.versions.as_ref().and_then(|p| p.pages).unwrap_or(1);
     let mut document = PrefixDocument {
         versions: package
             .versions
@@ -488,6 +518,7 @@ pub fn prefix_page(json: &str, installed: &str) -> PrefixDocument {
             .into_iter()
             .map(|entry| entry.version)
             .collect(),
+        version_pages,
         dates: Default::default(),
         installed_hashes: package
             .exact_build
@@ -499,6 +530,21 @@ pub fn prefix_page(json: &str, installed: &str) -> PrefixDocument {
         document.dates.insert(installed.to_string(), date);
     }
     document
+}
+
+/// The versions on one page of a `prefix_versions_page_query` response.
+pub fn prefix_versions(json: &str) -> Option<Vec<String>> {
+    let envelope = serde_json::from_str::<PrefixEnvelope>(json).ok()?;
+    let page = envelope.data?.package?.versions?;
+    Some(page.page.into_iter().map(|entry| entry.version).collect())
+}
+
+/// Whether the versions so far reach down to the installed one: they come newest first, so
+/// once one is no newer than it, every release that counts towards `behind` is here.
+fn reaches(versions: &[String], installed: &str) -> bool {
+    versions
+        .iter()
+        .any(|version| compare(version, installed) != std::cmp::Ordering::Greater)
 }
 
 /// The one date in a `prefix_version_date_query` response.
@@ -935,8 +981,50 @@ impl Lookup<'_> {
             return json;
         };
         let mut document = prefix_page(&json, installed);
+        self.page_down_to(&mut document, channel, &job.display_name, installed, &job.url, fetch);
         self.date_the_newest(&mut document, channel, &job.display_name, &job.url, fetch);
         serde_json::to_string(&document).unwrap_or(json)
+    }
+
+    /// Ask for further pages of versions until they reach the installed one (#416).
+    ///
+    /// prefix.dev caps a page at fifty versions, newest first. A package fewer than fifty releases
+    /// behind is answered by the first page, which is nearly all of them; one further behind
+    /// needs the pages in between, or `behind` stops at fifty. A page that fails to arrive ends the
+    /// paging: the count is then a floor rather than an answer, which is logged.
+    fn page_down_to(
+        &self,
+        document: &mut PrefixDocument,
+        channel: &str,
+        name: &str,
+        installed: &str,
+        url: &str,
+        fetch: Fetch<'_>,
+    ) {
+        let last = document.version_pages.min(1 + PREFIX_MORE_PAGES);
+        let mut page = 1;
+        while page < last && !reaches(&document.versions, installed) {
+            let Some(more) = fetch(url, Some(&prefix_versions_page_query(channel, name, page)))
+                .ok()
+                .and_then(|answer| prefix_versions(&answer))
+            else {
+                tracing::debug!(
+                    package = name,
+                    page,
+                    "a later page of versions did not arrive; behind is a floor"
+                );
+                return;
+            };
+            document.versions.extend(more);
+            page += 1;
+        }
+        if !reaches(&document.versions, installed) && document.version_pages > last {
+            tracing::debug!(
+                package = name,
+                pages = document.version_pages,
+                "the installed version is further back than the pages asked for; behind is a floor"
+            );
+        }
     }
 
     /// Fill in the newest release's date, which takes a second request because its version is
@@ -1244,6 +1332,143 @@ mod tests {
             asked.len() > batches,
             "and dating a newer release still costs its own request: {asked:?}"
         );
+    }
+
+    /// A prefix.dev that pages the way the real one does: versions newest first, fifty to a page,
+    /// `total` releases at `100.N` and then one old release every installed version is newer than.
+    fn paged_prefix(
+        total: usize,
+        pages_reported: u32,
+    ) -> impl Fn(&str, Option<&str>) -> Result<String, Box<ureq::Error>> {
+        move |_url: &str, body: Option<&str>| {
+            let body: serde_json::Value = serde_json::from_str(body.unwrap_or("{}")).unwrap();
+            let mut all: Vec<String> = (0..total).rev().map(|n| format!("100.{n}")).collect();
+            all.push("0.1".into());
+            let page_of = |page: usize| -> serde_json::Value {
+                let rows: Vec<serde_json::Value> = all
+                    .iter()
+                    .skip(page * PREFIX_VERSIONS_PAGE)
+                    .take(PREFIX_VERSIONS_PAGE)
+                    .map(|v| serde_json::json!({ "version": v }))
+                    .collect();
+                serde_json::json!({ "pages": pages_reported, "current": page, "page": rows })
+            };
+            let query = body["query"].as_str().unwrap_or("");
+            let package = if let Some(page) = body["variables"]["p"].as_u64() {
+                serde_json::json!({ "versions": page_of(page as usize) })
+            } else if query.contains("versions(") {
+                serde_json::json!({ "versions": page_of(0) })
+            } else {
+                serde_json::json!({})
+            };
+            let mut data = serde_json::Map::new();
+            for i in 0..PREFIX_BATCH {
+                data.insert(format!("p{i}"), package.clone());
+            }
+            data.insert("package".into(), package);
+            Ok(serde_json::json!({ "data": data }).to_string())
+        }
+    }
+
+    fn conda_lookup_sbom() -> Sbom {
+        let mut sbom = crate::format::testing::sample_sbom();
+        for package in &mut sbom.packages {
+            if package.kind == PackageKind::CondaBinary {
+                package.properties.insert(
+                    "pixi:channel-url".into(),
+                    "https://conda.anaconda.org/conda-forge/".into(),
+                );
+            }
+        }
+        sbom
+    }
+
+    #[test]
+    fn behind_counts_every_page_prefix_dev_has_down_to_the_installed_version() {
+        // #416: prefix.dev answers fifty versions a page whatever `limit` asks, and only the
+        // first page was read, so anything more than fifty releases behind was reported fifty.
+        let sbom = conda_lookup_sbom();
+        let pages_asked = std::sync::Mutex::new(0usize);
+        let prefix = paged_prefix(120, 3);
+        let fetch = |url: &str, body: Option<&str>| {
+            if body.is_some_and(|b| b.contains("\"p\":")) {
+                *pages_asked.lock().unwrap() += 1;
+            }
+            prefix(url, body)
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let lookup = Lookup {
+            index_url: "https://index.example/pypi",
+            anaconda_url: "https://anaconda.example",
+            index_is_configured: false,
+            kind: crate::cli::CondaIndexKind::Prefix,
+            prefix_index_url: "https://prefix.example/api/graphql",
+            cache_dir: dir.path(),
+        };
+        let (statuses, _, _) = lookup.run_with(&sbom, &fetch, SystemTime::now(), crate::progress::Progress::default());
+        let conda: Vec<&Status> = sbom
+            .packages
+            .iter()
+            .zip(&statuses)
+            .filter(|(p, _)| p.kind == PackageKind::CondaBinary)
+            .filter_map(|(_, s)| s.as_ref())
+            .collect();
+        assert!(!conda.is_empty());
+        for status in &conda {
+            assert_eq!(status.behind, 120, "all three pages counted: {status:?}");
+            assert_eq!(status.latest.as_deref(), Some("100.119"));
+        }
+        assert_eq!(
+            *pages_asked.lock().unwrap(),
+            2 * conda.len(),
+            "pages 1 and 2, once per package"
+        );
+
+        // The cached document holds every version it needed: a second run asks for nothing.
+        *pages_asked.lock().unwrap() = 0;
+        let (again, _, _) = lookup.run_with(&sbom, &fetch, SystemTime::now(), crate::progress::Progress::default());
+        assert_eq!(*pages_asked.lock().unwrap(), 0);
+        assert_eq!(again, statuses);
+    }
+
+    #[test]
+    fn paging_stops_at_its_bound_when_the_installed_version_never_appears() {
+        // A channel that never had the installed version would otherwise be walked to its end.
+        let sbom = conda_lookup_sbom();
+        let pages_asked = std::sync::Mutex::new(0usize);
+        let prefix = paged_prefix(5000, 101);
+        let fetch = |url: &str, body: Option<&str>| {
+            if body.is_some_and(|b| b.contains("\"p\":")) {
+                *pages_asked.lock().unwrap() += 1;
+            }
+            prefix(url, body)
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let lookup = Lookup {
+            index_url: "https://index.example/pypi",
+            anaconda_url: "https://anaconda.example",
+            index_is_configured: false,
+            kind: crate::cli::CondaIndexKind::Prefix,
+            prefix_index_url: "https://prefix.example/api/graphql",
+            cache_dir: dir.path(),
+        };
+        let (statuses, _, _) = lookup.run_with(&sbom, &fetch, SystemTime::now(), crate::progress::Progress::default());
+        let conda = sbom
+            .packages
+            .iter()
+            .zip(&statuses)
+            .filter(|(p, _)| p.kind == PackageKind::CondaBinary)
+            .filter_map(|(_, s)| s.as_ref())
+            .count();
+        assert!(conda > 0);
+        assert_eq!(
+            *pages_asked.lock().unwrap(),
+            PREFIX_MORE_PAGES as usize * conda,
+            "at most the bound, per package"
+        );
+        for status in statuses.iter().flatten() {
+            assert!(status.behind <= (1 + PREFIX_MORE_PAGES as usize) * PREFIX_VERSIONS_PAGE);
+        }
     }
 
     #[test]
@@ -1870,6 +2095,7 @@ mod tests {
                 .into_iter()
                 .collect(),
             installed_hashes: Vec::new(),
+            version_pages: 1,
         };
         let releases = prefix_releases(&serde_json::to_string(&document).unwrap());
         assert_eq!(releases.len(), 2);
