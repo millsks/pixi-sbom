@@ -26,8 +26,11 @@ Each report has a recording of its own in the [command-line reference](https://m
 [diff](https://millsks.github.io/pixi-sbom/latest/cli/#looking-instead-of-writing),
 [python](https://millsks.github.io/pixi-sbom/latest/cli/#what-python-the-environment-allows),
 [phantom](https://millsks.github.io/pixi-sbom/latest/cli/#what-is-imported-but-never-declared),
-[outdated](https://millsks.github.io/pixi-sbom/latest/cli/#how-far-behind-the-environment-is) and
-[scorecard](https://millsks.github.io/pixi-sbom/latest/cli/#how-well-each-dependency-is-looked-after).
+[outdated](https://millsks.github.io/pixi-sbom/latest/cli/#how-far-behind-the-environment-is),
+[scorecard](https://millsks.github.io/pixi-sbom/latest/cli/#how-well-each-dependency-is-looked-after),
+[quality](https://millsks.github.io/pixi-sbom/latest/cli/#how-complete-the-document-is),
+[EPSS](https://millsks.github.io/pixi-sbom/latest/cli/#exploit-likelihood-first-epss) and
+[a vendor's VEX](https://millsks.github.io/pixi-sbom/latest/cli/#applying-a-vendors-vex).
 
 ## What it does
 

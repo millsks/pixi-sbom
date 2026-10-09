@@ -295,7 +295,10 @@ Everything in the recording is real output from a release build. What is staged 
 pinned back to a vulnerable 1.26.4, and drops the recorded OSV and CISA KEV responses the tests
 already use into the cache, so the run needs no network and takes the same time every time. It
 makes the same substitution as `workspace_with_vulnerable_urllib3` in `tests/cli.rs` and fails
-loudly if the fixture has drifted out from under it.
+loudly if the fixture has drifted out from under it. The 1.8 clips add three more inputs: the recorded FIRST EPSS
+answer written into the cache the way a lookup leaves it, the OpenVEX fixture trimmed to its one urllib3 statement
+(so the clip is not buried in warnings about statements this workspace has nothing for), and syft's document for a
+venv, to grade beside this one.
 
 The cache and the `pixi-sbom` symlink live *beside* the recorded directory rather than in it, so
 `ls` shows a workspace and not the scaffolding.

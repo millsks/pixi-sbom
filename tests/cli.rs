@@ -9117,3 +9117,43 @@ fn the_examples_tour_runs_as_written() {
         "one per environment"
     );
 }
+
+/// Every recording tape has its GIF beside it, writes to that GIF, and the GIF is shown somewhere
+/// with a description: a clip recorded and never placed, or placed without alt text, fails here.
+#[test]
+fn every_recording_is_recorded_named_and_shown() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let assets = root.join("docs/assets");
+    let docs: String = ["README.md", "docs/cli.md", "docs/index.md"]
+        .iter()
+        .map(|f| std::fs::read_to_string(root.join(f)).unwrap())
+        .collect();
+    let mut tapes = 0;
+    for entry in std::fs::read_dir(&assets).unwrap() {
+        let path = entry.unwrap().path();
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        let Some(stem) = name.strip_suffix(".tape").filter(|s| !s.starts_with('_')) else {
+            continue;
+        };
+        tapes += 1;
+        let gif = format!("{stem}.gif");
+        assert!(
+            assets.join(&gif).is_file(),
+            "{name} has no {gif}: run `pixi run demo {stem}`"
+        );
+        let tape = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            tape.contains(&format!("Output \"docs/assets/{gif}\"")),
+            "{name} writes somewhere other than docs/assets/{gif}"
+        );
+        let shown = docs
+            .lines()
+            .find(|line| line.contains(&format!("assets/{gif}")))
+            .unwrap_or_else(|| panic!("{gif} is not shown in the README or the docs"));
+        assert!(
+            shown.contains("alt=\"") && !shown.contains("alt=\"\""),
+            "{gif} has no alt text: {shown}"
+        );
+    }
+    assert!(tapes >= 12, "the tapes were found ({tapes})");
+}

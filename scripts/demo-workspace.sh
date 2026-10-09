@@ -58,6 +58,40 @@ cp "$fixtures/kev/known_exploited_vulnerabilities.json" "$target/cache/kev/"
 cp "$fixtures/pypi-metadata"/*.json "$target/cache/pypi/"
 cp "$fixtures/scorecard"/*.json "$target/cache/scorecard/" 2>/dev/null || true
 
+# --epss: the recorded FIRST answer for the OSV fixtures' CVEs, in the shape a lookup caches it,
+# so the scores are the same every time the clip is recorded.
+python3 - "$fixtures/epss/epss.json" "$target/cache/epss/scores.json" <<'PY'
+import json, sys, time
+from pathlib import Path
+
+answer = json.loads(Path(sys.argv[1]).read_text())
+now = int(time.time())
+scores = {
+    row["cve"]: {"epss": float(row["epss"]), "percentile": float(row["percentile"]), "date": row["date"], "fetched": now}
+    for row in answer["data"]
+}
+out = Path(sys.argv[2])
+out.parent.mkdir(parents=True, exist_ok=True)
+out.write_text(json.dumps(scores))
+PY
+
+# --vex-in: the vendor's OpenVEX statement that the urllib3 finding does not affect the product, and
+# --report quality: a document another tool wrote (syft, for a venv), to grade beside this one.
+# Only the statement about urllib3: the fixture's other two are for packages this workspace does not
+# have, and the warning each unmatched statement earns would bury the point of the clip.
+python3 - "$fixtures/vex-in/vendor.openvex.json" "$target/workspace/vendor.openvex.json" <<'PY'
+import json, sys
+from pathlib import Path
+
+document = json.loads(Path(sys.argv[1]).read_text())
+name = lambda s: s["vulnerability"] if isinstance(s["vulnerability"], str) else s["vulnerability"].get("name")
+document["statements"] = [s for s in document["statements"] if name(s) == "CVE-2021-33503"]
+if len(document["statements"]) != 1:
+    raise SystemExit("demo fixture drifted: vendor.openvex.json has no CVE-2021-33503 statement")
+Path(sys.argv[2]).write_text(json.dumps(document, indent=2) + "\n")
+PY
+cp "$fixtures/syft/app.cdx.json" "$target/workspace/vendor.cdx.json"
+
 # --report phantom reads the workspace's Python sources, which default to the lockfile's own
 # directory. One module that imports something the manifest never declared, and something declared
 # that nothing imports, so the report has both halves to show.
