@@ -3271,6 +3271,10 @@ advisory names no fixed version, the catalog's required action becomes the recom
 <p>Python library CVEs are rarely in the catalog, so an empty <em>Known exploited</em> list is the normal outcome; the
 value is in the run that is not.</p>
 <h3 id="exploit-likelihood-first-epss">Exploit likelihood (FIRST EPSS)<a class="headerlink" href="#exploit-likelihood-first-epss" title="Permanent link">&para;</a></h3>
+<p align="center">
+  <img src="assets/report-epss.gif" alt="pixi sbom --vulnerabilities osv --kev --epss --report vulnerabilities: nine urllib3 1.26.4 findings, each with its EPSS probability and percentile beside the KEV flag, the known-exploited one at 0.033 (p88)." width="100%">
+</p>
+
 <p>KEV covers what is already exploited; most findings are not in it, and severity alone does not say which of the
 rest are likely to be. <code>--epss</code> asks <a href="https://www.first.org/epss/">FIRST's Exploit Prediction Scoring System</a> for
 every CVE among the findings' ids and aliases, in batches of 100, and records two numbers per finding: the
@@ -3350,6 +3354,10 @@ expect, and it validates against the CycloneDX schema like everything else this 
 CycloneDX SBOM, so <code>--format spdx</code> is refused too. With SPDX, use <code>--spec-version 3.0</code>: the document records
 the assessments itself, in its security profile.</p>
 <h3 id="applying-a-vendors-vex">Applying a vendor's VEX<a class="headerlink" href="#applying-a-vendors-vex" title="Permanent link">&para;</a></h3>
+<p align="center">
+  <img src="assets/vex-in.gif" alt="Three runs: --fail-on-kev fails on the known-exploited urllib3 finding and exits 4; with --vex-in vendor.openvex.json the same gate passes; the report lists the finding as ignored, not_affected, from vendor.openvex.json, with the vendor's reason." width="100%">
+</p>
+
 <p>A vendor that ships an SBOM often ships a VEX saying which of its findings do not affect the product. Without it,
 the gate fires on those findings, typically with <code>--from-sbom</code>, and the only way through is to copy each one into
 <code>--ignore-vuln</code>. <code>--vex-in &lt;PATH&gt;</code> (repeatable) reads the statements and applies them before the gate runs:</p>
@@ -3599,6 +3607,10 @@ weakest checks, a table of how many fall in each band, and the ones below the th
 or one with no repository to ask about, is reported as unknown and never fails the gate: the answer is missing,
 not bad.</p>
 <h2 id="how-complete-the-document-is">How complete the document is<a class="headerlink" href="#how-complete-the-document-is" title="Permanent link">&para;</a></h2>
+<p align="center">
+  <img src="assets/report-quality.gif" alt="pixi sbom --report quality twice: this workspace scores 86 of 100, with every NTIA element present but the author; a document syft wrote for a venv scores 51, with no suppliers, no hashes, and 6 of its 15 packages without a purl." width="100%">
+</p>
+
 <p>An SBOM can pass every gate by leaving things out: a vendor document without purls has no advisories to match, one
 without a graph hides what pulled a package in. Before gating on somebody else's document, grade it:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--from-sbom<span class="w"> </span>vendor.cdx.json<span class="w"> </span>--report<span class="w"> </span>quality
