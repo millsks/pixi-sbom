@@ -8971,3 +8971,38 @@ fn every_unpinned_requirements_example_is_refused_by_line() {
         assert!(!out.exists(), "{project}: nothing written");
     }
 }
+
+/// Every example a scan discovers reads: 14 scenarios for each of the six readers whose lockfile
+/// has a fixed name (explicit specs and requirements files are only read through --lockfile). A
+/// reader that cannot read a file its own tool wrote fails here rather than on a user's scan.
+#[test]
+fn the_whole_examples_tree_scans_clean() {
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/projects");
+    let work = tempfile::tempdir().unwrap();
+    let output = pixi_sbom()
+        .current_dir(work.path())
+        .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args([
+            "-p",
+            "linux-64",
+            "--report",
+            "packages",
+            "--report-format",
+            "json",
+            "--scan",
+        ])
+        .arg(&examples)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(output).unwrap();
+    assert_eq!(
+        text.matches("\"report\": \"packages\"").count(),
+        84,
+        "one report per lockfile"
+    );
+}

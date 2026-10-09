@@ -119,6 +119,31 @@ pub struct Metadata {
     pub python_versions: Option<String>,
 }
 
+/// A package's `markers`: one marker, or Poetry 2's table of one per group, as the marker that
+/// holds where any group's does (`(A) or (B)`; the same marker twice is written once).
+fn group_markers<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Markers {
+        One(String),
+        PerGroup(BTreeMap<String, String>),
+    }
+    Ok(match Option::<Markers>::deserialize(deserializer)? {
+        None => None,
+        Some(Markers::One(marker)) => Some(marker),
+        Some(Markers::PerGroup(groups)) => {
+            let mut markers: Vec<&str> = groups.values().map(String::as_str).collect();
+            markers.sort_unstable();
+            markers.dedup();
+            match markers.as_slice() {
+                [] => None,
+                [one] => Some((*one).to_string()),
+                many => Some(many.iter().map(|m| format!("({m})")).collect::<Vec<_>>().join(" or ")),
+            }
+        }
+    })
+}
+
 /// One `[[package]]` entry.
 #[derive(Debug, Clone, Deserialize)]
 pub struct PoetryPackage {
@@ -126,8 +151,10 @@ pub struct PoetryPackage {
     pub name: String,
     /// The locked version.
     pub version: String,
-    /// The environments the package is needed in; absent means all of them.
-    #[serde(default)]
+    /// The environments the package is needed in; absent means all of them. Poetry 2 writes a
+    /// table, one marker per dependency group, when the groups need it in different places; this
+    /// describes every group, so the package is needed wherever any of them holds.
+    #[serde(default, deserialize_with = "group_markers")]
     pub markers: Option<String>,
     /// Installed in development (editable) mode, for a directory source.
     #[serde(default)]
@@ -578,6 +605,42 @@ content-hash = "x"
             package(&linux, "django").dependencies,
             ["pkg:pypi/argon2-cffi@25.1.0", "pkg:pypi/sqlparse@0.4.2"]
         );
+    }
+
+    #[test]
+    fn markers_per_group_hold_where_any_group_needs_the_package() {
+        // Poetry 2 writes a table when the groups need a package in different places.
+        let one = r#"markers = "sys_platform == \"win32\"""#;
+        let lock = LOCK.replace(
+            one,
+            r#"markers = {main = "platform_system == \"Windows\"", test = "sys_platform == \"win32\""}"#,
+        );
+        assert_ne!(lock, LOCK, "the fixture has a per-package marker to replace");
+        let parsed = parse(&lock, "poetry.lock").unwrap();
+        let colorama = parsed.packages.iter().find(|p| p.name == "colorama").unwrap();
+        assert_eq!(
+            colorama.markers.as_deref(),
+            Some(r#"(platform_system == "Windows") or (sys_platform == "win32")"#)
+        );
+        let names = |platform: &str| {
+            build_sbom(&parsed, Some(platform), Root::default(), "poetry.lock")
+                .unwrap()
+                .packages
+                .iter()
+                .map(|p| p.name.clone())
+                .collect::<Vec<_>>()
+        };
+        assert!(!names("linux-64").contains(&"colorama".to_string()));
+        assert!(names("win-64").contains(&"colorama".to_string()));
+
+        // The same marker for every group is that marker.
+        let same = LOCK.replace(
+            one,
+            r#"markers = {main = "sys_platform == \"win32\"", test = "sys_platform == \"win32\""}"#,
+        );
+        let parsed = parse(&same, "poetry.lock").unwrap();
+        let colorama = parsed.packages.iter().find(|p| p.name == "colorama").unwrap();
+        assert_eq!(colorama.markers.as_deref(), Some(r#"sys_platform == "win32""#));
     }
 
     #[test]
