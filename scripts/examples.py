@@ -1,4 +1,4 @@
-"""Regenerate examples/projects: one small project per scenario for every non-pixi reader (#362).
+"""Regenerate examples/projects: one small project per scenario for every reader (#362).
 
 Run it as `pixi run examples` (or `pixi run -e examples python scripts/examples.py --help`). The
 scenarios live in examples/scenarios.toml; this writes each reader's manifest from them and then
@@ -25,7 +25,7 @@ SCENARIOS = EXAMPLES / "scenarios.toml"
 PROJECTS = EXAMPLES / "projects"
 LOCAL_LIB = EXAMPLES / "shared" / "internal-utils"
 
-READERS = ("pylock", "uv", "poetry", "pdm", "conda-lock", "conda-explicit")
+READERS = ("pixi", "pylock", "uv", "poetry", "pdm", "conda-lock", "conda-explicit", "requirements")
 CONDA_PLATFORMS = ("linux-64", "osx-arm64")
 # The examples' Python floor. A scenario that shows old, vulnerable pins may declare an older one
 # (`python` / `conda_python`), because those releases only have wheels for the Pythons of their day.
@@ -176,6 +176,85 @@ def environment_yml(scenario: dict, with_pip: bool) -> str:
     return "\n".join(lines) + "\n"
 
 
+def conda_spec(spec: str) -> tuple[str, str]:
+    """A conda-forge spec as a pixi `[dependencies]` entry: `django=3.2.12` is conda's prefix match,
+    which pixi spells `3.2.12.*`; a range is kept as written, and a bare name takes any version."""
+    for i, char in enumerate(spec):
+        if char in "=<>!~ ":
+            name, constraint = spec[:i], spec[i:].strip()
+            break
+    else:
+        return spec.strip(), "*"
+    if constraint.startswith("=") and not constraint.startswith("=="):
+        version = constraint[1:]
+        return name, version if version.endswith("*") else f"{version}.*"
+    return name, constraint
+
+
+def pypi_entry(requirement: str) -> tuple[str, str]:
+    """A PEP 508 requirement as a pixi `[pypi-dependencies]` entry (key, inline TOML value)."""
+    if " @ git+" in requirement:
+        name, url = (part.strip() for part in requirement.split(" @ git+", 1))
+        repo, _, rev = url.rpartition("@")
+        return name, f"{{ git = {toml_string(repo)}, rev = {toml_string(rev)} }}"
+    name, version = split_requirement(requirement)
+    extras: list[str] = []
+    if "[" in name:
+        name, _, rest = name.partition("[")
+        extras = [e.strip() for e in rest.rstrip("]").split(",") if e.strip()]
+    version = version or "*"
+    if not extras:
+        return name, toml_string(version)
+    extra_list = ", ".join(toml_string(e) for e in extras)
+    return name, f"{{ version = {toml_string(version)}, extras = [{extra_list}] }}"
+
+
+def pixi_toml(scenario: dict) -> str:
+    """A pixi workspace for the scenario: its conda-forge packages as conda dependencies, the ones
+    conda-forge does not carry as PyPI dependencies, and each dependency group and extra as a feature
+    with an environment of its own, which is how a pixi workspace says the same thing."""
+    out = [
+        "[workspace]",
+        f"name = {toml_string(scenario['id'].split('-', 1)[1] + '-example')}",
+        'version = "0.1.0"',
+        f"description = {toml_string(scenario['title'])}",
+        'channels = ["conda-forge"]',
+        f"platforms = [{', '.join(toml_string(p) for p in CONDA_PLATFORMS)}]",
+        "",
+        "[dependencies]",
+        f"python = {toml_string(scenario.get('conda_python', CONDA_PYTHON) + '.*')}",
+    ]
+    conda = [*scenario.get("conda", []), *scenario.get("pixi_conda", [])]
+    out += [f"{toml_key(name)} = {toml_string(constraint)}" for name, constraint in map(conda_spec, conda)]
+    pypi = [pypi_entry(r) for r in scenario.get("conda_pip", [])]
+    if scenario.get("local"):
+        pypi.append(("internal-utils", '{ path = "libs/internal-utils", editable = true }'))
+    if pypi:
+        out += ["", "[pypi-dependencies]"] + [f"{toml_key(name)} = {value}" for name, value in pypi]
+    features = {**scenario.get("optional", {}), **scenario.get("groups", {})}
+    for feature, requirements in features.items():
+        out += ["", f"[feature.{toml_key(feature)}.pypi-dependencies]"]
+        out += [f"{toml_key(name)} = {value}" for name, value in map(pypi_entry, requirements)]
+    if features:
+        out += ["", "[environments]"]
+        out += [f"{toml_key(feature)} = [{toml_string(feature)}]" for feature in features]
+    return "\n".join(out) + "\n"
+
+
+def requirements_in(scenario: dict) -> tuple[str, str]:
+    """`requirements.in` and `requirements-dev.in`, as a pip-tools project keeps them: the
+    application's requirements and its extras in one, every dependency group in the other on top
+    of it. A local path or a git checkout cannot be pinned to one version, so neither is here."""
+    def pinnable(requirement: str) -> bool:
+        return " @ " not in requirement
+
+    main = [r for r in scenario.get("dependencies", []) if pinnable(r)]
+    for extra in scenario.get("optional", {}).values():
+        main += [r for r in extra if pinnable(r)]
+    dev = [r for group in scenario.get("groups", {}).values() for r in group if pinnable(r)]
+    return "\n".join(main) + "\n", "\n".join(["-r requirements.in", *dev]) + "\n"
+
+
 def tool_env(venv: Path | None = None, base: dict[str, str] | None = None) -> dict[str, str]:
     """The environment a tool runs in. With `venv`, that virtualenv is active, which is how Poetry
     is told which Python the project is locked for."""
@@ -197,10 +276,15 @@ def tool_env(venv: Path | None = None, base: dict[str, str] | None = None) -> di
     return env
 
 
-def run(command: list[str], cwd: Path, venv: Path | None = None) -> None:
-    """Run one tool command, failing loudly with its output."""
+def run(command: list[str], cwd: Path, venv: Path | None = None, isolated: bool = False) -> None:
+    """Run one tool command, failing loudly with its output. `isolated` drops what an outer
+    `pixi run` exports about this repository's workspace, so a nested `pixi` sees only its own."""
     sys.stderr.write(f"  $ {' '.join(command)}\n")
     env = tool_env(venv)
+    if isolated:
+        for key in [k for k in env if k.startswith(("PIXI_PROJECT", "PIXI_ENVIRONMENT", "PIXI_IN_SHELL"))]:
+            env.pop(key)
+        env.pop("CONDA_PREFIX", None)
     result = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"{' '.join(command)} failed in {cwd}:\n{result.stdout}\n{result.stderr}")
@@ -282,6 +366,40 @@ def generate(scenario: dict, reader: str) -> Path:
         # PDM makes a virtualenv to lock in, and remembers its interpreter; neither belongs in an example.
         shutil.rmtree(target / ".venv", ignore_errors=True)
         (target / ".pdm-python").unlink(missing_ok=True)
+    elif reader == "pixi":
+        if scenario.get("local"):
+            with_local_lib(target)
+        (target / "pixi.toml").write_text(pixi_toml(scenario))
+        # Called by its manifest path so an outer `pixi run` cannot point it at this repository's.
+        run(["pixi", "lock", "--manifest-path", str(target / "pixi.toml")], target, isolated=True)
+        # pixi installs into the workspace to build a local or git package's metadata; not part of it.
+        shutil.rmtree(target / ".pixi", ignore_errors=True)
+    elif reader == "requirements":
+        main, dev = requirements_in(scenario)
+        (target / "requirements.in").write_text(main)
+        (target / "requirements-dev.in").write_text(dev)
+        floor = python_floor(scenario)
+        if scenario.get("requirements_tool") == "pip-compile":
+            # pip-compile resolves for the interpreter it runs on, so it runs on the scenario's.
+            python = interpreter(floor)
+            with tempfile.TemporaryDirectory() as scratch:
+                venv = Path(scratch) / "venv"
+                run([python, "-m", "venv", str(venv)], target)
+                run(["pip", "install", "--quiet", "pip-tools>=7.6.1,<8"], target, venv=venv)
+                for name in ("requirements", "requirements-dev"):
+                    run(
+                        ["pip-compile", "--quiet", "--generate-hashes", "--no-strip-extras",
+                         "-o", f"{name}.txt", f"{name}.in"],
+                        target,
+                        venv=venv,
+                    )
+        else:
+            for name in ("requirements", "requirements-dev"):
+                run(
+                    ["uv", "pip", "compile", "--quiet", "--generate-hashes", "--python-version", floor,
+                     "--python-platform", "x86_64-manylinux_2_28", f"{name}.in", "-o", f"{name}.txt"],
+                    target,
+                )
     elif reader == "conda-lock":
         (target / "environment.yml").write_text(environment_yml(scenario, with_pip=True))
         run(["conda-lock", "lock", "--micromamba", "--file", "environment.yml", "--lockfile", "conda-lock.yml"], target)

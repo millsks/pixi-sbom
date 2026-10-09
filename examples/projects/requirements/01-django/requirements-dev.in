@@ -1,0 +1,3 @@
+-r requirements.in
+pytest-django==4.5.2
+factory-boy==3.2.1

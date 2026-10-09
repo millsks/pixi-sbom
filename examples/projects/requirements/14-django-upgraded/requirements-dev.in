@@ -1,0 +1,4 @@
+-r requirements.in
+django-debug-toolbar>=4.4
+pytest-django>=4.9
+factory-boy>=3.3

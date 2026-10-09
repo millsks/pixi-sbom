@@ -1,0 +1,16 @@
+[workspace]
+name = "web-scraping-example"
+version = "0.1.0"
+description = "Scrapers with Scrapy, lxml and a GPL converter"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64"]
+
+[dependencies]
+python = "3.11.*"
+scrapy = "2.7.1.*"
+lxml = "4.9.2.*"
+beautifulsoup4 = "4.11.1.*"
+requests = "2.28.1.*"
+urllib3 = "1.26.13.*"
+html2text = "2020.1.16.*"
+selenium = "4.8.2.*"

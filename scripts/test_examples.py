@@ -149,6 +149,63 @@ class EnvironmentTest(unittest.TestCase):
         self.assertNotIn("pip", without)
 
 
+class PixiTest(unittest.TestCase):
+    def test_conda_specs_keep_their_meaning(self) -> None:
+        self.assertEqual(examples.conda_spec("django=3.2.12"), ("django", "3.2.12.*"), "conda's prefix match")
+        self.assertEqual(examples.conda_spec("pytorch=2.*"), ("pytorch", "2.*"))
+        self.assertEqual(examples.conda_spec("numpy>=1.26"), ("numpy", ">=1.26"))
+        self.assertEqual(examples.conda_spec("python-dateutil"), ("python-dateutil", "*"))
+        self.assertEqual(examples.conda_spec("scipy==1.10.1"), ("scipy", "==1.10.1"))
+
+    def test_pypi_entries_carry_versions_extras_and_git_sources(self) -> None:
+        def value(requirement: str) -> object:
+            name, entry = examples.pypi_entry(requirement)
+            return name, tomllib.loads(f"x = {entry}")["x"]
+
+        self.assertEqual(value("sqlparse==0.4.2"), ("sqlparse", "==0.4.2"))
+        self.assertEqual(value("rich"), ("rich", "*"))
+        self.assertEqual(
+            value("psycopg[binary,pool]>=3.2"), ("psycopg", {"version": ">=3.2", "extras": ["binary", "pool"]})
+        )
+        self.assertEqual(
+            value("django-debug-toolbar @ git+https://github.com/django-commons/django-debug-toolbar@3.2.4"),
+            ("django-debug-toolbar", {"git": "https://github.com/django-commons/django-debug-toolbar", "rev": "3.2.4"}),
+        )
+
+    def test_the_workspace_has_conda_pypi_and_an_environment_per_group_and_extra(self) -> None:
+        manifest = tomllib.loads(examples.pixi_toml({**SCENARIO, "pixi_conda": ["packaging<24"]}))
+        workspace = manifest["workspace"]
+        self.assertEqual(workspace["name"], "django-example")
+        self.assertEqual(workspace["platforms"], ["linux-64", "osx-arm64"])
+        self.assertEqual(manifest["dependencies"]["python"], "3.11.*")
+        self.assertEqual(manifest["dependencies"]["django"], "3.2.12.*")
+        self.assertEqual(manifest["dependencies"]["packaging"], "<24", "the pixi-only constraint")
+        self.assertEqual(manifest["pypi-dependencies"]["django-environ"], "==0.9.0")
+        self.assertEqual(
+            manifest["pypi-dependencies"]["internal-utils"], {"path": "libs/internal-utils", "editable": True}
+        )
+        self.assertEqual(set(manifest["feature"]), {"s3", "dev", "test"})
+        self.assertEqual(manifest["environments"], {"s3": ["s3"], "dev": ["dev"], "test": ["test"]})
+        self.assertIn("git", manifest["feature"]["dev"]["pypi-dependencies"]["django-debug-toolbar"])
+
+    def test_a_scenario_without_groups_or_pip_packages_has_no_such_tables(self) -> None:
+        bare = {"id": "08-cli-tool", "title": "A CLI", "conda": ["click=8.1.7"]}
+        manifest = tomllib.loads(examples.pixi_toml(bare))
+        self.assertEqual(manifest["dependencies"]["python"], "3.14.*")
+        for table in ("pypi-dependencies", "feature", "environments"):
+            self.assertNotIn(table, manifest)
+
+
+class RequirementsTest(unittest.TestCase):
+    def test_the_inputs_split_the_app_from_its_groups_and_leave_out_what_cannot_be_pinned(self) -> None:
+        main, dev = examples.requirements_in(SCENARIO)
+        self.assertEqual(
+            main.splitlines(), ["Django[argon2]==3.2.12", "sqlparse==0.4.2", "django-storages[s3]==1.13.2"]
+        )
+        self.assertEqual(dev.splitlines(), ["-r requirements.in", "pytest-django==4.5.2"], "the git checkout is not")
+        self.assertNotIn("internal-utils", main + dev)
+
+
 class ScenarioFileTest(unittest.TestCase):
     def test_every_scenario_is_complete_and_uniquely_named(self) -> None:
         scenarios = examples.load()

@@ -1,0 +1,20 @@
+[workspace]
+name = "aws-cloud-example"
+version = "0.1.0"
+description = "AWS automation with boto3 and SSH"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64"]
+
+[dependencies]
+python = "3.14.*"
+boto3 = "1.40.50.*"
+paramiko = "3.3.1.*"
+pyjwt = "2.3.0.*"
+requests = "2.31.0.*"
+urllib3 = "2.0.6.*"
+
+[feature.cli.pypi-dependencies]
+awscli = ">=1.36"
+
+[environments]
+cli = ["cli"]

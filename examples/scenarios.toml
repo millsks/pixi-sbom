@@ -10,8 +10,11 @@
 #   pdm_python    a narrower Python range for `pdm lock --python`, where PDM will not lock around an exclusion
 #   poetry_python requires-python for the Poetry manifest only, where a dependency caps the range
 #   pylock_tool   "pip" to write pylock.toml with `pip lock` instead of `uv export`
+#   requirements_tool "pip-compile" to write requirements.txt with pip-compile instead of `uv pip compile`
 #   conda         conda-forge specs for the conda readers
 #   conda_pip     a pip section for conda-lock.yml (explicit specs cannot carry one)
+#   pixi_conda    extra conda specs for the pixi workspace only, where a conda pick would conflict with a
+#                 PyPI dependency pixi installs on top of it (pixi never lets PyPI replace a conda package)
 #   shows         what the scenario is there to demonstrate, for the README
 
 [[scenario]]
@@ -50,6 +53,7 @@ conda_pip = ["django-environ==0.9.0"]
 [[scenario]]
 id = "02-flask"
 title = "Flask API with a 2021-era stack"
+requirements_tool = "pip-compile"
 python = ">=3.11,<3.12"
 conda_python = "3.11"
 shows = ["vulnerabilities", "outdated", "extras", "groups"]
@@ -145,6 +149,7 @@ dependencies = [
 groups = { notebook = ["ipykernel==6.21.0"] }
 conda = ["scikit-learn=1.2.1", "joblib=1.1.1", "numpy=1.24.4", "scipy=1.10.1", "pandas=1.5.3"]
 conda_pip = ["mlflow==2.9.2"]
+pixi_conda = ["packaging<24", "pytz<2024"] # mlflow 2.9.2 caps both, and conda-forge would pick newer ones
 
 [[scenario]]
 id = "06-deep-learning"
@@ -200,6 +205,7 @@ conda = ["click>=8.1", "rich>=13.7", "typer>=0.12", "httpx>=0.27", "platformdirs
 [[scenario]]
 id = "09-async-worker"
 title = "Celery workers and an aiohttp client"
+requirements_tool = "pip-compile"
 python = ">=3.11,<3.12"
 conda_python = "3.11"
 shows = ["vulnerabilities", "outdated", "extras"]

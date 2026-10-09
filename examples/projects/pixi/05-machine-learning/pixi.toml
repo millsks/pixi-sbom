@@ -1,0 +1,25 @@
+[workspace]
+name = "machine-learning-example"
+version = "0.1.0"
+description = "Classical machine learning with an experiment tracker"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64"]
+
+[dependencies]
+python = "3.11.*"
+scikit-learn = "1.2.1.*"
+joblib = "1.1.1.*"
+numpy = "1.24.4.*"
+scipy = "1.10.1.*"
+pandas = "1.5.3.*"
+packaging = "<24"
+pytz = "<2024"
+
+[pypi-dependencies]
+mlflow = "==2.9.2"
+
+[feature.notebook.pypi-dependencies]
+ipykernel = "==6.21.0"
+
+[environments]
+notebook = ["notebook"]

@@ -1,0 +1,4 @@
+# Looks pinned, but `==4.2.*` is any 4.2 release: a range, not one version.
+Django==4.2.*
+asgiref==3.8.1
+sqlparse==0.5.3

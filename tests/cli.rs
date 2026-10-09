@@ -8799,3 +8799,175 @@ fn the_quality_report_grades_a_complete_and_a_sparse_document() {
     );
     assert!(output.status.success(), "86 passes 80");
 }
+
+/// Every pixi example, every environment its manifest declares, on both locked platforms: one
+/// document each, valid CycloneDX, and the PyPI packages pixi put on top of the conda ones.
+#[test]
+fn every_pixi_example_reads_in_every_environment() {
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/projects/pixi");
+    let work = tempfile::tempdir().unwrap();
+    let mut projects: Vec<PathBuf> = std::fs::read_dir(&examples)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.join("pixi.lock").is_file())
+        .collect();
+    projects.sort();
+    assert_eq!(projects.len(), 14, "one per scenario");
+    for project in &projects {
+        let manifest: toml::Table = std::fs::read_to_string(project.join("pixi.toml"))
+            .unwrap()
+            .parse()
+            .unwrap();
+        let environments = 1 + manifest
+            .get("environments")
+            .and_then(|e| e.as_table())
+            .map_or(0, |e| e.len());
+        for platform in ["linux-64", "osx-arm64"] {
+            let out = work.path().join(project.file_name().unwrap()).join(platform);
+            pixi_sbom()
+                .current_dir(project)
+                .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+                .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+                .env("PIXI_SBOM_OFFLINE", "1")
+                .args(["--all-environments", "-p", platform, "--output"])
+                .arg(&out)
+                .assert()
+                .success();
+            let written = std::fs::read_dir(&out).unwrap().count();
+            assert_eq!(written, environments, "{}: {platform}", project.display());
+        }
+    }
+
+    // The Django project: a conda Django, a PyPI package conda-forge lacks, an editable local
+    // package, and in the `dev` environment a git checkout.
+    let django = examples.join("01-django");
+    let document = |environment: &str| -> Value {
+        let output = pixi_sbom()
+            .current_dir(&django)
+            .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(["-e", environment, "-p", "linux-64", "--output", "-"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        serde_json::from_slice(&output).unwrap()
+    };
+    let purls = |doc: &Value| -> Vec<String> {
+        doc["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|c| c["purl"].as_str().map(str::to_string))
+            .collect()
+    };
+    let default = document("default");
+    assert_valid(&cyclonedx_validator(), &default);
+    let found = purls(&default);
+    assert!(
+        found.iter().any(|p| p.starts_with("pkg:conda/django@3.2.12")),
+        "{found:?}"
+    );
+    assert!(found.iter().any(|p| p == "pkg:pypi/django-environ@0.9.0"), "{found:?}");
+    assert!(
+        default["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["name"] == "internal-utils"),
+        "the editable local package"
+    );
+    let dev = document("dev");
+    assert!(
+        dev["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["name"] == "django-debug-toolbar"),
+        "the git checkout, only in dev"
+    );
+    assert!(
+        !default["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["name"] == "django-debug-toolbar")
+    );
+}
+
+/// Every pinned requirements example, both files, read for the interpreter and platform it was
+/// compiled for: uv's command says so in its header, pip-compile's header names the Python.
+#[test]
+fn every_requirements_example_reads_for_what_it_was_compiled_for() {
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/projects/requirements");
+    let work = tempfile::tempdir().unwrap();
+    let mut projects: Vec<PathBuf> = std::fs::read_dir(&examples)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.join("requirements.txt").is_file())
+        .collect();
+    projects.sort();
+    assert_eq!(projects.len(), 14, "one per scenario");
+    for project in &projects {
+        let first = std::fs::read_to_string(project.join("requirements.txt")).unwrap();
+        let by_uv = first.contains("uv pip compile");
+        let python = if by_uv {
+            let at = first.find("--python-version ").unwrap() + "--python-version ".len();
+            first[at..].split_whitespace().next().unwrap().to_string()
+        } else {
+            let at = first.find("pip-compile with Python ").unwrap() + "pip-compile with Python ".len();
+            first[at..].split_whitespace().next().unwrap().to_string()
+        };
+        for file in ["requirements.txt", "requirements-dev.txt"] {
+            let assert = pixi_sbom()
+                .current_dir(project)
+                .env("PIXI_CACHE_DIR", work.path().join("empty-pkgs-cache"))
+                .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+                .env("PIXI_SBOM_OFFLINE", "1")
+                .args(["--lockfile", file, "--output", "-"])
+                .assert()
+                .success()
+                .stderr(predicate::str::contains(format!("python={python}")));
+            if by_uv {
+                // Compiled for manylinux x86_64, whatever machine reads it.
+                assert.stderr(predicate::str::contains("platform=linux-64"));
+            }
+        }
+    }
+}
+
+/// The unpinned requirements projects: each one is refused, naming the first line that is not
+/// one version, and writes nothing.
+#[test]
+fn every_unpinned_requirements_example_is_refused_by_line() {
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/projects/requirements-unpinned");
+    let cases = [
+        ("01-loose-ranges", 3, "Django>=4.2,<5"),
+        ("02-bare-names", 1, "flask"),
+        ("03-one-loose-line", 55, "rich>=14"),
+        ("04-editable-and-git", 6, "-e ./libs/internal-utils"),
+        ("05-wildcard-pins", 2, "Django==4.2.*"),
+    ];
+    let listed = std::fs::read_dir(&examples)
+        .unwrap()
+        .filter(|e| e.as_ref().unwrap().path().is_dir())
+        .count();
+    assert_eq!(listed, cases.len(), "every project has a case here");
+    let work = tempfile::tempdir().unwrap();
+    for (project, line, text) in cases {
+        let out = work.path().join(format!("{project}.cdx.json"));
+        pixi_sbom()
+            .current_dir(examples.join(project))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .args(["--lockfile", "requirements.txt", "--output"])
+            .arg(&out)
+            .assert()
+            .code(1)
+            .stderr(predicate::str::contains("pixi_sbom::requirements::not_pinned"))
+            .stderr(predicate::str::contains(format!(
+                "line {line} of requirements.txt is not pinned to one version: {text}"
+            )));
+        assert!(!out.exists(), "{project}: nothing written");
+    }
+}

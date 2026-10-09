@@ -1,0 +1,7 @@
+# Pinned from the index, plus two things no index can pin: a package being worked on in the
+# repository, and a fork installed from git.
+Django==4.2.24
+djangorestframework==3.15.2
+sqlparse==0.5.3
+-e ./libs/internal-utils
+django-debug-toolbar @ git+https://github.com/django-commons/django-debug-toolbar@4.4.6

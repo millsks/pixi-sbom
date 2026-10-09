@@ -1,13 +1,11 @@
 # Examples
 
-Small, real projects for every input pixi-sbom reads besides `pixi.lock`, so each reader can be built,
-tested and tried against files the real tools wrote rather than hand-made approximations.
+Small, real projects for every input pixi-sbom reads, so each reader can be built, tested and tried against files
+the real tools wrote rather than hand-made approximations.
 
 Every lockfile here was written by the tool that owns its format, from the manifest next to it. pixi-sbom never
-resolves anything; it reads what these tools resolved.
-
-> These are the inputs for the 1.7.0 readers (#321–#327). Until a reader lands, `pixi sbom` refuses its file with
-> a diagnostic; each reader's pull request makes its directory below work end to end.
+resolves anything; it reads what these tools resolved. The one exception is `requirements-unpinned/`, written by
+hand on purpose: those files are not locks, and each one shows a way pixi-sbom refuses one.
 
 ## Layout
 
@@ -16,6 +14,7 @@ examples/
   scenarios.toml          the 14 scenarios every example is generated from
   shared/internal-utils/  a stand-in private package, depended on by local path
   projects/<reader>/<NN-scenario>/
+  projects/requirements-unpinned/   hand-written requirements files that must be refused
 ```
 
 Each example is a self-contained project: the manifest and the lockfile sit side by side under their real names,
@@ -23,12 +22,23 @@ so lockfile discovery, `--scan` and the manifest beside a lockfile (#328) all wo
 
 | Reader | Files in each example | Written by |
 |---|---|---|
+| `pixi` | `pixi.toml`, `pixi.lock` | `pixi lock` (linux-64, osx-arm64) |
 | `pylock` | `pyproject.toml`, `pylock.toml` | `uv export --format pylock.toml`; `pip lock` for 03 and 08 |
 | `uv` | `pyproject.toml`, `uv.lock` | `uv lock` |
 | `poetry` | `pyproject.toml`, `poetry.lock` | `poetry lock` |
 | `pdm` | `pyproject.toml`, `pdm.lock` | `pdm lock --group :all` |
 | `conda-lock` | `environment.yml`, `conda-lock.yml` | `conda-lock lock` (linux-64, osx-arm64) |
 | `conda-explicit` | `environment.yml`, `explicit-linux-64.txt`, `explicit-osx-arm64.txt` | `conda-lock render --kind explicit` |
+| `requirements` | `requirements.in`, `requirements-dev.in`, `requirements.txt`, `requirements-dev.txt` | `uv pip compile --generate-hashes` for Python's floor on manylinux x86_64; `pip-compile --generate-hashes` for 02 and 09 |
+
+The `pixi` examples are the conda environment the conda readers describe, with the packages conda-forge does not
+carry (`conda_pip`) as PyPI dependencies, the local package as an editable path, and each dependency group and
+extra as a feature with an environment of its own (`pixi sbom --all-environments` writes one document each).
+
+The `requirements` examples are a pip-tools project: `requirements.in` holds the application's requirements and
+extras, `requirements-dev.in` adds the dependency groups on top of it (`-r requirements.in`), and each is compiled to
+a hashed `.txt` beside it. A local path or a git checkout cannot be pinned to one version, so neither is in them.
+A requirements file is never discovered, so it is always passed with `--lockfile`.
 
 ## Scenarios
 
@@ -55,11 +65,15 @@ pixi-sbom merges them, so its own count is lower. New advisories are published a
 
 ## Trying them
 
-Once a reader has landed:
-
 ```sh
 # The SBOM, with known advisories looked up
 pixi sbom --lockfile examples/projects/uv/01-django/uv.lock --vulnerabilities osv
+
+# A pixi workspace: one document per environment (default, s3, dev, test)
+pixi sbom --lockfile examples/projects/pixi/01-django/pixi.lock --all-environments --output sboms/
+
+# A compiled requirements file, read for the Python and platform it was compiled for
+pixi sbom --lockfile examples/projects/requirements/01-django/requirements-dev.txt --report packages
 
 # One report at a time
 pixi sbom --lockfile examples/projects/uv/02-flask/uv.lock --vulnerabilities osv --report vulnerabilities
@@ -74,6 +88,26 @@ pixi sbom --lockfile examples/projects/uv/14-django-upgraded/uv.lock \
 
 # The same scenario through every reader
 pixi sbom --scan examples/projects --report packages
+```
+
+## Unpinned requirements
+
+A `requirements.txt` is only a lock when every line is one version. These are what a project usually has instead,
+and each one must be refused with `pixi_sbom::requirements::not_pinned` (exit code 1), naming the first line that is
+not one version, and must write nothing. `tests/cli.rs` checks each.
+
+| Project | What it is | Refused at |
+|---|---|---|
+| `01-loose-ranges` | what a project starts with: `>=`, `<`, `~=` ranges | line 3, `Django>=4.2,<5` |
+| `02-bare-names` | names and nothing else | line 1, `flask` |
+| `03-one-loose-line` | `requirements/08-cli-tool`'s compiled, hashed file with one pin hand-edited into a range | line 55, `rich>=14` |
+| `04-editable-and-git` | pins, plus a package worked on in the repository (`-e`) and a fork from git | line 6, `-e ./libs/internal-utils` |
+| `05-wildcard-pins` | `Django==4.2.*`, which looks pinned and is any 4.2 release | line 2, `Django==4.2.*` |
+
+```sh
+pixi sbom --lockfile examples/projects/requirements-unpinned/01-loose-ranges/requirements.txt
+#  × line 3 of requirements.txt is not pinned to one version: Django>=4.2,<5
+#  help: pixi-sbom reads a lock and never resolves one; make this file a lock with `uv pip compile ...`
 ```
 
 ## Python versions
@@ -103,7 +137,12 @@ the scenario still shows what it is there to show:
 | 13-genai-llm | openai 1.30.0 | openai 1.30.1 |
 
 Packages without a conda-forge build of the right kind come from a `pip:` section in `conda-lock.yml` (01, 05 and
-14). An explicit spec cannot carry pip packages, so the `conda-explicit` examples are the conda part only.
+14), and from `[pypi-dependencies]` in `pixi.toml`. An explicit spec cannot carry pip packages, so the
+`conda-explicit` examples are the conda part only.
+
+pixi never lets a PyPI package replace a conda one, so where a PyPI dependency caps a package conda-forge would
+otherwise pick newer, the pixi workspace adds the cap as a conda constraint (`pixi_conda`): 05's mlflow 2.9.2 needs
+`packaging<24` and `pytz<2024`.
 
 ## Regenerating
 

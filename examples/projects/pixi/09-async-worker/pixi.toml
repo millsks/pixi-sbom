@@ -1,0 +1,20 @@
+[workspace]
+name = "async-worker-example"
+version = "0.1.0"
+description = "Celery workers and an aiohttp client"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64"]
+
+[dependencies]
+python = "3.11.*"
+celery = "5.2.7.*"
+redis-py = "4.3.4.*"
+aiohttp = "3.8.4.*"
+flower = "1.2.0.*"
+
+[feature.test.pypi-dependencies]
+pytest = "==7.2.0"
+pytest-asyncio = "==0.20.3"
+
+[environments]
+test = ["test"]

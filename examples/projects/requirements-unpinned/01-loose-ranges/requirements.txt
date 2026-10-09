@@ -1,0 +1,6 @@
+# The packages this service uses, and roughly which versions: what a project starts with,
+# before anything is compiled from it.
+Django>=4.2,<5
+djangorestframework>=3.15
+psycopg[binary]~=3.2
+gunicorn>=23
