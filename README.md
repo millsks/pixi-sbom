@@ -325,6 +325,7 @@ Add `attest: "true"` (with `id-token: write` and `attestations: write`) to sign 
 | [GitHub Action](https://millsks.github.io/pixi-sbom/latest/github-action/) | The action's inputs and outputs, with a worked example |
 | [CI recipes](https://millsks.github.io/pixi-sbom/latest/ci-recipes/) | Scanning with grype, license tables in PR comments, diffing SBOMs, air-gapped runners |
 | [Which format to pick](https://millsks.github.io/pixi-sbom/latest/formats/) | CycloneDX 1.6 / 1.7 against SPDX 2.3 / 3.0.1 |
+| [pixi-sbom and syft](https://millsks.github.io/pixi-sbom/latest/syft/) | What each reads, what Grype finds from each, and what syft does that pixi-sbom does not |
 | [Output format reference](https://millsks.github.io/pixi-sbom/latest/output-format/) | Field-by-field reference for the CycloneDX and SPDX documents, purls, licenses, dependency graph |
 | [What 1.0 freezes](https://millsks.github.io/pixi-sbom/latest/stability/) | The semver contract: flags, config keys, exit codes, `pixi:*` names, the action's inputs — and what is deliberately not covered |
 | [Security policy](https://millsks.github.io/pixi-sbom/latest/security/) | Reporting a vulnerability privately, what is in scope, verifying a release |

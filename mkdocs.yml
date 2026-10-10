@@ -41,6 +41,7 @@ nav:
   - GitHub Action: github-action.md
   - CI recipes: ci-recipes.md
   - Which format to pick: formats.md
+  - pixi-sbom and syft: syft.md
   - Output format reference: output-format.md
   - What 1.0 freezes: stability.md
   - Troubleshooting: troubleshooting.md

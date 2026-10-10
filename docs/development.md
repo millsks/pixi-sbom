@@ -388,6 +388,10 @@ operator action, two runs.
 
 A **pre-release is expressed in the version**, not by a separate flag: `1.0.0-rc.1` is one and `1.0.0` is not.
 
+**Rerun the comparison with syft** before a release that changes identity or coverage: `pixi run grype-compare`,
+and the syft column of [pixi-sbom and syft](syft.md), then update that page's tables and the date and versions it
+names. Its pixi-sbom lockfile column is checked by `the_syft_page_counts_are_what_pixi_sbom_writes`.
+
 **Write the release up in [What's new](whats-new.md) as you go**, under a `## Unreleased` section at the top of
 the page: a pull request that changes something a user would notice adds its line there, saying what it means for
 someone using the tool, not what the commits were. Before cutting a final release, give the section an editing

@@ -33,6 +33,10 @@ pixi sbom --fetch-licenses --deny-license GPL-3.0-only --require-license   # a l
     Playbooks by job: gate CI, take in a vendor's SBOM, one SBOM for a product, "are we exposed?", restricted
     networks, signed releases.
 
+-   **[pixi-sbom and syft](syft.md)**
+
+    What each reads, what Grype finds from each, and what syft does that pixi-sbom does not try to.
+
 -   **[Try it on the examples](try-the-examples.md)**
 
     More than a hundred real projects for every lockfile kind, and a tour of what to run on them.

@@ -9827,3 +9827,37 @@ fn an_installed_environment_documents_the_same_wherever_it_is() {
         "the cache entry's name"
     );
 }
+
+/// The pixi-sbom column of the lockfile table on docs/syft.md: each row's package and hash counts
+/// are what pixi-sbom writes for that lockfile, offline, for linux-64.
+#[test]
+fn the_syft_page_counts_are_what_pixi_sbom_writes() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let page = std::fs::read_to_string(root.join("docs/syft.md")).unwrap();
+    let work = tempfile::tempdir().unwrap();
+    let mut checked = 0;
+    for line in page.lines().filter(|l| l.starts_with("| `examples/")) {
+        let cells: Vec<&str> = line.trim_matches('|').split('|').map(str::trim).collect();
+        let lockfile = cells[0].trim_matches('`');
+        let (packages, hashed): (usize, usize) = (cells[2].parse().unwrap(), cells[3].parse().unwrap());
+        let assert = pixi_sbom()
+            .current_dir(work.path())
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+            .arg("--lockfile")
+            .arg(root.join(lockfile))
+            .args(["-p", "linux-64", "--output", "-"])
+            .assert()
+            .success();
+        let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+        let components = doc["components"].as_array().unwrap();
+        assert_eq!(components.len(), packages, "{lockfile}: packages");
+        assert_eq!(
+            components.iter().filter(|c| c["hashes"].is_array()).count(),
+            hashed,
+            "{lockfile}: hashes"
+        );
+        checked += 1;
+    }
+    assert_eq!(checked, 3, "the table's rows were found");
+}
