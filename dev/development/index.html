@@ -1193,6 +1193,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#against-syft-through-grype-pixi-run-grype-compare" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Against syft, through Grype (pixi run grype-compare)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#schema-validation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1498,6 +1509,17 @@
     <span class="md-ellipsis">
       
         Every report on every input (tests/matrix.rs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#against-syft-through-grype-pixi-run-grype-compare" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Against syft, through Grype (pixi run grype-compare)
       
     </span>
   </a>
@@ -1824,6 +1846,22 @@ reduced to its exit code and row count (and, for licenses and scorecard, how man
 the whole grid is one insta snapshot with notes on every limited cell. A reader that stops passing a field to some
 report changes the table, which is the point: such a gap shows as an empty column, never as a failure. Nothing leaves
 the machine; the test asserts the upstream saw every service's requests.</p>
+<h3 id="against-syft-through-grype-pixi-run-grype-compare">Against syft, through Grype (<code>pixi run grype-compare</code>)<a class="headerlink" href="#against-syft-through-grype-pixi-run-grype-compare" title="Permanent link">&para;</a></h3>
+<p>The acceptance test for replacing syft in front of Grype. For each corpus environment (<code>pixi/01-django</code>, a web
+stack; <code>pixi/04-data-analysis</code>, a scientific stack; <code>pixi/10-dev-tooling</code>, Rust binaries; and a pip venv of
+<code>requirements/02-flask</code>), <code>scripts/grype_compare.py</code> installs it, describes it with syft and with
+<code>pixi sbom --prefix --primary-purl pypi --embedded-sboms</code> (offline: everything pixi-sbom needs is on disk or in its
+own tables), and scans both documents with the same Grype and the same database. syft and Grype run through
+<code>pixi exec</code> at versions pinned in the script, so neither is a dependency of the project.</p>
+<p>Every conda or Python finding from syft's document must also come from pixi-sbom's. One that does not fails the
+run unless <code>tests/grype/exceptions.toml</code> lists it, for that environment, with a reason: an exception is for a
+difference that is right, such as a Grype match on a CPE syft guessed from a name for code the package does not
+contain. Findings only pixi-sbom's document produces are printed, not failed. The run prints the Grype database's
+build date, because findings change as advisories are published.</p>
+<p>It needs the network (installing the environments, Grype's database) and takes a few minutes, so it is not part of
+<code>pixi run ci</code>. The <code>Grype comparison</code> workflow runs it on pull requests that touch identity code, weekly, and on
+demand; <code>pixi run grype-compare --only django</code> runs one environment locally. <code>pixi run grype-compare-test</code> tests
+the comparison itself.</p>
 <h3 id="schema-validation">Schema validation<a class="headerlink" href="#schema-validation" title="Permanent link">&para;</a></h3>
 <p><code>tests/schemas/</code> contains the official CycloneDX 1.6 and 1.7 schemas (with the <code>spdx.schema.json</code>,
 <code>jsf-0.82.schema.json</code> and <code>cryptography-defs.schema.json</code> they reference, registered under their canonical <code>$id</code>s so
