@@ -79,6 +79,8 @@ pub mod mirror;
 #[doc(hidden)]
 pub mod model;
 #[doc(hidden)]
+pub mod npm;
+#[doc(hidden)]
 pub mod osv;
 #[doc(hidden)]
 pub mod outdated;

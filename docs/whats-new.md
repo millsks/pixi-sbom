@@ -25,6 +25,14 @@ Since 1.0, pixi-sbom has:
 
 ## Unreleased
 
+**`--prefix` lists the npm packages installed in a conda environment.** `nodejs` brings npm and about 120 packages
+npm itself depends on, and a JavaScript tool such as `configurable-http-proxy` brings its own; none of them was in
+the document. Every package under the environment's `node_modules` is now a `pkg:npm` component under the conda
+package that installed it, with its dependencies and license, so OSV and Grype check them. On a `nodejs` plus
+`configurable-http-proxy` environment that is 178 releases and 12 Grype findings, the same as syft's with its
+installed-package cataloger on (by default syft reads only JavaScript lockfiles in a directory, and finds none).
+See [npm packages in an environment](output-format.md#npm-packages-in-an-environment).
+
 **The Go modules inside a conda environment's Go programs are listed.** conda-forge builds `gh`, `go-yq`,
 `terraform` and the rest from source, so the conda record names the package and nothing in it. With `--prefix` and
 `--embedded-sboms`, each Go binary's build information is read, the list `go version -m` prints, and every module

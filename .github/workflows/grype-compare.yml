@@ -10,11 +10,16 @@ on:
     branches: ["main"]
     paths:
       - "src/cpe.rs"
+      - "src/cran.rs"
+      - "src/npm.rs"
+      - "src/gobuild.rs"
+      - "src/auditable.rs"
       - "src/prefix.rs"
       - "src/mapping.rs"
       - "src/purl.rs"
       - "src/format/**"
       - "data/cpe.toml"
+      - "data/cran.toml"
       - "scripts/grype_compare.py"
       - "tests/grype/**"
       - ".github/workflows/grype-compare.yml"

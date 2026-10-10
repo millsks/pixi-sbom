@@ -179,7 +179,7 @@ stack; `pixi/04-data-analysis`, a scientific stack; `pixi/10-dev-tooling`, Rust 
 own tables), and scans both documents with the same Grype and the same database. syft and Grype run through
 `pixi exec` at versions pinned in the script, so neither is a dependency of the project.
 
-Every conda or Python finding from syft's document must also come from pixi-sbom's. One that does not fails the
+Every conda, Python or npm finding from syft's document must also come from pixi-sbom's. One that does not fails the
 run unless `tests/grype/exceptions.toml` lists it, for that environment, with a reason: an exception is for a
 difference that is right, such as a Grype match on a CPE syft guessed from a name for code the package does not
 contain. Findings only pixi-sbom's document produces are printed, not failed. The run prints the Grype database's

@@ -7,7 +7,7 @@
 use pixi_sbom::{
     auditable, batch, cache, cli, concurrency, condaarchive, condalock, config, cran, diff, discover, doctor, embedded,
     epss, explain, explicit, filter, format, fromsbom, gobuild, http, imports, kev, license, lock, manifest, mapping,
-    merge, mirror, model, osv, outdated, pdm, phantom, pkgcache, poetry, policy, prefix, progress, pylock, pypi,
+    merge, mirror, model, npm, osv, outdated, pdm, phantom, pkgcache, poetry, policy, prefix, progress, pylock, pypi,
     report, requirements, scorecard, style, timings, uv, verify, vexin, vulnpolicy, wheel,
 };
 
@@ -489,6 +489,23 @@ fn main() -> Result<()> {
             from_rule,
             not_cran,
         } = cran::identify(&mut sbom, prefix_dir, &pkgcache::package_cache_dir());
+        if let Some(dir) = prefix_dir {
+            let npm::Outcome {
+                installed,
+                added,
+                merged,
+                unowned,
+            } = npm::attach(&mut sbom, dir);
+            if installed > 0 {
+                tracing::info!(
+                    installed,
+                    added,
+                    merged,
+                    unowned,
+                    "read the npm packages installed in the environment"
+                );
+            }
+        }
         if from_description + from_table + from_rule + not_cran > 0 {
             tracing::info!(
                 from_description,

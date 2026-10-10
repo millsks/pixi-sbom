@@ -75,6 +75,25 @@ pub fn pypi(name: &str, version: &str) -> Result<String, PurlError> {
     Ok(purl.to_string())
 }
 
+/// Build a `pkg:npm/...` purl. A scoped name (`@npmcli/arborist`) puts its scope in the
+/// namespace, which the purl spec writes as `%40npmcli`.
+pub fn npm(name: &str, version: &str) -> Result<String, PurlError> {
+    let wrap = |source| PurlError {
+        name: name.to_string(),
+        source,
+    };
+    let (namespace, bare) = match name.split_once('/') {
+        Some((scope, bare)) if scope.starts_with('@') => (Some(scope), bare),
+        _ => (None, name),
+    };
+    let mut purl = PackageUrl::new("npm", bare.to_string()).map_err(wrap)?;
+    if let Some(namespace) = namespace {
+        purl.with_namespace(namespace.to_string()).map_err(wrap)?;
+    }
+    purl.with_version(version).map_err(wrap)?;
+    Ok(purl.to_string())
+}
+
 /// Build a `pkg:cran/...` purl. CRAN names are case-sensitive and may contain dots
 /// (`Rcpp`, `data.table`), so the name is kept as given.
 pub fn cran(name: &str, version: &str) -> Result<String, PurlError> {

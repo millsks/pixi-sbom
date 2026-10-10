@@ -2,7 +2,7 @@
 
 The acceptance test for replacing syft in front of Grype (#434). Each corpus environment is
 installed, described by syft and by `pixi sbom --prefix`, and both documents are scanned by the same
-Grype with the same database. Every conda or Python finding from syft's document must also come from
+Grype with the same database. Every conda, Python or npm finding from syft's document must also come from
 pixi-sbom's, or be listed in tests/grype/exceptions.toml with a reason. Findings only pixi-sbom's
 document produces are reported, not failed. What the default flags would lose (#449) is reported too.
 
@@ -33,10 +33,18 @@ CORPUS = [
     ("data-analysis", "examples/projects/pixi/04-data-analysis", "pixi"),
     ("dev-tooling", "examples/projects/pixi/10-dev-tooling", "pixi"),
     ("venv-flask", "examples/projects/requirements/02-flask/requirements.txt", "venv"),
+    # npm and its dependencies, installed by nodejs and a tool built on it (#438).
+    ("node-tools", "tests/grype/node-tools", "pixi"),
 ]
 
+# syft reads installed package.json files only in an image unless told to; on the environment that
+# installs JavaScript it is, so its document lists what is installed. Elsewhere it is left off: in
+# the data-analysis environment it would list JupyterLab's prebuilt extension bundles, which are
+# not installed packages.
+SYFT_EXTRA = {"node-tools": ["--select-catalogers", "+javascript-package-cataloger"]}
+
 # syft artifact types this comparison is about: what a conda or Python environment installs.
-COMPARED_TYPES = {"python", "conda", "binary"}
+COMPARED_TYPES = {"python", "conda", "binary", "npm"}
 
 
 @dataclass(frozen=True, order=True)
@@ -151,7 +159,10 @@ def main(argv: list[str] | None = None) -> int:
         syft_sbom = args.work / f"{name}.syft.json"
         pixi_sbom = args.work / f"{name}.cdx.json"
         default_sbom = args.work / f"{name}.default.cdx.json"
-        run(["pixi", "exec", "--spec", SYFT, "syft", "scan", f"dir:{prefix}", "-q", "-o", f"syft-json={syft_sbom}"])
+        run(
+            ["pixi", "exec", "--spec", SYFT, "syft", "scan", f"dir:{prefix}", "-q", *SYFT_EXTRA.get(name, []),
+             "-o", f"syft-json={syft_sbom}"]
+        )
         # Offline: everything pixi-sbom needs to be matched is on disk or in its own tables.
         run(
             [str(args.pixi_sbom), "--prefix", str(prefix), "--primary-purl", "pypi", "--embedded-sboms",

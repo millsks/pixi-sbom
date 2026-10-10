@@ -10403,3 +10403,105 @@ fn go_modules_are_read_out_of_an_installed_environment() {
             .any(|p| p["name"] == "stdlib" && p["versionInfo"] == "go1.27.1")
     );
 }
+
+/// npm packages installed in an environment (#438): scoped and nested ones are components under
+/// the conda package that installed them, a `package.json` inside a package is not another
+/// package, and both formats stay valid.
+#[test]
+fn npm_packages_installed_in_an_environment_are_listed() {
+    let dir = installed_prefix();
+    let prefix = dir.path().join("envs").join("demo");
+    let write = |path: &str, body: Value| {
+        std::fs::create_dir_all(prefix.join(path)).unwrap();
+        std::fs::write(prefix.join(path).join("package.json"), body.to_string()).unwrap();
+    };
+    write(
+        "lib/node_modules/npm",
+        serde_json::json!({"name": "npm", "version": "10.9.2", "license": "Artistic-2.0",
+        "dependencies": {"@npmcli/arborist": "^8"}}),
+    );
+    write(
+        "lib/node_modules/npm/node_modules/@npmcli/arborist",
+        serde_json::json!({"name": "@npmcli/arborist", "version": "8.0.0",
+        "dependencies": {"semver": "^7"}}),
+    );
+    write(
+        "lib/node_modules/npm/node_modules/semver",
+        serde_json::json!({"name": "semver", "version": "7.6.3", "license": "ISC"}),
+    );
+    write(
+        "lib/node_modules/npm/node_modules/semver/esm",
+        serde_json::json!({"type": "module"}),
+    );
+    let record = prefix.join("conda-meta").join("libzlib-1.3.2-h25fd6f3_3.json");
+    let mut value: Value = serde_json::from_str(&std::fs::read_to_string(&record).unwrap()).unwrap();
+    value["files"] = serde_json::json!([
+        "lib/libz.so.1",
+        "lib/node_modules/npm/package.json",
+        "lib/node_modules/npm/node_modules/@npmcli/arborist/package.json",
+        "lib/node_modules/npm/node_modules/semver/package.json",
+        "lib/node_modules/npm/node_modules/semver/esm/package.json"
+    ]);
+    std::fs::write(&record, value.to_string()).unwrap();
+
+    let run = |args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("sbom-cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .arg("--prefix")
+            .arg(&prefix)
+            .args(["-p", "linux-64", "--output", "-"])
+            .args(args)
+            .assert()
+            .success()
+    };
+    let assert = run(&[]).stderr(predicate::str::contains(
+        "read the npm packages installed in the environment installed=3 added=3 merged=0 unowned=0",
+    ));
+    let document: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &document);
+    let components = document["components"].as_array().unwrap();
+    let mut npm: Vec<&str> = components
+        .iter()
+        .filter_map(|c| c["purl"].as_str())
+        .filter(|p| p.starts_with("pkg:npm/"))
+        .collect();
+    npm.sort();
+    assert_eq!(
+        npm,
+        [
+            "pkg:npm/%40npmcli/arborist@8.0.0",
+            "pkg:npm/npm@10.9.2",
+            "pkg:npm/semver@7.6.3"
+        ]
+    );
+    let zlib = components.iter().find(|c| c["name"] == "libzlib").unwrap()["bom-ref"].clone();
+    let depends_on = |reference: &Value| -> Vec<String> {
+        document["dependencies"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| &e["ref"] == reference)
+            .map(|e| {
+                e["dependsOn"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|d| d.as_str().unwrap().to_string())
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    assert!(depends_on(&zlib).contains(&"pkg:npm/npm@10.9.2".to_string()));
+    assert_eq!(
+        depends_on(&Value::from("pkg:npm/%40npmcli/arborist@8.0.0")),
+        ["pkg:npm/semver@7.6.3"]
+    );
+    let semver = components.iter().find(|c| c["purl"] == "pkg:npm/semver@7.6.3").unwrap();
+    assert_eq!(semver["licenses"][0]["expression"], "ISC", "from its package.json");
+
+    let spdx: Value = serde_json::from_slice(&run(&["--format", "spdx"]).get_output().stdout).unwrap();
+    assert_valid(&spdx_validator(), &spdx);
+}

@@ -40,6 +40,12 @@ class GrypeCompareTest(unittest.TestCase):
         self.assertEqual(g.default_gap({django, openssl}, {openssl}), {django})
         self.assertEqual(g.default_gap({openssl}, {openssl, django}), set())
 
+    def test_only_the_npm_environment_turns_on_syfts_package_json_cataloger(self) -> None:
+        names = [name for name, _, _ in g.CORPUS]
+        self.assertIn("node-tools", names)
+        self.assertEqual(set(g.SYFT_EXTRA), {"node-tools"})
+        self.assertIn("npm", g.COMPARED_TYPES)
+
     def test_every_exception_needs_a_reason(self) -> None:
         good = '[[exception]]\nenvironment = "django"\nvulnerability = "CVE-1"\npackage = "Lib_X"\nreason = "why"\n'
         self.assertEqual(g.load_exceptions(good), {("django", "CVE-1", "lib-x"): "why"})

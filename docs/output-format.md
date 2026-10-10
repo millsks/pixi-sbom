@@ -381,6 +381,21 @@ its files checked, and where they apply `pixi:modified-files` and `pixi:missing-
 to the environment) and `pixi:regenerated-bytecode` (how many `.pyc` files Python has rewritten, which is not a
 failure). See [Has anything changed since installation](cli.md#has-anything-changed-since-installation).
 
+
+### npm packages in an environment
+
+With `--prefix`, the JavaScript packages installed in the environment are listed too: every package under its
+`node_modules` trees (`lib/node_modules`, `node_modules` on Windows, and any other a conda package's files are in),
+nested ones included, as `pkg:npm/<name>@<version>` components (`pkg:npm/%40npmcli/arborist@8.0.0` for a scoped
+one). `nodejs` installs npm and npm's own dependencies this way, and a JavaScript tool such as
+`configurable-http-proxy` installs its own under `lib/node_modules/<tool>`. Each is attached to the conda package
+whose files contain it, with `pixi:kind=embedded`, `pixi:embedded-sbom=node_modules:<directory>` (several, separated
+by `;`, when a release is installed in more than one place), and the license, description and homepage its
+`package.json` declares. A dependency points at the copy Node would load: the package's own `node_modules`, then each
+enclosing one outward. A `package.json` inside a package (`esm/`, `dist/`) is a file of that package, a `private`
+one is not a release, and a build-time lockfile is not installed code: none of them is listed. A project's own
+`node_modules`, outside the environment, is not read.
+
 ### Documents derived from documents
 
 With `--from-sbom` the document describes what another document described: the metadata property is

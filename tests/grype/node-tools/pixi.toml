@@ -1,0 +1,11 @@
+# A conda environment that installs JavaScript: nodejs (npm and its dependencies) and a tool
+# built on it. The Grype comparison (#434) checks pixi-sbom finds every npm package in it (#438).
+[workspace]
+name = "node-tools"
+version = "0.1.0"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64"]
+
+[dependencies]
+nodejs = "22.*"
+configurable-http-proxy = "*"

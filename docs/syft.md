@@ -32,7 +32,7 @@ for the platform asked for (`-p linux-64` gives 25) and records the hash the loc
 ## In front of Grype
 
 The question that matters: given the same installed environment, does Grype find as much from pixi-sbom's SBOM as
-from syft's? The repository answers it for four environments on every pull request that touches identity code, and
+from syft's? The repository answers it for five environments on every pull request that touches identity code, and
 weekly:
 
 ```sh
@@ -41,7 +41,7 @@ pixi run grype-compare
 
 It installs each environment, describes it with `syft scan dir:<env>` and with
 `pixi sbom --prefix <env> --primary-purl pypi --embedded-sboms` (offline), scans both with the same Grype and
-database, and fails on any conda or Python finding syft's SBOM produces that pixi-sbom's does not:
+database, and fails on any conda, Python or npm finding syft's SBOM produces that pixi-sbom's does not:
 
 | Environment | Findings both produce | syft only | pixi-sbom only |
 |---|---|---|---|
@@ -49,6 +49,11 @@ database, and fails on any conda or Python finding syft's SBOM produces that pix
 | A scientific stack (`pixi/04-data-analysis`) | 30 | 0 | 1 |
 | Rust tools (`pixi/10-dev-tooling`) | 9 | 0 | 1 |
 | A pip venv (`requirements/02-flask`) | 45 | 0 | 0 |
+| nodejs and an npm tool (`tests/grype/node-tools`) | 28 | 0 | 1 |
+
+For the environment that installs JavaScript, syft is run with `--select-catalogers +javascript-package-cataloger`:
+on a directory it otherwise reads only JavaScript lockfiles, not installed packages, and lists none of the 178 npm
+releases there. With it, it lists the same 178 as pixi-sbom, and Grype finds the same 12 npm advisories in both.
 
 The findings only pixi-sbom's SBOM produces are native conda libraries (krb5, libpq, openjpeg, libxml2, zlib) that
 syft lists without an identity Grype can match, and pixi-sbom identifies with a CPE from its
@@ -73,8 +78,9 @@ pixi-sbom describes Python and conda projects and environments. syft catalogs mu
 
 - **Container images**, read from a registry or a tarball, layer by layer.
 - **Operating system packages**: dpkg, rpm, apk.
-- **Other ecosystems**: npm, Java, Rust crates and Go modules outside conda binaries, and many more. Inside a conda
-  environment, `--prefix --embedded-sboms` reads a binary's Rust crates and Go modules as syft does.
+- **Other ecosystems**: npm, Java, Rust crates and Go modules outside a conda environment, and many more. Inside
+  one, `--prefix` lists its installed npm packages, and `--prefix --embedded-sboms` reads a binary's Rust crates and
+  Go modules, as syft does.
 - **Every installed file** with its digests. pixi-sbom records packages, not files; for a conda environment
   `--verify-files` instead checks every file against the hash conda recorded at installation, which syft does not do.
 

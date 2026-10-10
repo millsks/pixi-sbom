@@ -229,6 +229,7 @@ fn license_source_prose(source: &str) -> String {
         crate::pkgcache::LICENSE_SOURCE => "the extracted package in the pixi package cache".into(),
         crate::condaarchive::LICENSE_SOURCE => "the package archive downloaded from the channel".into(),
         crate::wheel::LICENSE_SOURCE => "the wheel's dist-info".into(),
+        crate::npm::LICENSE_SOURCE => "the installed package.json".into(),
         "pypi" => "the PyPI index metadata".into(),
         other => other.to_string(),
     }
