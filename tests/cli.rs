@@ -10096,3 +10096,48 @@ fn help_sections_are_rules_set_apart_by_blank_lines() {
         assert!(help.contains("Documentation: https://millsks.github.io/pixi-sbom/"));
     }
 }
+
+/// Run in the workspace with a relative `--prefix .pixi/envs/default`, as the docs show it, an
+/// editable install inside the workspace is `./libs/...`, and the document names no machine path.
+#[test]
+fn a_relative_prefix_makes_a_local_direct_url_relative_to_the_workspace() {
+    let dir = tempfile::tempdir().unwrap();
+    let workspace = dir.path().canonicalize().unwrap().join("app");
+    let env = workspace.join(".pixi").join("envs").join("default");
+    copy_dir(&tests_dir().join("fixtures").join("venv-sources"), &env);
+    let source = workspace.join("libs").join("myapp");
+    let url = format!(
+        "file:///{}",
+        source.display().to_string().replace('\\', "/").trim_start_matches('/')
+    );
+    std::fs::write(
+        env.join("lib/python3.12/site-packages/myapp-2.1.0.dist-info/direct_url.json"),
+        serde_json::json!({"url": url, "dir_info": {"editable": true}}).to_string(),
+    )
+    .unwrap();
+    let assert = pixi_sbom()
+        .current_dir(&workspace)
+        .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+        .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+        .env("PIXI_SBOM_OFFLINE", "1")
+        .args(["--prefix", ".pixi/envs/default", "--output", "-"])
+        .assert()
+        .success();
+    let text = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    let workspace_text = workspace.display().to_string().replace('\\', "/");
+    assert!(!text.contains(&workspace_text), "no machine path:\n{text}");
+    let doc: Value = serde_json::from_str(&text).unwrap();
+    let myapp = doc["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "myapp")
+        .unwrap();
+    let direct = myapp["properties"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "pixi:direct-url")
+        .map(|p| p["value"].as_str().unwrap().to_string());
+    assert_eq!(direct.as_deref(), Some("./libs/myapp"));
+}

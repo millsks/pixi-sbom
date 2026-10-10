@@ -740,13 +740,20 @@ fn installed_pypi_identity(prefix: &Path, record: &Record) -> Option<(String, St
 /// the project, as a lockfile writes it (`./libs/utils`), or is dropped when it lies outside.
 pub fn make_portable(sbom: &mut Sbom, prefix: &Path) {
     let canonical = prefix.canonicalize().unwrap_or_else(|_| prefix.to_path_buf());
+    // `--prefix .pixi/envs/default`, run in the workspace, is relative: its project would be the
+    // empty path, which every path starts with.
+    let absolute = std::path::absolute(prefix).unwrap_or_else(|_| prefix.to_path_buf());
     let local = |location: &str| -> Option<std::path::PathBuf> {
         let path = location.strip_prefix("file://")?;
         Some(Path::new(path.strip_prefix('/').filter(|p| p.contains(':')).unwrap_or(path)).to_path_buf())
     };
-    let inside =
-        |location: &str| local(location).is_some_and(|path| path.starts_with(prefix) || path.starts_with(&canonical));
-    let projects = [project_of(prefix), project_of(&canonical)];
+    let inside = |location: &str| {
+        local(location).is_some_and(|path| path.starts_with(&absolute) || path.starts_with(&canonical))
+    };
+    let projects: Vec<std::path::PathBuf> = [project_of(&absolute), project_of(&canonical)]
+        .into_iter()
+        .filter(|project| project.is_absolute() && project.parent().is_some())
+        .collect();
     for package in &mut sbom.packages {
         if inside(&package.location) {
             package.location.clear();
