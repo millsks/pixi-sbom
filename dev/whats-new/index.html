@@ -1631,6 +1631,10 @@ has every commit.</p>
 <li><strong>Learned tab completion</strong> in bash, zsh, fish and PowerShell, for <code>pixi-sbom</code> and <code>pixi sbom</code>.</li>
 </ul>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<p><strong>A plain Python installation lists its interpreter.</strong> <code>--prefix</code> on a container's <code>/usr/local</code> listed only what
+pip installed, though most advisories against such an image are against Python itself. The interpreter is now a
+<code>python</code> component at its full version, with CPython's CPE. On <code>python:3.12-slim</code>, Grype finds 8 CPython
+vulnerabilities in the document that it found none of before.</p>
 <p><strong><code>--prefix</code> reads a conda package's PyPI identity from what it installed, offline.</strong> A conda-installed Django,
 Pillow or sqlparse had only its <code>pkg:conda</code> purl unless <code>--pypi-mapping prefix</code> downloaded the name mapping. The
 <code>dist-info</code> the package put in site-packages already names the PyPI project and version, and the conda record says
