@@ -181,7 +181,9 @@ steps:
 ```
 
 Each environment and platform is submitted under its own correlator, so a run with `all-environments` keeps every
-environment in the graph. The submission is a second run of the same inputs with `--format github`; the document,
+environment in the graph. This repository submits its own environments this way, on every push to `main` that
+changes the lockfile or the action:
+[`dependency-graph.yml`](https://github.com/millsks/pixi-sbom/blob/main/.github/workflows/dependency-graph.yml). The submission is a second run of the same inputs with `--format github`; the document,
 gates and artifact of the first are unchanged.
 
 ## Signed SBOMs

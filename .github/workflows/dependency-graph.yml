@@ -1,0 +1,39 @@
+name: Dependency graph
+
+# Submit this repository's pixi environments to GitHub's dependency graph, so their packages are
+# in Insights → Dependency graph and get Dependabot alerts. GitHub's own graph update reads only
+# Cargo.toml. It runs the repository's own action, the path a user's workflow takes, so it is also
+# the one place the action's submission step runs for real: a pull request cannot get the
+# `contents: write` it needs.
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - pixi.toml
+      - pixi.lock
+      - action.yml
+      - .github/workflows/dependency-graph.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dependency-graph
+  cancel-in-progress: true
+
+jobs:
+  submit:
+    name: Submit the pixi environments
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # One snapshot per environment, each under its own correlator. The action installs the newest
+      # release; the CycloneDX documents it also writes are not kept.
+      - uses: ./
+        with:
+          all-environments: "true"
+          platform: linux-64
+          pypi-mapping: prefix
+          dependency-submission: "true"
+          upload-artifact: "false"
