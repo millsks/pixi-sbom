@@ -21,14 +21,21 @@ Since 1.0, pixi-sbom has:
   KEV flags, and either one can fail a build.
 - **Learned to work on restricted networks.** Every upstream can point at a mirror, pixi's own
   credentials are used, and `--doctor` says which host is the problem.
+- **Learned tab completion** in bash, zsh, fish and PowerShell, for `pixi-sbom` and `pixi sbom`.
 
 ## Unreleased
 
-**Tab completion for `pixi-sbom`.** Flags, the values they take and file paths complete in bash,
-zsh, fish, PowerShell and elvish after one line in the shell's startup file
-([shell completion](installation.md#shell-completion)). pixi itself doesn't yet hand an
-extension's arguments to the extension (that has been asked for), so `pixi sbom` with a space
-completes through a short snippet per shell from the same page, which CI runs in each shell.
+**Tab completion.** Flags, the values they take (`--report <TAB>` lists the report kinds,
+`--format <TAB>` the formats) and file paths complete after one line in your shell's startup file:
+bash (including macOS's own bash 3.2), zsh, fish, PowerShell 7, Windows PowerShell 5.1 and elvish.
+See [shell completion](installation.md#shell-completion). Pressing Tab reads no lockfile and makes
+no request, so it answers at once even behind a slow proxy.
+
+**`pixi sbom` with a space completes too, through a short snippet.** pixi doesn't yet hand an
+extension's arguments to the extension ([prefix-dev/pixi#7225](https://github.com/prefix-dev/pixi/issues/7225)
+asks it to). Until it does, the installation page has a snippet for bash, zsh, fish and PowerShell.
+CI runs every snippet in a real shell on Linux, macOS and Windows. pixi-sbom's completion already
+uses the mechanism pixi would forward to, so when pixi does, `pixi sbom` completes with no snippet.
 
 ## 1.8.2
 

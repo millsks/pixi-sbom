@@ -180,7 +180,8 @@ const POWERSHELL_EMPTY_WORD: &str = "        $args += \" ''\";\n";
 /// The same, for every PowerShell. Windows PowerShell 5.1 and PowerShell 7.0 to 7.2 drop an empty
 /// argument when they call a program (legacy argument passing), so `--format <TAB>` offered
 /// `--format` again instead of its values. There a quoted `""` reaches the program as the empty
-/// argument; PowerShell 7.3 and later pass `''` as it is.
+/// argument; PowerShell 7.3 and later pass `''` as it is. Reported as clap-rs/clap#6548: drop this
+/// once clap_complete passes the empty word itself.
 const POWERSHELL_EMPTY_WORD_EVERYWHERE: &str = r#"        if ($null -eq $PSNativeCommandArgumentPassing -or $PSNativeCommandArgumentPassing -eq 'Legacy') {
             $args += ' ''""''';
         } else {
