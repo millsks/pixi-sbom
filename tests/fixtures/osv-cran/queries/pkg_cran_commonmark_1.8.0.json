@@ -1,0 +1,10 @@
+{
+  "purl": "pkg:cran/commonmark@1.8.0",
+  "fetched_at": 0,
+  "vulns": [
+    {
+      "id": "RSEC-2023-8",
+      "modified": "2025-05-19T19:43:48.265479Z"
+    }
+  ]
+}

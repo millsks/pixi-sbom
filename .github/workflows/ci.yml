@@ -116,6 +116,8 @@ jobs:
         run: pixi run grype-compare-test
       - name: The CPE table upkeep's own tests
         run: pixi run cpe-upkeep-test
+      - name: The CRAN table generator's own tests
+        run: pixi run cran-table-test
 
   # Tab completion as people get it: pixi-sbom's registration and the documented `pixi sbom`
   # snippets loaded into real fish, bash, zsh and PowerShell, each asked what Tab offers. Windows

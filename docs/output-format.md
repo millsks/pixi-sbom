@@ -184,6 +184,24 @@ the conda purl to `pixi:purl`, because scanners only read the primary identity. 
 where scanners cannot see them warns once on stderr; [Scanning with Grype](ci-recipes.md#scanning-with-grype) has the
 recommended commands and the configuration key.
 
+### CRAN identities for R packages
+
+An `r-*` conda package is usually a [CRAN](https://cran.r-project.org/) package, and OSV indexes CRAN advisories.
+Each one that is on CRAN gets a `pkg:cran` purl beside its `pkg:conda` one, by default and offline, the way a conda
+Python package gets its PyPI purl: in `pixi:purl` (CycloneDX) or an extra `externalRefs` entry (SPDX). The conda purl
+stays primary. `--vulnerabilities osv` and osv-scanner match it; Grype has no CRAN advisories.
+
+CRAN names are case-sensitive and may contain dots, and conda spells versions with `_` where CRAN has `-`, so the
+name and version come from the best source on hand, recorded in `pixi:cran-source`:
+
+| `pixi:cran-source` | Where from |
+|---|---|
+| `description` | The package's own `DESCRIPTION` file, in the installed environment (`--prefix`) or in the extracted package in the pixi package cache. Its `Repository: CRAN` line also decides whether the package is on CRAN: a Bioconductor, GitHub or base-R package gets no CRAN purl. |
+| `table` | `data/cran.toml`, generated from CRAN's package list and archive: `r-rcpp` is `Rcpp` |
+| `rule` | `r-<name>` is `<name>`, and conda's `1.0.13_1` is CRAN's `1.0.13-1` |
+
+`r-base` and the other `r-*` packages that were never on CRAN, current or archived, get none.
+
 ### CPEs for native conda packages
 
 A native library from a conda channel (openssl, libtiff, sqlite, python itself) has no PyPI identity, and its

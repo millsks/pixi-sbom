@@ -5,10 +5,10 @@
 #![cfg_attr(not(test), forbid(unsafe_code))]
 
 use pixi_sbom::{
-    auditable, batch, cache, cli, concurrency, condaarchive, condalock, config, diff, discover, doctor, embedded, epss,
-    explain, explicit, filter, format, fromsbom, http, imports, kev, license, lock, manifest, mapping, merge, mirror,
-    model, osv, outdated, pdm, phantom, pkgcache, poetry, policy, prefix, progress, pylock, pypi, report, requirements,
-    scorecard, style, timings, uv, verify, vexin, vulnpolicy, wheel,
+    auditable, batch, cache, cli, concurrency, condaarchive, condalock, config, cran, diff, discover, doctor, embedded,
+    epss, explain, explicit, filter, format, fromsbom, http, imports, kev, license, lock, manifest, mapping, merge,
+    mirror, model, osv, outdated, pdm, phantom, pkgcache, poetry, policy, prefix, progress, pylock, pypi, report,
+    requirements, scorecard, style, timings, uv, verify, vexin, vulnpolicy, wheel,
 };
 
 /// The system allocator on macOS and Windows is slow under the many small allocations a
@@ -478,6 +478,25 @@ fn main() -> Result<()> {
         if let Some(mapping) = &pypi_mapping {
             let enriched = mapping::enrich(&mut sbom, mapping);
             tracing::info!(enriched, "added PyPI purls to conda packages");
+        }
+        let prefix_dir = match input {
+            Input::Prefix { dir, .. } => Some(dir.as_path()),
+            _ => None,
+        };
+        let cran::Outcome {
+            from_description,
+            from_table,
+            from_rule,
+            not_cran,
+        } = cran::identify(&mut sbom, prefix_dir, &pkgcache::package_cache_dir());
+        if from_description + from_table + from_rule + not_cran > 0 {
+            tracing::info!(
+                from_description,
+                from_table,
+                from_rule,
+                not_cran,
+                "added CRAN purls to R packages"
+            );
         }
         if args.primary_purl == cli::PrimaryPurl::Pypi {
             let switched = mapping::prefer_pypi_purl(&mut sbom);
@@ -2170,6 +2189,7 @@ fn shared_enrichment(
         if let Some(mapping) = pypi_mapping {
             mapping::enrich(&mut sbom, mapping);
         }
+        cran::identify(&mut sbom, None, &pkgcache::package_cache_dir());
         if args.primary_purl == cli::PrimaryPurl::Pypi {
             mapping::prefer_pypi_purl(&mut sbom);
         }

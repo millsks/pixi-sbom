@@ -78,7 +78,11 @@ pub fn assess(sbom: &Sbom) -> Grade {
         .packages
         .iter()
         .filter(|p| p.kind == crate::model::PackageKind::CondaBinary)
-        .filter(|p| !p.extra_purls.iter().any(|purl| purl.starts_with("pkg:pypi/")))
+        .filter(|p| {
+            !p.extra_purls
+                .iter()
+                .any(|purl| purl.starts_with("pkg:pypi/") || purl.starts_with("pkg:cran/"))
+        })
         .collect();
     let unmatched = native.iter().filter(|p| crate::cpe::for_package(p).is_none()).count();
     let scanner = Element {

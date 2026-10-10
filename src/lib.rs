@@ -36,6 +36,8 @@ pub mod config;
 #[doc(hidden)]
 pub mod cpe;
 #[doc(hidden)]
+pub mod cran;
+#[doc(hidden)]
 pub mod cvss;
 #[doc(hidden)]
 pub mod diff;

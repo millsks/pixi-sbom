@@ -10144,3 +10144,131 @@ fn a_relative_prefix_makes_a_local_direct_url_relative_to_the_workspace() {
         .map(|p| p["value"].as_str().unwrap().to_string());
     assert_eq!(direct.as_deref(), Some("./libs/myapp"));
 }
+
+/// An installed R environment (#436): a CRAN package gets a `pkg:cran` purl beside its conda one,
+/// named and versioned as its DESCRIPTION says; R itself does not; and `--vulnerabilities osv`
+/// finds the CRAN advisory through it.
+#[test]
+fn r_packages_on_cran_get_a_cran_purl_that_osv_answers() {
+    let dir = tempfile::tempdir().unwrap();
+    let prefix = dir.path().join("env");
+    std::fs::create_dir_all(prefix.join("conda-meta")).unwrap();
+    let records = [
+        (
+            "r-commonmark",
+            "1.8.0",
+            "r43h0_0",
+            "commonmark",
+            "Package: commonmark\nVersion: 1.8.0\nRepository: CRAN\n",
+        ),
+        (
+            "r-rcpp",
+            "1.0.13_1",
+            "r43h0_0",
+            "Rcpp",
+            "Package: Rcpp\nVersion: 1.0.13-1\nRepository: CRAN\n",
+        ),
+        (
+            "r-base",
+            "4.3.3",
+            "h0_0",
+            "stats",
+            "Package: stats\nVersion: 4.3.3\nPriority: base\n",
+        ),
+    ];
+    for (name, version, build, library, description) in records {
+        let record = serde_json::json!({
+            "name": name, "version": version, "build": build, "build_number": 0,
+            "channel": "https://conda.anaconda.org/conda-forge", "subdir": "linux-64",
+            "fn": format!("{name}-{version}-{build}.conda"),
+            "files": [format!("lib/R/library/{library}/DESCRIPTION")],
+        });
+        std::fs::write(
+            prefix.join("conda-meta").join(format!("{name}-{version}-{build}.json")),
+            record.to_string(),
+        )
+        .unwrap();
+        let lib = prefix.join("lib/R/library").join(library);
+        std::fs::create_dir_all(&lib).unwrap();
+        std::fs::write(lib.join("DESCRIPTION"), description).unwrap();
+    }
+    let osv = tests_dir().join("fixtures").join("osv-cran");
+    for sub in ["queries", "vulns"] {
+        let target = dir.path().join("cache").join("osv").join(sub);
+        std::fs::create_dir_all(&target).unwrap();
+        for entry in std::fs::read_dir(osv.join(sub)).unwrap() {
+            let entry = entry.unwrap();
+            std::fs::copy(entry.path(), target.join(entry.file_name())).unwrap();
+        }
+    }
+    let run = |args: &[&str]| {
+        pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .arg("--prefix")
+            .arg(&prefix)
+            .args(["-p", "linux-64", "--primary-purl", "conda"])
+            .args(args)
+            .assert()
+            .success()
+    };
+    let cdx: Value = serde_json::from_slice(&run(&["--output", "-"]).get_output().stdout).unwrap();
+    assert_valid(&cyclonedx_validator(), &cdx);
+    let purls = |name: &str| -> Vec<String> {
+        let component = cdx["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == name)
+            .unwrap();
+        component["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|p| p["name"] == "pixi:purl")
+            .map(|p| p["value"].as_str().unwrap().to_string())
+            .collect()
+    };
+    assert_eq!(purls("r-commonmark"), ["pkg:cran/commonmark@1.8.0"]);
+    assert_eq!(
+        purls("r-rcpp"),
+        ["pkg:cran/Rcpp@1.0.13-1"],
+        "CRAN's spelling and version"
+    );
+    assert!(purls("r-base").is_empty(), "R itself is not a CRAN package");
+
+    let spdx: Value = serde_json::from_slice(&run(&["--format", "spdx", "--output", "-"]).get_output().stdout).unwrap();
+    assert_valid(&spdx_validator(), &spdx);
+    let rcpp = spdx["packages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "r-rcpp")
+        .unwrap();
+    assert!(
+        rcpp["externalRefs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["referenceLocator"] == "pkg:cran/Rcpp@1.0.13-1")
+    );
+
+    let report = run(&[
+        "--vulnerabilities",
+        "osv",
+        "--report",
+        "vulnerabilities",
+        "--report-format",
+        "json",
+    ]);
+    let findings: Value = serde_json::from_slice(&report.get_output().stdout).unwrap();
+    let ids: Vec<(&str, &str)> = findings["vulnerabilities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| (f["id"].as_str().unwrap(), f["package"].as_str().unwrap()))
+        .collect();
+    assert_eq!(ids, [("RSEC-2023-8", "r-commonmark")]);
+}

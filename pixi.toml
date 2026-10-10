@@ -33,6 +33,8 @@ grype-compare = { cmd = "cargo build && python scripts/grype_compare.py", descri
 grype-compare-test = { cmd = "python -m unittest discover -s scripts -p 'test_grype_compare.py' -v", description = "the Grype comparison's own tests" }
 cpe-upkeep = { cmd = "cargo build && python scripts/cpe_upkeep.py", description = "check the CPE table against NVD and conda-forge, and list candidates (#435); needs the network: cpe-upkeep --report <FILE> [--apply]" }
 cpe-upkeep-test = { cmd = "python -m unittest discover -s scripts -p 'test_cpe_upkeep.py' -v", description = "the CPE upkeep checks' own tests" }
+cran-table = { cmd = "python scripts/cran_table.py", description = "regenerate data/cran.toml, how conda-forge's r-* packages are named on CRAN (#436); needs the network: cran-table [--check]" }
+cran-table-test = { cmd = "python -m unittest discover -s scripts -p 'test_cran_table.py' -v", description = "the CRAN table generator's own tests" }
 whats-new = { cmd = "python scripts/whats_new.py", description = "check, or release, the What's new page's Unreleased section: whats-new check|release <version>" }
 whats-new-test = { cmd = "python -m unittest discover -s scripts -p 'test_whats_new.py' -v", description = "the What's new release step's own tests" }
 action-test = { cmd = "python -m unittest discover -s scripts -p 'test_action_version.py' -v", description = "which binary the GitHub Action installs for a given ref" }

@@ -75,6 +75,18 @@ pub fn pypi(name: &str, version: &str) -> Result<String, PurlError> {
     Ok(purl.to_string())
 }
 
+/// Build a `pkg:cran/...` purl. CRAN names are case-sensitive and may contain dots
+/// (`Rcpp`, `data.table`), so the name is kept as given.
+pub fn cran(name: &str, version: &str) -> Result<String, PurlError> {
+    let wrap = |source| PurlError {
+        name: name.to_string(),
+        source,
+    };
+    let mut purl = PackageUrl::new("cran", name.to_string()).map_err(wrap)?;
+    purl.with_version(version).map_err(wrap)?;
+    Ok(purl.to_string())
+}
+
 /// Build a `pkg:generic/...` purl, for a first-party package no public registry has: a uv
 /// workspace member, say, which a `pkg:pypi` purl would wrongly claim was released on PyPI.
 pub fn generic(name: &str, version: &str) -> Result<String, PurlError> {

@@ -15,6 +15,8 @@ extend-exclude = [
   "examples/lab-cache/**",
   # Lockfiles written by uv, pip, Poetry, PDM and conda-lock: package names and hashes, not prose.
   "examples/projects/**",
+  # Generated from CRAN's and conda-forge's package lists: package names, not prose.
+  "data/cran.toml",
 ]
 
 [default.extend-words]

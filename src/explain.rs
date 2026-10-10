@@ -91,6 +91,7 @@ const EXPLAINED_PROPERTIES: &[&str] = &[
     crate::manifest::DIRECT_PROPERTY,
     crate::manifest::DECLARED_IN_PROPERTY,
     crate::mapping::MAPPING_PROPERTY,
+    crate::cran::SOURCE_PROPERTY,
     crate::embedded::SOURCE_PROPERTY,
     crate::pypi::LICENSE_SOURCE_PROPERTY,
     crate::pypi::REPOSITORY_SOURCE_PROPERTY,
@@ -334,7 +335,12 @@ fn pypi_identity(package: &Package, ctx: Context, input: &str) -> Fact {
             None => "the installed dist-info".to_string(),
         },
         Some(other) => format!("the PyPI mapping ({other})"),
-        None => input.to_string(),
+        None => match package.properties.get(crate::cran::SOURCE_PROPERTY).map(String::as_str) {
+            Some("description") => "the R package's own DESCRIPTION file (Repository: CRAN)".to_string(),
+            Some("table") => "data/cran.toml: CRAN spells this package's name differently".to_string(),
+            Some(_) => "the CRAN name rule: r-<name> is <name> on CRAN".to_string(),
+            None => input.to_string(),
+        },
     };
     Fact::known("other purls", package.extra_purls.join(", "), source)
 }

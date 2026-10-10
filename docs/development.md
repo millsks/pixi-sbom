@@ -267,6 +267,11 @@ issue, *CPE table upkeep*, up to date with what it finds:
 | Candidates | Native packages in the examples with neither a CPE nor a PyPI identity. Add an entry, or list the package in `tests/cpe/reviewed.toml` with the reason it has none, so it is not proposed again |
 
 Nothing is added to the table automatically: which CPE a package should get is a person's call.
+**The CRAN table** (`data/cran.toml`, #436) is generated, not curated: `pixi run cran-table` rebuilds it from CRAN's
+package list and archive and conda-forge's channel data, and `pixi run cran-table --check` says whether it is out of
+date. It lists only the exceptions: `r-*` packages CRAN spells differently and the ones never on CRAN.
+`pixi run cran-table-test` tests the generator.
+
 `pixi run cpe-upkeep --report <file>` runs the same checks locally (about ten minutes: NVD allows five requests in
 thirty seconds without an API key); `pixi run cpe-upkeep-test` tests them.
 
