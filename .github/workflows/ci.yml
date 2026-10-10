@@ -113,6 +113,28 @@ jobs:
       - name: The What's new release step's own tests
         run: pixi run whats-new-test
 
+  # Tab completion as people get it: pixi-sbom's registration and the documented `pixi sbom`
+  # snippets loaded into real fish, bash, zsh and PowerShell, each asked what Tab offers.
+  completion:
+    name: Shell completion (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          environments: default
+          cache: true
+      # conda-forge's zsh is built without zsh/zpty, which driving its completion needs.
+      - name: Install zsh
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y zsh
+      - name: Completion in real shells
+        run: pixi run completion-e2e
+
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

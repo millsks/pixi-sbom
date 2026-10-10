@@ -28,6 +28,7 @@ perf = "python scripts/perf.py"
 perf-test = { cmd = "python -m unittest discover -s scripts -p 'test_perf.py' -v", description = "the perf comparison's own tests" }
 lab-cache = { cmd = "python scripts/lab_cache.py", description = "re-record the training lab's online answers into examples/lab-cache" }
 lab-cache-test = { cmd = "python -m unittest discover -s scripts -p 'test_lab_cache.py' -v", description = "the lab-cache recorder's own tests" }
+completion-e2e = { cmd = "cargo build && PATH=$PIXI_PROJECT_ROOT/target/debug:$PATH python scripts/completion_e2e.py", description = "tab completion in real fish, bash, zsh and PowerShell, for pixi-sbom and for `pixi sbom` through docs/completion" }
 whats-new = { cmd = "python scripts/whats_new.py", description = "check, or release, the What's new page's Unreleased section: whats-new check|release <version>" }
 whats-new-test = { cmd = "python -m unittest discover -s scripts -p 'test_whats_new.py' -v", description = "the What's new release step's own tests" }
 action-test = { cmd = "python -m unittest discover -s scripts -p 'test_action_version.py' -v", description = "which binary the GitHub Action installs for a given ref" }

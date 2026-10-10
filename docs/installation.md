@@ -107,12 +107,49 @@ installed version; don't save its output to a file. Pressing Tab runs `pixi-sbom
 for suggestions. That run reads no lockfile, writes nothing and makes no network request, and
 `PIXI_SBOM_COMPLETE` is set only for it, so every other run writes its SBOM as usual.
 
-**`pixi sbom` (with a space) is not completed.** pixi's own completion knows only pixi's built-in
-commands and does not hand an extension's arguments to the extension
-([#424](https://github.com/millsks/pixi-sbom/issues/424) has the tests;
-[prefix-dev/pixi#7225](https://github.com/prefix-dev/pixi/issues/7225) asks pixi to). The
-mechanism above is the one pixi would use to forward them, so completion will reach `pixi sbom`
-without a change here if it does. Until then, type `pixi-sbom` when you want Tab.
+### `pixi sbom`, with a space
+
+pixi's own completion knows only pixi's built-in commands: it does not hand an extension's
+arguments to the extension ([#424](https://github.com/millsks/pixi-sbom/issues/424) has the tests,
+and [prefix-dev/pixi#7225](https://github.com/prefix-dev/pixi/issues/7225) asks pixi to). The
+mechanism above is the one pixi would use to forward them, so if it does, `pixi sbom` completes
+with no change here.
+
+Until then, a short addition to your shell's startup file hands `pixi sbom …` to pixi-sbom's
+completion. Load it after pixi's completion (`pixi completion --shell <shell>`) and pixi-sbom's
+line above. Each one is run in that shell by CI on every change, next to pixi's own completion,
+which keeps working.
+
+=== "bash"
+
+    ```bash
+    --8<-- "pixi-sbom.bash"
+    ```
+
+=== "zsh"
+
+    ```zsh
+    --8<-- "pixi-sbom.zsh"
+    ```
+
+=== "fish"
+
+    ```fish
+    --8<-- "pixi-sbom.fish"
+    ```
+
+=== "PowerShell"
+
+    ```powershell
+    --8<-- "pixi-sbom.ps1"
+    ```
+
+    PowerShell allows one completer per command, so this replaces the usual pixi completion line
+    and calls pixi's completer for everything that is not `pixi sbom`. It edits the text of pixi's
+    script, and stops working if pixi changes that line.
+
+Two limits: `sbom` is not added to the list `pixi <TAB>` offers, and pixi options placed before
+`sbom` (`pixi -v sbom …`) are not handled.
 
 ## Upgrading
 
