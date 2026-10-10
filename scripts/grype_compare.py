@@ -61,12 +61,26 @@ def normalize(name: str) -> str:
     return name.strip().lower().replace("_", "-").replace(".", "-")
 
 
-def findings(grype_json: dict, types: set[str] | None = None) -> set[Finding]:
-    """The findings in Grype's JSON output, optionally only for some artifact types."""
+def not_installed(syft_json: dict) -> set[str]:
+    """The ids of syft's npm artifacts that are not installed packages: entries of a lockfile it
+    found (JupyterLab's build-time `staging/yarn.lock`, a project's own lockfile), which describe
+    what a build would fetch. pixi-sbom lists installed code (#438); project lockfiles are #493."""
+    return {
+        artifact["id"]
+        for artifact in syft_json.get("artifacts", [])
+        if artifact.get("type") == "npm" and artifact.get("foundBy") != "javascript-package-cataloger"
+    }
+
+
+def findings(grype_json: dict, types: set[str] | None = None, exclude: set[str] = frozenset()) -> set[Finding]:
+    """The findings in Grype's JSON output, optionally only for some artifact types, without the
+    artifacts whose ids are in `exclude`."""
     found = set()
     for match in grype_json.get("matches", []):
         artifact = match.get("artifact", {})
         if types is not None and artifact.get("type") not in types:
+            continue
+        if artifact.get("id") in exclude:
             continue
         found.add(Finding(match["vulnerability"]["id"], normalize(artifact["name"]), artifact.get("version", "")))
     return found
@@ -174,7 +188,10 @@ def main(argv: list[str] | None = None) -> int:
             env={**os.environ, "PIXI_SBOM_OFFLINE": "1"},
         )
         recommended = findings(grype(pixi_sbom, db))
-        result = compare(name, findings(grype(syft_sbom, db), COMPARED_TYPES), recommended, exceptions)
+        lockfile_entries = not_installed(json.loads(syft_sbom.read_text(encoding="utf-8")))
+        result = compare(
+            name, findings(grype(syft_sbom, db), COMPARED_TYPES, lockfile_entries), recommended, exceptions
+        )
         lost = default_gap(recommended, findings(grype(default_sbom, db)))
         sys.stderr.write(
             f"{name}: {len(result.agree)} agree, {len(result.syft_only)} syft-only, "
