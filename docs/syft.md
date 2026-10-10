@@ -32,7 +32,7 @@ for the platform asked for (`-p linux-64` gives 25) and records the hash the loc
 ## In front of Grype
 
 The question that matters: given the same installed environment, does Grype find as much from pixi-sbom's SBOM as
-from syft's? The repository answers it for five environments on every pull request that touches identity code, and
+from syft's? The repository answers it for six environments on every pull request that touches identity code, and
 weekly:
 
 ```sh
@@ -49,7 +49,8 @@ database, and fails on any conda, Python or npm finding syft's SBOM produces tha
 | A scientific stack (`pixi/04-data-analysis`) | 30 | 0 | 1 |
 | Rust tools (`pixi/10-dev-tooling`) | 9 | 0 | 1 |
 | A pip venv (`requirements/02-flask`) | 45 | 0 | 0 |
-| nodejs and an npm tool (`tests/grype/node-tools`) | 28 | 0 | 1 |
+| Go programs (`pixi/16-go-tools`) | 26 | 0 | 1 |
+| nodejs and an npm tool (`pixi/17-node-tools`) | 30 | 0 | 1 |
 
 For the environment that installs JavaScript, syft is run with `--select-catalogers +javascript-package-cataloger`:
 on a directory it otherwise reads only JavaScript lockfiles, not installed packages, and lists none of the 178 npm

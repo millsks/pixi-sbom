@@ -291,3 +291,28 @@ conda = [
   "pillow>=11",
 ]
 conda_pip = ["django-environ>=0.11"]
+
+[[scenario]]
+id = "15-r-analysis"
+title = "An R analysis environment from conda-forge"
+readers = ["pixi", "conda-lock", "conda-explicit"]
+shows = [
+  "CRAN purls for r-* packages",
+  "a CRAN advisory through OSV (commonmark)",
+  "names CRAN spells differently (Rcpp)",
+]
+conda = ["r-base", "r-commonmark=1.8.0", "r-rcpp", "r-data.table", "r-ggplot2"]
+
+[[scenario]]
+id = "16-go-tools"
+title = "Command-line tools written in Go"
+readers = ["pixi", "conda-lock", "conda-explicit"]
+shows = ["Go modules read out of the binaries (--prefix --embedded-sboms)", "the Go standard library"]
+conda = ["go-yq", "gh"]
+
+[[scenario]]
+id = "17-node-tools"
+title = "nodejs and a JavaScript tool"
+readers = ["pixi", "conda-lock", "conda-explicit"]
+shows = ["npm packages installed in the environment (--prefix)", "scoped and nested npm packages"]
+conda = ["nodejs=22", "configurable-http-proxy"]

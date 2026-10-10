@@ -1,0 +1,11 @@
+[workspace]
+name = "node-tools-example"
+version = "0.1.0"
+description = "nodejs and a JavaScript tool"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64"]
+
+[dependencies]
+python = "3.14.*"
+nodejs = "22.*"
+configurable-http-proxy = "*"

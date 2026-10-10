@@ -1,0 +1,10 @@
+name: 17-node-tools
+channels:
+  - conda-forge
+dependencies:
+  - python=3.14
+  - nodejs=22
+  - configurable-http-proxy
+platforms:
+  - linux-64
+  - osx-arm64

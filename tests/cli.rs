@@ -8935,7 +8935,7 @@ fn every_pixi_example_reads_in_every_environment() {
         .filter(|p| p.join("pixi.lock").is_file())
         .collect();
     projects.sort();
-    assert_eq!(projects.len(), 14, "one per scenario");
+    assert_eq!(projects.len(), 17, "one per scenario, the conda-only ones included");
     for project in &projects {
         let manifest: toml::Table = std::fs::read_to_string(project.join("pixi.toml"))
             .unwrap()
@@ -9125,7 +9125,7 @@ fn the_whole_examples_tree_scans_clean() {
     let text = String::from_utf8(output).unwrap();
     assert_eq!(
         text.matches("\"report\": \"packages\"").count(),
-        84,
+        90,
         "one report per lockfile"
     );
 }
@@ -9195,8 +9195,9 @@ fn the_whats_new_page_covers_every_release_since_1_0() {
 
 /// Every `pixi sbom` line on the examples tour runs as written, in order, against a copy of
 /// `examples/projects`. A plain line succeeds; `# exit N` exits with N; `# needs the network`
-/// cannot be judged offline, so it is held to what offline can check: the flags parse and every
-/// example it names exists.
+/// cannot be judged offline, and `# after pixi install` needs an installed environment the copy
+/// does not have, so both are held to what can be checked here: the flags parse and every example
+/// it names exists.
 #[test]
 fn the_examples_tour_runs_as_written() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -9226,6 +9227,11 @@ fn the_examples_tour_runs_as_written() {
         let args: Vec<&str> = args.split_whitespace().collect();
         let comment = comment.trim();
         for path in args.iter().filter(|a| a.starts_with("examples/")) {
+            // An installed environment is made by `pixi install`; its workspace must exist.
+            let path = match comment {
+                "after pixi install" => path.split("/.pixi/").next().unwrap_or(path),
+                _ => path,
+            };
             assert!(work.path().join(path).exists(), "{line}: {path} does not exist");
         }
         let assert = pixi_sbom()
@@ -9237,7 +9243,7 @@ fn the_examples_tour_runs_as_written() {
             .assert();
         let code = assert.get_output().status.code();
         match comment {
-            "needs the network" => {
+            "needs the network" | "after pixi install" => {
                 assert_ne!(code, Some(2), "{line}: a usage error");
                 online += 1;
             }

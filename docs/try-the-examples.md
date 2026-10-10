@@ -1,8 +1,8 @@
 # Try it on the examples
 
 The repository has more than a hundred real projects to try pixi-sbom on. There are fourteen
-scenarios, from a Django app on an old LTS to an LLM stack, each locked by every tool pixi-sbom
-reads. Every lockfile was written by the tool that owns its format. Some scenarios have known
+Python scenarios, from a Django app on an old LTS to an LLM stack, each locked by every tool pixi-sbom
+reads, and three conda-only ones with R, Go and JavaScript packages in them. Every lockfile was written by the tool that owns its format. Some scenarios have known
 vulnerabilities, one has a GPL package, one is an upgrade of another, and a separate set of
 `requirements.txt` files is built to be refused.
 
@@ -45,8 +45,18 @@ The scenarios worth knowing first:
 | `07-web-scraping` | `html2text` is GPL-3.0, for the license gate |
 | `08-cli-tool` | nothing wrong with it, which is what a clean report looks like |
 | `14-django-upgraded` | `01-django` after the upgrade: the other side of a diff |
+| `15-r-analysis` | R packages with CRAN purls, and a CRAN advisory through `--vulnerabilities osv` |
+| `16-go-tools` | the Go modules inside `go-yq` and `gh`, with `--prefix --embedded-sboms` |
+| `17-node-tools` | the npm packages `nodejs` installs, with `--prefix` |
 
-`examples/README.md` in the repository lists all fourteen, with what each one shows.
+The last three describe what an installed environment holds, so install one first and point `--prefix` at it:
+
+```sh
+pixi install --manifest-path examples/projects/pixi/16-go-tools/pixi.toml
+pixi sbom --prefix examples/projects/pixi/16-go-tools/.pixi/envs/default --embedded-sboms --report packages   # after pixi install
+```
+
+`examples/README.md` in the repository lists all seventeen, with what each one shows.
 
 The conda and pixi examples are locked for linux-64 and osx-arm64, so the commands below pass
 `-p linux-64` to give the same answer on any machine.

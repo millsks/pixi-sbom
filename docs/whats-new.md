@@ -25,6 +25,10 @@ Since 1.0, pixi-sbom has:
 
 ## Unreleased
 
+**Three new examples to try these on.** `examples/projects/pixi/15-r-analysis`, `16-go-tools` and `17-node-tools`
+(also locked by conda-lock and as explicit specs) are conda environments with R, Go and JavaScript packages in them.
+Install one and point `--prefix` at it; see [Try it on the examples](try-the-examples.md).
+
 **`--prefix` lists the npm packages installed in a conda environment.** `nodejs` brings npm and about 120 packages
 npm itself depends on, and a JavaScript tool such as `configurable-http-proxy` brings its own; none of them was in
 the document. Every package under the environment's `node_modules` is now a `pkg:npm` component under the conda

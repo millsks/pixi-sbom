@@ -1,0 +1,10 @@
+name: 16-go-tools
+channels:
+  - conda-forge
+dependencies:
+  - python=3.14
+  - go-yq
+  - gh
+platforms:
+  - linux-64
+  - osx-arm64

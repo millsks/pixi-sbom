@@ -22,6 +22,8 @@ on:
       - "data/cran.toml"
       - "scripts/grype_compare.py"
       - "tests/grype/**"
+      - "examples/projects/pixi/16-go-tools/**"
+      - "examples/projects/pixi/17-node-tools/**"
       - ".github/workflows/grype-compare.yml"
   schedule:
     - cron: "17 6 * * 1"

@@ -33,8 +33,10 @@ CORPUS = [
     ("data-analysis", "examples/projects/pixi/04-data-analysis", "pixi"),
     ("dev-tooling", "examples/projects/pixi/10-dev-tooling", "pixi"),
     ("venv-flask", "examples/projects/requirements/02-flask/requirements.txt", "venv"),
+    # Go programs, whose modules are read out of the binaries (#437).
+    ("go-tools", "examples/projects/pixi/16-go-tools", "pixi"),
     # npm and its dependencies, installed by nodejs and a tool built on it (#438).
-    ("node-tools", "tests/grype/node-tools", "pixi"),
+    ("node-tools", "examples/projects/pixi/17-node-tools", "pixi"),
 ]
 
 # syft reads installed package.json files only in an image unless told to; on the environment that
@@ -44,7 +46,7 @@ CORPUS = [
 SYFT_EXTRA = {"node-tools": ["--select-catalogers", "+javascript-package-cataloger"]}
 
 # syft artifact types this comparison is about: what a conda or Python environment installs.
-COMPARED_TYPES = {"python", "conda", "binary", "npm"}
+COMPARED_TYPES = {"python", "conda", "binary", "npm", "go-module"}
 
 
 @dataclass(frozen=True, order=True)

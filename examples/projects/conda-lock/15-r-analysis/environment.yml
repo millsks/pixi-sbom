@@ -1,0 +1,13 @@
+name: 15-r-analysis
+channels:
+  - conda-forge
+dependencies:
+  - python=3.14
+  - r-base
+  - r-commonmark=1.8.0
+  - r-rcpp
+  - r-data.table
+  - r-ggplot2
+platforms:
+  - linux-64
+  - osx-arm64
