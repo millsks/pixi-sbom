@@ -1242,6 +1242,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-cpe-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The CPE table
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-github-action" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1536,6 +1547,17 @@
     <span class="md-ellipsis">
       
         Conventions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-cpe-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The CPE table
       
     </span>
   </a>
@@ -1864,6 +1886,20 @@ real document; the fixtures are small by design.</p>
 <li>Dependencies: prefer what <code>rattler_lock</code> already pulls in; avoid git dependencies. <code>serde_json</code> uses
   <code>preserve_order</code> so keys are emitted in struct order.</li>
 <li>Never print to stdout; logs go through <code>tracing</code> to stderr.</li>
+</ul>
+<h2 id="the-cpe-table">The CPE table<a class="headerlink" href="#the-cpe-table" title="Permanent link">&para;</a></h2>
+<p><code>data/cpe.toml</code> maps a conda package name to NVD's <code>vendor:product</code>, and is compiled into the binary
+(<code>src/cpe.rs</code>). An entry is added only when the pair is the one NVD and Grype's database use for that code, and the
+conda package's version is spelled as upstream's:</p>
+<ul>
+<li>Look the product up in Grype's database (<code>grype db status</code> says where it is; the <code>cpes</code> table joined to
+  <code>affected_cpe_handles</code> gives each vendor:product its advisory count), or in NVD's CPE dictionary. Use the vendor
+  that carries the advisories; where NVD splits a product between vendors that are not the same code, leave the
+  package out.</li>
+<li>Leave out compiler runtimes and C libraries (gcc, glibc), whose advisories are for code a conda package does not
+  contain, and packages whose conda version differs from upstream's spelling.</li>
+<li><code>cpe::tests::every_entry_is_a_valid_vendor_and_product</code> checks the format; it cannot check that a pair is right,
+  which is why every entry needs that lookup. Scheduled checks that every entry still matches are #435.</li>
 </ul>
 <h2 id="the-github-action">The GitHub Action<a class="headerlink" href="#the-github-action" title="Permanent link">&para;</a></h2>
 <p><code>action.yml</code> at the repository root is a composite action: it resolves the version (the action's own tag, an

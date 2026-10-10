@@ -4908,35 +4908,38 @@ prints for it.</p>
 <a id="__codelineno-65-10" name="__codelineno-65-10" href="#__codelineno-65-10"></a><span class="c1"># Straight into a consumer, nothing written to disk</span>
 <a id="__codelineno-65-11" name="__codelineno-65-11" href="#__codelineno-65-11"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
 <a id="__codelineno-65-12" name="__codelineno-65-12" href="#__codelineno-65-12"></a>
-<a id="__codelineno-65-13" name="__codelineno-65-13" href="#__codelineno-65-13"></a><span class="c1"># Scannable: give conda-forge Python packages their PyPI identity and make it primary</span>
-<a id="__codelineno-65-14" name="__codelineno-65-14" href="#__codelineno-65-14"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--primary-purl<span class="w"> </span>pypi<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
+<a id="__codelineno-65-13" name="__codelineno-65-13" href="#__codelineno-65-13"></a><span class="c1"># Native conda packages (openssl, libtiff, python) carry a CPE from the curated table by default,</span>
+<a id="__codelineno-65-14" name="__codelineno-65-14" href="#__codelineno-65-14"></a><span class="c1"># so a CPE-matching scanner such as grype finds their advisories with no extra flag</span>
 <a id="__codelineno-65-15" name="__codelineno-65-15" href="#__codelineno-65-15"></a>
-<a id="__codelineno-65-16" name="__codelineno-65-16" href="#__codelineno-65-16"></a><span class="c1"># The same, air-gapped, from a saved copy of the mapping</span>
-<a id="__codelineno-65-17" name="__codelineno-65-17" href="#__codelineno-65-17"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping-file<span class="w"> </span>/srv/mirrors/compressed_mapping.json<span class="w"> </span>--primary-purl<span class="w"> </span>pypi
+<a id="__codelineno-65-16" name="__codelineno-65-16" href="#__codelineno-65-16"></a><span class="c1"># Scannable: give conda-forge Python packages their PyPI identity and make it primary</span>
+<a id="__codelineno-65-17" name="__codelineno-65-17" href="#__codelineno-65-17"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--primary-purl<span class="w"> </span>pypi<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
 <a id="__codelineno-65-18" name="__codelineno-65-18" href="#__codelineno-65-18"></a>
-<a id="__codelineno-65-19" name="__codelineno-65-19" href="#__codelineno-65-19"></a><span class="c1"># Licenses for everything: expressions and license file names</span>
-<a id="__codelineno-65-20" name="__codelineno-65-20" href="#__codelineno-65-20"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses
+<a id="__codelineno-65-19" name="__codelineno-65-19" href="#__codelineno-65-19"></a><span class="c1"># The same, air-gapped, from a saved copy of the mapping</span>
+<a id="__codelineno-65-20" name="__codelineno-65-20" href="#__codelineno-65-20"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping-file<span class="w"> </span>/srv/mirrors/compressed_mapping.json<span class="w"> </span>--primary-purl<span class="w"> </span>pypi
 <a id="__codelineno-65-21" name="__codelineno-65-21" href="#__codelineno-65-21"></a>
-<a id="__codelineno-65-22" name="__codelineno-65-22" href="#__codelineno-65-22"></a><span class="c1"># What was compiled into the wheels (PEP 770 embedded SBOMs), e.g. Rust crates</span>
-<a id="__codelineno-65-23" name="__codelineno-65-23" href="#__codelineno-65-23"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--embedded-sboms
+<a id="__codelineno-65-22" name="__codelineno-65-22" href="#__codelineno-65-22"></a><span class="c1"># Licenses for everything: expressions and license file names</span>
+<a id="__codelineno-65-23" name="__codelineno-65-23" href="#__codelineno-65-23"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses
 <a id="__codelineno-65-24" name="__codelineno-65-24" href="#__codelineno-65-24"></a>
-<a id="__codelineno-65-25" name="__codelineno-65-25" href="#__codelineno-65-25"></a><span class="c1"># The same plus the full license texts</span>
-<a id="__codelineno-65-26" name="__codelineno-65-26" href="#__codelineno-65-26"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--license-texts
+<a id="__codelineno-65-25" name="__codelineno-65-25" href="#__codelineno-65-25"></a><span class="c1"># What was compiled into the wheels (PEP 770 embedded SBOMs), e.g. Rust crates</span>
+<a id="__codelineno-65-26" name="__codelineno-65-26" href="#__codelineno-65-26"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--embedded-sboms
 <a id="__codelineno-65-27" name="__codelineno-65-27" href="#__codelineno-65-27"></a>
-<a id="__codelineno-65-28" name="__codelineno-65-28" href="#__codelineno-65-28"></a><span class="c1"># A specific lockfile and output file, from anywhere</span>
-<a id="__codelineno-65-29" name="__codelineno-65-29" href="#__codelineno-65-29"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>~/proj/pixi.lock<span class="w"> </span>--output<span class="w"> </span>~/reports/proj.cdx.json
+<a id="__codelineno-65-28" name="__codelineno-65-28" href="#__codelineno-65-28"></a><span class="c1"># The same plus the full license texts</span>
+<a id="__codelineno-65-29" name="__codelineno-65-29" href="#__codelineno-65-29"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--license-texts
 <a id="__codelineno-65-30" name="__codelineno-65-30" href="#__codelineno-65-30"></a>
-<a id="__codelineno-65-31" name="__codelineno-65-31" href="#__codelineno-65-31"></a><span class="c1"># The environment you actually ship, for the platform you ship it on</span>
-<a id="__codelineno-65-32" name="__codelineno-65-32" href="#__codelineno-65-32"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-e<span class="w"> </span>prod<span class="w"> </span>-p<span class="w"> </span>linux-64
+<a id="__codelineno-65-31" name="__codelineno-65-31" href="#__codelineno-65-31"></a><span class="c1"># A specific lockfile and output file, from anywhere</span>
+<a id="__codelineno-65-32" name="__codelineno-65-32" href="#__codelineno-65-32"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>~/proj/pixi.lock<span class="w"> </span>--output<span class="w"> </span>~/reports/proj.cdx.json
 <a id="__codelineno-65-33" name="__codelineno-65-33" href="#__codelineno-65-33"></a>
-<a id="__codelineno-65-34" name="__codelineno-65-34" href="#__codelineno-65-34"></a><span class="c1"># Every environment, each on linux-64, into a directory</span>
-<a id="__codelineno-65-35" name="__codelineno-65-35" href="#__codelineno-65-35"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--all-environments<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--output<span class="w"> </span>sboms/
+<a id="__codelineno-65-34" name="__codelineno-65-34" href="#__codelineno-65-34"></a><span class="c1"># The environment you actually ship, for the platform you ship it on</span>
+<a id="__codelineno-65-35" name="__codelineno-65-35" href="#__codelineno-65-35"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-e<span class="w"> </span>prod<span class="w"> </span>-p<span class="w"> </span>linux-64
 <a id="__codelineno-65-36" name="__codelineno-65-36" href="#__codelineno-65-36"></a>
-<a id="__codelineno-65-37" name="__codelineno-65-37" href="#__codelineno-65-37"></a><span class="c1"># Every platform the prod environment is locked for</span>
-<a id="__codelineno-65-38" name="__codelineno-65-38" href="#__codelineno-65-38"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-e<span class="w"> </span>prod<span class="w"> </span>--all-platforms<span class="w"> </span>--output<span class="w"> </span>sboms/
+<a id="__codelineno-65-37" name="__codelineno-65-37" href="#__codelineno-65-37"></a><span class="c1"># Every environment, each on linux-64, into a directory</span>
+<a id="__codelineno-65-38" name="__codelineno-65-38" href="#__codelineno-65-38"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--all-environments<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--output<span class="w"> </span>sboms/
 <a id="__codelineno-65-39" name="__codelineno-65-39" href="#__codelineno-65-39"></a>
-<a id="__codelineno-65-40" name="__codelineno-65-40" href="#__codelineno-65-40"></a><span class="c1"># Everything: one document per environment and platform</span>
-<a id="__codelineno-65-41" name="__codelineno-65-41" href="#__codelineno-65-41"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--all-environments<span class="w"> </span>--all-platforms<span class="w"> </span>--output<span class="w"> </span>sboms/
+<a id="__codelineno-65-40" name="__codelineno-65-40" href="#__codelineno-65-40"></a><span class="c1"># Every platform the prod environment is locked for</span>
+<a id="__codelineno-65-41" name="__codelineno-65-41" href="#__codelineno-65-41"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>-e<span class="w"> </span>prod<span class="w"> </span>--all-platforms<span class="w"> </span>--output<span class="w"> </span>sboms/
+<a id="__codelineno-65-42" name="__codelineno-65-42" href="#__codelineno-65-42"></a>
+<a id="__codelineno-65-43" name="__codelineno-65-43" href="#__codelineno-65-43"></a><span class="c1"># Everything: one document per environment and platform</span>
+<a id="__codelineno-65-44" name="__codelineno-65-44" href="#__codelineno-65-44"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--all-environments<span class="w"> </span>--all-platforms<span class="w"> </span>--output<span class="w"> </span>sboms/
 </code></pre></div>
 <h2 id="exit-codes-and-errors">Exit codes and errors<a class="headerlink" href="#exit-codes-and-errors" title="Permanent link">&para;</a></h2>
 <table>

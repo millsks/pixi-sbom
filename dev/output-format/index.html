@@ -987,6 +987,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#cpes-for-native-conda-packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPEs for native conda packages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#licenses" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1570,6 +1581,17 @@
     <span class="md-ellipsis">
       
         PyPI identities for conda packages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cpes-for-native-conda-packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPEs for native conda packages
       
     </span>
   </a>
@@ -2323,6 +2345,42 @@ about it. Where the lock entry states a bare purl, its version is filled in from
 <p><code>--primary-purl pypi</code> then makes that PyPI purl the component's <code>purl</code> (first <code>externalRefs</code> entry in SPDX) and moves
 the conda purl to <code>pixi:purl</code>, because scanners only read the primary identity. With it, <code>grype</code> / <code>trivy</code> /
 <code>osv-scanner</code> report advisories for conda-installed Python packages.</p>
+<h3 id="cpes-for-native-conda-packages">CPEs for native conda packages<a class="headerlink" href="#cpes-for-native-conda-packages" title="Permanent link">&para;</a></h3>
+<p>A native library from a conda channel (openssl, libtiff, sqlite, python itself) has no PyPI identity, and its
+<code>pkg:conda</code> purl is in no advisory database. Scanners that match through NVD, such as Grype, match those by CPE
+instead. A channel's conda package whose name is in pixi-sbom's curated table (<code>data/cpe.toml</code>) gets one:</p>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CycloneDX 1.6 / 1.7</td>
+<td><code>component.cpe</code></td>
+</tr>
+<tr>
+<td>SPDX 2.3</td>
+<td>an <code>externalRefs</code> entry: <code>referenceCategory: SECURITY</code>, <code>referenceType: cpe23Type</code></td>
+</tr>
+<tr>
+<td>SPDX 3.0.1</td>
+<td>an <code>externalIdentifier</code> with <code>externalIdentifierType: cpe23</code></td>
+</tr>
+</tbody>
+</table>
+<p>The value is a CPE 2.3 formatted string, <code>cpe:2.3:a:&lt;vendor&gt;:&lt;product&gt;:&lt;version&gt;:*:*:*:*:*:*:*</code>, with the table's
+vendor and product as NVD spells them and the conda package's own version (characters a formatted string cannot
+carry unquoted are quoted with a backslash).</p>
+<p><strong>A package that is not in the table gets no CPE. pixi-sbom never guesses one from a name</strong>: name guessing is where
+scanners' false positives on conda packages come from. Nothing is looked up at run time; the table is identity data,
+like the PyPI mapping. PyPI packages, and conda packages with a PyPI identity, are matched by their purl and get no
+CPE. <code>--explain &lt;package&gt;</code> shows the table entry a CPE came from, or that there is none, and <code>--report quality</code>
+counts native conda packages that have neither a CPE nor a purl a scanner matches.</p>
+<p>A CPE match is only as precise as the version: NVD cannot know that a conda-forge build carries a backported fix, so
+a finding on an older version may already be fixed in that build.</p>
 <h3 id="licenses">Licenses<a class="headerlink" href="#licenses" title="Permanent link">&para;</a></h3>
 <p>Package license strings are whatever the channel or index declared; conda-forge is mostly SPDX-clean but not
 entirely, and PyPI wheels in a pixi lockfile carry no license at all unless <code>--fetch-licenses</code> looks them up (below).

@@ -1035,6 +1035,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-cpe-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The CPE table
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#not-covered" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1424,6 +1435,17 @@
     <span class="md-ellipsis">
       
         Document formats
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-cpe-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The CPE table
       
     </span>
   </a>
@@ -1955,6 +1977,11 @@ passes anything through.</p>
 <p><code>--from-sbom</code> keeps reading CycloneDX 1.4–1.7 and SPDX 2.x / 3.0 JSON.</p>
 <p>Lockfile format versions 1 through 7 stay readable. A newer one is refused by name rather than
 half-read, and that refusal is exit code 1.</p>
+<h2 id="the-cpe-table">The CPE table<a class="headerlink" href="#the-cpe-table" title="Permanent link">&para;</a></h2>
+<p>The format of <code>data/cpe.toml</code> and of the CPEs written from it (a CPE 2.3 formatted string in CycloneDX's <code>cpe</code>,
+SPDX 2.3's <code>cpe23Type</code> reference and SPDX 3.0.1's <code>cpe23</code> identifier) is covered. <strong>Its entries are not</strong>: which conda
+packages have a CPE, and with which vendor and product, change in any release, patch releases included, as entries
+are added and corrected.</p>
 <h2 id="not-covered">Not covered<a class="headerlink" href="#not-covered" title="Permanent link">&para;</a></h2>
 <p>These change without a major version, and nothing should be parsed out of them:</p>
 <ul>
