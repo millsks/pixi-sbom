@@ -1658,6 +1658,11 @@ has every commit.</p>
 <li><strong>Learned tab completion</strong> in bash, zsh, fish and PowerShell, for <code>pixi-sbom</code> and <code>pixi sbom</code>.</li>
 </ul>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<p><strong><code>--help</code> groups its flags.</strong> The 70-odd flags were one list; they are now in sections (General, Input,
+Configuration, Output, Environment and platform, Enrichment, Filtering, License policy, Quality gates,
+Vulnerabilities, Reports, Network and cache, Diagnostics). Each section opens with a rule, <code>── INPUT ────…</code>, set apart
+by blank lines and coloured in a terminal, so a new one is plain even with colour off. The
+<a href="../cli/#options">CLI reference</a> follows the same grouping.</p>
 <p><strong>Tab completion lists flags alphabetically.</strong> It offered them in the order they are declared in the code, so in
 zsh <code>--fail-on-yanked</code> sat far from <code>--fail-on-kev</code> and a half-remembered name meant reading all of them. Every shell
 now gets flags and their values in alphabetical order.</p>
