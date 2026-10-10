@@ -25,31 +25,43 @@ Since 1.0, pixi-sbom has:
 
 ## Unreleased
 
-**Three new examples to try these on.** `examples/projects/pixi/15-r-analysis`, `16-go-tools` and `17-node-tools`
-(also locked by conda-lock and as explicit specs) are conda environments with R, Go and JavaScript packages in them.
-Install one and point `--prefix` at it; see [Try it on the examples](try-the-examples.md).
+1.11.0 looks past Python inside a conda environment. R packages, the Go modules compiled into Go programs and the
+npm packages under `node_modules` now get identities an advisory database can match. The Grype comparison CI runs
+now covers six environments, Go and JavaScript among them, and for each, Grype finds nothing from syft's document
+that it misses from pixi-sbom's.
 
-**`--prefix` lists the npm packages installed in a conda environment.** `nodejs` brings npm and about 120 packages
-npm itself depends on, and a JavaScript tool such as `configurable-http-proxy` brings its own; none of them was in
-the document. Every package under the environment's `node_modules` is now a `pkg:npm` component under the conda
-package that installed it, with its dependencies and license, so OSV and Grype check them. On a `nodejs` plus
-`configurable-http-proxy` environment that is 178 releases and 12 Grype findings, the same as syft's with its
-installed-package cataloger on (by default syft reads only JavaScript lockfiles in a directory, and finds none).
-See [npm packages in an environment](output-format.md#npm-packages-in-an-environment).
+**R packages carry their CRAN identity, so OSV finds their advisories.** An `r-*` conda package had only a
+`pkg:conda` purl, which no advisory database indexes. Each one that is on CRAN now also has a `pkg:cran` purl, named
+and versioned as CRAN spells it (`r-rcpp` 1.0.13_1 is `pkg:cran/Rcpp@1.0.13-1`). The name comes from the package's own
+`DESCRIPTION` file, in the environment or in the package cache, and from a generated table otherwise.
+`--vulnerabilities osv` then reports, for example, RSEC-2023-8 against commonmark 1.8.0. Bioconductor, GitHub and
+base-R packages get none. Grype has no CRAN advisories, so for R this is OSV's and osv-scanner's. See
+[CRAN identities for R packages](output-format.md#cran-identities-for-r-packages).
 
 **The Go modules inside a conda environment's Go programs are listed.** conda-forge builds `gh`, `go-yq`,
 `terraform` and the rest from source, so the conda record names the package and nothing in it. With `--prefix` and
 `--embedded-sboms`, each Go binary's build information is read, the list `go version -m` prints, and every module
 becomes a `pkg:golang` component under the package that ships it, with the Go standard library as
-`pkg:golang/stdlib`. On a `go-yq` environment that is the same 26 modules `go version -m` lists, and Grype finds the
-same 18 Go advisories in it as in syft's document. See [Go modules inside a binary](output-format.md#go-modules-inside-a-binary).
+`pkg:golang/stdlib`. The `16-go-tools` example (`go-yq` and `gh`) gives 186 modules, the ones `go version -m` lists,
+and Grype finds the same Go advisories in it as in syft's document. See
+[Go modules inside a binary](output-format.md#go-modules-inside-a-binary).
 
-**R packages carry their CRAN identity, so OSV finds their advisories.** An `r-*` conda package had only a
-`pkg:conda` purl, which no advisory database indexes. Each one that is on CRAN now also has a `pkg:cran` purl, named
-and versioned as CRAN spells it (`r-rcpp` 1.0.13_1 is `pkg:cran/Rcpp@1.0.13-1`), read from the package's own
-`DESCRIPTION` file where it is on disk. `--vulnerabilities osv` then reports, for example, RSEC-2023-8 against
-commonmark 1.8.0. Bioconductor, GitHub and base-R packages get none. See
-[CRAN identities for R packages](output-format.md#cran-identities-for-r-packages).
+**`--prefix` lists the npm packages installed in a conda environment.** `nodejs` brings npm and the packages npm
+itself depends on, and a JavaScript tool such as `configurable-http-proxy` brings its own; none of them was in the
+document. Every package under the environment's `node_modules` is now a `pkg:npm` component under the conda package
+that installed it, with its dependencies and license, so OSV and Grype check them. The `17-node-tools` example gives
+220 releases, exactly the ones syft lists with its installed-package cataloger on. By default, syft reads only
+JavaScript lockfiles in a directory and lists none of them. See
+[npm packages in an environment](output-format.md#npm-packages-in-an-environment).
+
+**Three new examples to try these on.** `examples/projects/pixi/15-r-analysis`, `16-go-tools` and `17-node-tools`,
+also locked by conda-lock and as explicit specs, are conda environments with R, Go and JavaScript packages in them.
+Install one and point `--prefix` at it; see [Try it on the examples](try-the-examples.md).
+
+**A worked example of submitting to GitHub's dependency graph.** This repository now submits its own pixi
+environments with the Action's `dependency-submission` input on every push that changes the lockfile:
+[`dependency-graph.yml`](https://github.com/millsks/pixi-sbom/blob/main/.github/workflows/dependency-graph.yml),
+linked from [the Action's Dependabot section](github-action.md#dependabot-alerts).
 
 ## 1.10.0
 
