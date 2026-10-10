@@ -89,6 +89,31 @@ Two things are deliberately not attested. The crates.io package is not, because 
 feedstock builds on conda-forge's infrastructure rather than ours — the provenance there would be theirs to make.
 The binaries this project builds and hands out are the ones covered, which includes what `cargo binstall` fetches.
 
+## Shell completion
+
+`pixi-sbom` completes its flags, the values they take (`--report <TAB>` lists the report kinds,
+`--format <TAB>` the formats) and file paths. Add the line for your shell to its startup file:
+
+| Shell | Startup file | Line |
+|---|---|---|
+| bash | `~/.bashrc` | `source <(PIXI_SBOM_COMPLETE=bash pixi-sbom)` |
+| zsh | `~/.zshrc` | `source <(PIXI_SBOM_COMPLETE=zsh pixi-sbom)` |
+| fish | `~/.config/fish/config.fish` | `PIXI_SBOM_COMPLETE=fish pixi-sbom \| source` |
+| PowerShell | `$PROFILE` | `$env:PIXI_SBOM_COMPLETE = "powershell"; pixi-sbom \| Out-String \| Invoke-Expression; Remove-Item Env:\PIXI_SBOM_COMPLETE` |
+| elvish | `~/.config/elvish/rc.elv` | `eval (E:PIXI_SBOM_COMPLETE=elvish pixi-sbom \| slurp)` |
+
+The line asks the binary for its registration each time a shell starts, so it always matches the
+installed version; don't save its output to a file. Pressing Tab runs `pixi-sbom` briefly to ask
+for suggestions. That run reads no lockfile, writes nothing and makes no network request, and
+`PIXI_SBOM_COMPLETE` is set only for it, so every other run writes its SBOM as usual.
+
+**`pixi sbom` (with a space) is not completed.** pixi's own completion knows only pixi's built-in
+commands and does not hand an extension's arguments to the extension
+([#424](https://github.com/millsks/pixi-sbom/issues/424) has the tests;
+[prefix-dev/pixi#7225](https://github.com/prefix-dev/pixi/issues/7225) asks pixi to). The
+mechanism above is the one pixi would use to forward them, so completion will reach `pixi sbom`
+without a change here if it does. Until then, type `pixi-sbom` when you want Tab.
+
 ## Upgrading
 
 `pixi global update pixi-sbom` follows the conda-forge feedstock, which tracks releases within a day or two; a

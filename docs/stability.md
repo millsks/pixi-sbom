@@ -129,6 +129,7 @@ so they are not frozen here; they are honoured with the meanings rattler and cur
 | `PIXI_SBOM_OFFLINE` | Make no network requests. |
 | `PIXI_SBOM_NO_PROGRESS` | No progress bars. |
 | `PIXI_SBOM_LOG_FORMAT` | `text` or `json`. |
+| `PIXI_SBOM_COMPLETE` | `bash`, `zsh`, `fish`, `powershell` or `elvish`: print that shell's completion registration instead of an SBOM. Any other value is ignored. |
 | `PIXI_SBOM_CA_BUNDLE` | A PEM bundle to trust. |
 | `PIXI_SBOM_OSV_URL` | Where to query OSV. |
 | `PIXI_SBOM_KEV_URL` | Where to fetch the CISA catalog. |
@@ -241,6 +242,10 @@ These change without a major version, and nothing should be parsed out of them:
   are derived and may change shape; so may the order of `components` / `packages` / `@graph`
   entries. Match on `purl`, `name` and `version`.
 - **Cache layout.** Directory names and file formats under the cache directory.
+- **Completion scripts and candidates.** What `PIXI_SBOM_COMPLETE=<shell> pixi-sbom` prints, how the
+  shell and the binary talk to each other (clap's dynamic completion, which clap itself marks
+  unstable), and which candidates are offered. Source the registration at shell start rather than
+  saving it, so it always matches the binary.
 
 ## Changing something that is frozen
 

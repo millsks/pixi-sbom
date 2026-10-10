@@ -9497,3 +9497,85 @@ fn the_talk_demo_runs_as_written_and_its_slides_show_what_it_prints() {
         "every command and output line on the demo slides was checked"
     );
 }
+
+/// `PIXI_SBOM_COMPLETE=<shell> pixi-sbom` prints the line a shell's startup file sources, for
+/// every shell offered, and registers it for `pixi-sbom`, called by name on PATH.
+#[test]
+fn every_shell_gets_a_completion_registration_for_pixi_sbom() {
+    for shell in ["bash", "zsh", "fish", "powershell", "elvish"] {
+        let output = pixi_sbom().env("PIXI_SBOM_COMPLETE", shell).output().unwrap();
+        let script = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            output.status.success(),
+            "{shell}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(script.contains("pixi-sbom"), "{shell} registers pixi-sbom:\n{script}");
+        assert!(
+            script.contains("PIXI_SBOM_COMPLETE"),
+            "{shell} calls back with our variable:\n{script}"
+        );
+        assert!(
+            !script.contains("/pixi-sbom"),
+            "{shell} calls the binary by name, not by path:\n{script}"
+        );
+    }
+}
+
+/// What a shell gets back when it asks: flags, the values a flag takes, and file paths. Asked the
+/// way fish asks, the simplest of the protocols, in a copy of a pixi example.
+#[test]
+fn completion_offers_flags_values_and_paths() {
+    let work = tempfile::tempdir().unwrap();
+    std::fs::write(work.path().join("pixi.lock"), "").unwrap();
+    let complete = |words: &[&str]| {
+        let output = pixi_sbom()
+            .current_dir(work.path())
+            .env("PIXI_SBOM_COMPLETE", "fish")
+            .arg("--")
+            .arg("pixi-sbom")
+            .args(words)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{words:?}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(|line| line.split('\t').next().unwrap().to_string())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(complete(&["--form"]), ["--format"]);
+    assert_eq!(complete(&["--format", ""]), ["cyclonedx", "spdx"]);
+    let reports = complete(&["--report", ""]);
+    for kind in ["packages", "licenses", "vulnerabilities", "quality"] {
+        assert!(reports.iter().any(|r| r == kind), "--report offers {kind}: {reports:?}");
+    }
+    assert_eq!(complete(&["--lockfile", "pixi."]), ["pixi.lock"]);
+    // Nothing is written while completing: no SBOM, no cache.
+    let left: Vec<_> = std::fs::read_dir(work.path())
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert_eq!(left, ["pixi.lock"]);
+}
+
+/// Only a shell's name asks for completion. A stray value left in an environment, or clap's
+/// default `COMPLETE` variable that other tools share, leaves the run as it was.
+#[test]
+fn a_stray_completion_variable_does_not_change_a_run() {
+    for (variable, value) in [
+        ("PIXI_SBOM_COMPLETE", "1"),
+        ("PIXI_SBOM_COMPLETE", "true"),
+        ("COMPLETE", "zsh"),
+    ] {
+        pixi_sbom()
+            .env(variable, value)
+            .arg("--version")
+            .assert()
+            .success()
+            .stdout(predicates::str::starts_with("pixi-sbom "));
+    }
+}

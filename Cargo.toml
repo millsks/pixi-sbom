@@ -112,6 +112,7 @@ ureq = { version = "3.4.2", default-features = false, features = [
 ] }
 uuid = { version = "1.26.1", features = ["v5"] }
 zstd = "0.14.0"
+clap_complete = { version = "=4.6.11", features = ["unstable-dynamic"] }
 
 # A proxy set only in the Windows settings, with no environment variable, is invisible without
 # this; it costs nothing on the other platforms because it is not built there.

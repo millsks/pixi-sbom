@@ -24,6 +24,16 @@ use miette::{Context, IntoDiagnostic, Result};
 use tracing_subscriber::EnvFilter;
 
 fn main() -> Result<()> {
+    // A shell asking for completion gets its registration script or its candidates, and the
+    // process exits here, before any lockfile is read. Registered and called by the name on
+    // PATH, so the script survives an upgrade that moves the binary.
+    if cli::completion_requested(std::env::var(cli::COMPLETE_ENV).ok().as_deref()) {
+        clap_complete::CompleteEnv::with_factory(|| cli::Args::command().bin_name("pixi-sbom"))
+            .var(cli::COMPLETE_ENV)
+            .bin("pixi-sbom")
+            .completer("pixi-sbom")
+            .complete();
+    }
     let started = std::time::Instant::now();
     let matches = cli::Args::command().get_matches();
     let mut args = cli::Args::from_arg_matches(&matches).into_diagnostic()?;

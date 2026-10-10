@@ -160,6 +160,20 @@ pub enum GroupBy {
 /// command line.
 pub const LOG_FORMAT_ENV: &str = "PIXI_SBOM_LOG_FORMAT";
 
+/// The environment variable a shell sets to ask for completion instead of an SBOM. Its own name
+/// rather than clap's default `COMPLETE`, which other tools use too.
+pub const COMPLETE_ENV: &str = "PIXI_SBOM_COMPLETE";
+
+/// The shells completion is offered for.
+pub const COMPLETION_SHELLS: [&str; 5] = ["bash", "elvish", "fish", "powershell", "zsh"];
+
+/// Whether this run is a shell asking for completion. Only a shell's name counts: a stray
+/// `PIXI_SBOM_COMPLETE=1` left in an environment is ignored, so the run still writes its SBOM
+/// instead of failing on an unknown shell.
+pub fn completion_requested(value: Option<&str>) -> bool {
+    value.is_some_and(|shell| COMPLETION_SHELLS.contains(&shell))
+}
+
 /// How the log on stderr is rendered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
 pub enum LogFormat {
@@ -699,6 +713,24 @@ pub fn parse_probability(text: &str) -> Result<f64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_shells_name_asks_for_completion() {
+        for shell in COMPLETION_SHELLS {
+            assert!(completion_requested(Some(shell)), "{shell}");
+        }
+        for stray in [
+            None,
+            Some(""),
+            Some("0"),
+            Some("1"),
+            Some("true"),
+            Some("nushell"),
+            Some("ZSH"),
+        ] {
+            assert!(!completion_requested(stray), "{stray:?}");
+        }
+    }
 
     #[test]
     fn an_epss_threshold_is_a_probability() {
