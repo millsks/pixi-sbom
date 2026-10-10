@@ -2577,7 +2577,10 @@ lives outside it, and a conda environment lists its <code>python</code> package,
 <code>pixi:source-document</code> — the source's CycloneDX serial number or SPDX document namespace — rather than
 <code>pixi:lockfile</code>, and the SPDX root package's source info says <code>document &lt;identity&gt;</code>. Everything the source records
 is carried over, including the <code>pixi:*</code> properties, so a document this tool wrote round-trips unchanged; a package
-whose purl is neither <code>pkg:conda</code> nor <code>pkg:pypi</code>, or which has no purl, gets <code>pixi:kind=external</code>.</p>
+whose purl is neither <code>pkg:conda</code> nor <code>pkg:pypi</code>, or which has no purl, gets <code>pixi:kind=external</code>. Another tool's
+facts are read in their standard places: the supplier from CycloneDX <code>supplier</code>, <code>manufacturer</code>, <code>authors</code> or
+<code>author</code>, or SPDX <code>supplier</code> or <code>originator</code> (the name, without <code>Person:</code> / <code>Organization:</code> or an email); and the CPE
+from CycloneDX <code>cpe</code> or an SPDX <code>cpe23Type</code> / <code>cpe22Type</code> reference, written back to the output's CPE field.</p>
 <p>Merged (<code>--from-sbom</code> more than once, or <code>--scan --merge</code>), the metadata property lists every input, and each
 package carries <code>pixi:source-document</code> naming the inputs it came from. Each input's root is a component of its own
 (<code>pkg:generic/&lt;name&gt;@&lt;version&gt;</code>). A package whose inputs disagree about its license, or about the hash of a purl that names one file, carries
