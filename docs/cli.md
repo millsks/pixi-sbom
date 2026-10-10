@@ -16,41 +16,98 @@ With no options this means:
 
 ## Options
 
+Grouped as `--help` groups them.
+
+### General
+
+| Option | Default | Effect |
+|---|---|---|
+| `-h, --help`, `-V, --version` | | Usual meanings. |
+
+### Input
+
 | Option | Default | Effect |
 |---|---|---|
 | `--lockfile <PATH>` | upward search from cwd | Lockfile to read: a `pixi.lock`, a `uv.lock` (see [Reading uv.lock](#reading-uvlock)), a `poetry.lock` (see [Reading poetry.lock](#reading-poetrylock)), a `pdm.lock` (see [Reading pdm.lock](#reading-pdmlock)), a `conda-lock.yml` (see [Reading conda-lock.yml](#reading-conda-lockyml)), an explicit conda spec file (see [Reading an explicit spec file](#reading-an-explicit-spec-file)), a fully pinned `requirements.txt` (see [Reading a pinned requirements.txt](#reading-a-pinned-requirementstxt)), or a PEP 751 `pylock.toml` / `pylock.<name>.toml` (see [Reading pylock.toml](#reading-pylocktoml)). The file must exist; there is no fallback search when this is given. Without it, the nearest directory at or above the current one that has a lockfile is used, and within a directory the first in the order of [Which lockfile is found](#which-lockfile-is-found). |
+| `--from-sbom <FILE>` | | Read an existing document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON) instead of a lockfile and run the reports, the license policy and the vulnerability gate on it. Repeatable: several documents are merged into one, see [Merging documents](#merging-documents). |
+| `--merge` | off | With `--scan`: write one document for the whole tree instead of one per workspace (and then `--output -` and `--against` apply). See [Merging documents](#merging-documents). |
+| `--scan <DIR>` | | Describe every project under the directory: one document per directory with a lockfile of any kind it finds (see [Which lockfile is found](#which-lockfile-is-found)). Cannot be combined with `--lockfile` or `--prefix`, nor, without `--merge`, with `--against` or `--output -`. |
+| `--scan-depth <N>` | unlimited | With `--scan`: how far below the directory to walk (`0` is the directory itself). |
 | `--prefix <DIR>` | | Describe an installed environment instead of a lockfile: a conda environment, a venv or a Python installation (see below). Cannot be combined with `--lockfile` or the `--all-*` flags; `--environment` only names the lockfile side of `--against`. |
 | `--root-name <NAME>`, `--root-version <VERSION>` | directory name, none | With `--prefix`: what the described application is called. |
+
+### Configuration
+
+| Option | Default | Effect |
+|---|---|---|
 | `--config <PATH>` | see below | Configuration file to read before the command line. |
 | `--no-config` | off | Ignore any configuration file. |
+
+### Output
+
+| Option | Default | Effect |
+|---|---|---|
 | `--format <cyclonedx\|spdx\|github>` | `cyclonedx` | `cyclonedx` writes CycloneDX JSON; `spdx` writes SPDX 2.3 JSON; `github` writes a GitHub dependency submission snapshot (`sbom.github.json`), see [GitHub's dependency graph](formats.md#githubs-dependency-graph). |
 | `--spec-version <1.6\|1.7\|2.3\|3.0>` | `1.6` / `2.3` | Specification version: `1.6` or `1.7` for CycloneDX (1.7 adds a `citations` entry), `2.3` or `3.0` for SPDX (3.0 is the JSON-LD graph of SPDX 3.0.1). Defaults stay at 1.6 / 2.3 until the common consumers move. A version of the other format is a usage error. |
 | `--output <PATH>` | `<lockfile dir>/sbom.cdx.json` or `sbom.spdx.json` | File to write; parent directories are created. `-` writes the document to stdout (logs stay on stderr). With `--all-environments` / `--all-platforms` this is a directory instead, and `-` is rejected. An existing file that the run would change only in its timestamp is left as it was. |
+
+### Environment and platform
+
+| Option | Default | Effect |
+|---|---|---|
 | `-e, --environment <NAME>` | `default` | Lock environment to describe. Must exist in the lockfile. |
 | `-p, --platform <PLATFORM>` | host platform | Platform within that environment, e.g. `linux-64`, `osx-arm64`, `win-64`. Must be locked for the environment. |
 | `--all-environments` | off | Write one document per environment (see below). Cannot be combined with `--environment`. |
 | `--all-platforms` | off | Write one document per platform the environment is locked for (see below). Cannot be combined with `--platform`. |
+
+### Enrichment
+
+| Option | Default | Effect |
+|---|---|---|
+| `--concurrency <N>` | `10` | How many requests may be in flight at once. It depends on the network, not the machine: raise it on a high-latency link, lower it to be gentler; `1` makes requests serial. Also `PIXI_SBOM_CONCURRENCY` and the `concurrency` key. |
+| `--conda-index-kind <prefix\|anaconda>` | `prefix` | Which index `--report outdated` asks for conda versions: prefix.dev (about ten packages per request), or anaconda.org directly for a network that blocks prefix.dev. |
 | `--pypi-mapping <lock\|prefix>` | `lock` | Where PyPI identities for conda packages come from. `prefix` downloads the conda-forge mapping (cached for a day) so conda-installed Python packages get a `pkg:pypi` purl. |
 | `--pypi-mapping-file <PATH>` | | Offline copy of that mapping; implies the same enrichment with no network. Cannot be combined with `--pypi-mapping`. |
 | `--primary-purl <conda\|pypi>` | `conda` | With `pypi`, a conda package that has a PyPI purl uses it as its primary `purl` so vulnerability scanners can match it. |
-| `--exclude <GLOB>` | | Repeatable. Leave packages whose name matches the shell-style pattern (`*`, `?`; case-insensitive, `-` and `_` alike) out of the document, together with whatever only they needed (see below). |
-| `--include <GLOB>` | | Repeatable. Keep only packages whose name matches one of the patterns. |
-| `--exclude-kind <conda\|conda-source\|pypi\|embedded\|external>` | | Repeatable. Leave every package of that kind out. |
-| `--keep-orphans` | off | With the filters above: keep the packages that only excluded packages needed. |
 | `--fetch-licenses` | off | Fetch the license of every package, conda and PyPI alike, where the lockfile has none, plus the names of the license files it ships and its summary and project URLs. Conda details come from the local package cache pixi filled at install time, or from the archive on the channel via HTTP range requests (a few KB per package, cached); PyPI details from the wheel's `dist-info` the same way, then the index JSON API for what is still missing. Failures are logged and the run continues. |
 | `--license-texts` | off | With `--fetch-licenses`, also embed the full text of every license file. Each file is capped at 1 MiB and the document holds at most 64 MiB of text in total; past that the files are listed by name and the document says so (see [incomplete enrichment](output-format.md#incomplete-enrichment)). |
 | `--embedded-sboms` | off | Add the components declared by SBOMs embedded in wheels (PEP 770, e.g. the Rust crates maturin compiled in) as dependencies of the wheel. Reads each wheel's `dist-info` like `--fetch-licenses`. With `--prefix`, also reads the `cargo auditable` crate list out of the environment's binaries, and the Python distributions packages vendor inside themselves (`setuptools/_vendor`). |
 | `--infer-extras` | off | With `--prefix`: infer which extras each Python package was installed with, from what is installed, and label it as inferred (see [Python extras](#python-extras)). |
 | `--verify-files` | off | With `--prefix`: hash every file each conda package installed and compare it with its conda-meta record. Exit **11** (document written first) when one is modified or missing; see [Has anything changed since installation](#has-anything-changed-since-installation). |
+| `--pypi-licenses` | | Deprecated alias for `--fetch-licenses` (hidden from `--help`; removed in a future release). |
+
+### Filtering
+
+| Option | Default | Effect |
+|---|---|---|
+| `--exclude <GLOB>` | | Repeatable. Leave packages whose name matches the shell-style pattern (`*`, `?`; case-insensitive, `-` and `_` alike) out of the document, together with whatever only they needed (see below). |
+| `--include <GLOB>` | | Repeatable. Keep only packages whose name matches one of the patterns. |
+| `--exclude-kind <conda\|conda-source\|pypi\|embedded\|external>` | | Repeatable. Leave every package of that kind out. |
+| `--keep-orphans` | off | With the filters above: keep the packages that only excluded packages needed. |
+
+### License policy
+
+| Option | Default | Effect |
+|---|---|---|
 | `--allow-license <LICENSE>` | | Repeatable. Only these SPDX licenses are acceptable; a package whose license expression cannot be satisfied with them alone is a violation. |
 | `--deny-license <LICENSE>` | | Repeatable. These SPDX licenses are unacceptable; a package whose expression cannot be satisfied without them is a violation. |
-| `--require-license` | off | Every package must declare a license that is an SPDX expression. |
 | `--ignore-license <PACKAGE[:WHY]>` | | Repeatable. The policy does not apply to packages matching this name or pattern; they are listed as exempt in the report and carry `pixi:license-exempt` in the document. |
+| `--require-license` | off | Every package must declare a license that is an SPDX expression. |
+
+### Quality gates
+
+| Option | Default | Effect |
+|---|---|---|
 | `--scorecard` | off | With `--fetch-licenses`: ask the OpenSSF Scorecard service how each package's repository is maintained and record the score in the document. |
 | `--scorecard-min <N>` | `5` | With `--scorecard`: the score a package or a check has to reach to be left alone. |
-| `--fail-on-scorecard <N>` | | With `--scorecard`: exit **9** when a scored package is below this. Unscored packages never fail. |
 | `--min-quality <N>` | | Exit **10** (document written first) when the document's quality score, out of 100, is below this; see [How complete the document is](#how-complete-the-document-is). Most useful with `--from-sbom`. |
+| `--fail-on-scorecard <N>` | | With `--scorecard`: exit **9** when a scored package is below this. Unscored packages never fail. |
 | `--fail-on-yanked` | off | With `--fetch-licenses`: exit **7** after writing the document when any PyPI package is a yanked release (PEP 592). |
+
+### Vulnerabilities
+
+| Option | Default | Effect |
+|---|---|---|
 | `--vulnerabilities <osv>` | off | Look up known vulnerabilities of every package with a purl OSV can answer and record them in the document (see below). |
 | `--kev` | off | With `--vulnerabilities`: mark findings whose CVE alias is in CISA's Known Exploited Vulnerabilities catalog (downloaded once a day). They are rated `critical`, sorted first, and carry the catalog's dates and required action. |
 | `--fail-on-kev` | off | With `--kev`: exit **4** after writing the document when any open finding is known exploited, regardless of severity. |
@@ -58,14 +115,46 @@ With no options this means:
 | `--fail-on-epss <P>` | off | With `--epss`: exit **4** after writing the document when any open finding's EPSS score is at or above `P` (0.0 to 1.0). Unscored findings never trip it. |
 | `--fail-on-severity <low\|medium\|high\|critical>` | | With `--vulnerabilities`: exit **4** after writing the document when any open finding is at or above the level. Findings of unknown severity never trip it. |
 | `--ignore-vuln <ID[:STATE][:TEXT]>` | | Repeatable, with `--vulnerabilities`. Accept a finding by advisory id or alias (GHSA, CVE, ...): it stays in the document with a CycloneDX `analysis` block (`state` defaults to `not_affected`; `TEXT` is the justification, and `not_affected` may be followed by a machine-readable one, see below), is excluded from `--fail-on-severity` and listed separately in the report. |
-| `--vex <PATH>` | | With `--vulnerabilities` and CycloneDX output: also write a standalone CycloneDX VEX there, linked back to the SBOM. |
 | `--vex-in <PATH>` | | Repeatable, with `--vulnerabilities`. Apply somebody else's VEX (CycloneDX or OpenVEX) to the findings before the gate: `not_affected`, `false_positive` and `resolved` clear a finding, `exploitable` and `in_triage` are recorded only. See [Applying a vendor's VEX](#applying-a-vendors-vex). |
+| `--vex <PATH>` | | With `--vulnerabilities` and CycloneDX output: also write a standalone CycloneDX VEX there, linked back to the SBOM. |
 | `--vex-open <in-triage\|exploitable>` | `in-triage` | The analysis state the VEX gives findings nobody assessed with `--ignore-vuln`. |
+
+### Reports
+
+| Option | Default | Effect |
+|---|---|---|
+| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom\|scorecard\|quality\|files>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`, `files` needs `--prefix`. |
+| `--explain <PACKAGE>` | | Repeatable. Print every fact the tool has about the packages matching this name or shell-style pattern (as in `--exclude`) and where each fact came from, including the sources that came back empty (see below). Prints instead of writing, so it cannot be combined with `--output` or `--report`. |
+| `--report-format <table\|markdown\|csv\|json\|sarif>` | `table` | How to render the report or `--explain`; `sarif` (2.1.0, for GitHub code scanning) applies to `--report vulnerabilities` only. |
+| `--color <auto\|always\|never>` | `auto` | Colour the `table` report. `auto` colours only when the output is a terminal, honouring `NO_COLOR`, `CLICOLOR_FORCE` and `TERM=dumb`. |
+| `--tree` | off | With `--report packages`: draw the dependency graph from the root downward instead of a flat list. |
+| `--depth <N>` | unlimited | With `--tree`: how deep to go (`0` shows what the root depends on and nothing below). |
+| `--group-by license` | | With `--report licenses`: one section per license instead of one row per package. |
+| `--outdated-min <patch\|minor\|major>` | | With `--report outdated`: list only packages at least that far behind. |
+| `--against <PATH>` | | With `--report diff`: what to compare with — a document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON), any lockfile `--lockfile` reads (`pixi.lock`, `uv.lock`, `pylock.toml`, `poetry.lock`, `pdm.lock`, `conda-lock.yml`, an explicit spec file), or the directory of an installed environment (conda, venv or plain Python). |
+| `--fail-on-diff [<SECTION>...]` | off | With `--report diff`: exit **6** when the named sections (`added`, `removed`, `version`, `license`, `build`, `pip`) are not empty. The bare flag means any change. |
+| `--source <DIR>` | the lockfile's directory | With `--report phantom`: where the workspace's Python sources are (repeatable). |
+| `--assume-used <GLOB>` | | With `--report phantom`: packages matching this are never reported as unused or undeclared (repeatable). |
+| `--fail-on-phantom` | off | With `--report phantom`: exit **8** when the workspace imports a package it never declared. |
+
+### Network and cache
+
+| Option | Default | Effect |
+|---|---|---|
+| `--ca-bundle <FILE>` | the OS trust store | Verify TLS against the certificates in this PEM file instead of the operating system's store: a TLS-intercepting appliance's CA, or a private one. The order is `--ca-bundle`, `PIXI_SBOM_CA_BUNDLE`, `SSL_CERT_FILE`, then the platform verifier — see [which certificates TLS is verified against](#which-certificates-tls-is-verified-against). |
+| `--refresh [<CACHE>...]` | off | Ignore cached answers this run and ask again; with no value every cache, else the named ones (`mapping`, `osv`, `kev`, `epss`, `wheels`, `conda-info`, `pypi`, `outdated`, `scorecard`). What is fetched is still cached. |
+| `--no-cache` | off | Neither read nor write any cache. |
+
+### Diagnostics
+
+| Option | Default | Effect |
+|---|---|---|
 | `--version-details` (`--build-info`) | | Print the version with the target, the features compiled in, the caches, pixi's version and the network settings: the block to paste into a bug report. |
 | `--timings` | off | Print where the run spent its time, phase by phase, separating waiting on the network from working. |
 | `--doctor` | off | Probe every upstream this build knows about, print the configuration and the caches, and exit 1 if anything is unreachable. Naming the flags of a run narrows it to the upstreams that run uses. Needs no lockfile. |
-| `--refresh [<CACHE>...]` | off | Ignore cached answers this run and ask again; with no value every cache, else the named ones (`mapping`, `osv`, `kev`, `epss`, `wheels`, `conda-info`, `pypi`, `outdated`, `scorecard`). What is fetched is still cached. |
-| `--no-cache` | off | Neither read nor write any cache. |
+| `--log-format <text\|json>` | `text` | How the log on stderr is rendered. `json` writes one JSON object per event, with the timestamp back and every field its own key. Also `PIXI_SBOM_LOG_FORMAT`. |
+| `-v`, `-vv` | info | Raise the log level to debug / trace. Logs go to stderr; the SBOM never goes to stdout. |
+| `-q`, `-qq`, `-qqq` | info | Lower it to warnings only / errors only / silent. Error diagnostics are printed regardless. |
 
 ### Flags that answer to an older name
 
@@ -80,29 +169,6 @@ and always will be** — they are hidden from `--help` so there is one name to l
 `--pypi-licenses` likewise still works as an alias of `--fetch-licenses`, with a warning, as it has since 0.4.0.
 Nothing in this table is scheduled for removal; dropping any of it would be a major version with its own notice.
 [What 1.0 freezes](stability.md) is the full contract.
-| `--report <packages\|licenses\|vulnerabilities\|diff\|outdated\|python\|phantom\|scorecard\|quality\|files>` | | Print a report to the terminal instead of writing a document (see below). Cannot be combined with `--output`; `vulnerabilities` needs `--vulnerabilities`, `diff` needs `--against`, `files` needs `--prefix`. |
-| `--tree` | off | With `--report packages`: draw the dependency graph from the root downward instead of a flat list. |
-| `--depth <N>` | unlimited | With `--tree`: how deep to go (`0` shows what the root depends on and nothing below). |
-| `--group-by license` | | With `--report licenses`: one section per license instead of one row per package. |
-| `--outdated-min <patch\|minor\|major>` | | With `--report outdated`: list only packages at least that far behind. |
-| `--source <DIR>` | the lockfile's directory | With `--report phantom`: where the workspace's Python sources are (repeatable). |
-| `--assume-used <GLOB>` | | With `--report phantom`: packages matching this are never reported as unused or undeclared (repeatable). |
-| `--fail-on-phantom` | off | With `--report phantom`: exit **8** when the workspace imports a package it never declared. |
-| `--from-sbom <FILE>` | | Read an existing document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON) instead of a lockfile and run the reports, the license policy and the vulnerability gate on it. Repeatable: several documents are merged into one, see [Merging documents](#merging-documents). |
-| `--scan <DIR>` | | Describe every project under the directory: one document per directory with a lockfile of any kind it finds (see [Which lockfile is found](#which-lockfile-is-found)). Cannot be combined with `--lockfile` or `--prefix`, nor, without `--merge`, with `--against` or `--output -`. |
-| `--merge` | off | With `--scan`: write one document for the whole tree instead of one per workspace (and then `--output -` and `--against` apply). See [Merging documents](#merging-documents). |
-| `--scan-depth <N>` | unlimited | With `--scan`: how far below the directory to walk (`0` is the directory itself). |
-| `--against <PATH>` | | With `--report diff`: what to compare with — a document (CycloneDX 1.4–1.7, SPDX 2.x or SPDX 3.0 JSON), any lockfile `--lockfile` reads (`pixi.lock`, `uv.lock`, `pylock.toml`, `poetry.lock`, `pdm.lock`, `conda-lock.yml`, an explicit spec file), or the directory of an installed environment (conda, venv or plain Python). |
-| `--fail-on-diff [<SECTION>...]` | off | With `--report diff`: exit **6** when the named sections (`added`, `removed`, `version`, `license`, `build`, `pip`) are not empty. The bare flag means any change. |
-| `--explain <PACKAGE>` | | Repeatable. Print every fact the tool has about the packages matching this name or shell-style pattern (as in `--exclude`) and where each fact came from, including the sources that came back empty (see below). Prints instead of writing, so it cannot be combined with `--output` or `--report`. |
-| `--report-format <table\|markdown\|csv\|json\|sarif>` | `table` | How to render the report or `--explain`; `sarif` (2.1.0, for GitHub code scanning) applies to `--report vulnerabilities` only. |
-| `--color <auto\|always\|never>` | `auto` | Colour the `table` report. `auto` colours only when the output is a terminal, honouring `NO_COLOR`, `CLICOLOR_FORCE` and `TERM=dumb`. |
-| `--pypi-licenses` | | Deprecated alias for `--fetch-licenses` (hidden from `--help`; removed in a future release). |
-| `-v`, `-vv` | info | Raise the log level to debug / trace. Logs go to stderr; the SBOM never goes to stdout. |
-| `-q`, `-qq`, `-qqq` | info | Lower it to warnings only / errors only / silent. Error diagnostics are printed regardless. |
-| `--ca-bundle <FILE>` | the OS trust store | Verify TLS against the certificates in this PEM file instead of the operating system's store: a TLS-intercepting appliance's CA, or a private one. The order is `--ca-bundle`, `PIXI_SBOM_CA_BUNDLE`, `SSL_CERT_FILE`, then the platform verifier — see [which certificates TLS is verified against](#which-certificates-tls-is-verified-against). |
-| `--log-format <text\|json>` | `text` | How the log on stderr is rendered. `json` writes one JSON object per event, with the timestamp back and every field its own key. Also `PIXI_SBOM_LOG_FORMAT`. |
-| `-h, --help`, `-V, --version` | | Usual meanings. |
 
 ## Which pixi and which lockfiles
 

@@ -2,6 +2,8 @@
 source: tests/stability.rs
 expression: "surface.join(\"\\n\")"
 ---
+  -h, --help
+  -V, --version
       --lockfile <PATH>
       --from-sbom <FILE>
       --merge
@@ -81,21 +83,6 @@ expression: "surface.join(\"\\n\")"
           - in-triage:   Somebody still has to look at it
           - exploitable: The product is affected and the finding is actionable
           [default: in-triage]
-      --version-details
-      --timings
-      --doctor
-      --refresh [<CACHE>...]
-          - all:        Every cache
-          - mapping
-          - osv
-          - kev
-          - epss
-          - wheels
-          - conda-info
-          - pypi
-          - outdated
-          - scorecard
-      --no-cache
       --report <REPORT>
           - packages:        Inventory: one row per package with kind, source, license and purl
           - licenses:        Licenses: one row per package with license, family, source and files, plus a summary
@@ -140,11 +127,24 @@ expression: "surface.join(\"\\n\")"
       --assume-used <GLOB>
       --fail-on-phantom
       --against <PATH>
+      --refresh [<CACHE>...]
+          - all:        Every cache
+          - mapping
+          - osv
+          - kev
+          - epss
+          - wheels
+          - conda-info
+          - pypi
+          - outdated
+          - scorecard
+      --no-cache
       --ca-bundle <FILE>
+      --version-details
+      --timings
+      --doctor
       --log-format <FORMAT>
           - text: One line per event, written for a person
           - json: One JSON object per event, with the timestamp and every field kept separate
   -v, --verbose...
   -q, --quiet...
-  -h, --help
-  -V, --version

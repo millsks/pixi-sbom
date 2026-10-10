@@ -40,7 +40,18 @@ fn main() -> Result<()> {
             .complete();
     }
     let started = std::time::Instant::now();
-    let matches = cli::Args::command().get_matches();
+    let matches = match cli::Args::command().try_get_matches() {
+        Ok(matches) => matches,
+        // Help is printed here rather than by clap, with its headings drawn as rules (#482).
+        Err(error) if error.kind() == clap::error::ErrorKind::DisplayHelp => {
+            let help = error.render().ansi().to_string();
+            let mut stdout = anstream::stdout();
+            write!(stdout, "{}", cli::sectioned_help(&help)).into_diagnostic()?;
+            stdout.flush().into_diagnostic()?;
+            return Ok(());
+        }
+        Err(error) => error.exit(),
+    };
     let mut args = cli::Args::from_arg_matches(&matches).into_diagnostic()?;
     args.primary_purl_chosen = matches.value_source("primary_purl") == Some(clap::parser::ValueSource::CommandLine);
     let (log_format, unknown_log_format) =

@@ -190,9 +190,10 @@ pub fn completion_command() -> clap::Command {
     command.build();
     let mut args: Vec<clap::Arg> = command.get_arguments().cloned().collect();
     args.sort_by_key(|arg| arg.get_long().unwrap_or(arg.get_id().as_str()).to_string());
-    // The engine lists flags by display order, which the derive numbers in declaration order.
+    // The engine lists flags by help heading and then display order, which the derive numbers in
+    // declaration order; without headings, display order alone decides.
     let args = args.into_iter().enumerate().map(|(position, arg)| {
-        let arg = arg.display_order(position);
+        let arg = arg.help_heading(None::<&str>).display_order(position);
         let mut values = arg.get_possible_values();
         if values.is_empty() {
             return arg;
@@ -207,6 +208,57 @@ pub fn completion_command() -> clap::Command {
         .disable_version_flag(true)
         .args(args)
         .groups(command.get_groups().cloned())
+}
+
+/// How wide a section rule in `--help` is drawn, heading included.
+const RULE_WIDTH: usize = 64;
+
+/// The colour of a section heading and its rule.
+const HEADING: anstyle::Style = anstyle::Style::new()
+    .bold()
+    .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::BrightGreen)));
+
+/// The `--help` palette: headings bold bright green, flags bold cyan, placeholders cyan.
+pub fn help_styles() -> clap::builder::Styles {
+    use anstyle::{AnsiColor, Color, Style};
+    clap::builder::Styles::styled()
+        .header(HEADING)
+        .usage(HEADING)
+        .literal(Style::new().bold().fg_color(Some(Color::Ansi(AnsiColor::Cyan))))
+        .placeholder(Style::new().fg_color(Some(Color::Ansi(AnsiColor::Cyan))))
+}
+
+/// clap's help with every section heading (`Input:`) turned into a rule (`── INPUT ───…`), two
+/// blank lines before it and one after, so a new section is unmistakable even without colour
+/// (#482). `help` is clap's rendering with ANSI styles; whoever prints it strips them when the
+/// output is not a terminal.
+pub fn sectioned_help(help: &str) -> String {
+    let mut out = String::with_capacity(help.len() + 1024);
+    for line in help.lines() {
+        let plain = anstream::adapter::strip_str(line).to_string();
+        let is_heading = plain.ends_with(':')
+            && plain.len() > 1
+            && plain.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+            && plain[..plain.len() - 1]
+                .chars()
+                .all(|c| c.is_ascii_alphabetic() || c == ' ');
+        if !is_heading {
+            out.push_str(line);
+            out.push('\n');
+            continue;
+        }
+        // clap files `--help` and `--version` under "Options", which beside sections that all hold
+        // options reads as "the rest of them".
+        let name = match &plain[..plain.len() - 1] {
+            "Options" => "GENERAL".to_string(),
+            other => other.to_uppercase(),
+        };
+        let rule = "─".repeat(RULE_WIDTH.saturating_sub(name.chars().count() + 4).max(3));
+        // clap leaves one blank line before a heading; one more, then the rule, then one after.
+        out.push('\n');
+        out.push_str(&format!("{HEADING}── {name} {rule}{HEADING:#}\n\n"));
+    }
+    out
 }
 
 /// The line in clap's PowerShell registration that passes an empty word at the cursor.
@@ -372,43 +424,44 @@ impl FailOnSeverity {
     about,
     long_about = None,
     after_help = "Documentation: https://millsks.github.io/pixi-sbom/",
+    styles = help_styles(),
     // --report-format renders whichever of the two prints to the terminal, so it requires the
     // group rather than either flag on its own.
     group = clap::ArgGroup::new("reporting").multiple(true).args(["report", "explain"]),
 )]
 pub struct Args {
     /// Path to the pixi.lock file. Defaults to searching from the current directory upward.
-    #[arg(long, value_name = "PATH", conflicts_with = "prefix")]
+    #[arg(help_heading = "Input", long, value_name = "PATH", conflicts_with = "prefix")]
     pub lockfile: Option<PathBuf>,
 
     /// Read an existing SBOM instead of a lockfile (CycloneDX 1.4-1.7, SPDX 2.x or SPDX 3.0
     /// JSON) and run the reports, the license policy and the vulnerability gate on it. Given more
     /// than once, the documents are merged into one: packages deduplicated by purl, each input's
     /// root kept under a new one.
-    #[arg(long, value_name = "FILE", conflicts_with_all = ["lockfile", "prefix", "scan"])]
+    #[arg(help_heading = "Input", long, value_name = "FILE", conflicts_with_all = ["lockfile", "prefix", "scan"])]
     pub from_sbom: Vec<PathBuf>,
 
     /// With --scan: write one document for the whole tree, every workspace's packages merged
     /// under one root, instead of one document per workspace.
-    #[arg(long, requires = "scan")]
+    #[arg(help_heading = "Input", long, requires = "scan")]
     pub merge: bool,
 
     /// Describe every pixi workspace under this directory: one document per `pixi.lock`
     /// found, in sorted order. Hidden directories, node_modules, target, build, dist, venv and
     /// __pycache__ are never entered and symlinked directories are not followed. With
     /// --output the documents land under it, mirroring each workspace's path.
-    #[arg(long, value_name = "DIR", conflicts_with_all = ["lockfile", "prefix"])]
+    #[arg(help_heading = "Input", long, value_name = "DIR", conflicts_with_all = ["lockfile", "prefix"])]
     pub scan: Option<PathBuf>,
 
     /// With --scan: how far below the directory to walk (0 is the directory itself).
-    #[arg(long, value_name = "N", requires = "scan")]
+    #[arg(help_heading = "Input", long, value_name = "N", requires = "scan")]
     pub scan_depth: Option<usize>,
 
     /// Describe an installed environment instead of a lockfile: a `pixi global` environment
     /// (~/.pixi/envs/<name>), a conda / mamba environment, a venv, or a Python installation
     /// inside a container. Conda packages come from its conda-meta records, pip-installed ones
     /// from site-packages. With `--against <lockfile>`, `--environment` names the lock's side.
-    #[arg(long, value_name = "DIR", conflicts_with_all = ["all_environments", "all_platforms"])]
+    #[arg(help_heading = "Input", long, value_name = "DIR", conflicts_with_all = ["all_environments", "all_platforms"])]
     pub prefix: Option<PathBuf>,
 
     /// With --prefix: the name recorded for the described application (default: the
@@ -417,51 +470,74 @@ pub struct Args {
     /// `--name` is the pre-1.0 spelling and is still accepted. It was renamed because it sat
     /// beside `--root-version` doing the matching job under a different convention, and read
     /// like a package filter among `--exclude` / `--include` / `--assume-used`.
-    #[arg(long = "root-name", alias = "name", value_name = "NAME", requires = "prefix")]
+    #[arg(
+        help_heading = "Input",
+        long = "root-name",
+        alias = "name",
+        value_name = "NAME",
+        requires = "prefix"
+    )]
     pub root_name: Option<String>,
 
     /// With --prefix: the version recorded for the described application.
-    #[arg(long, value_name = "VERSION", requires = "prefix")]
+    #[arg(help_heading = "Input", long, value_name = "VERSION", requires = "prefix")]
     pub root_version: Option<String>,
 
     /// Configuration file to read before the command line (the command line wins). Defaults to
     /// `[tool.pixi-sbom]` in the pyproject.toml next to the lockfile, else pixi-sbom.toml there.
-    #[arg(long, value_name = "PATH", conflicts_with = "no_config")]
+    #[arg(
+        help_heading = "Configuration",
+        long,
+        value_name = "PATH",
+        conflicts_with = "no_config"
+    )]
     pub config: Option<PathBuf>,
 
     /// Ignore any configuration file.
-    #[arg(long)]
+    #[arg(help_heading = "Configuration", long)]
     pub no_config: bool,
 
     /// SBOM format to generate.
-    #[arg(long, value_enum, default_value_t = Format::Cyclonedx)]
+    #[arg(help_heading = "Output", long, value_enum, default_value_t = Format::Cyclonedx)]
     pub format: Format,
 
     /// Specification version to write: 1.6 (default) or 1.7 for CycloneDX, 2.3 (default) or
     /// 3.0 for SPDX.
-    #[arg(long, value_enum, value_name = "VERSION")]
+    #[arg(help_heading = "Output", long, value_enum, value_name = "VERSION")]
     pub spec_version: Option<SpecVersion>,
 
     /// Where to write the SBOM. Defaults to the lockfile's directory; `-` writes to stdout.
     /// With --all-environments / --all-platforms this is a directory that receives one
     /// sbom-<environment>, sbom-<platform> or sbom-<environment>-<platform> file per document.
-    #[arg(long, value_name = "PATH")]
+    #[arg(help_heading = "Output", long, value_name = "PATH")]
     pub output: Option<PathBuf>,
 
     /// Lock environment to describe.
-    #[arg(short, long, default_value = "default", conflicts_with = "all_environments")]
+    #[arg(
+        help_heading = "Environment and platform",
+        short,
+        long,
+        default_value = "default",
+        conflicts_with = "all_environments"
+    )]
     pub environment: String,
 
     /// Generate one SBOM per environment in the lockfile instead of a single environment.
-    #[arg(long)]
+    #[arg(help_heading = "Environment and platform", long)]
     pub all_environments: bool,
 
     /// Platform within the environment (e.g. linux-64). Defaults to the current platform.
-    #[arg(short, long, value_name = "PLATFORM", conflicts_with = "all_platforms")]
+    #[arg(
+        help_heading = "Environment and platform",
+        short,
+        long,
+        value_name = "PLATFORM",
+        conflicts_with = "all_platforms"
+    )]
     pub platform: Option<String>,
 
     /// Generate one SBOM per platform the environment is locked for instead of a single platform.
-    #[arg(long)]
+    #[arg(help_heading = "Environment and platform", long)]
     pub all_platforms: bool,
 
     /// How many requests may be in flight at once.
@@ -470,27 +546,27 @@ pub struct Args {
     /// latency, a proxy, and whether the host is a public service or your own mirror. Ten by
     /// default. Raise it on a high-latency link, lower it to be gentler; `1` makes requests
     /// serial.
-    #[arg(long, value_name = "N")]
+    #[arg(help_heading = "Enrichment", long, value_name = "N")]
     pub concurrency: Option<usize>,
 
     /// Which index `--report outdated` asks for conda versions.
     ///
     /// `prefix` asks about ten packages per request; `anaconda` asks anaconda.org directly, for a
     /// network that blocks prefix.dev or for releases published in the last hour or so.
-    #[arg(long, value_enum, default_value_t = CondaIndexKind::Prefix, value_name = "KIND")]
+    #[arg(help_heading = "Enrichment", long, value_enum, default_value_t = CondaIndexKind::Prefix, value_name = "KIND")]
     pub conda_index_kind: CondaIndexKind,
 
     /// Where to get PyPI identities for conda packages. `prefix` downloads the conda-forge
     /// mapping (same source pixi uses) so scanners can match conda-installed Python packages.
-    #[arg(long, value_enum, default_value_t = PypiMappingSource::Lock, conflicts_with = "pypi_mapping_file")]
+    #[arg(help_heading = "Enrichment", long, value_enum, default_value_t = PypiMappingSource::Lock, conflicts_with = "pypi_mapping_file")]
     pub pypi_mapping: PypiMappingSource,
 
     /// Offline copy of the conda-forge PyPI mapping (JSON object of conda name to PyPI name).
-    #[arg(long, value_name = "PATH")]
+    #[arg(help_heading = "Enrichment", long, value_name = "PATH")]
     pub pypi_mapping_file: Option<PathBuf>,
 
     /// Which purl to use as a conda package's primary identity when it also has a PyPI one.
-    #[arg(long, value_enum, default_value_t = PrimaryPurl::Conda)]
+    #[arg(help_heading = "Enrichment", long, value_enum, default_value_t = PrimaryPurl::Conda)]
     pub primary_purl: PrimaryPurl,
 
     /// Whether `--primary-purl` or the `primary-purl` key chose it, rather than the default: a
@@ -501,136 +577,142 @@ pub struct Args {
     /// Fetch the license of every package, conda and PyPI alike, where the lockfile has none,
     /// plus the names of the license files it ships. Sources are the local package cache
     /// first, then the package index. Failures are logged and the run continues.
-    #[arg(long)]
+    #[arg(help_heading = "Enrichment", long)]
     pub fetch_licenses: bool,
 
     /// With --fetch-licenses, also embed the full text of every license file.
-    #[arg(long)]
+    #[arg(help_heading = "Enrichment", long)]
     pub license_texts: bool,
 
     /// Add the components declared by SBOMs embedded in wheels (PEP 770, e.g. the Rust crates
     /// maturin compiled in) as dependencies of the wheel. Reads each wheel's dist-info like
     /// --fetch-licenses does.
-    #[arg(long)]
+    #[arg(help_heading = "Enrichment", long)]
     pub embedded_sboms: bool,
 
     /// With --prefix, infer which extras each Python package was installed with: an extra counts
     /// when every requirement it gates is installed. Labelled pixi:python-extras-inferred, since
     /// the packages may be there for another reason.
-    #[arg(long, requires = "prefix")]
+    #[arg(help_heading = "Enrichment", long, requires = "prefix")]
     pub infer_extras: bool,
 
     /// With --prefix, hash every file each conda package installed and compare it with its
     /// conda-meta record. Modified and missing files are recorded (pixi:modified-files,
     /// pixi:missing-files) and end the run with exit code 11; .pyc files Python regenerated are
     /// counted, never a failure. --report files lists them.
-    #[arg(long, requires = "prefix")]
+    #[arg(help_heading = "Enrichment", long, requires = "prefix")]
     pub verify_files: bool,
 
     /// Deprecated alias for --fetch-licenses (it used to cover PyPI packages only).
-    #[arg(long, hide = true)]
+    #[arg(help_heading = "Enrichment", long, hide = true)]
     pub pypi_licenses: bool,
 
     /// Leave packages whose name matches this shell-style pattern out of the document
     /// (repeatable; `*` and `?`, case-insensitive, `-` and `_` alike). What only they needed
     /// is dropped too, and the root records the omission in `pixi:excluded`.
-    #[arg(long, value_name = "GLOB")]
+    #[arg(help_heading = "Filtering", long, value_name = "GLOB")]
     pub exclude: Vec<String>,
 
     /// Keep only packages whose name matches one of these patterns (repeatable).
-    #[arg(long, value_name = "GLOB")]
+    #[arg(help_heading = "Filtering", long, value_name = "GLOB")]
     pub include: Vec<String>,
 
     /// Leave every package of this kind out (repeatable).
-    #[arg(long, value_enum, value_name = "KIND")]
+    #[arg(help_heading = "Filtering", long, value_enum, value_name = "KIND")]
     pub exclude_kind: Vec<Kind>,
 
     /// With --exclude / --include: keep the packages that only excluded packages needed.
-    #[arg(long)]
+    #[arg(help_heading = "Filtering", long)]
     pub keep_orphans: bool,
 
     /// Only these SPDX licenses (repeatable) are acceptable; a package whose license expression
     /// cannot be satisfied with them alone is a violation. An `-or-later` requirement is
     /// satisfied by any allowed later version of the same license family.
-    #[arg(long, value_name = "LICENSE")]
+    #[arg(help_heading = "License policy", long, value_name = "LICENSE")]
     pub allow_license: Vec<String>,
 
     /// These SPDX licenses (repeatable) are unacceptable; a package whose license expression
     /// cannot be satisfied without them is a violation. `MIT OR GPL-3.0-only` passes a policy
     /// that denies GPL-3.0-only because MIT is an option.
-    #[arg(long, value_name = "LICENSE")]
+    #[arg(help_heading = "License policy", long, value_name = "LICENSE")]
     pub deny_license: Vec<String>,
 
     /// The license policy does not apply to these packages (repeatable): a name or a
     /// shell-style pattern as in --exclude, optionally followed by `:justification`. The
     /// package is listed as exempt in the report and carries `pixi:license-exempt` in the
     /// document.
-    #[arg(long, value_name = "PACKAGE[:WHY]")]
+    #[arg(help_heading = "License policy", long, value_name = "PACKAGE[:WHY]")]
     pub ignore_license: Vec<String>,
 
     /// Every package must declare a license that is an SPDX expression.
-    #[arg(long)]
+    #[arg(help_heading = "License policy", long)]
     pub require_license: bool,
 
     /// Ask the OpenSSF Scorecard service how each package's repository is maintained, and
     /// record the score and the checks below --scorecard-min in the document. Needs
     /// --fetch-licenses, which is what collects the repository URLs. Cached for a week.
-    #[arg(long)]
+    #[arg(help_heading = "Quality gates", long)]
     pub scorecard: bool,
 
     /// With --scorecard: the score a package (or one of its checks) has to reach to be left
     /// alone in the report and the document.
-    #[arg(long, value_name = "N", default_value_t = 5.0, requires = "scorecard")]
+    #[arg(
+        help_heading = "Quality gates",
+        long,
+        value_name = "N",
+        default_value_t = 5.0,
+        requires = "scorecard"
+    )]
     pub scorecard_min: f64,
 
     /// Exit with code 10 after writing the document (or report) when its quality score, out of 100,
     /// is below this: the mean of the NTIA minimum elements and license and hash coverage that
     /// --report quality lists. Most useful with --from-sbom, before gating on somebody else's SBOM.
-    #[arg(long, value_name = "N", value_parser = clap::value_parser!(u8).range(0..=100))]
+    #[arg(help_heading = "Quality gates", long, value_name = "N", value_parser = clap::value_parser!(u8).range(0..=100))]
     pub min_quality: Option<u8>,
 
     /// Exit with code 9 after writing the document when a scored package is below this.
     /// Packages the service has never scored never fail the gate.
-    #[arg(long, value_name = "N", requires = "scorecard")]
+    #[arg(help_heading = "Quality gates", long, value_name = "N", requires = "scorecard")]
     pub fail_on_scorecard: Option<f64>,
 
     /// Exit with code 7 after writing the document when any package is a yanked release
     /// (PEP 592). Requires --fetch-licenses, which is what asks the index.
-    #[arg(long)]
+    #[arg(help_heading = "Quality gates", long)]
     pub fail_on_yanked: bool,
 
     /// Look up known vulnerabilities of every package with a queryable purl and record them
     /// in the document (CycloneDX `vulnerabilities`). Conda packages are matched through their
     /// PyPI purl, so combine with --pypi-mapping prefix. Results are cached for an hour.
-    #[arg(long, value_enum, value_name = "SOURCE")]
+    #[arg(help_heading = "Vulnerabilities", long, value_enum, value_name = "SOURCE")]
     pub vulnerabilities: Option<VulnerabilitySource>,
 
     /// Mark findings that are in CISA's Known Exploited Vulnerabilities catalog (matched by CVE
     /// alias): rated critical, with the catalog's dates and required action recorded. The
     /// catalog is downloaded once a day. Requires --vulnerabilities.
-    #[arg(long)]
+    #[arg(help_heading = "Vulnerabilities", long)]
     pub kev: bool,
 
     /// Exit with code 4 after writing the document when any open finding is in the KEV
     /// catalog. Requires --kev.
-    #[arg(long)]
+    #[arg(help_heading = "Vulnerabilities", long)]
     pub fail_on_kev: bool,
 
     /// Score findings with FIRST's EPSS (matched by CVE alias): the probability of exploitation
     /// in the next 30 days and its percentile, in the report and the document. Asked for in
     /// batches and cached per CVE for a day. Requires --vulnerabilities.
-    #[arg(long)]
+    #[arg(help_heading = "Vulnerabilities", long)]
     pub epss: bool,
 
     /// Exit with code 4 after writing the document when any open finding's EPSS score is at or
     /// above this probability (0.0 to 1.0). Findings without a score never trip it. Requires
     /// --epss.
-    #[arg(long, value_name = "P", value_parser = parse_probability)]
+    #[arg(help_heading = "Vulnerabilities", long, value_name = "P", value_parser = parse_probability)]
     pub fail_on_epss: Option<f64>,
 
     /// Exit with code 4 after writing the document when any finding at or above this severity
     /// remains (findings of unknown severity never trip it). Requires --vulnerabilities.
-    #[arg(long, value_enum, value_name = "SEVERITY")]
+    #[arg(help_heading = "Vulnerabilities", long, value_enum, value_name = "SEVERITY")]
     pub fail_on_severity: Option<FailOnSeverity>,
 
     /// Accept a finding deliberately (repeatable): `ID`, `ID:text` or
@@ -640,7 +722,7 @@ pub struct Args {
     /// `not_affected`) and response a list of CycloneDX responses (`update`, `will_not_fix`, ...). The finding stays in the document
     /// with an `analysis` block, is excluded from --fail-on-severity and listed separately in
     /// the report. Requires --vulnerabilities.
-    #[arg(long, value_name = "ID[:STATE][:TEXT]")]
+    #[arg(help_heading = "Vulnerabilities", long, value_name = "ID[:STATE][:TEXT]")]
     pub ignore_vuln: Vec<String>,
 
     /// Apply somebody else's VEX to the findings before the gate runs (repeatable): a CycloneDX
@@ -648,79 +730,53 @@ pub struct Args {
     /// by vulnerability id or alias and package purl; `not_affected`, `false_positive` and
     /// `resolved` clear a finding from the gate, `exploitable` and `in_triage` are only recorded.
     /// --ignore-vuln wins over it. Requires --vulnerabilities.
-    #[arg(long, value_name = "PATH")]
+    #[arg(help_heading = "Vulnerabilities", long, value_name = "PATH")]
     pub vex_in: Vec<PathBuf>,
 
     /// Also write a standalone CycloneDX VEX document here: every finding with its analysis,
     /// linked back to the SBOM this run writes. Needs --vulnerabilities, a single document, and
     /// CycloneDX output.
-    #[arg(long, value_name = "PATH")]
+    #[arg(help_heading = "Vulnerabilities", long, value_name = "PATH")]
     pub vex: Option<PathBuf>,
 
     /// The analysis state a VEX gives findings nobody has assessed with --ignore-vuln.
-    #[arg(long, value_enum, value_name = "STATE", default_value_t = VexOpenState::InTriage, requires = "vex")]
+    #[arg(help_heading = "Vulnerabilities", long, value_enum, value_name = "STATE", default_value_t = VexOpenState::InTriage, requires = "vex")]
     pub vex_open: VexOpenState,
-
-    /// Print the version with the build and machine details a bug report needs: the target,
-    /// the optional features compiled in, the cache directory, pixi's version, and the proxy
-    /// and TLS settings in effect.
-    #[arg(long = "version-details", visible_alias = "build-info")]
-    pub version_details: bool,
-
-    /// Print a table at the end of the run showing where the time went, phase by phase, with
-    /// how much of it was spent waiting on the network.
-    #[arg(long)]
-    pub timings: bool,
-
-    /// Ask every upstream this build knows about whether it answers, print how the run is set
-    /// up and what the caches hold, and exit non-zero if anything is unreachable. Needs no
-    /// lockfile. Combine with the flags of the run you are diagnosing to probe only those.
-    #[arg(long, conflicts_with_all = ["output", "report", "explain"])]
-    pub doctor: bool,
-
-    /// Ignore cached answers for this run and ask again. Without a value every cache is
-    /// refreshed; with one (repeatable) only that one is. What is fetched is still cached.
-    #[arg(long, value_enum, value_name = "CACHE", num_args = 0.., default_missing_value = "all")]
-    pub refresh: Vec<RefreshTarget>,
-
-    /// Neither read nor write any cache, for a clean reproduction.
-    #[arg(long, conflicts_with = "refresh")]
-    pub no_cache: bool,
 
     /// Print a report to the terminal instead of writing an SBOM document: `packages` is the
     /// inventory, `licenses` the license view with a summary, `vulnerabilities` the findings
     /// of --vulnerabilities worst first, `diff` what changed since --against, `phantom` the
     /// imports and declarations that do not line up. Nothing is written to disk.
-    #[arg(long, value_enum, value_name = "REPORT", conflicts_with_all = ["output", "spec_version"])]
+    #[arg(help_heading = "Reports", long, value_enum, value_name = "REPORT", conflicts_with_all = ["output", "spec_version"])]
     pub report: Option<crate::report::ReportKind>,
 
     /// Print every fact the tool has about the packages matching this name or shell-style
     /// pattern (repeatable, as in --exclude) and where each fact came from, including the
     /// sources that were consulted and came back empty. Nothing is written to disk.
-    #[arg(long, value_name = "PACKAGE", conflicts_with_all = ["output", "spec_version", "report"])]
+    #[arg(help_heading = "Reports", long, value_name = "PACKAGE", conflicts_with_all = ["output", "spec_version", "report"])]
     pub explain: Vec<String>,
 
     /// How to render the report.
-    #[arg(long, value_enum, default_value_t = crate::report::ReportFormat::Table, requires = "reporting")]
+    #[arg(help_heading = "Reports", long, value_enum, default_value_t = crate::report::ReportFormat::Table, requires = "reporting")]
     pub report_format: crate::report::ReportFormat,
 
     /// When to colour the terminal report: `auto` follows the terminal, `NO_COLOR` and
     /// `CLICOLOR_FORCE`. Only the `table` format is ever coloured.
-    #[arg(long, value_enum, value_name = "WHEN", default_value_t = crate::style::ColorChoice::Auto)]
+    #[arg(help_heading = "Reports", long, value_enum, value_name = "WHEN", default_value_t = crate::style::ColorChoice::Auto)]
     pub color: crate::style::ColorChoice,
 
     /// With --report packages: draw the dependency graph from the root downward instead of a
     /// flat list. A package is expanded once, at its first occurrence; later ones are marked
     /// `(*)`.
-    #[arg(long)]
+    #[arg(help_heading = "Reports", long)]
     pub tree: bool,
 
     /// With --tree: how deep to go (0 shows what the root depends on and nothing below).
-    #[arg(long, value_name = "N", requires = "tree")]
+    #[arg(help_heading = "Reports", long, value_name = "N", requires = "tree")]
     pub depth: Option<usize>,
 
     /// With --report licenses: one section per license instead of one row per package.
-    #[arg(long, value_enum, value_name = "WHAT")]
+    #[arg(help_heading = "Reports", long, value_enum, value_name = "WHAT")]
     pub group_by: Option<GroupBy>,
 
     /// With --report outdated: list only packages at least this far behind.
@@ -728,49 +784,81 @@ pub struct Args {
     /// `--outdated-only` is the pre-1.0 spelling and is still accepted. It was renamed to match
     /// `--scorecard-min`, the CLI's other threshold, and because `-only` reads like a boolean
     /// when the flag in fact requires a value.
-    #[arg(long = "outdated-min", alias = "outdated-only", value_enum, value_name = "STEP")]
+    #[arg(
+        help_heading = "Reports",
+        long = "outdated-min",
+        alias = "outdated-only",
+        value_enum,
+        value_name = "STEP"
+    )]
     pub outdated_min: Option<OutdatedMin>,
 
     /// With --report diff: exit with code 6 when the named sections of the comparison are not
     /// empty. Repeatable; the bare flag means any change at all.
-    #[arg(long, value_enum, value_name = "SECTION", num_args = 0.., default_missing_value = "any")]
+    #[arg(help_heading = "Reports", long, value_enum, value_name = "SECTION", num_args = 0.., default_missing_value = "any")]
     pub fail_on_diff: Vec<DiffSection>,
 
     /// With --report phantom: where the workspace's Python sources are (repeatable). Defaults
     /// to the directory holding the lockfile.
-    #[arg(long, value_name = "DIR")]
+    #[arg(help_heading = "Reports", long, value_name = "DIR")]
     pub source: Vec<PathBuf>,
 
     /// With --report phantom: packages matching these patterns (repeatable) are never
     /// reported as unused or undeclared. For the ones nothing imports by name: plugins
     /// (`pytest-*`), stub packages (`types-*`, `*-stubs`), tools run as commands.
-    #[arg(long, value_name = "GLOB")]
+    #[arg(help_heading = "Reports", long, value_name = "GLOB")]
     pub assume_used: Vec<String>,
 
     /// Exit with code 8 after the report when the workspace imports a package it never
     /// declared. Requires --report phantom.
-    #[arg(long)]
+    #[arg(help_heading = "Reports", long)]
     pub fail_on_phantom: bool,
 
     /// With --report diff: the previous document to compare against (CycloneDX, SPDX 2.3 or
     /// SPDX 3.0 JSON, as written by pixi-sbom or another tool).
-    #[arg(long, value_name = "PATH", conflicts_with_all = ["all_environments", "all_platforms"])]
+    #[arg(help_heading = "Reports", long, value_name = "PATH", conflicts_with_all = ["all_environments", "all_platforms"])]
     pub against: Option<PathBuf>,
+
+    /// Ignore cached answers for this run and ask again. Without a value every cache is
+    /// refreshed; with one (repeatable) only that one is. What is fetched is still cached.
+    #[arg(help_heading = "Network and cache", long, value_enum, value_name = "CACHE", num_args = 0.., default_missing_value = "all")]
+    pub refresh: Vec<RefreshTarget>,
+
+    /// Neither read nor write any cache, for a clean reproduction.
+    #[arg(help_heading = "Network and cache", long, conflicts_with = "refresh")]
+    pub no_cache: bool,
+
+    /// Print the version with the build and machine details a bug report needs: the target,
+    /// the optional features compiled in, the cache directory, pixi's version, and the proxy
+    /// and TLS settings in effect.
+    #[arg(help_heading = "Diagnostics", long = "version-details", visible_alias = "build-info")]
+    pub version_details: bool,
+
+    /// Print a table at the end of the run showing where the time went, phase by phase, with
+    /// how much of it was spent waiting on the network.
+    #[arg(help_heading = "Diagnostics", long)]
+    pub timings: bool,
+
+    /// Ask every upstream this build knows about whether it answers, print how the run is set
+    /// up and what the caches hold, and exit non-zero if anything is unreachable. Needs no
+    /// lockfile. Combine with the flags of the run you are diagnosing to probe only those.
+    #[arg(help_heading = "Diagnostics", long, conflicts_with_all = ["output", "report", "explain"])]
+    pub doctor: bool,
 
     /// Verify TLS against the certificates in this PEM file instead of the operating system's
     /// trust store — a TLS-intercepting appliance's CA, or a private one. Also
     /// PIXI_SBOM_CA_BUNDLE, and SSL_CERT_FILE when neither is given.
-    #[arg(long, value_name = "FILE")]
+    #[arg(help_heading = "Network and cache", long, value_name = "FILE")]
     pub ca_bundle: Option<PathBuf>,
 
     /// How to render the log on stderr: `text` for a person, `json` for a log collector (one
     /// JSON object per event, with the timestamp back and every field its own key). Also
     /// PIXI_SBOM_LOG_FORMAT. Distinct from --report-format, which is the report on stdout;
     /// the two are meant to be used together.
-    #[arg(long, value_enum, value_name = "FORMAT")]
+    #[arg(help_heading = "Diagnostics", long, value_enum, value_name = "FORMAT")]
     pub log_format: Option<LogFormat>,
 
-    #[command(flatten)]
+    #[command(flatten, next_help_heading = "Diagnostics")]
     pub verbosity: Verbosity<InfoLevel>,
 }
 
@@ -824,6 +912,31 @@ mod tests {
             assert_eq!(values, sorted, "--{}", arg.get_long().unwrap_or(""));
         }
         assert_eq!(completion.get_groups().count(), Args::command().get_groups().count());
+        // The engine groups by heading before display order, so a heading would undo the sort.
+        assert!(completion.get_arguments().all(|arg| arg.get_help_heading().is_none()));
+    }
+
+    /// Every heading becomes a rule with two blank lines before it and one after; flag lines, the
+    /// usage line and the description are left alone.
+    #[test]
+    fn help_headings_become_rules_set_apart_by_blank_lines() {
+        let help = "About\n\nUsage: pixi sbom [OPTIONS]\n\nOptions:\n  -h, --help  Print help\n\nInput:\n      --lockfile <PATH>  Path\n\nEnvironment and platform:\n  -e  Env\n";
+        let out = sectioned_help(help);
+        let plain = anstream::adapter::strip_str(&out).to_string();
+        assert!(
+            plain.contains("Usage: pixi sbom [OPTIONS]\n\n\n── GENERAL ─"),
+            "{plain}"
+        );
+        assert!(plain.contains("Print help\n\n\n── INPUT ─"), "{plain}");
+        assert!(plain.contains("── ENVIRONMENT AND PLATFORM ─"), "{plain}");
+        let rule = plain.lines().find(|l| l.starts_with("── INPUT")).unwrap();
+        assert_eq!(rule.chars().count(), RULE_WIDTH);
+        assert!(
+            plain.contains(&format!("{rule}\n\n      --lockfile")),
+            "one blank line after"
+        );
+        assert!(!plain.contains("Input:") && !plain.contains("Options:"));
+        assert!(out.contains(&HEADING.render().to_string()), "the rule is coloured");
     }
 
     #[test]

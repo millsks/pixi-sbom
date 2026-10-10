@@ -25,6 +25,12 @@ Since 1.0, pixi-sbom has:
 
 ## Unreleased
 
+**`--help` groups its flags.** The 70-odd flags were one list; they are now in sections (General, Input,
+Configuration, Output, Environment and platform, Enrichment, Filtering, License policy, Quality gates,
+Vulnerabilities, Reports, Network and cache, Diagnostics). Each section opens with a rule, `── INPUT ────…`, set apart
+by blank lines and coloured in a terminal, so a new one is plain even with colour off. The
+[CLI reference](cli.md#options) follows the same grouping.
+
 **Tab completion lists flags alphabetically.** It offered them in the order they are declared in the code, so in
 zsh `--fail-on-yanked` sat far from `--fail-on-kev` and a half-remembered name meant reading all of them. Every shell
 now gets flags and their values in alphabetical order.

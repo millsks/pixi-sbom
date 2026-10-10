@@ -10074,3 +10074,27 @@ fn format_github_writes_a_dependency_submission_snapshot() {
         .success();
     assert!(dir.path().join("sbom.github.json").is_file(), "the default file name");
 }
+
+/// `--help` draws each section as a rule set apart by blank lines (#482), and piped it has no colour.
+#[test]
+fn help_sections_are_rules_set_apart_by_blank_lines() {
+    for flag in ["-h", "--help"] {
+        let assert = pixi_sbom().arg(flag).assert().success();
+        let help = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+        assert!(!help.contains('\u{1b}'), "{flag}: no colour when piped");
+        for section in [
+            "GENERAL",
+            "INPUT",
+            "ENVIRONMENT AND PLATFORM",
+            "VULNERABILITIES",
+            "DIAGNOSTICS",
+        ] {
+            assert!(
+                help.contains(&format!("\n\n\n── {section} ─")),
+                "{flag}: {section}\n{help}"
+            );
+        }
+        assert!(!help.contains("\nOptions:") && !help.contains("\nInput:"), "{flag}");
+        assert!(help.contains("Documentation: https://millsks.github.io/pixi-sbom/"));
+    }
+}
