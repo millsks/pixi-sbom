@@ -3385,10 +3385,14 @@ for and what the directory holds instead:</p>
 <code>direct_url.json</code> for VCS installs), skipping the ones whose <code>INSTALLER</code> is <code>conda</code>, since their conda package is
 already listed. Without conda records nothing else lists what conda put there, so every <code>dist-info</code> is a package
 whatever its <code>INSTALLER</code> says. The dependency graph is resolved as for a lockfile. The environment is named after
-the directory, the platform is the one the records name, or for a venv the one most of its wheels were built for
-(their <code>WHEEL</code> tags), and <code>--platform</code> overrides it. The document records <code>pixi:prefix</code> instead of
-<code>pixi:lockfile</code>, and for a venv or a Python installation <code>pixi:python-version</code>: the Python from <code>pyvenv.cfg</code>, or
-the <code>pythonX.Y</code> of the site-packages path. <code>--fetch-licenses</code> reads the license files from the directory each record says the
+the directory. The platform (<code>pixi:platform</code>) is the first of these that names one: <code>--platform</code>; the conda
+records' <code>subdir</code>; the format and architecture of the interpreter (<code>bin/python*</code>, <code>python.exe</code>) or the standard
+library's compiled modules (<code>lib-dynload</code>, <code>DLLs</code>), so a Linux container's <code>/usr/local</code> scanned on a Mac is
+<code>linux-64</code> or <code>linux-aarch64</code>, not the Mac's platform; the platform most of the wheels were built for (their
+<code>WHEEL</code> tags); <code>win-64</code> for a <code>Lib/site-packages</code> layout; and only then the platform of the machine doing the
+scan. The document records <code>pixi:prefix</code> instead of <code>pixi:lockfile</code>, and for a venv or a Python installation
+<code>pixi:python-version</code>: the Python from <code>pyvenv.cfg</code>, or the newest <code>pythonX.Y</code> with a site-packages directory,
+made <code>X.Y.Z</code> by the <code>PY_VERSION</code> in <code>include/pythonX.Y/patchlevel.h</code> when the installation ships its headers. <code>--fetch-licenses</code> reads the license files from the directory each record says the
 package was extracted to (<code>extracted_package_dir</code>, the package cache), so it needs no network on the machine
 that installed the environment. The default output is <code>sbom.cdx.json</code> in the working directory, and the
 configuration file is looked up there too.</p>

@@ -1635,6 +1635,12 @@ has every commit.</p>
 Python ships a <code>lib/python3.1</code> symlink to <code>lib/python3.11</code>, and packages installed with pip or uv
 were read through both, so each appeared twice with the same <code>bom-ref</code> or SPDXID. That made the
 document invalid CycloneDX and SPDX. Site-packages is now read once, through the real directory.</p>
+<p><strong><code>--prefix</code> records the scanned environment's platform, not the scanning machine's.</strong> A Python
+installation with only pure-Python packages, such as a container's <code>/usr/local</code>, named no platform,
+so the document took the platform of the machine doing the scan: a Linux image scanned on a Mac said
+<code>osx-arm64</code>. The platform now comes from the interpreter's or standard library's compiled files
+first. <code>pixi:python-version</code> is the full <code>X.Y.Z</code> where the installation ships its headers, and
+<code>3.12</code> is no longer taken as older than <code>3.9</code>.</p>
 <h2 id="190">1.9.0<a class="headerlink" href="#190" title="Permanent link">&para;</a></h2>
 <p><strong>Tab completion.</strong> Flags, the values they take (<code>--report &lt;TAB&gt;</code> lists the report kinds,
 <code>--format &lt;TAB&gt;</code> the formats) and file paths complete after one line in your shell's startup file:
