@@ -1,6 +1,7 @@
 //! SBOM serializers. Each format consumes the shared [`Sbom`] model.
 
 pub mod cyclonedx;
+pub mod github;
 pub mod spdx;
 pub mod spdx3;
 
@@ -159,15 +160,17 @@ pub fn unchanged_but_for_timestamp(format: Format, sbom: &Sbom, ctx: &WriteConte
 }
 
 /// The timestamp a document this tool wrote carries near its top: CycloneDX `"timestamp"`,
-/// SPDX 2.3 and 3.0.1 `"created"`.
+/// SPDX 2.3 and 3.0.1 `"created"`, a GitHub snapshot `"scanned"`.
 pub fn existing_timestamp(head: &str) -> Option<DateTime<Utc>> {
-    ["\"timestamp\": \"", "\"created\": \""].iter().find_map(|key| {
-        let start = head.find(key)? + key.len();
-        let end = head[start..].find('"')? + start;
-        DateTime::parse_from_rfc3339(&head[start..end])
-            .ok()
-            .map(|t| t.with_timezone(&Utc))
-    })
+    ["\"timestamp\": \"", "\"created\": \"", "\"scanned\": \""]
+        .iter()
+        .find_map(|key| {
+            let start = head.find(key)? + key.len();
+            let end = head[start..].find('"')? + start;
+            DateTime::parse_from_rfc3339(&head[start..end])
+                .ok()
+                .map(|t| t.with_timezone(&Utc))
+        })
 }
 
 /// A writer that checks what is written against an existing file instead of storing it.
@@ -204,11 +207,17 @@ impl<R: std::io::Read> Write for Comparer<R> {
 pub fn write(format: Format, sbom: &Sbom, ctx: &WriteContext, out: &mut dyn Write) -> Result<(), WriteError> {
     match (format, ctx.spec_version) {
         (Format::Cyclonedx, _) => serde_json::to_writer_pretty(&mut *out, &cyclonedx::document(sbom, ctx))?,
+        (Format::Github, _) => serde_json::to_writer_pretty(&mut *out, &github::document(sbom, ctx, &run_env))?,
         (Format::Spdx, SpecVersion::V3_0) => serde_json::to_writer_pretty(&mut *out, &spdx3::document(sbom, ctx))?,
         (Format::Spdx, _) => serde_json::to_writer_pretty(&mut *out, &spdx::document(sbom, ctx))?,
     }
     out.write_all(b"\n")?;
     Ok(())
+}
+
+/// The environment of this run, for the GitHub snapshot's commit and workflow run.
+fn run_env(name: &str) -> Option<String> {
+    std::env::var(name).ok().filter(|value| !value.is_empty())
 }
 
 /// The SPDX 3 `software_sbomType` for a CycloneDX lifecycle phase. SPDX has six types to
@@ -281,6 +290,7 @@ pub fn vex_to_value(
 pub fn to_value(format: Format, sbom: &Sbom, ctx: &WriteContext) -> Result<serde_json::Value, WriteError> {
     let value = match (format, ctx.spec_version) {
         (Format::Cyclonedx, _) => serde_json::to_value(cyclonedx::document(sbom, ctx))?,
+        (Format::Github, _) => serde_json::to_value(github::document(sbom, ctx, &run_env))?,
         (Format::Spdx, SpecVersion::V3_0) => serde_json::to_value(spdx3::document(sbom, ctx))?,
         (Format::Spdx, _) => serde_json::to_value(spdx::document(sbom, ctx))?,
     };

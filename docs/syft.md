@@ -82,11 +82,11 @@ system, pixi-sbom for the environment, merged with `pixi sbom --from-sbom image.
 
 ## Formats syft writes and pixi-sbom does not
 
-pixi-sbom writes CycloneDX JSON (1.6, 1.7) and SPDX JSON (2.3, 3.0.1). For another format, `syft convert` reads
-pixi-sbom's CycloneDX:
+pixi-sbom writes CycloneDX JSON (1.6, 1.7), SPDX JSON (2.3, 3.0.1) and GitHub's dependency submission format
+(`--format github`, see [GitHub's dependency graph](formats.md#githubs-dependency-graph)). For another format,
+`syft convert` reads pixi-sbom's CycloneDX:
 
 ```sh
 syft convert sbom.cdx.json -o spdx-tag-value=sbom.spdx
 syft convert sbom.cdx.json -o cyclonedx-xml=sbom.cdx.xml
-syft convert sbom.cdx.json -o github-json=sbom.github.json
 ```

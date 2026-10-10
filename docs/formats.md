@@ -26,3 +26,25 @@ Rules of thumb:
 
 Every flavour records which environment and platform it describes and carries the same purls, licenses and
 dependency edges, so converting later with `syft convert` loses nothing that `pixi sbom` put in.
+
+## GitHub's dependency graph
+
+`--format github` writes a [dependency submission](https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/using-the-dependency-submission-api)
+snapshot, `sbom.github.json`, instead of an SBOM. Submitted, it puts the environment's packages in the repository's
+dependency graph, and Dependabot raises alerts for the ones it has advisories for:
+
+```sh
+pixi sbom --format github --output - |
+  gh api --method POST "repos/OWNER/REPO/dependency-graph/snapshots" --input -
+```
+
+It is not an SBOM, so it records packages, versions, which are direct and which development-only, and the dependency
+edges, and nothing else: no licenses, hashes or findings, and `--spec-version` does not apply. A conda package that
+has a PyPI identity is submitted by it whatever `--primary-purl` says, since GitHub's advisory database has PyPI
+advisories and no conda ones; the rest keep their conda purl.
+
+The snapshot names the commit and workflow run it describes, from `GITHUB_SHA`, `GITHUB_REF`, `GITHUB_RUN_ID`,
+`GITHUB_WORKFLOW` and `GITHUB_JOB`. GitHub Actions sets them; elsewhere the API refuses a snapshot without a sha and
+a ref, and pixi-sbom warns when they are missing. Each environment and platform gets its own correlator, so
+submitting several does not replace one with another. In the [GitHub Action](github-action.md#dependabot-alerts),
+`dependency-submission: "true"` writes and submits it.

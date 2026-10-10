@@ -63,7 +63,7 @@ project and a venv, on a runner with no pixi installed.
 | `prefix` | | Describe an installed environment instead: a conda or pixi environment, a venv, or a Python installation |
 | `from-sbom` | | Read an existing CycloneDX or SPDX document instead, and write it again with the other inputs applied |
 | `config` | | Configuration file; the `pyproject.toml` table or `pixi-sbom.toml` next to the lockfile are read by default, `none` reads nothing. `format` is always passed and wins over the file; the other inputs are passed only when set |
-| `output` | `sboms` | Output file (`*.json`, or `-` for the log) or directory; a single document lands in the directory as `sbom.cdx.json` / `sbom.spdx.json` |
+| `output` | `sboms` | Output file (`*.json`, or `-` for the log) or directory; a single document lands in the directory as `sbom.cdx.json` / `sbom.spdx.json` / `sbom.github.json` |
 | `fetch-licenses`, `license-texts`, `embedded-sboms`, `pypi-mapping`, `primary-purl` | as the CLI | Enrichment |
 | `allow-license`, `deny-license`, `require-license` | | License policy; whitespace-separated lists |
 | `ignore-license` | | Packages the policy does not apply to, one per line: `PACKAGE` or `PACKAGE:justification` |
@@ -76,6 +76,7 @@ project and a venv, on a runner with no pixi installed.
 | `fail-on-vulnerabilities` | `true` | Fail the step when the gate trips; with `false` it becomes a warning and the `vulnerabilities-found` output is `true` |
 | `vex`, `vex-open` | | Also write a standalone CycloneDX VEX to that path, and the state it gives findings nobody assessed (`in-triage`, `exploitable`). Needs `format: cyclonedx`. |
 | `upload-sarif`, `sarif-category` | `false`, `pixi-sbom` | Write the findings as SARIF and upload them to GitHub code scanning (see below) |
+| `dependency-submission` | `false` | Also write a dependency submission snapshot for each document and submit it to the dependency graph, for Dependabot alerts (needs `contents: write`; see below) |
 | `diff-against` | | Also compare the environment with the document at this path and put the comparison in the job summary; the file has to be there already (the action fetches nothing) |
 | `fail-on-diff` | | With `diff-against`: `true` fails the step (exit code 6) on any change, or name the sections — `added removed version license` |
 | `attest`, `attest-subject` | `false`, | Sign the documents with a GitHub artifact attestation (see below) |
@@ -159,6 +160,29 @@ Each document is a SARIF run with its own automation id, so code scanning files 
 `pixi-sbom/<environment>` (or `pixi-sbom/<environment>/<platform>` in batch mode) rather than under
 `sarif-category`. The SARIF report reuses the lookup's cache, so the second run costs no network requests. Outside the action, the
 same file comes from `pixi sbom --vulnerabilities osv --report vulnerabilities --report-format sarif > findings.sarif`.
+
+## Dependabot alerts
+
+`dependency-submission: "true"` writes a [GitHub dependency submission](formats.md#githubs-dependency-graph)
+snapshot for each document the step describes and submits it, so the environment's packages appear in the
+repository's dependency graph (*Insights → Dependency graph*) and Dependabot raises alerts for them. Conda packages
+with a PyPI identity are submitted by it, so `pypi-mapping: prefix` gives more of them one. The submission needs
+`contents: write`:
+
+```yaml
+permissions:
+  contents: write
+steps:
+  - uses: actions/checkout@v4
+  - uses: millsks/pixi-sbom@v1
+    with:
+      pypi-mapping: prefix
+      dependency-submission: "true"
+```
+
+Each environment and platform is submitted under its own correlator, so a run with `all-environments` keeps every
+environment in the graph. The submission is a second run of the same inputs with `--format github`; the document,
+gates and artifact of the first are unchanged.
 
 ## Signed SBOMs
 

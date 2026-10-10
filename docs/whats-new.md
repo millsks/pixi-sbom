@@ -25,6 +25,11 @@ Since 1.0, pixi-sbom has:
 
 ## Unreleased
 
+**`--format github` puts a pixi environment in GitHub's dependency graph.** It writes GitHub's dependency
+submission snapshot, so an environment's packages show up in the dependency graph and get Dependabot alerts,
+without syft in the pipeline. Conda packages with a PyPI identity are submitted by it, since that is where GitHub's
+advisories are. The Action submits it with `dependency-submission: "true"`.
+
 **`--verify-files` checks an installed conda environment against itself.** conda-meta records the SHA-256 of every
 file a package installed; with `--prefix`, `--verify-files` hashes each one and records modified and missing files on
 the package (`pixi:modified-files`, `pixi:missing-files`), and `--report files` lists them. Either ends the run with

@@ -12,6 +12,8 @@ pub enum Format {
     Cyclonedx,
     /// SPDX 2.3 or 3.0 (JSON), see --spec-version
     Spdx,
+    /// GitHub's dependency submission snapshot (JSON), for the dependency graph and Dependabot alerts
+    Github,
 }
 
 impl Format {
@@ -20,6 +22,7 @@ impl Format {
         match self {
             Format::Cyclonedx => ".cdx.json",
             Format::Spdx => ".spdx.json",
+            Format::Github => ".github.json",
         }
     }
 
@@ -65,6 +68,8 @@ impl SpecVersion {
         match format {
             Format::Cyclonedx => SpecVersion::V1_6,
             Format::Spdx => SpecVersion::V2_3,
+            // Not an SBOM format: no version applies, and the writer reads none.
+            Format::Github => SpecVersion::V1_6,
         }
     }
 

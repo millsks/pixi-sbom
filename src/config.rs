@@ -690,7 +690,7 @@ mod tests {
         let err = apply(&cfg, &mut a, &m).unwrap_err();
         assert!(
             err.to_string()
-                .contains("`format` must be one of \"cyclonedx\", \"spdx\", not \"yaml\""),
+                .contains("`format` must be one of \"cyclonedx\", \"spdx\", \"github\", not \"yaml\""),
             "{err}"
         );
         let cfg = loaded("exclude-kind = [\"wheel\"]");

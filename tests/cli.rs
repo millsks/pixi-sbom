@@ -9654,7 +9654,7 @@ fn completion_offers_flags_values_and_paths() {
             .collect::<Vec<_>>()
     };
     assert_eq!(complete(&["--form"]), ["--format"]);
-    assert_eq!(complete(&["--format", ""]), ["cyclonedx", "spdx"]);
+    assert_eq!(complete(&["--format", ""]), ["cyclonedx", "spdx", "github"]);
     let reports = complete(&["--report", ""]);
     for kind in ["packages", "licenses", "vulnerabilities", "quality"] {
         assert!(reports.iter().any(|r| r == kind), "--report offers {kind}: {reports:?}");
@@ -9981,4 +9981,64 @@ fn verify_files_finds_altered_and_missing_files_and_exits_11() {
         .assert()
         .code(2)
         .stderr(predicate::str::contains("'--report files' needs '--prefix <DIR>'"));
+}
+
+/// `--format github` (#456): a dependency submission snapshot naming the run from the variables
+/// Actions sets, with a conda package submitted by its PyPI identity; without them, a warning.
+#[test]
+fn format_github_writes_a_dependency_submission_snapshot() {
+    let dir = workspace("conda-python");
+    let assert = pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--pypi-mapping-file"])
+        .arg(mapping_file())
+        .args(["--primary-purl", "conda", "--format", "github", "--output", "-"])
+        .env("GITHUB_SHA", "0123456789abcdef0123456789abcdef01234567")
+        .env("GITHUB_REF", "refs/heads/main")
+        .env("GITHUB_RUN_ID", "7")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("GITHUB_SHA").not());
+    let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+    assert_eq!(doc["sha"], "0123456789abcdef0123456789abcdef01234567");
+    assert_eq!(doc["ref"], "refs/heads/main");
+    assert_eq!(doc["job"]["id"], "7");
+    assert_eq!(doc["detector"]["name"], "pixi-sbom");
+    let manifest = doc["manifests"].as_object().unwrap().values().next().unwrap();
+    assert_eq!(manifest["file"]["source_location"], "pixi.lock");
+    let resolved = manifest["resolved"].as_object().unwrap();
+    assert_eq!(resolved["pkg:pypi/numpy@2.3.1"]["package_url"], "pkg:pypi/numpy@2.3.1");
+    assert!(resolved.keys().any(|k| k.starts_with("pkg:conda/python@")));
+
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--format", "github", "--output", "-"])
+        .env_remove("GITHUB_SHA")
+        .env_remove("GITHUB_REF")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("GITHUB_SHA or GITHUB_REF is not set"));
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args([
+            "-p",
+            "linux-64",
+            "--format",
+            "github",
+            "--spec-version",
+            "1.6",
+            "--output",
+            "-",
+        ])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("is not a version of '--format github'"));
+    pixi_sbom()
+        .current_dir(dir.path())
+        .args(["-p", "linux-64", "--format", "github"])
+        .env("GITHUB_SHA", "0123456789abcdef0123456789abcdef01234567")
+        .env("GITHUB_REF", "refs/heads/main")
+        .assert()
+        .success();
+    assert!(dir.path().join("sbom.github.json").is_file(), "the default file name");
 }

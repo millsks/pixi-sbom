@@ -15,6 +15,7 @@ expression: "surface.join(\"\\n\")"
       --format <FORMAT>
           - cyclonedx: CycloneDX 1.6 or 1.7 (JSON), see --spec-version
           - spdx:      SPDX 2.3 or 3.0 (JSON), see --spec-version
+          - github:    GitHub's dependency submission snapshot (JSON), for the dependency graph and Dependabot alerts
           [default: cyclonedx]
       --spec-version <VERSION>
           - 1.6: CycloneDX 1.6

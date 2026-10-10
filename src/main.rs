@@ -238,6 +238,17 @@ fn main() -> Result<()> {
 
     let spec_version = resolve_spec_version(&args);
     let fetch_licenses = args.fetch_licenses || args.pypi_licenses;
+    if args.format == cli::Format::Github
+        && args.report.is_none()
+        && ["GITHUB_SHA", "GITHUB_REF"]
+            .iter()
+            .any(|name| std::env::var(name).is_err())
+    {
+        tracing::warn!(
+            "GITHUB_SHA or GITHUB_REF is not set, so the snapshot names no commit and GitHub's submission API \
+             will refuse it; GitHub Actions sets both, elsewhere set them to the commit and ref it describes"
+        );
+    }
     if args.pypi_licenses {
         tracing::warn!("--pypi-licenses is deprecated and now behaves as --fetch-licenses; use that instead");
     }
@@ -1240,6 +1251,12 @@ fn validate(args: &cli::Args) {
             usage(
                 MissingRequiredArgument,
                 "'--vex' needs '--vulnerabilities <SOURCE>': there is nothing to assess without findings",
+            );
+        }
+        if args.format == cli::Format::Github {
+            usage(
+                ArgumentConflict,
+                "'--vex' writes a CycloneDX VEX linked to a CycloneDX SBOM and cannot be combined with '--format github'",
             );
         }
         if args.format == cli::Format::Spdx {

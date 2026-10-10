@@ -226,7 +226,7 @@ pixi sbom --all-environments --all-platforms --output reports/
 | Option | Default | Description |
 |---|---|---|
 | `--lockfile <PATH>` | search upward from cwd | `pixi.lock` to read |
-| `--format <cyclonedx\|spdx>` | `cyclonedx` | SBOM format |
+| `--format <cyclonedx\|spdx\|github>` | `cyclonedx` | SBOM format, or `github` for a dependency submission snapshot |
 | `--spec-version <1.6\|1.7\|2.3\|3.0>` | `1.6` / `2.3` | CycloneDX or SPDX version (`3.0` is the SPDX 3.0.1 JSON-LD graph) |
 | `--output <PATH>` | `<lockfile dir>/sbom.cdx.json` or `sbom.spdx.json` | Where to write the SBOM; `-` for stdout |
 | `-e, --environment <NAME>` | `default` | Lock environment to describe |

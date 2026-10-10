@@ -202,7 +202,7 @@ Inputs and outputs of `action.yml`. An input maps to the flag of the same name; 
 passes anything through.
 
 **Inputs:** `all-environments`, `all-platforms`, `allow-license`, `artifact-name`, `attest`,
-`attest-subject`, `config`, `deny-license`, `diff-against`, `embedded-sboms`, `environment`,
+`attest-subject`, `config`, `dependency-submission`, `deny-license`, `diff-against`, `embedded-sboms`, `environment`,
 `extra-args`, `fail-on-diff`, `fail-on-kev`, `fail-on-policy`, `fail-on-scorecard`,
 `fail-on-severity`, `fail-on-vulnerabilities`, `fail-on-yanked`, `fetch-licenses`, `format`,
 `from-sbom`, `ignore-license`, `ignore-vuln`, `kev`, `license-texts`, `lockfile`, `output`,

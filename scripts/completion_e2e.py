@@ -24,10 +24,10 @@ PROBES = ROOT / "tests" / "completion"
 CASES: list[tuple[str, set[str], bool]] = [
     # line, expected candidates, whether they must be all that is offered
     ("pixi-sbom --form", {"--format"}, True),
-    ("pixi-sbom --format ", {"cyclonedx", "spdx"}, True),
+    ("pixi-sbom --format ", {"cyclonedx", "spdx", "github"}, True),
     ("pixi-sbom --report v", {"vulnerabilities"}, True),
     ("pixi sbom --form", {"--format"}, True),
-    ("pixi sbom --format ", {"cyclonedx", "spdx"}, True),
+    ("pixi sbom --format ", {"cyclonedx", "spdx", "github"}, True),
     ("pixi sbom --report v", {"vulnerabilities"}, True),
     ("pixi ins", {"install"}, False),
 ]

@@ -50,7 +50,7 @@ inputs:
     required: false
     default: ""
   format:
-    description: "`cyclonedx` or `spdx`."
+    description: "`cyclonedx`, `spdx`, or `github` (a dependency submission snapshot)."
     required: false
     default: cyclonedx
   spec-version:
@@ -187,6 +187,13 @@ inputs:
       under `pixi-sbom/<environment>` (or `<environment>/<platform>`) regardless of this value.
     required: false
     default: pixi-sbom
+  dependency-submission:
+    description: >-
+      Also write a GitHub dependency submission snapshot for each document and submit it to the
+      repository's dependency graph, where Dependabot alerts come from (needs `contents: write`).
+      Conda packages with a PyPI identity are submitted by it.
+    required: false
+    default: "false"
   diff-against:
     description: >-
       Also compare the environment with a previous document at this path (CycloneDX, SPDX 2.3 or
@@ -396,7 +403,9 @@ runs:
           case "$IN_OUTPUT" in
             *.json) document="$IN_OUTPUT"; args+=(--output "$IN_OUTPUT") ;;
             -) args+=(--output "$IN_OUTPUT") ;;
-            *) ext=cdx.json; [ "$IN_FORMAT" = spdx ] && ext=spdx.json; document="$IN_OUTPUT/sbom.$ext"; args+=(--output "$document") ;;
+            *)
+              case "$IN_FORMAT" in spdx) ext=spdx.json ;; github) ext=github.json ;; *) ext=cdx.json ;; esac
+              document="$IN_OUTPUT/sbom.$ext"; args+=(--output "$document") ;;
           esac
         fi
         echo "document=$document" >> "$GITHUB_OUTPUT"
@@ -551,6 +560,55 @@ runs:
       with:
         sarif_file: ${{ steps.sarif.outputs.path }}
         category: ${{ inputs.sarif-category }}
+
+    - name: Submit to the dependency graph
+      if: ${{ inputs.dependency-submission == 'true' && !cancelled() }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        IN_LOCKFILE: ${{ inputs.lockfile }}
+        IN_SCAN: ${{ inputs.scan }}
+        IN_PREFIX: ${{ inputs.prefix }}
+        IN_FROM_SBOM: ${{ inputs.from-sbom }}
+        IN_CONFIG: ${{ inputs.config }}
+        IN_ENVIRONMENT: ${{ inputs.environment }}
+        IN_ALL_ENVIRONMENTS: ${{ inputs.all-environments }}
+        IN_PLATFORM: ${{ inputs.platform }}
+        IN_ALL_PLATFORMS: ${{ inputs.all-platforms }}
+        IN_PYPI_MAPPING: ${{ inputs.pypi-mapping }}
+        IN_EMBEDDED_SBOMS: ${{ inputs.embedded-sboms }}
+      run: |
+        set -euo pipefail
+        dir="$RUNNER_TEMP/pixi-sbom-github"
+        rm -rf "$dir" && mkdir -p "$dir"
+        args=(--format github)
+        [ -n "$IN_LOCKFILE" ] && args+=(--lockfile "$IN_LOCKFILE")
+        [ -n "$IN_SCAN" ] && args+=(--scan "$IN_SCAN")
+        [ -n "$IN_PREFIX" ] && args+=(--prefix "$IN_PREFIX")
+        [ -n "$IN_FROM_SBOM" ] && args+=(--from-sbom "$IN_FROM_SBOM")
+        case "$IN_CONFIG" in
+          "") ;;
+          none) args+=(--no-config) ;;
+          *) args+=(--config "$IN_CONFIG") ;;
+        esac
+        [ -n "$IN_ENVIRONMENT" ] && args+=(--environment "$IN_ENVIRONMENT")
+        [ "$IN_ALL_ENVIRONMENTS" = "true" ] && args+=(--all-environments)
+        [ -n "$IN_PLATFORM" ] && args+=(--platform "$IN_PLATFORM")
+        [ "$IN_ALL_PLATFORMS" = "true" ] && args+=(--all-platforms)
+        [ -n "$IN_PYPI_MAPPING" ] && args+=(--pypi-mapping "$IN_PYPI_MAPPING")
+        [ "$IN_EMBEDDED_SBOMS" = "true" ] && args+=(--embedded-sboms)
+        if [ -n "$IN_SCAN" ] || [ "$IN_ALL_ENVIRONMENTS" = "true" ] || [ "$IN_ALL_PLATFORMS" = "true" ]; then
+          args+=(--output "$dir")
+        else
+          args+=(--output "$dir/sbom.github.json")
+        fi
+        echo "pixi-sbom ${args[*]}"
+        # Gates belong to the run above; this one only describes, so a gate cannot stop it.
+        pixi-sbom "${args[@]}"
+        find "$dir" -name '*.github.json' -print0 | while IFS= read -r -d '' snapshot; do
+          echo "Submitting $snapshot"
+          gh api --method POST "repos/$GITHUB_REPOSITORY/dependency-graph/snapshots" --input "$snapshot" --jq '"\(.result): \(.message)"'
+        done
 
     - name: Check the attestation inputs
       if: ${{ inputs.attest == 'true' && inputs.attest-subject != '' && steps.run.outputs.document == '' && !cancelled() }}
