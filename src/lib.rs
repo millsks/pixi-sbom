@@ -34,6 +34,8 @@ pub mod condalock;
 #[doc(hidden)]
 pub mod config;
 #[doc(hidden)]
+pub mod cpe;
+#[doc(hidden)]
 pub mod cvss;
 #[doc(hidden)]
 pub mod diff;

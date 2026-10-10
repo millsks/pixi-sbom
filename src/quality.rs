@@ -22,6 +22,9 @@ pub struct Element {
     pub detail: String,
     /// One of the NTIA minimum elements.
     pub ntia: bool,
+    /// Shown, but not part of the score, so adding it did not move anyone's `--min-quality`.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub informational: bool,
 }
 
 /// The grade of a document.
@@ -42,12 +45,14 @@ pub fn assess(sbom: &Sbom) -> Grade {
         score: percent(have, total),
         detail: format!("{have} of {total} packages {what}"),
         ntia,
+        informational: false,
     };
     let whole = |element: &'static str, ntia: bool, present: bool, yes: &str, no: &str| Element {
         element,
         score: if present { 100 } else { 0 },
         detail: if present { yes.to_string() } else { no.to_string() },
         ntia,
+        informational: false,
     };
     let count = |test: &dyn Fn(&crate::model::Package) -> bool| sbom.packages.iter().filter(|p| test(p)).count();
 
@@ -66,7 +71,32 @@ pub fn assess(sbom: &Sbom) -> Grade {
         .filter(|p| in_graph.contains(p.id.as_str()))
         .count();
 
-    let elements = vec![
+    // A scanner matches a package by its purl or its CPE. A channel's conda package with no PyPI
+    // purl (openssl, libtiff) has only a `pkg:conda` purl, which no advisory database indexes, so
+    // it is matchable only through a CPE from the curated table.
+    let native: Vec<&crate::model::Package> = sbom
+        .packages
+        .iter()
+        .filter(|p| p.kind == crate::model::PackageKind::CondaBinary)
+        .filter(|p| !p.extra_purls.iter().any(|purl| purl.starts_with("pkg:pypi/")))
+        .collect();
+    let unmatched = native.iter().filter(|p| crate::cpe::for_package(p).is_none()).count();
+    let scanner = Element {
+        element: "scanner identity",
+        score: if native.is_empty() {
+            100
+        } else {
+            percent(native.len() - unmatched, native.len())
+        },
+        detail: format!(
+            "{unmatched} of {} native conda packages lack a CPE or matchable purl (not scored)",
+            native.len()
+        ),
+        ntia: false,
+        informational: true,
+    };
+
+    let mut elements = vec![
         share("supplier", true, count(&|p| p.supplier.is_some()), "name a supplier"),
         share("name", true, count(&|p| !p.name.trim().is_empty()), "have a name"),
         share("version", true, count(&|p| p.version.is_some()), "have a version"),
@@ -93,12 +123,13 @@ pub fn assess(sbom: &Sbom) -> Grade {
             "have a hash",
         ),
     ];
+    let all: Vec<u8> = elements.iter().map(|e| e.score).collect();
+    let ntia: Vec<u8> = elements.iter().filter(|e| e.ntia).map(|e| e.score).collect();
+    elements.push(scanner);
     let mean = |scores: &[u8]| {
         let total: u32 = scores.iter().map(|s| u32::from(*s)).sum();
         total.checked_div(scores.len() as u32).unwrap_or(0) as u8
     };
-    let all: Vec<u8> = elements.iter().map(|e| e.score).collect();
-    let ntia: Vec<u8> = elements.iter().filter(|e| e.ntia).map(|e| e.score).collect();
     Grade {
         overall: mean(&all),
         ntia: mean(&ntia),
@@ -113,7 +144,11 @@ fn percent(have: usize, total: usize) -> u8 {
 
 /// The weakest elements, worst first, as `name (score)`, for the gate's message.
 pub fn weakest(grade: &Grade, count: usize) -> Vec<String> {
-    let mut elements: Vec<&Element> = grade.elements.iter().filter(|e| e.score < 100).collect();
+    let mut elements: Vec<&Element> = grade
+        .elements
+        .iter()
+        .filter(|e| e.score < 100 && !e.informational)
+        .collect();
     elements.sort_by_key(|e| e.score);
     elements
         .into_iter()
@@ -131,10 +166,49 @@ mod tests {
         grade.elements.iter().find(|e| e.element == element).unwrap().score
     }
 
+    /// Native conda packages are counted for whether a scanner can match them; the count is shown
+    /// but not scored, so a document's grade and the `--min-quality` gate do not move.
+    #[test]
+    fn native_conda_packages_without_a_cpe_are_counted_but_not_scored() {
+        use crate::model::PackageKind;
+        let mut sbom = sample_sbom();
+        let mut native = sbom.packages[0].clone();
+        native.kind = PackageKind::CondaBinary;
+        native.extra_purls.clear();
+        native.name = "openssl".into();
+        native.version = Some("3.5.2".into());
+        let mut unknown = native.clone();
+        unknown.name = "some-unmapped-lib".into();
+        sbom.packages = vec![native, unknown];
+        let grade = assess(&sbom);
+        let scanner = grade.elements.iter().find(|e| e.element == "scanner identity").unwrap();
+        assert!(scanner.informational && !scanner.ntia);
+        assert_eq!(scanner.score, 50);
+        assert!(
+            scanner.detail.starts_with("1 of 2 native conda packages lack"),
+            "{}",
+            scanner.detail
+        );
+        let scored: Vec<u8> = grade
+            .elements
+            .iter()
+            .filter(|e| !e.informational)
+            .map(|e| e.score)
+            .collect();
+        let mean = scored.iter().map(|s| u32::from(*s)).sum::<u32>() / scored.len() as u32;
+        assert_eq!(
+            u32::from(grade.overall),
+            mean,
+            "the informational row is not in the mean"
+        );
+        assert!(!weakest(&grade, 10).iter().any(|w| w.starts_with("scanner identity")));
+    }
+
     #[test]
     fn a_complete_document_scores_high_and_a_sparse_one_low() {
         let complete = assess(&sample_sbom());
-        assert_eq!(complete.elements.len(), 9);
+        assert_eq!(complete.elements.len(), 10);
+        assert_eq!(complete.elements.iter().filter(|e| e.informational).count(), 1);
         assert_eq!(complete.elements.iter().filter(|e| e.ntia).count(), 7);
         assert_eq!(score(&complete, "timestamp"), 100);
         assert_eq!(score(&complete, "name"), 100);

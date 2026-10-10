@@ -437,6 +437,13 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
                 identifier: purl.clone(),
             })
             .collect();
+        if let Some(cpe) = crate::cpe::for_package(package) {
+            identifiers.push(ExternalIdentifier {
+                kind: "ExternalIdentifier",
+                external_identifier_type: "cpe23",
+                identifier: cpe,
+            });
+        }
         if let Some(url) = &package.repository {
             identifiers.push(ExternalIdentifier {
                 kind: "ExternalIdentifier",

@@ -218,6 +218,21 @@ real document; the fixtures are small by design.
   `preserve_order` so keys are emitted in struct order.
 - Never print to stdout; logs go through `tracing` to stderr.
 
+## The CPE table
+
+`data/cpe.toml` maps a conda package name to NVD's `vendor:product`, and is compiled into the binary
+(`src/cpe.rs`). An entry is added only when the pair is the one NVD and Grype's database use for that code, and the
+conda package's version is spelled as upstream's:
+
+- Look the product up in Grype's database (`grype db status` says where it is; the `cpes` table joined to
+  `affected_cpe_handles` gives each vendor:product its advisory count), or in NVD's CPE dictionary. Use the vendor
+  that carries the advisories; where NVD splits a product between vendors that are not the same code, leave the
+  package out.
+- Leave out compiler runtimes and C libraries (gcc, glibc), whose advisories are for code a conda package does not
+  contain, and packages whose conda version differs from upstream's spelling.
+- `cpe::tests::every_entry_is_a_valid_vendor_and_product` checks the format; it cannot check that a pair is right,
+  which is why every entry needs that lookup. Scheduled checks that every entry still matches are #435.
+
 ## The GitHub Action
 
 `action.yml` at the repository root is a composite action: it resolves the version (the action's own tag, an

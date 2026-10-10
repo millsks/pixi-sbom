@@ -129,6 +129,7 @@ pub fn facts(package: &Package, sbom: &Sbom, ctx: Context) -> Vec<Fact> {
     facts.push(license(package, ctx, &input));
     facts.push(license_files(package, ctx, &input));
     facts.push(pypi_identity(package, ctx, &input));
+    facts.extend(cpe(package));
     facts.push(requires_python(package, &input));
     facts.push(embedded(package, ctx, &input));
     facts.push(yanked(package, ctx));
@@ -332,6 +333,45 @@ fn pypi_identity(package: &Package, ctx: Context, input: &str) -> Fact {
         None => input.to_string(),
     };
     Fact::known("other purls", package.extra_purls.join(", "), source)
+}
+
+/// The CPE a scanner matches a channel's conda package by, from the curated table, or why there is
+/// none. Nothing for other kinds: a PyPI package is matched by its purl.
+fn cpe(package: &Package) -> Option<Fact> {
+    if package.kind != PackageKind::CondaBinary {
+        return None;
+    }
+    Some(match crate::cpe::for_package(package) {
+        Some(cpe) => {
+            let entry = crate::cpe::entry(&package.name).expect("a CPE comes from an entry");
+            Fact::known(
+                "cpe",
+                cpe,
+                format!(
+                    "{}: {} = \"{}:{}\"",
+                    crate::cpe::SOURCE,
+                    package.name,
+                    entry.vendor,
+                    entry.product
+                ),
+            )
+        }
+        None if crate::cpe::entry(&package.name).is_some() => Fact::unknown(
+            "cpe",
+            vec![format!(
+                "{}: has an entry, but the package names no version",
+                crate::cpe::SOURCE
+            )],
+        ),
+        None => Fact::unknown(
+            "cpe",
+            vec![format!(
+                "{}: no entry for {}, and a CPE is never guessed from a name",
+                crate::cpe::SOURCE,
+                package.name
+            )],
+        ),
+    })
 }
 
 /// The interpreter the distribution says it needs.

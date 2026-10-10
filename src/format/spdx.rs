@@ -307,6 +307,11 @@ fn spdx_package(
             reference_type: "purl",
             reference_locator: purl.clone(),
         })
+        .chain(crate::cpe::for_package(package).map(|cpe| ExternalRef {
+            reference_category: "SECURITY",
+            reference_type: "cpe23Type",
+            reference_locator: cpe,
+        }))
         .collect();
 
     let is_url = package.location.contains("://");

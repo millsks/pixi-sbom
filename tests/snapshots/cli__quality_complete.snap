@@ -1,17 +1,19 @@
 ---
 source: tests/cli.rs
+assertion_line: 8753
 expression: "String::from_utf8(output.stdout).unwrap()"
 ---
-Element                   Score  Covers                                                          NTIA minimum
--------------------------------------------------------------------------------------------------------------
-supplier                  100    30 of 30 packages name a supplier                               yes
-name                      100    30 of 30 packages have a name                                   yes
-version                   100    30 of 30 packages have a version                                yes
-unique identifier         100    30 of 30 packages have a purl                                   yes
-dependency relationships  100    30 of 30 packages are in the dependency graph                   yes
-author                    0      the document names no author (the generating tool is recorded)  yes
-timestamp                 100    written when the document is                                    yes
-license                   80     24 of 30 packages have a license                                -
-hash                      100    30 of 30 packages have a hash                                   -
+Element                   Score  Covers                                                                    NTIA minimum
+-----------------------------------------------------------------------------------------------------------------------
+supplier                  100    30 of 30 packages name a supplier                                         yes
+name                      100    30 of 30 packages have a name                                             yes
+version                   100    30 of 30 packages have a version                                          yes
+unique identifier         100    30 of 30 packages have a purl                                             yes
+dependency relationships  100    30 of 30 packages are in the dependency graph                             yes
+author                    0      the document names no author (the generating tool is recorded)            yes
+timestamp                 100    written when the document is                                              yes
+license                   80     24 of 30 packages have a license                                          -
+hash                      100    30 of 30 packages have a hash                                             -
+scanner identity          45     13 of 24 native conda packages lack a CPE or matchable purl (not scored)  -
 
 Quality: 86 of 100 for 30 packages (NTIA minimum elements: 85 of 100)

@@ -179,6 +179,31 @@ about it. Where the lock entry states a bare purl, its version is filled in from
 the conda purl to `pixi:purl`, because scanners only read the primary identity. With it, `grype` / `trivy` /
 `osv-scanner` report advisories for conda-installed Python packages.
 
+### CPEs for native conda packages
+
+A native library from a conda channel (openssl, libtiff, sqlite, python itself) has no PyPI identity, and its
+`pkg:conda` purl is in no advisory database. Scanners that match through NVD, such as Grype, match those by CPE
+instead. A channel's conda package whose name is in pixi-sbom's curated table (`data/cpe.toml`) gets one:
+
+| Format | Where |
+|---|---|
+| CycloneDX 1.6 / 1.7 | `component.cpe` |
+| SPDX 2.3 | an `externalRefs` entry: `referenceCategory: SECURITY`, `referenceType: cpe23Type` |
+| SPDX 3.0.1 | an `externalIdentifier` with `externalIdentifierType: cpe23` |
+
+The value is a CPE 2.3 formatted string, `cpe:2.3:a:<vendor>:<product>:<version>:*:*:*:*:*:*:*`, with the table's
+vendor and product as NVD spells them and the conda package's own version (characters a formatted string cannot
+carry unquoted are quoted with a backslash).
+
+**A package that is not in the table gets no CPE. pixi-sbom never guesses one from a name**: name guessing is where
+scanners' false positives on conda packages come from. Nothing is looked up at run time; the table is identity data,
+like the PyPI mapping. PyPI packages, and conda packages with a PyPI identity, are matched by their purl and get no
+CPE. `--explain <package>` shows the table entry a CPE came from, or that there is none, and `--report quality`
+counts native conda packages that have neither a CPE nor a purl a scanner matches.
+
+A CPE match is only as precise as the version: NVD cannot know that a conda-forge build carries a backported fix, so
+a finding on an older version may already be fixed in that build.
+
 ### Licenses
 
 Package license strings are whatever the channel or index declared; conda-forge is mostly SPDX-clean but not

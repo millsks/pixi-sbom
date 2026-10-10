@@ -221,6 +221,13 @@ CycloneDX 1.6 and 1.7, SPDX 2.3 and 3.0.1 stay writable, and `--spec-version` ke
 Lockfile format versions 1 through 7 stay readable. A newer one is refused by name rather than
 half-read, and that refusal is exit code 1.
 
+## The CPE table
+
+The format of `data/cpe.toml` and of the CPEs written from it (a CPE 2.3 formatted string in CycloneDX's `cpe`,
+SPDX 2.3's `cpe23Type` reference and SPDX 3.0.1's `cpe23` identifier) is covered. **Its entries are not**: which conda
+packages have a CPE, and with which vendor and product, change in any release, patch releases included, as entries
+are added and corrected.
+
 ## Not covered
 
 These change without a major version, and nothing should be parsed out of them:

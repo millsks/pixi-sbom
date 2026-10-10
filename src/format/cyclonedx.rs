@@ -186,6 +186,9 @@ struct Component {
     description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     supplier: Option<Entity>,
+    /// NVD's identity for a native conda package, from `crate::cpe`'s table; never guessed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cpe: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     purl: Option<String>,
     /// `required` or `optional`, when the input says which (see `crate::scope`).
@@ -533,6 +536,7 @@ fn tool_component(ctx: &WriteContext) -> Component {
         version: Some(ctx.tool_version.clone()),
         description: None,
         supplier: None,
+        cpe: None,
         purl: None,
         scope: None,
         hashes: vec![],
@@ -554,6 +558,7 @@ fn root_component(sbom: &Sbom) -> Component {
         version: root.version.clone(),
         description: None,
         supplier: None,
+        cpe: None,
         purl: None,
         scope: None,
         hashes: vec![],
@@ -633,6 +638,7 @@ fn component(package: &Package) -> Component {
         version: package.version.clone(),
         description: package.description.clone(),
         supplier: package.supplier.as_ref().map(entity),
+        cpe: crate::cpe::for_package(package),
         purl: Some(package.purl.clone()),
         scope: None,
         hashes,

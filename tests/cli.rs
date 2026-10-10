@@ -8774,7 +8774,18 @@ fn the_quality_report_grades_a_complete_and_a_sparse_document() {
     let report: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(report["report"], "quality");
     assert_eq!(report["summary"]["overall"], 51);
-    assert_eq!(report["quality"].as_array().unwrap().len(), 9);
+    let rows = report["quality"].as_array().unwrap();
+    assert_eq!(rows.len(), 10);
+    let informational: Vec<&Value> = rows
+        .iter()
+        .filter(|r| r["informational"] == true)
+        .map(|r| &r["element"])
+        .collect();
+    assert_eq!(
+        informational,
+        ["scanner identity"],
+        "shown, not scored: the overall score above is unchanged"
+    );
 
     let document = work.path().join("out.cdx.json");
     let output = run(
@@ -9637,4 +9648,70 @@ fn a_symlinked_python_directory_lists_each_package_once() {
         .collect();
         assert_eq!(names.iter().filter(|n| **n == "six").count(), 1, "{format}: {names:?}");
     }
+}
+
+/// A channel's native conda package carries a CPE from the curated table in every format, and
+/// every document stays valid against its schema. A package missing from the table has none.
+#[test]
+fn native_conda_packages_carry_a_cpe_in_every_format() {
+    let work = tempfile::tempdir().unwrap();
+    let lockfile = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/projects/pixi/01-django/pixi.lock");
+    let run = |args: &[&str]| -> Value {
+        let assert = pixi_sbom()
+            .current_dir(work.path())
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("PIXI_SBOM_CACHE_DIR", work.path().join("cache"))
+            .arg("--lockfile")
+            .arg(&lockfile)
+            .args(["-p", "linux-64", "--output", "-"])
+            .args(args)
+            .assert()
+            .success();
+        serde_json::from_slice(&assert.get_output().stdout).unwrap()
+    };
+    let libtiff = "cpe:2.3:a:libtiff:libtiff:4.5.1:*:*:*:*:*:*:*";
+    for (version, validator) in [("1.6", cyclonedx_validator()), ("1.7", cyclonedx_1_7_validator())] {
+        let doc = run(&["--spec-version", version]);
+        assert_valid(&validator, &doc);
+        let cpe = |name: &str| {
+            doc["components"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|c| c["name"] == name)
+                .map(|c| c["cpe"].clone())
+                .unwrap()
+        };
+        assert_eq!(cpe("libtiff"), libtiff, "CycloneDX {version}");
+        assert_eq!(
+            cpe("tzdata"),
+            Value::Null,
+            "CycloneDX {version}: not in the table, no CPE"
+        );
+        assert_eq!(
+            cpe("django"),
+            Value::Null,
+            "CycloneDX {version}: a PyPI identity, no CPE"
+        );
+    }
+    let spdx = run(&["--format", "spdx"]);
+    assert_valid(&spdx_validator(), &spdx);
+    let refs: Vec<&Value> = spdx["packages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|p| p["name"] == "libtiff")
+        .flat_map(|p| p["externalRefs"].as_array().unwrap())
+        .filter(|r| r["referenceType"] == "cpe23Type")
+        .collect();
+    assert_eq!(refs.len(), 1);
+    assert_eq!(refs[0]["referenceCategory"], "SECURITY");
+    assert_eq!(refs[0]["referenceLocator"], libtiff);
+    let spdx3 = run(&["--format", "spdx", "--spec-version", "3.0"]);
+    assert_valid(&spdx3_validator(), &spdx3);
+    let text = spdx3.to_string();
+    assert!(
+        text.contains(&format!(r#""externalIdentifierType":"cpe23","identifier":"{libtiff}""#)),
+        "SPDX 3: a cpe23 external identifier"
+    );
 }

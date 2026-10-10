@@ -2062,6 +2062,9 @@ pixi sbom --format spdx --spec-version 3.0
 # Straight into a consumer, nothing written to disk
 pixi sbom --output - | grype
 
+# Native conda packages (openssl, libtiff, python) carry a CPE from the curated table by default,
+# so a CPE-matching scanner such as grype finds their advisories with no extra flag
+
 # Scannable: give conda-forge Python packages their PyPI identity and make it primary
 pixi sbom --pypi-mapping prefix --primary-purl pypi --output - | grype
 
