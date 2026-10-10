@@ -2000,7 +2000,11 @@ issue, <em>CPE table upkeep</em>, up to date with what it finds:</p>
 </tbody>
 </table>
 <p>Nothing is added to the table automatically: which CPE a package should get is a person's call.
-<code>pixi run cpe-upkeep --report &lt;file&gt;</code> runs the same checks locally (about ten minutes: NVD allows five requests in
+<strong>The CRAN table</strong> (<code>data/cran.toml</code>, #436) is generated, not curated: <code>pixi run cran-table</code> rebuilds it from CRAN's
+package list and archive and conda-forge's channel data, and <code>pixi run cran-table --check</code> says whether it is out of
+date. It lists only the exceptions: <code>r-*</code> packages CRAN spells differently and the ones never on CRAN.
+<code>pixi run cran-table-test</code> tests the generator.</p>
+<p><code>pixi run cpe-upkeep --report &lt;file&gt;</code> runs the same checks locally (about ten minutes: NVD allows five requests in
 thirty seconds without an API key); <code>pixi run cpe-upkeep-test</code> tests them.</p>
 <h2 id="the-github-action">The GitHub Action<a class="headerlink" href="#the-github-action" title="Permanent link">&para;</a></h2>
 <p><code>action.yml</code> at the repository root is a composite action: it resolves the version (the action's own tag, an

@@ -404,6 +404,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unreleased
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#1100" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1480,6 +1491,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unreleased
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#1100" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1779,6 +1801,13 @@ has every commit.</p>
   credentials are used, and <code>--doctor</code> says which host is the problem.</li>
 <li><strong>Learned tab completion</strong> in bash, zsh, fish and PowerShell, for <code>pixi-sbom</code> and <code>pixi sbom</code>.</li>
 </ul>
+<h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<p><strong>R packages carry their CRAN identity, so OSV finds their advisories.</strong> An <code>r-*</code> conda package had only a
+<code>pkg:conda</code> purl, which no advisory database indexes. Each one that is on CRAN now also has a <code>pkg:cran</code> purl, named
+and versioned as CRAN spells it (<code>r-rcpp</code> 1.0.13_1 is <code>pkg:cran/Rcpp@1.0.13-1</code>), read from the package's own
+<code>DESCRIPTION</code> file where it is on disk. <code>--vulnerabilities osv</code> then reports, for example, RSEC-2023-8 against
+commonmark 1.8.0. Bioconductor, GitHub and base-R packages get none. See
+<a href="../output-format/#cran-identities-for-r-packages">CRAN identities for R packages</a>.</p>
 <h2 id="1100">1.10.0<a class="headerlink" href="#1100" title="Permanent link">&para;</a></h2>
 <p>1.10.0 is about what a scanner can do with pixi-sbom's documents. Describing an installed environment offline,
 pixi-sbom now gives Grype everything syft's document does and more: on the installed Django example, with

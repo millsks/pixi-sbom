@@ -1014,6 +1014,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#cran-identities-for-r-packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CRAN identities for R packages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#cpes-for-native-conda-packages" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1619,6 +1630,17 @@
     <span class="md-ellipsis">
       
         PyPI identities for conda packages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cran-identities-for-r-packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CRAN identities for R packages
       
     </span>
   </a>
@@ -2403,6 +2425,36 @@ the conda purl to <code>pixi:purl</code>, because scanners only read the primary
 <code>osv-scanner</code> report advisories for conda-installed Python packages. Without it, a run that leaves PyPI identities
 where scanners cannot see them warns once on stderr; <a href="../ci-recipes/#scanning-with-grype">Scanning with Grype</a> has the
 recommended commands and the configuration key.</p>
+<h3 id="cran-identities-for-r-packages">CRAN identities for R packages<a class="headerlink" href="#cran-identities-for-r-packages" title="Permanent link">&para;</a></h3>
+<p>An <code>r-*</code> conda package is usually a <a href="https://cran.r-project.org/">CRAN</a> package, and OSV indexes CRAN advisories.
+Each one that is on CRAN gets a <code>pkg:cran</code> purl beside its <code>pkg:conda</code> one, by default and offline, the way a conda
+Python package gets its PyPI purl: in <code>pixi:purl</code> (CycloneDX) or an extra <code>externalRefs</code> entry (SPDX). The conda purl
+stays primary. <code>--vulnerabilities osv</code> and osv-scanner match it; Grype has no CRAN advisories.</p>
+<p>CRAN names are case-sensitive and may contain dots, and conda spells versions with <code>_</code> where CRAN has <code>-</code>, so the
+name and version come from the best source on hand, recorded in <code>pixi:cran-source</code>:</p>
+<table>
+<thead>
+<tr>
+<th><code>pixi:cran-source</code></th>
+<th>Where from</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>description</code></td>
+<td>The package's own <code>DESCRIPTION</code> file, in the installed environment (<code>--prefix</code>) or in the extracted package in the pixi package cache. Its <code>Repository: CRAN</code> line also decides whether the package is on CRAN: a Bioconductor, GitHub or base-R package gets no CRAN purl.</td>
+</tr>
+<tr>
+<td><code>table</code></td>
+<td><code>data/cran.toml</code>, generated from CRAN's package list and archive: <code>r-rcpp</code> is <code>Rcpp</code></td>
+</tr>
+<tr>
+<td><code>rule</code></td>
+<td><code>r-&lt;name&gt;</code> is <code>&lt;name&gt;</code>, and conda's <code>1.0.13_1</code> is CRAN's <code>1.0.13-1</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>r-base</code> and the other <code>r-*</code> packages that were never on CRAN, current or archived, get none.</p>
 <h3 id="cpes-for-native-conda-packages">CPEs for native conda packages<a class="headerlink" href="#cpes-for-native-conda-packages" title="Permanent link">&para;</a></h3>
 <p>A native library from a conda channel (openssl, libtiff, sqlite, python itself) has no PyPI identity, and its
 <code>pkg:conda</code> purl is in no advisory database. Scanners that match through NVD, such as Grype, match those by CPE
