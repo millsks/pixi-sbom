@@ -587,10 +587,14 @@ Conda packages come from `conda-meta/<name>-<version>-<build>.json`, which carri
 `direct_url.json` for VCS installs), skipping the ones whose `INSTALLER` is `conda`, since their conda package is
 already listed. Without conda records nothing else lists what conda put there, so every `dist-info` is a package
 whatever its `INSTALLER` says. The dependency graph is resolved as for a lockfile. The environment is named after
-the directory, the platform is the one the records name, or for a venv the one most of its wheels were built for
-(their `WHEEL` tags), and `--platform` overrides it. The document records `pixi:prefix` instead of
-`pixi:lockfile`, and for a venv or a Python installation `pixi:python-version`: the Python from `pyvenv.cfg`, or
-the `pythonX.Y` of the site-packages path. `--fetch-licenses` reads the license files from the directory each record says the
+the directory. The platform (`pixi:platform`) is the first of these that names one: `--platform`; the conda
+records' `subdir`; the format and architecture of the interpreter (`bin/python*`, `python.exe`) or the standard
+library's compiled modules (`lib-dynload`, `DLLs`), so a Linux container's `/usr/local` scanned on a Mac is
+`linux-64` or `linux-aarch64`, not the Mac's platform; the platform most of the wheels were built for (their
+`WHEEL` tags); `win-64` for a `Lib/site-packages` layout; and only then the platform of the machine doing the
+scan. The document records `pixi:prefix` instead of `pixi:lockfile`, and for a venv or a Python installation
+`pixi:python-version`: the Python from `pyvenv.cfg`, or the newest `pythonX.Y` with a site-packages directory,
+made `X.Y.Z` by the `PY_VERSION` in `include/pythonX.Y/patchlevel.h` when the installation ships its headers. `--fetch-licenses` reads the license files from the directory each record says the
 package was extracted to (`extracted_package_dir`, the package cache), so it needs no network on the machine
 that installed the environment. The default output is `sbom.cdx.json` in the working directory, and the
 configuration file is looked up there too.
