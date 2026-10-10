@@ -114,14 +114,15 @@ jobs:
         run: pixi run whats-new-test
 
   # Tab completion as people get it: pixi-sbom's registration and the documented `pixi sbom`
-  # snippets loaded into real fish, bash, zsh and PowerShell, each asked what Tab offers.
+  # snippets loaded into real fish, bash, zsh and PowerShell, each asked what Tab offers. Windows
+  # runs the shells Windows users have: PowerShell 7 and the Windows PowerShell 5.1 it ships.
   completion:
     name: Shell completion (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: prefix-dev/setup-pixi@v0.8.1
