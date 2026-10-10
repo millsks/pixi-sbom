@@ -849,6 +849,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#scanning-with-grype" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scanning with Grype
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#failing-the-build-on-license-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1303,6 +1314,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#scanning-with-grype" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scanning with Grype
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#failing-the-build-on-license-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1416,84 +1438,110 @@
 </code></pre></div>
 <p>Conda packages are identified by <code>pkg:conda/...</code> purls with <code>channel</code>, <code>subdir</code>, <code>build</code> and <code>type</code> qualifiers; PyPI
 packages by <code>pkg:pypi/...</code>.</p>
-<p>Scanners have no conda vulnerability data, so by default a conda-only Python environment scans as clean no matter
-what it contains. To get real results, give conda-forge Python packages their PyPI identity and make it the primary
-purl:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--primary-purl<span class="w"> </span>pypi<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
+<h2 id="scanning-with-grype">Scanning with Grype<a class="headerlink" href="#scanning-with-grype" title="Permanent link">&para;</a></h2>
+<p>Grype, like Trivy and osv-scanner, matches a package by its primary purl or its CPE and reads nothing else. No
+advisory database indexes <code>pkg:conda</code> purls, so with the default <code>--primary-purl conda</code> a conda-installed Django,
+NumPy or Pillow is invisible to the scanner and a vulnerable environment can scan clean. Make the PyPI identity the
+primary purl whenever the document is going to a scanner:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># A pixi project, from its lockfile</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--primary-purl<span class="w"> </span>pypi<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># An installed environment (a conda or pixi env, a venv, a container's /usr/local), offline</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--prefix<span class="w"> </span>.pixi/envs/default<span class="w"> </span>--primary-purl<span class="w"> </span>pypi<span class="w"> </span>--embedded-sboms<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
 </code></pre></div>
-<p><code>--pypi-mapping prefix</code> consults the same conda-forge mapping pixi uses (downloaded once a day into a cache);
-<code>--pypi-mapping-file</code> takes an offline copy. On a typical conda-forge Python environment this gives roughly 60% of the
-components a <code>pkg:pypi</code> purl. See <a href="../output-format/#pypi-identities-for-conda-packages">output-format.md</a> for exactly
-what is recorded.</p>
+<p>On the installed <code>pixi/01-django</code> example, Grype finds none of django's 27 vulnerabilities with the default and all
+27 with <code>--primary-purl pypi</code>. The whole environment gives 94 findings, against 86 from syft's document for the same
+directory; <a href="../syft/#in-front-of-grype">pixi-sbom and syft</a> has the comparison.</p>
+<p>What each part does:</p>
+<ul>
+<li><code>--primary-purl pypi</code> makes a conda package's PyPI purl its <code>purl</code> (the first <code>externalRefs</code> entry in SPDX) and keeps
+  the conda purl as <code>pixi:purl</code>. The <code>bom-ref</code> and the dependency graph do not change.</li>
+<li><code>--pypi-mapping prefix</code> finds the PyPI name of each conda-forge package from the mapping pixi itself uses
+  (downloaded once a day into a cache); <code>--pypi-mapping-file</code> takes an offline copy. <code>--prefix</code> needs neither: it
+  reads each package's PyPI identity from the <code>.dist-info</code> it installed.</li>
+<li><code>--embedded-sboms</code> adds what is compiled or vendored into packages (Rust crates in wheels, setuptools' vendored
+  copies), so Grype checks those too.</li>
+<li>Native conda packages (openssl, libtiff, python) get a CPE from the curated table with no flag at all; Grype matches
+  them through NVD.</li>
+</ul>
+<p>Set it once rather than on every command line, in the project's <code>.pixi/pixi-sbom-config.toml</code>, in
+<code>[tool.pixi-sbom]</code> in <code>pyproject.toml</code>, or for every project in <code>~/.pixi/pixi-sbom-config.toml</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">primary-purl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"pypi"</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">pypi-mapping</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"prefix"</span>
+</code></pre></div>
+<p>In the <a href="../github-action/">GitHub Action</a> the inputs are <code>primary-purl: pypi</code> and <code>pypi-mapping: prefix</code>.</p>
+<p>Until it is set, a run whose document has conda packages with a PyPI identity scanners cannot see says so once on
+stderr, with how many. Setting <code>primary-purl</code> either way, <code>conda</code> included, is a decision and silences it. The
+<strong>PyPI identity</strong> row of <a href="../cli/#how-complete-the-document-is"><code>--report quality</code></a> gives the same count, unscored.</p>
 <h2 id="failing-the-build-on-license-policy">Failing the build on license policy<a class="headerlink" href="#failing-the-build-on-license-policy" title="Permanent link">&para;</a></h2>
 <p>Any of <code>--allow-license</code>, <code>--deny-license</code> and <code>--require-license</code> turns the run into a gate: the document is still
 written, the violations are listed, and the exit code is 3. In the <a href="../github-action/">action</a> that fails the step
 unless <code>fail-on-policy</code> is <code>false</code>; anywhere else, let the non-zero exit propagate:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--deny-license<span class="w"> </span>GPL-3.0-only<span class="w"> </span>--deny-license<span class="w"> </span>AGPL-3.0-only<span class="w"> </span>--require-license
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--deny-license<span class="w"> </span>GPL-3.0-only<span class="w"> </span>--deny-license<span class="w"> </span>AGPL-3.0-only<span class="w"> </span>--require-license
 </code></pre></div>
 <p>See <a href="../cli/#enforcing-a-license-policy">the policy semantics</a> for how expressions such as <code>MIT OR GPL-3.0-only</code> are
 evaluated.</p>
 <h2 id="a-license-table-in-a-pull-request-comment">A license table in a pull request comment<a class="headerlink" href="#a-license-table-in-a-pull-request-comment" title="Permanent link">&para;</a></h2>
 <p><code>--report licenses --report-format markdown</code> prints a per-license summary with unlicensed and non-SPDX packages
 called out, ready to paste:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">License report</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi sbom --fetch-licenses --report licenses --report-format markdown &gt; report.md</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">marocchino/sticky-pull-request-comment@v2</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">report.md</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">License report</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi sbom --fetch-licenses --report licenses --report-format markdown &gt; report.md</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">marocchino/sticky-pull-request-comment@v2</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">report.md</span>
 </code></pre></div>
 <p><code>--report-format csv</code> and <code>json</code> feed spreadsheets and scripts the same way; see
 <a href="../cli/#looking-instead-of-writing">looking instead of writing</a>.</p>
 <h2 id="what-changed-in-the-environment">What changed in the environment<a class="headerlink" href="#what-changed-in-the-environment" title="Permanent link">&para;</a></h2>
 <p><code>--report diff --against &lt;previous&gt;</code> answers the pull-request question directly: which packages were added,
 removed or bumped since the document on <code>main</code>, as a Markdown table ready for a comment.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/download-artifact@v4</span><span class="w">   </span><span class="c1"># the sboms artifact the main branch uploaded</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">sboms</span><span class="p p-Indicator">,</span><span class="nt"> path</span><span class="p">:</span><span class="w"> </span><span class="nv">previous</span><span class="w"> </span><span class="p p-Indicator">}</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Environment changes</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi sbom --report diff --against previous/sbom-default.cdx.json --report-format markdown &gt; diff.md</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">marocchino/sticky-pull-request-comment@v2</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> path</span><span class="p">:</span><span class="w"> </span><span class="nv">diff.md</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/download-artifact@v4</span><span class="w">   </span><span class="c1"># the sboms artifact the main branch uploaded</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">sboms</span><span class="p p-Indicator">,</span><span class="nt"> path</span><span class="p">:</span><span class="w"> </span><span class="nv">previous</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Environment changes</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi sbom --report diff --against previous/sbom-default.cdx.json --report-format markdown &gt; diff.md</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">marocchino/sticky-pull-request-comment@v2</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> path</span><span class="p">:</span><span class="w"> </span><span class="nv">diff.md</span><span class="w"> </span><span class="p p-Indicator">}</span>
 </code></pre></div>
 <p>To gate on it instead of only reporting it, add <code>--fail-on-diff</code> (exit code 6), or let the action do both — it puts
 the comparison in the job summary:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/download-artifact@v4</span><span class="w">   </span><span class="c1"># the sboms artifact the main branch uploaded</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">sboms</span><span class="p p-Indicator">,</span><span class="nt"> path</span><span class="p">:</span><span class="w"> </span><span class="nv">previous</span><span class="w"> </span><span class="p p-Indicator">}</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">millsks/pixi-sbom@v1</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="nt">diff-against</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">previous/sbom-default.cdx.json</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="nt">fail-on-diff</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">removed version</span><span class="w">    </span><span class="c1"># adding a package is fine; losing or bumping one is not</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/download-artifact@v4</span><span class="w">   </span><span class="c1"># the sboms artifact the main branch uploaded</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">sboms</span><span class="p p-Indicator">,</span><span class="nt"> path</span><span class="p">:</span><span class="w"> </span><span class="nv">previous</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">millsks/pixi-sbom@v1</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="nt">diff-against</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">previous/sbom-default.cdx.json</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="nt">fail-on-diff</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">removed version</span><span class="w">    </span><span class="c1"># adding a package is fine; losing or bumping one is not</span>
 </code></pre></div>
 <h2 id="does-the-image-still-match-the-lockfile">Does the image still match the lockfile?<a class="headerlink" href="#does-the-image-still-match-the-lockfile" title="Permanent link">&para;</a></h2>
 <p>The check for a container built earlier, or one whose base image was rebuilt: compare what is installed with what
 was locked. <code>pip</code> installs into the conda environment and packages rebuilt at the same version are sections of
 their own, so they are not lost among ordinary additions.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Drift check</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="no">pixi sbom --prefix /opt/conda/envs/app --against pixi.lock       --report diff --report-format markdown --fail-on-diff &gt;&gt; "$GITHUB_STEP_SUMMARY"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Drift check</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="no">pixi sbom --prefix /opt/conda/envs/app --against pixi.lock       --report diff --report-format markdown --fail-on-diff &gt;&gt; "$GITHUB_STEP_SUMMARY"</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Locally, against a running container</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">:/w"</span><span class="w"> </span>-w<span class="w"> </span>/w<span class="w"> </span>myimage<span class="w">   </span>pixi-sbom<span class="w"> </span>--prefix<span class="w"> </span>/opt/conda/envs/app<span class="w"> </span>--against<span class="w"> </span>pixi.lock<span class="w"> </span>--report<span class="w"> </span>diff<span class="w"> </span>--fail-on-diff<span class="w"> </span>pip<span class="w"> </span>build
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Locally, against a running container</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">:/w"</span><span class="w"> </span>-w<span class="w"> </span>/w<span class="w"> </span>myimage<span class="w">   </span>pixi-sbom<span class="w"> </span>--prefix<span class="w"> </span>/opt/conda/envs/app<span class="w"> </span>--against<span class="w"> </span>pixi.lock<span class="w"> </span>--report<span class="w"> </span>diff<span class="w"> </span>--fail-on-diff<span class="w"> </span>pip<span class="w"> </span>build
 </code></pre></div>
 <h2 id="diffing-sboms-between-commits">Diffing SBOMs between commits<a class="headerlink" href="#diffing-sboms-between-commits" title="Permanent link">&para;</a></h2>
 <p>With <code>SOURCE_DATE_EPOCH</code> set, two runs over the same lockfile are byte-identical (the serial number is derived from
 the lockfile contents and the timestamp is pinned), so a plain <code>diff</code> shows exactly which packages changed:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">SOURCE_DATE_EPOCH</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>sbom.cdx.json
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>git<span class="w"> </span>diff<span class="w"> </span>--no-index<span class="w"> </span>--<span class="w"> </span>sbom-previous.cdx.json<span class="w"> </span>sbom.cdx.json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nv">SOURCE_DATE_EPOCH</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>sbom.cdx.json
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>git<span class="w"> </span>diff<span class="w"> </span>--no-index<span class="w"> </span>--<span class="w"> </span>sbom-previous.cdx.json<span class="w"> </span>sbom.cdx.json
 </code></pre></div>
 <p>See <a href="../output-format/#reproducibility">reproducibility</a> for what the guarantee covers.</p>
 <h2 id="pre-commit">pre-commit<a class="headerlink" href="#pre-commit" title="Permanent link">&para;</a></h2>
 <p>Two hooks, from the mirror repository <a href="https://github.com/millsks/pixi-sbom-pre-commit"><code>millsks/pixi-sbom-pre-commit</code></a>:
 each of its tags installs the pixi-sbom wheel of the same version from PyPI, so nothing is compiled.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># .pre-commit-config.yaml</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nt">repos</span><span class="p">:</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">repo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/millsks/pixi-sbom-pre-commit</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nt">rev</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1.7.0</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="nt">hooks</span><span class="p">:</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">      </span><span class="c1"># Write sbom.cdx.json next to the lockfile whenever a lockfile changes.</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi-sbom</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">      </span><span class="c1"># The license gate with your policy; writes no file.</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi-sbom-policy</span>
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">        </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">--deny-license</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">GPL-3.0-only</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">--deny-license</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">AGPL-3.0-only</span><span class="p p-Indicator">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># .pre-commit-config.yaml</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nt">repos</span><span class="p">:</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">repo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/millsks/pixi-sbom-pre-commit</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="nt">rev</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1.7.0</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="nt">hooks</span><span class="p">:</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">      </span><span class="c1"># Write sbom.cdx.json next to the lockfile whenever a lockfile changes.</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi-sbom</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">      </span><span class="c1"># The license gate with your policy; writes no file.</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi-sbom-policy</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">        </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">--deny-license</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">GPL-3.0-only</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">--deny-license</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">AGPL-3.0-only</span><span class="p p-Indicator">]</span>
 </code></pre></div>
 <p>Both run when <code>pixi.lock</code>, <code>uv.lock</code>, <code>pylock.toml</code> (or <code>pylock.&lt;name&gt;.toml</code>), <code>poetry.lock</code>, <code>pdm.lock</code> or
 <code>conda-lock.yml</code> changes, from the repository root, where the <a href="../cli/#which-lockfile-is-found">usual search</a> finds

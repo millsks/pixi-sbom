@@ -1376,6 +1376,8 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">deny-license</span><span class="p">:</span><span class="w"> </span><span class="s">"GPL-3.0-only</span><span class="nv"> </span><span class="s">AGPL-3.0-only"</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nt">require-license</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
 </code></pre></div>
+<p><code>primary-purl: pypi</code> is what lets a scanner match conda-installed Python packages; see
+<a href="../ci-recipes/#scanning-with-grype">Scanning with Grype</a>.</p>
 <p><code>@v1</code> follows the newest 1.x.y release: each release moves the tag once its binaries are published, and the action
 installs the binary of the release the tag points at. For a build that never changes underneath you, pin an exact
 release (<code>@v1.0.0</code>) or a commit sha and let Dependabot bump it.</p>

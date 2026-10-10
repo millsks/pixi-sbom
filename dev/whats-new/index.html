@@ -1658,6 +1658,12 @@ has every commit.</p>
 <li><strong>Learned tab completion</strong> in bash, zsh, fish and PowerShell, for <code>pixi-sbom</code> and <code>pixi sbom</code>.</li>
 </ul>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<p><strong>pixi-sbom says when a scanner would miss packages.</strong> Grype and other scanners read only a package's primary purl,
+and by default a conda-installed Python package's primary purl is <code>pkg:conda</code>, which no advisory database indexes: on
+the Django example Grype found none of django's 27 vulnerabilities. A run now warns once when that applies, naming
+<code>--primary-purl pypi</code> and the <code>primary-purl</code> configuration key; setting either, to <code>pypi</code> or <code>conda</code>, silences it.
+<code>--report quality</code> counts the same packages in a new, unscored <strong>PyPI identity</strong> row, and the CI recipes have a
+<a href="../ci-recipes/#scanning-with-grype">Scanning with Grype</a> section. The default changes in 2.0 (#478).</p>
 <p><strong>An installed environment's document no longer names paths on the machine that made it.</strong> <code>--prefix</code> recorded a
 pip package's <code>file:///…/site-packages/…dist-info</code> as its location, and each conda package's extraction directory
 as a full path into the user's cache (<code>/Users/&lt;name&gt;/Library/Caches/rattler/…</code>). The first is dropped, the second

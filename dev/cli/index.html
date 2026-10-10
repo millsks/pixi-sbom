@@ -3965,6 +3965,10 @@ is the share of packages that have it: a purl for the unique identifier, a place
 on something, or depended on, past the root's own edges) for the relationships. The author is the document's named
 authors (the generating tool is recorded separately and does not count); the timestamp is always there, since the
 document is written now. The overall score is the mean of the nine, and the NTIA score the mean of the seven.</p>
+<p>Two more rows are shown but not scored, so they move nobody's <code>--min-quality</code>: <strong>scanner identity</strong>, the native conda
+packages with neither a CPE nor a PyPI purl, which no scanner can match; and <strong>PyPI identity</strong>, the conda Python
+packages whose PyPI purl is only an extra reference, which a scanner does not read until <code>--primary-purl pypi</code> makes
+it primary (see <a href="../ci-recipes/#scanning-with-grype">Scanning with Grype</a>).</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>Element                   Score  Covers                                                          NTIA minimum
 <a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a>-------------------------------------------------------------------------------------------------------------
 <a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a>supplier                  0      0 of 15 packages name a supplier                                yes
@@ -4935,7 +4939,7 @@ prints for it.</p>
 <a id="__codelineno-65-8" name="__codelineno-65-8" href="#__codelineno-65-8"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--format<span class="w"> </span>spdx<span class="w"> </span>--spec-version<span class="w"> </span><span class="m">3</span>.0
 <a id="__codelineno-65-9" name="__codelineno-65-9" href="#__codelineno-65-9"></a>
 <a id="__codelineno-65-10" name="__codelineno-65-10" href="#__codelineno-65-10"></a><span class="c1"># Straight into a consumer, nothing written to disk</span>
-<a id="__codelineno-65-11" name="__codelineno-65-11" href="#__codelineno-65-11"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
+<a id="__codelineno-65-11" name="__codelineno-65-11" href="#__codelineno-65-11"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>-
 <a id="__codelineno-65-12" name="__codelineno-65-12" href="#__codelineno-65-12"></a>
 <a id="__codelineno-65-13" name="__codelineno-65-13" href="#__codelineno-65-13"></a><span class="c1"># Native conda packages (openssl, libtiff, python) carry a CPE from the curated table by default,</span>
 <a id="__codelineno-65-14" name="__codelineno-65-14" href="#__codelineno-65-14"></a><span class="c1"># so a CPE-matching scanner such as grype finds their advisories with no extra flag</span>

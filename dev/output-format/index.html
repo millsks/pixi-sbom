@@ -2400,7 +2400,9 @@ about it. Where the lock entry states a bare purl, its version is filled in from
 <code>purls: []</code> keeps meaning "not on PyPI".</p>
 <p><code>--primary-purl pypi</code> then makes that PyPI purl the component's <code>purl</code> (first <code>externalRefs</code> entry in SPDX) and moves
 the conda purl to <code>pixi:purl</code>, because scanners only read the primary identity. With it, <code>grype</code> / <code>trivy</code> /
-<code>osv-scanner</code> report advisories for conda-installed Python packages.</p>
+<code>osv-scanner</code> report advisories for conda-installed Python packages. Without it, a run that leaves PyPI identities
+where scanners cannot see them warns once on stderr; <a href="../ci-recipes/#scanning-with-grype">Scanning with Grype</a> has the
+recommended commands and the configuration key.</p>
 <h3 id="cpes-for-native-conda-packages">CPEs for native conda packages<a class="headerlink" href="#cpes-for-native-conda-packages" title="Permanent link">&para;</a></h3>
 <p>A native library from a conda channel (openssl, libtiff, sqlite, python itself) has no PyPI identity, and its
 <code>pkg:conda</code> purl is in no advisory database. Scanners that match through NVD, such as Grype, match those by CPE
