@@ -1059,6 +1059,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#vendored-python-distributions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vendored Python distributions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#installed-environments" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1653,6 +1664,17 @@
     <span class="md-ellipsis">
       
         Rust crates inside a binary (cargo auditable)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vendored-python-distributions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vendored Python distributions
       
     </span>
   </a>
@@ -2522,6 +2544,17 @@ the environment installed (ELF, Mach-O and PE alike) and attached like any other
 binary, <code>pixi:cargo-source</code> (<code>crates.io</code>, <code>git</code>, <code>local</code>, ...), and an edge from the conda package to the crate
 its program was built from. Crates that only built the program (<code>kind: build</code>) are not in it and are left out.
 Because the purls are <code>pkg:cargo</code>, <code>--vulnerabilities osv</code> covers them through RUSTSEC.</p>
+<h3 id="vendored-python-distributions">Vendored Python distributions<a class="headerlink" href="#vendored-python-distributions" title="Permanent link">&para;</a></h3>
+<p>Some packages ship other Python distributions inside themselves, each with its own <code>dist-info</code>: setuptools vendors
+packaging, wheel and a dozen more under <code>setuptools/_vendor/</code>, and bleach vendors html5lib. A vendored copy can lag
+the installed one (packaging 26.0 vendored beside 26.3 installed), and an advisory against it is a finding in the
+environment. With <code>--prefix</code> and <code>--embedded-sboms</code>, every <code>&lt;package&gt;/_vendor/*.dist-info</code> and
+<code>&lt;package&gt;/vendor/*.dist-info</code> in site-packages is attached like any other embedded component: <code>pixi:kind=embedded</code>,
+the <code>pkg:pypi/&lt;name&gt;@&lt;version&gt;</code> its <code>METADATA</code> names, <code>pixi:embedded-sbom=vendored:&lt;package&gt;/_vendor</code> (several,
+separated by <code>;</code>, when more than one package vendors the same release), and an edge from the package that owns the
+directory, found from its conda record's files or its pip <code>RECORD</code>.</p>
+<p>Its id (<code>bom-ref</code>) ends in <code>#vendored</code>, so it stays apart from an installed distribution of the same name and version:
+they are different copies of the code. <code>--report diff</code> leaves vendored copies out: they are not installs.</p>
 <h3 id="installed-environments">Installed environments<a class="headerlink" href="#installed-environments" title="Permanent link">&para;</a></h3>
 <p>With <code>--prefix</code> the document describes an installed environment instead of a lockfile: the metadata property is
 <code>pixi:prefix</code> (the environment directory's name) rather than <code>pixi:lockfile</code>, the SPDX root package's source info
