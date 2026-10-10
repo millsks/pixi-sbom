@@ -393,6 +393,7 @@ pub fn apply(loaded: &Loaded, args: &mut Args, matches: &ArgMatches) -> Result<(
         if !on_cli(matches, "primary_purl") {
             args.primary_purl = parse_enum::<PrimaryPurl>(path, "primary-purl", purl)?;
         }
+        args.primary_purl_chosen = true;
     }
     set!(concurrency, "concurrency", config.concurrency.map(Some));
     set!(fetch_licenses, "fetch_licenses", config.fetch_licenses);
@@ -578,6 +579,8 @@ mod tests {
         assert_eq!(a.conda_index_kind, CondaIndexKind::Anaconda);
         assert_eq!(a.concurrency, Some(25));
         assert_eq!(a.primary_purl, PrimaryPurl::Pypi);
+        assert!(a.primary_purl_chosen, "a configured primary-purl is a choice");
+        assert!(!args(&[]).0.primary_purl_chosen);
         assert!(a.fetch_licenses);
         assert_eq!(a.deny_license, ["GPL-3.0-only", "AGPL-3.0-only"]);
         assert!(a.require_license);

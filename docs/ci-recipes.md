@@ -16,18 +16,50 @@ grype sbom:sbom.cdx.json
 Conda packages are identified by `pkg:conda/...` purls with `channel`, `subdir`, `build` and `type` qualifiers; PyPI
 packages by `pkg:pypi/...`.
 
-Scanners have no conda vulnerability data, so by default a conda-only Python environment scans as clean no matter
-what it contains. To get real results, give conda-forge Python packages their PyPI identity and make it the primary
-purl:
+## Scanning with Grype
+
+Grype, like Trivy and osv-scanner, matches a package by its primary purl or its CPE and reads nothing else. No
+advisory database indexes `pkg:conda` purls, so with the default `--primary-purl conda` a conda-installed Django,
+NumPy or Pillow is invisible to the scanner and a vulnerable environment can scan clean. Make the PyPI identity the
+primary purl whenever the document is going to a scanner:
 
 ```sh
+# A pixi project, from its lockfile
 pixi sbom --pypi-mapping prefix --primary-purl pypi --output - | grype
+
+# An installed environment (a conda or pixi env, a venv, a container's /usr/local), offline
+pixi sbom --prefix .pixi/envs/default --primary-purl pypi --embedded-sboms --output - | grype
 ```
 
-`--pypi-mapping prefix` consults the same conda-forge mapping pixi uses (downloaded once a day into a cache);
-`--pypi-mapping-file` takes an offline copy. On a typical conda-forge Python environment this gives roughly 60% of the
-components a `pkg:pypi` purl. See [output-format.md](output-format.md#pypi-identities-for-conda-packages) for exactly
-what is recorded.
+On the installed `pixi/01-django` example, Grype finds none of django's 27 vulnerabilities with the default and all
+27 with `--primary-purl pypi`. The whole environment gives 94 findings, against 86 from syft's document for the same
+directory; [pixi-sbom and syft](syft.md#in-front-of-grype) has the comparison.
+
+What each part does:
+
+- `--primary-purl pypi` makes a conda package's PyPI purl its `purl` (the first `externalRefs` entry in SPDX) and keeps
+  the conda purl as `pixi:purl`. The `bom-ref` and the dependency graph do not change.
+- `--pypi-mapping prefix` finds the PyPI name of each conda-forge package from the mapping pixi itself uses
+  (downloaded once a day into a cache); `--pypi-mapping-file` takes an offline copy. `--prefix` needs neither: it
+  reads each package's PyPI identity from the `.dist-info` it installed.
+- `--embedded-sboms` adds what is compiled or vendored into packages (Rust crates in wheels, setuptools' vendored
+  copies), so Grype checks those too.
+- Native conda packages (openssl, libtiff, python) get a CPE from the curated table with no flag at all; Grype matches
+  them through NVD.
+
+Set it once rather than on every command line, in the project's `.pixi/pixi-sbom-config.toml`, in
+`[tool.pixi-sbom]` in `pyproject.toml`, or for every project in `~/.pixi/pixi-sbom-config.toml`:
+
+```toml
+primary-purl = "pypi"
+pypi-mapping = "prefix"
+```
+
+In the [GitHub Action](github-action.md) the inputs are `primary-purl: pypi` and `pypi-mapping: prefix`.
+
+Until it is set, a run whose document has conda packages with a PyPI identity scanners cannot see says so once on
+stderr, with how many. Setting `primary-purl` either way, `conda` included, is a decision and silences it. The
+**PyPI identity** row of [`--report quality`](cli.md#how-complete-the-document-is) gives the same count, unscored.
 
 ## Failing the build on license policy
 

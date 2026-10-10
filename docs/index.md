@@ -12,7 +12,7 @@ itself: a uv or Poetry project runs it as `uvx pixi-sbom` ([Using pixi-sbom with
 pixi global install pixi-sbom
 
 pixi sbom                                   # sbom.cdx.json next to pixi.lock
-pixi sbom --output - | grype                # straight into a scanner
+pixi sbom --primary-purl pypi --output - | grype   # straight into a scanner
 pixi sbom --fetch-licenses --deny-license GPL-3.0-only --require-license   # a license gate, exit 3 on violation
 ```
 

@@ -119,8 +119,9 @@ pixi sbom
 # SPDX instead (sbom.spdx.json)
 pixi sbom --format spdx
 
-# Pipe into a scanner instead of writing a file
-pixi sbom --output - | grype
+# Pipe into a scanner instead of writing a file; --primary-purl pypi lets it match
+# conda-installed Python packages (see "Scanning with Grype" in the CI recipes)
+pixi sbom --primary-purl pypi --output - | grype
 
 # Licenses for every package, conda and PyPI alike (add --license-texts for the full texts)
 pixi sbom --fetch-licenses

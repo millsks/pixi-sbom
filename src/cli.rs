@@ -458,6 +458,11 @@ pub struct Args {
     #[arg(long, value_enum, default_value_t = PrimaryPurl::Conda)]
     pub primary_purl: PrimaryPurl,
 
+    /// Whether `--primary-purl` or the `primary-purl` key chose it, rather than the default: a
+    /// chosen `conda` is a decision, the default one gets a warning when scanners would miss packages.
+    #[arg(skip)]
+    pub primary_purl_chosen: bool,
+
     /// Fetch the license of every package, conda and PyPI alike, where the lockfile has none,
     /// plus the names of the license files it ships. Sources are the local package cache
     /// first, then the package index. Failures are logged and the run continues.

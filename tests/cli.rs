@@ -493,6 +493,47 @@ fn pypi_mapping_file_adds_purls_and_primary_purl_pypi_swaps_them() {
     );
 }
 
+/// The default primary purl hides conda packages' PyPI identity from scanners: warned once, and
+/// not at all once `--primary-purl` or the `primary-purl` key is set, `conda` included (#449).
+#[test]
+fn an_unchosen_conda_primary_purl_warns_that_scanners_will_miss_packages() {
+    let dir = workspace("conda-python");
+    let run = |extra: &[&str]| {
+        let assert = pixi_sbom()
+            .current_dir(dir.path())
+            .args(["-p", "linux-64", "--pypi-mapping-file"])
+            .arg(mapping_file())
+            .args(["--output", "-"])
+            .args(extra)
+            .assert()
+            .success();
+        String::from_utf8(assert.get_output().stderr.clone()).unwrap()
+    };
+    let warned = run(&[]);
+    assert_eq!(
+        warned.matches("scanners read only the primary purl").count(),
+        1,
+        "{warned}"
+    );
+    assert!(
+        warned.contains("packages=3") && warned.contains("--primary-purl pypi"),
+        "{warned}"
+    );
+    for chosen in [["--primary-purl", "conda"], ["--primary-purl", "pypi"]] {
+        assert!(!run(&chosen).contains("scanners read only"), "{chosen:?}");
+    }
+    std::fs::create_dir_all(dir.path().join(".pixi")).unwrap();
+    std::fs::write(
+        dir.path().join(".pixi").join("pixi-sbom-config.toml"),
+        "primary-purl = \"conda\"\n",
+    )
+    .unwrap();
+    assert!(
+        !run(&[]).contains("scanners read only"),
+        "a configured choice silences it"
+    );
+}
+
 #[test]
 fn primary_purl_pypi_without_mapping_uses_lockfile_purls_only() {
     let dir = workspace("with-pypi");
@@ -8778,7 +8819,7 @@ fn the_quality_report_grades_a_complete_and_a_sparse_document() {
         "syft's authors are suppliers, its CPEs identifiers"
     );
     let rows = report["quality"].as_array().unwrap();
-    assert_eq!(rows.len(), 10);
+    assert_eq!(rows.len(), 11);
     // The same tool's SPDX: `supplier: Person: ...` and `cpe23Type` references are read too.
     let spdx = tests_dir().join("fixtures/syft/app.spdx.json");
     let output = run(
@@ -8837,7 +8878,7 @@ fn the_quality_report_grades_a_complete_and_a_sparse_document() {
         .collect();
     assert_eq!(
         informational,
-        ["scanner identity"],
+        ["scanner identity", "PyPI identity"],
         "shown, not scored: the overall score above is unchanged"
     );
 

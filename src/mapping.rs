@@ -302,6 +302,16 @@ pub fn prefer_pypi_purl(sbom: &mut Sbom) -> usize {
     switched
 }
 
+/// Conda packages whose PyPI purl is only an extra reference, so a scanner, which reads the primary
+/// purl alone, cannot match them by it: what `prefer_pypi_purl` would switch.
+pub fn hidden_pypi_identities(sbom: &Sbom) -> usize {
+    sbom.packages
+        .iter()
+        .filter(|p| p.kind != PackageKind::Pypi && !p.purl.starts_with("pkg:pypi/"))
+        .filter(|p| p.extra_purls.iter().any(|purl| purl.starts_with("pkg:pypi/")))
+        .count()
+}
+
 fn is_conda_forge(package: &crate::model::Package) -> bool {
     package
         .properties
@@ -436,6 +446,7 @@ mod tests {
     fn prefer_pypi_purl_swaps_primary_and_keeps_id() {
         let mut sbom = conda_python_sbom();
         enrich(&mut sbom, &fixture_mapping());
+        assert_eq!(hidden_pypi_identities(&sbom), 3, "what a scanner cannot see");
         assert_eq!(prefer_pypi_purl(&mut sbom), 3);
         let numpy = sbom.packages.iter().find(|p| p.name == "numpy").unwrap();
         assert_eq!(numpy.purl, "pkg:pypi/numpy@2.3.1");
@@ -443,6 +454,7 @@ mod tests {
         assert!(numpy.id.starts_with("pkg:conda/numpy@2.3.1"), "id unchanged");
         let python = sbom.packages.iter().find(|p| p.name == "python").unwrap();
         assert!(python.purl.starts_with("pkg:conda/"));
+        assert_eq!(hidden_pypi_identities(&sbom), 0, "nothing left to switch");
 
         let mut sample = sample_sbom();
         assert_eq!(

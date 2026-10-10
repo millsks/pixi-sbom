@@ -180,7 +180,9 @@ about it. Where the lock entry states a bare purl, its version is filled in from
 
 `--primary-purl pypi` then makes that PyPI purl the component's `purl` (first `externalRefs` entry in SPDX) and moves
 the conda purl to `pixi:purl`, because scanners only read the primary identity. With it, `grype` / `trivy` /
-`osv-scanner` report advisories for conda-installed Python packages.
+`osv-scanner` report advisories for conda-installed Python packages. Without it, a run that leaves PyPI identities
+where scanners cannot see them warns once on stderr; [Scanning with Grype](ci-recipes.md#scanning-with-grype) has the
+recommended commands and the configuration key.
 
 ### CPEs for native conda packages
 

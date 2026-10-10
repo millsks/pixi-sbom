@@ -96,6 +96,28 @@ pub fn assess(sbom: &Sbom) -> Grade {
         informational: true,
     };
 
+    // A conda Python package whose PyPI purl is only an extra reference: scanners read the primary
+    // purl alone, so they miss its advisories (#449).
+    let python = count(&|p| {
+        p.kind != crate::model::PackageKind::Pypi
+            && p.extra_purls
+                .iter()
+                .chain([&p.purl])
+                .any(|purl| purl.starts_with("pkg:pypi/"))
+    });
+    let hidden = crate::mapping::hidden_pypi_identities(sbom);
+    let pypi_identity = Element {
+        element: "PyPI identity",
+        score: if python == 0 {
+            100
+        } else {
+            percent(python - hidden, python)
+        },
+        detail: format!("{hidden} of {python} conda Python packages: PyPI purl not primary (not scored)"),
+        ntia: false,
+        informational: true,
+    };
+
     let mut elements = vec![
         share("supplier", true, count(&|p| p.supplier.is_some()), "name a supplier"),
         share("name", true, count(&|p| !p.name.trim().is_empty()), "have a name"),
@@ -131,6 +153,7 @@ pub fn assess(sbom: &Sbom) -> Grade {
     let all: Vec<u8> = elements.iter().map(|e| e.score).collect();
     let ntia: Vec<u8> = elements.iter().filter(|e| e.ntia).map(|e| e.score).collect();
     elements.push(scanner);
+    elements.push(pypi_identity);
     let mean = |scores: &[u8]| {
         let total: u32 = scores.iter().map(|s| u32::from(*s)).sum();
         total.checked_div(scores.len() as u32).unwrap_or(0) as u8
@@ -209,11 +232,47 @@ mod tests {
         assert!(!weakest(&grade, 10).iter().any(|w| w.starts_with("scanner identity")));
     }
 
+    /// A conda package whose PyPI purl is not primary is invisible to a scanner; counted, not scored.
+    #[test]
+    fn conda_python_packages_with_a_hidden_pypi_purl_are_counted_but_not_scored() {
+        use crate::model::PackageKind;
+        let mut sbom = sample_sbom();
+        let mut hidden = sbom.packages[0].clone();
+        hidden.kind = PackageKind::CondaBinary;
+        hidden.name = "django".into();
+        hidden.purl = "pkg:conda/conda-forge/django@3.2.12".into();
+        hidden.extra_purls = vec!["pkg:pypi/django@3.2.12".into()];
+        let mut primary = hidden.clone();
+        primary.name = "numpy".into();
+        primary.purl = "pkg:pypi/numpy@2.3.1".into();
+        primary.extra_purls = vec!["pkg:conda/conda-forge/numpy@2.3.1".into()];
+        sbom.packages = vec![hidden, primary];
+        let before = assess(&sbom).overall;
+        let grade = assess(&sbom);
+        let row = grade.elements.iter().find(|e| e.element == "PyPI identity").unwrap();
+        assert!(row.informational && !row.ntia);
+        assert_eq!(row.score, 50);
+        assert!(row.detail.starts_with("1 of 2 conda Python packages"), "{}", row.detail);
+        assert!(!weakest(&grade, 20).iter().any(|w| w.starts_with("PyPI identity")));
+        crate::mapping::prefer_pypi_purl(&mut sbom);
+        let after = assess(&sbom);
+        assert_eq!(
+            after
+                .elements
+                .iter()
+                .find(|e| e.element == "PyPI identity")
+                .unwrap()
+                .score,
+            100
+        );
+        assert_eq!(after.overall, before, "the row does not move the score");
+    }
+
     #[test]
     fn a_complete_document_scores_high_and_a_sparse_one_low() {
         let complete = assess(&sample_sbom());
-        assert_eq!(complete.elements.len(), 10);
-        assert_eq!(complete.elements.iter().filter(|e| e.informational).count(), 1);
+        assert_eq!(complete.elements.len(), 11);
+        assert_eq!(complete.elements.iter().filter(|e| e.informational).count(), 2);
         assert_eq!(complete.elements.iter().filter(|e| e.ntia).count(), 7);
         assert_eq!(score(&complete, "timestamp"), 100);
         assert_eq!(score(&complete, "name"), 100);

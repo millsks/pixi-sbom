@@ -16,7 +16,8 @@ what goes into it. The [output format reference](output-format.md) covers every 
 Rules of thumb:
 
 - **Scanning for vulnerabilities**: CycloneDX 1.6, piped straight in (`pixi sbom --output - | grype`). Add
-  `--pypi-mapping prefix --primary-purl pypi` so conda-installed Python packages match PyPI advisories.
+  `--pypi-mapping prefix --primary-purl pypi` so conda-installed Python packages match PyPI advisories; see
+  [Scanning with Grype](ci-recipes.md#scanning-with-grype).
 - **Handing a bill of materials to a customer or auditor**: SPDX 2.3 is the most widely accepted interchange, and its
   `licenseDeclared` / `licenseConcluded` split maps onto compliance workflows. If the findings have to travel with it,
   use SPDX 3.0.1 instead — 2.3 has nowhere to record them.

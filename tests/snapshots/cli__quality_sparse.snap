@@ -1,6 +1,5 @@
 ---
 source: tests/cli.rs
-assertion_line: 8761
 expression: "String::from_utf8(output.stdout).unwrap()"
 ---
 Element                   Score  Covers                                                                  NTIA minimum
@@ -15,5 +14,6 @@ timestamp                 100    written when the document is                   
 license                   53     8 of 15 packages have a license                                         -
 hash                      0      0 of 15 packages have a hash                                            -
 scanner identity          100    0 of 0 native conda packages lack a CPE or matchable purl (not scored)  -
+PyPI identity             100    0 of 0 conda Python packages: PyPI purl not primary (not scored)        -
 
 Quality: 62 of 100 for 15 packages (NTIA minimum elements: 73 of 100)

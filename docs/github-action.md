@@ -19,6 +19,9 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
     require-license: "true"
 ```
 
+`primary-purl: pypi` is what lets a scanner match conda-installed Python packages; see
+[Scanning with Grype](ci-recipes.md#scanning-with-grype).
+
 `@v1` follows the newest 1.x.y release: each release moves the tag once its binaries are published, and the action
 installs the binary of the release the tag points at. For a build that never changes underneath you, pin an exact
 release (`@v1.0.0`) or a commit sha and let Dependabot bump it.

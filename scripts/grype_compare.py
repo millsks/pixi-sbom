@@ -4,7 +4,7 @@ The acceptance test for replacing syft in front of Grype (#434). Each corpus env
 installed, described by syft and by `pixi sbom --prefix`, and both documents are scanned by the same
 Grype with the same database. Every conda or Python finding from syft's document must also come from
 pixi-sbom's, or be listed in tests/grype/exceptions.toml with a reason. Findings only pixi-sbom's
-document produces are reported, not failed.
+document produces are reported, not failed. What the default flags would lose (#449) is reported too.
 
     pixi run grype-compare                   # the whole corpus
     pixi run grype-compare --only django     # one environment
@@ -94,6 +94,12 @@ def compare(environment: str, syft: set[Finding], pixi: set[Finding], exceptions
     return Comparison(agree=syft & pixi, syft_only=missing - excepted, excepted=excepted, pixi_only=pixi - syft)
 
 
+def default_gap(recommended: set[Finding], default: set[Finding]) -> set[Finding]:
+    """Findings the recommended flags give that a document with default flags does not: what
+    leaving `--primary-purl` at `conda` costs a scanner."""
+    return recommended - default
+
+
 def run(command: list[str], **kwargs) -> subprocess.CompletedProcess:
     """Run a command, failing loudly with its output."""
     result = subprocess.run(command, capture_output=True, text=True, check=False, **kwargs)
@@ -144,6 +150,7 @@ def main(argv: list[str] | None = None) -> int:
         prefix = install(name, project, how, args.work)
         syft_sbom = args.work / f"{name}.syft.json"
         pixi_sbom = args.work / f"{name}.cdx.json"
+        default_sbom = args.work / f"{name}.default.cdx.json"
         run(["pixi", "exec", "--spec", SYFT, "syft", "scan", f"dir:{prefix}", "-q", "-o", f"syft-json={syft_sbom}"])
         # Offline: everything pixi-sbom needs to be matched is on disk or in its own tables.
         run(
@@ -151,15 +158,17 @@ def main(argv: list[str] | None = None) -> int:
              "--output", str(pixi_sbom), "-q"],
             env={**os.environ, "PIXI_SBOM_OFFLINE": "1"},
         )
-        result = compare(
-            name,
-            findings(grype(syft_sbom, db), COMPARED_TYPES),
-            findings(grype(pixi_sbom, db)),
-            exceptions,
+        run(
+            [str(args.pixi_sbom), "--prefix", str(prefix), "--embedded-sboms", "--output", str(default_sbom), "-q"],
+            env={**os.environ, "PIXI_SBOM_OFFLINE": "1"},
         )
+        recommended = findings(grype(pixi_sbom, db))
+        result = compare(name, findings(grype(syft_sbom, db), COMPARED_TYPES), recommended, exceptions)
+        lost = default_gap(recommended, findings(grype(default_sbom, db)))
         sys.stderr.write(
             f"{name}: {len(result.agree)} agree, {len(result.syft_only)} syft-only, "
-            f"{len(result.excepted)} excepted, {len(result.pixi_only)} pixi-sbom-only\n"
+            f"{len(result.excepted)} excepted, {len(result.pixi_only)} pixi-sbom-only; "
+            f"{len(lost)} lost with default flags (without --primary-purl pypi)\n"
         )
         for finding in sorted(result.syft_only):
             sys.stderr.write(f"  FAIL syft-only: {finding.vulnerability} {finding.package} {finding.version}\n")

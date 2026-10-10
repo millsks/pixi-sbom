@@ -34,6 +34,12 @@ class GrypeCompareTest(unittest.TestCase):
         other = g.compare("data-analysis", syft, pixi, {("django", "CVE-2", "libtiff"): "a reason"})
         self.assertEqual(len(other.syft_only), 1, "an exception is for one environment")
 
+    def test_the_default_flags_gap_is_what_only_the_recommended_document_finds(self) -> None:
+        django = g.Finding("GHSA-1", "django", "3.2.12")
+        openssl = g.Finding("CVE-1", "openssl", "3.5.2")
+        self.assertEqual(g.default_gap({django, openssl}, {openssl}), {django})
+        self.assertEqual(g.default_gap({openssl}, {openssl, django}), set())
+
     def test_every_exception_needs_a_reason(self) -> None:
         good = '[[exception]]\nenvironment = "django"\nvulnerability = "CVE-1"\npackage = "Lib_X"\nreason = "why"\n'
         self.assertEqual(g.load_exceptions(good), {("django", "CVE-1", "lib-x"): "why"})

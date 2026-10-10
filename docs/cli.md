@@ -1183,6 +1183,11 @@ on something, or depended on, past the root's own edges) for the relationships. 
 authors (the generating tool is recorded separately and does not count); the timestamp is always there, since the
 document is written now. The overall score is the mean of the nine, and the NTIA score the mean of the seven.
 
+Two more rows are shown but not scored, so they move nobody's `--min-quality`: **scanner identity**, the native conda
+packages with neither a CPE nor a PyPI purl, which no scanner can match; and **PyPI identity**, the conda Python
+packages whose PyPI purl is only an extra reference, which a scanner does not read until `--primary-purl pypi` makes
+it primary (see [Scanning with Grype](ci-recipes.md#scanning-with-grype)).
+
 ```text
 Element                   Score  Covers                                                          NTIA minimum
 -------------------------------------------------------------------------------------------------------------
@@ -2062,7 +2067,7 @@ pixi sbom --spec-version 1.7
 pixi sbom --format spdx --spec-version 3.0
 
 # Straight into a consumer, nothing written to disk
-pixi sbom --output - | grype
+pixi sbom --output -
 
 # Native conda packages (openssl, libtiff, python) carry a CPE from the curated table by default,
 # so a CPE-matching scanner such as grype finds their advisories with no extra flag
