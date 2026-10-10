@@ -832,6 +832,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../syft/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pixi-sbom and syft
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../output-format/" class="md-nav__link">
         
   
@@ -955,10 +982,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_16" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" checked>
         
           
-          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="">
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="">
             
   
   
@@ -976,8 +1003,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_16">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_17">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2138,6 +2165,9 @@ operator action, two runs.</p>
 </tbody>
 </table>
 <p>A <strong>pre-release is expressed in the version</strong>, not by a separate flag: <code>1.0.0-rc.1</code> is one and <code>1.0.0</code> is not.</p>
+<p><strong>Rerun the comparison with syft</strong> before a release that changes identity or coverage: <code>pixi run grype-compare</code>,
+and the syft column of <a href="../syft/">pixi-sbom and syft</a>, then update that page's tables and the date and versions it
+names. Its pixi-sbom lockfile column is checked by <code>the_syft_page_counts_are_what_pixi_sbom_writes</code>.</p>
 <p><strong>Write the release up in <a href="../whats-new/">What's new</a> as you go</strong>, under a <code>## Unreleased</code> section at the top of
 the page: a pull request that changes something a user would notice adds its line there, saying what it means for
 someone using the tool, not what the commits were. Before cutting a final release, give the section an editing
