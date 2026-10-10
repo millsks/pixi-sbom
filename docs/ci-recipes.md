@@ -57,7 +57,7 @@ pypi-mapping = "prefix"
 
 In the [GitHub Action](github-action.md) the inputs are `primary-purl: pypi` and `pypi-mapping: prefix`.
 
-Until it is set, a run whose document has conda packages with a PyPI identity scanners cannot see says so once on
+Until it is set, a run that writes a CycloneDX or SPDX document with conda packages with a PyPI identity scanners cannot see says so once on
 stderr, with how many. Setting `primary-purl` either way, `conda` included, is a decision and silences it. The
 **PyPI identity** row of [`--report quality`](cli.md#how-complete-the-document-is) gives the same count, unscored.
 

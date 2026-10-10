@@ -1492,10 +1492,16 @@ const FEATURES: &str = "rustls, gzip, platform-verifier, socks-proxy, win-system
 
 /// Scanners read only a package's primary purl, so with the default `--primary-purl conda` a conda
 /// package's PyPI identity is invisible to them and its advisories go unreported (#449). Said once
-/// a run, and not at all once the setting is chosen, `conda` included.
+/// a run, and not at all once the setting is chosen, `conda` included. A report or an explanation
+/// goes to no scanner, and a GitHub snapshot submits the PyPI identity anyway, so neither warns.
 fn warn_unscannable_pypi(sbom: &model::Sbom, args: &cli::Args) {
     static WARNED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-    if args.primary_purl_chosen || args.primary_purl != cli::PrimaryPurl::Conda {
+    if args.primary_purl_chosen
+        || args.primary_purl != cli::PrimaryPurl::Conda
+        || args.report.is_some()
+        || !args.explain.is_empty()
+        || args.format == cli::Format::Github
+    {
         return;
     }
     let hidden = mapping::hidden_pypi_identities(sbom);

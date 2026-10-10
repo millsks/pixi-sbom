@@ -522,6 +522,25 @@ fn an_unchosen_conda_primary_purl_warns_that_scanners_will_miss_packages() {
     for chosen in [["--primary-purl", "conda"], ["--primary-purl", "pypi"]] {
         assert!(!run(&chosen).contains("scanners read only"), "{chosen:?}");
     }
+    // Nothing that goes to a scanner: a report, an explanation, a GitHub snapshot.
+    let quiet_runs: [&[&str]; 3] = [
+        &["--report", "packages"],
+        &["--explain", "numpy"],
+        &["--format", "github", "--output", "-"],
+    ];
+    for quiet in quiet_runs {
+        let assert = pixi_sbom()
+            .current_dir(dir.path())
+            .args(["-p", "linux-64", "--pypi-mapping-file"])
+            .arg(mapping_file())
+            .args(quiet)
+            .env("GITHUB_SHA", "0123456789abcdef0123456789abcdef01234567")
+            .env("GITHUB_REF", "refs/heads/main")
+            .assert()
+            .success();
+        let stderr = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
+        assert!(!stderr.contains("scanners read only"), "{quiet:?}: {stderr}");
+    }
     std::fs::create_dir_all(dir.path().join(".pixi")).unwrap();
     std::fs::write(
         dir.path().join(".pixi").join("pixi-sbom-config.toml"),

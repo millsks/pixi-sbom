@@ -24,6 +24,9 @@ target
 .pixi/*
 !.pixi/config.toml
 
+# Documents a run from the repository root writes beside a lockfile by default
+/sbom*.json
+
 # MkDocs build output
 site/
 

@@ -38,7 +38,7 @@ Django example's 13,241 files take about 1.5 s.
 
 **pixi-sbom says when a scanner would miss packages.** Grype and other scanners read only a package's primary purl,
 and by default a conda-installed Python package's primary purl is `pkg:conda`, which no advisory database indexes: on
-the Django example Grype found none of django's 27 vulnerabilities. A run now warns once when that applies, naming
+the Django example Grype found none of django's 27 vulnerabilities. A run that writes a CycloneDX or SPDX document now warns once when that applies, naming
 `--primary-purl pypi` and the `primary-purl` configuration key; setting either, to `pypi` or `conda`, silences it.
 `--report quality` counts the same packages in a new, unscored **PyPI identity** row, and the CI recipes have a
 [Scanning with Grype](ci-recipes.md#scanning-with-grype) section. The default changes in 2.0 (#478).
