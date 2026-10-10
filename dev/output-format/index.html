@@ -1097,6 +1097,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#go-modules-inside-a-binary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Go modules inside a binary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#vendored-python-distributions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1713,6 +1724,17 @@
     <span class="md-ellipsis">
       
         Rust crates inside a binary (cargo auditable)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#go-modules-inside-a-binary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Go modules inside a binary
       
     </span>
   </a>
@@ -2630,6 +2652,17 @@ the environment installed (ELF, Mach-O and PE alike) and attached like any other
 binary, <code>pixi:cargo-source</code> (<code>crates.io</code>, <code>git</code>, <code>local</code>, ...), and an edge from the conda package to the crate
 its program was built from. Crates that only built the program (<code>kind: build</code>) are not in it and are left out.
 Because the purls are <code>pkg:cargo</code>, <code>--vulnerabilities osv</code> covers them through RUSTSEC.</p>
+<h3 id="go-modules-inside-a-binary">Go modules inside a binary<a class="headerlink" href="#go-modules-inside-a-binary" title="Permanent link">&para;</a></h3>
+<p>Every Go binary built with module support carries its build information: the Go version and each module compiled
+in, what <code>go version -m</code> prints. conda-forge builds its Go packages (<code>gh</code>, <code>go-yq</code>, <code>terraform</code>) from source, so
+with <code>--prefix</code> and <code>--embedded-sboms</code> those modules are read out of the binaries the environment installed and
+attached like any other embedded component: <code>pixi:kind=embedded</code>, a <code>pkg:golang/&lt;module&gt;@&lt;version&gt;</code> purl (after any
+<code>=&gt;</code> replacement), and <code>pixi:embedded-sbom=go-buildinfo:&lt;file&gt;</code>. The Go standard library is a component too,
+<code>stdlib</code> at version <code>go1.27.1</code> with the purl <code>pkg:golang/stdlib@1.27.1</code>, as Syft records it, so advisories against
+the Go runtime match. Go records which modules are in the binary, not which needs which, so they hang off the
+binary's main module when it has a released version, and off the conda package when it is a source build
+(<code>(devel)</code>). OSV and Grype both index Go advisories. Binaries built before Go 1.18, whose build information is in an
+older layout, are passed over.</p>
 <h3 id="vendored-python-distributions">Vendored Python distributions<a class="headerlink" href="#vendored-python-distributions" title="Permanent link">&para;</a></h3>
 <p>Some packages ship other Python distributions inside themselves, each with its own <code>dist-info</code>: setuptools vendors
 packaging, wheel and a dozen more under <code>setuptools/_vendor/</code>, and bleach vendors html5lib. A vendored copy can lag

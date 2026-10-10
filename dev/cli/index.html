@@ -3049,7 +3049,7 @@
 <tr>
 <td><code>--embedded-sboms</code></td>
 <td>off</td>
-<td>Add the components declared by SBOMs embedded in wheels (PEP 770, e.g. the Rust crates maturin compiled in) as dependencies of the wheel. Reads each wheel's <code>dist-info</code> like <code>--fetch-licenses</code>. With <code>--prefix</code>, also reads the <code>cargo auditable</code> crate list out of the environment's binaries, and the Python distributions packages vendor inside themselves (<code>setuptools/_vendor</code>).</td>
+<td>Add the components declared by SBOMs embedded in wheels (PEP 770, e.g. the Rust crates maturin compiled in) as dependencies of the wheel. Reads each wheel's <code>dist-info</code> like <code>--fetch-licenses</code>. With <code>--prefix</code>, also reads the <code>cargo auditable</code> crate list and the Go modules out of the environment's binaries, and the Python distributions packages vendor inside themselves (<code>setuptools/_vendor</code>).</td>
 </tr>
 <tr>
 <td><code>--infer-extras</code></td>

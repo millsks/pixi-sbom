@@ -1802,6 +1802,12 @@ has every commit.</p>
 <li><strong>Learned tab completion</strong> in bash, zsh, fish and PowerShell, for <code>pixi-sbom</code> and <code>pixi sbom</code>.</li>
 </ul>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<p><strong>The Go modules inside a conda environment's Go programs are listed.</strong> conda-forge builds <code>gh</code>, <code>go-yq</code>,
+<code>terraform</code> and the rest from source, so the conda record names the package and nothing in it. With <code>--prefix</code> and
+<code>--embedded-sboms</code>, each Go binary's build information is read, the list <code>go version -m</code> prints, and every module
+becomes a <code>pkg:golang</code> component under the package that ships it, with the Go standard library as
+<code>pkg:golang/stdlib</code>. On a <code>go-yq</code> environment that is the same 26 modules <code>go version -m</code> lists, and Grype finds the
+same 18 Go advisories in it as in syft's document. See <a href="../output-format/#go-modules-inside-a-binary">Go modules inside a binary</a>.</p>
 <p><strong>R packages carry their CRAN identity, so OSV finds their advisories.</strong> An <code>r-*</code> conda package had only a
 <code>pkg:conda</code> purl, which no advisory database indexes. Each one that is on CRAN now also has a <code>pkg:cran</code> purl, named
 and versioned as CRAN spells it (<code>r-rcpp</code> 1.0.13_1 is <code>pkg:cran/Rcpp@1.0.13-1</code>), read from the package's own
