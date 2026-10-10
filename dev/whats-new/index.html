@@ -412,6 +412,67 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-a-scanner-finds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What a scanner finds
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#new-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        New checks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#licenses-and-grading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Licenses and grading
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installed-environments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installed environments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-command-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The command line
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1427,6 +1488,67 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-a-scanner-finds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What a scanner finds
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#new-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        New checks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#licenses-and-grading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Licenses and grading
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#installed-environments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installed environments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-command-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The command line
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1658,74 +1780,82 @@ has every commit.</p>
 <li><strong>Learned tab completion</strong> in bash, zsh, fish and PowerShell, for <code>pixi-sbom</code> and <code>pixi sbom</code>.</li>
 </ul>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
-<p><strong><code>--help</code> groups its flags.</strong> The 70-odd flags were one list; they are now in sections (General, Input,
-Configuration, Output, Environment and platform, Enrichment, Filtering, License policy, Quality gates,
-Vulnerabilities, Reports, Network and cache, Diagnostics). Each section opens with a rule, <code>── INPUT ────…</code>, set apart
-by blank lines and coloured in a terminal, so a new one is plain even with colour off. The
-<a href="../cli/#options">CLI reference</a> follows the same grouping.</p>
-<p><strong>Tab completion lists flags alphabetically.</strong> It offered them in the order they are declared in the code, so in
-zsh <code>--fail-on-yanked</code> sat far from <code>--fail-on-kev</code> and a half-remembered name meant reading all of them. Every shell
-now gets flags and their values in alphabetical order.</p>
-<p><strong><code>--format github</code> puts a pixi environment in GitHub's dependency graph.</strong> It writes GitHub's dependency
-submission snapshot, so an environment's packages show up in the dependency graph and get Dependabot alerts,
-without syft in the pipeline. Conda packages with a PyPI identity are submitted by it, since that is where GitHub's
-advisories are. The Action submits it with <code>dependency-submission: "true"</code>.</p>
-<p><strong><code>--verify-files</code> checks an installed conda environment against itself.</strong> conda-meta records the SHA-256 of every
-file a package installed; with <code>--prefix</code>, <code>--verify-files</code> hashes each one and records modified and missing files on
-the package (<code>pixi:modified-files</code>, <code>pixi:missing-files</code>), and <code>--report files</code> lists them. Either ends the run with
-the new exit code 11. <code>.pyc</code> files Python regenerated are counted but never fail it. It is offline and opt-in: the
-Django example's 13,241 files take about 1.5 s.</p>
-<p><strong>pixi-sbom says when a scanner would miss packages.</strong> Grype and other scanners read only a package's primary purl,
-and by default a conda-installed Python package's primary purl is <code>pkg:conda</code>, which no advisory database indexes: on
-the Django example Grype found none of django's 27 vulnerabilities. A run that writes a CycloneDX or SPDX document now warns once when that applies, naming
-<code>--primary-purl pypi</code> and the <code>primary-purl</code> configuration key; setting either, to <code>pypi</code> or <code>conda</code>, silences it.
-<code>--report quality</code> counts the same packages in a new, unscored <strong>PyPI identity</strong> row, and the CI recipes have a
-<a href="../ci-recipes/#scanning-with-grype">Scanning with Grype</a> section. The default changes in 2.0 (#478).</p>
-<p><strong>An installed environment's document no longer names paths on the machine that made it.</strong> <code>--prefix</code> recorded a
-pip package's <code>file:///…/site-packages/…dist-info</code> as its location, and each conda package's extraction directory
-as a full path into the user's cache (<code>/Users/&lt;name&gt;/Library/Caches/rattler/…</code>). The first is dropped, the second
-keeps only the directory's name in the package cache, and an editable install's <code>pixi:direct-url</code> is relative to the
-project (<code>./libs/utils</code>), as the lockfile writes it. The same environment at two paths now gives the same document.</p>
-<p><strong><code>--report quality</code> grades other tools' documents on the same terms.</strong> A syft SBOM's suppliers (<code>Person: ...</code> in
-SPDX, <code>author</code> in CycloneDX) and CPEs were not read, so its supplier and identifier scores were 0 and a document that
-did identify its packages looked as if it did not. They are read now, and a CPE counts as the unique identifier
-alongside a purl, as the NTIA minimum elements allow (the purl count is still shown). syft's CycloneDX fixture goes
-from 51 to 62. Read with <code>--from-sbom</code> and written again, those suppliers and CPEs are kept.</p>
-<p><strong>A bare license name is no longer given a version.</strong> A package declaring <code>LGPL</code>, <code>GPL</code>, <code>AGPL</code> or <code>BSD</code> was written
-as <code>LGPL-2.0-only</code>, <code>GPL-2.0-only</code>, <code>AGPL-3.0</code> or <code>BSD-2-Clause</code>, versions and clause counts the package never
-stated, which a license policy then judged as if they were real. Bare family names are now kept as free text, and
-<code>MIT License</code> is now <code>MIT</code>.</p>
-<p><strong><code>--embedded-sboms</code> finds Python distributions vendored inside packages.</strong> setuptools ships packaging, wheel and a
-dozen more in <code>setuptools/_vendor/</code>, and a vendored copy can lag the installed one. With <code>--prefix</code>, each is now a
-component under the package that ships it, with its own PyPI identity, so scanners check it too. <code>--report diff</code>
-does not count them as installs.</p>
-<p><strong>A plain Python installation lists its interpreter.</strong> <code>--prefix</code> on a container's <code>/usr/local</code> listed only what
-pip installed, though most advisories against such an image are against Python itself. The interpreter is now a
-<code>python</code> component at its full version, with CPython's CPE. On <code>python:3.12-slim</code>, Grype finds 8 CPython
-vulnerabilities in the document that it found none of before.</p>
-<p><strong><code>--prefix</code> reads a conda package's PyPI identity from what it installed, offline.</strong> A conda-installed Django,
-Pillow or sqlparse had only its <code>pkg:conda</code> purl unless <code>--pypi-mapping prefix</code> downloaded the name mapping. The
-<code>dist-info</code> the package put in site-packages already names the PyPI project and version, and the conda record says
-which package installed it, so the identity is now read from disk. On an installed Django environment with
-<code>--primary-purl pypi</code>, Grype finds 94 vulnerabilities with no network, against 82 from syft's SBOM of the same
-environment.</p>
+<p>1.10.0 is about what a scanner can do with pixi-sbom's documents. Describing an installed environment offline,
+pixi-sbom now gives Grype everything syft's document does and more: on the installed Django example, with
+<code>--primary-purl pypi</code>, Grype finds 94 advisories against 82 from syft's document of the same directory. CI checks
+this on four environments on every change to identity code; <a href="../syft/">pixi-sbom and syft</a> has the comparison.</p>
+<h3 id="what-a-scanner-finds">What a scanner finds<a class="headerlink" href="#what-a-scanner-finds" title="Permanent link">&para;</a></h3>
 <p><strong>Native conda packages carry a CPE, so Grype finds their advisories.</strong> openssl, libtiff, sqlite, python and about
 eighty other native libraries from a conda channel have only a <code>pkg:conda</code> purl, which no advisory database
 indexes, so a CPE-matching scanner reported nothing for them. They now carry the CPE NVD uses, from a curated table,
 in CycloneDX, SPDX 2.3 and SPDX 3.0.1, by default. On the Django example, Grype's findings from the default
 document went from 0 to 36. A package that is not in the table gets no CPE: one is never guessed from a name.
-<code>--explain</code> shows where a CPE came from, and <code>--report quality</code> counts native packages a scanner cannot match
-(shown, not scored). See <a href="../output-format/#cpes-for-native-conda-packages">CPEs for native conda packages</a>.</p>
-<p><strong><code>--prefix</code> lists each pip-installed package once in a conda-forge environment.</strong> conda-forge's
-Python ships a <code>lib/python3.1</code> symlink to <code>lib/python3.11</code>, and packages installed with pip or uv
-were read through both, so each appeared twice with the same <code>bom-ref</code> or SPDXID. That made the
-document invalid CycloneDX and SPDX. Site-packages is now read once, through the real directory.</p>
-<p><strong><code>--prefix</code> records the scanned environment's platform, not the scanning machine's.</strong> A Python
-installation with only pure-Python packages, such as a container's <code>/usr/local</code>, named no platform,
-so the document took the platform of the machine doing the scan: a Linux image scanned on a Mac said
-<code>osx-arm64</code>. The platform now comes from the interpreter's or standard library's compiled files
-first. <code>pixi:python-version</code> is the full <code>X.Y.Z</code> where the installation ships its headers, and
-<code>3.12</code> is no longer taken as older than <code>3.9</code>.</p>
+<code>--explain</code> shows where a CPE came from. See <a href="../output-format/#cpes-for-native-conda-packages">CPEs for native conda packages</a>.</p>
+<p><strong><code>--prefix</code> reads a conda package's PyPI identity from what it installed, offline.</strong> A conda-installed Django,
+Pillow or sqlparse had only its <code>pkg:conda</code> purl unless <code>--pypi-mapping prefix</code> downloaded the name mapping. The
+<code>dist-info</code> the package put in site-packages already names the PyPI project and version, and the conda record says
+which package installed it, so the identity is now read from disk.</p>
+<p><strong>pixi-sbom says when a scanner would miss packages.</strong> Grype and other scanners read only a package's primary purl,
+and by default a conda-installed Python package's primary purl is <code>pkg:conda</code>: on the Django example Grype found
+none of django's 27 vulnerabilities. A run that writes a CycloneDX or SPDX document now warns once when that applies,
+naming <code>--primary-purl pypi</code> and the <code>primary-purl</code> configuration key; setting either, to <code>pypi</code> or <code>conda</code>,
+silences it. <code>--report quality</code> counts the same packages in a new <strong>PyPI identity</strong> row, and native packages a
+scanner cannot match in a <strong>scanner identity</strong> row; neither is scored, so <code>--min-quality</code> results do not move. The
+CI recipes have a <a href="../ci-recipes/#scanning-with-grype">Scanning with Grype</a> section. The default changes in 2.0 (#478).</p>
+<p><strong>A plain Python installation lists its interpreter.</strong> <code>--prefix</code> on a container's <code>/usr/local</code> listed only what
+pip installed, though most advisories against such an image are against Python itself. The interpreter is now a
+<code>python</code> component at its full version, with CPython's CPE. On <code>python:3.12-slim</code>, Grype finds 8 CPython
+vulnerabilities in the document that it found none of before.</p>
+<p><strong><code>--embedded-sboms</code> finds Python distributions vendored inside packages.</strong> setuptools ships packaging, wheel and a
+dozen more in <code>setuptools/_vendor/</code>, and a vendored copy can lag the installed one. With <code>--prefix</code>, each is now a
+component under the package that ships it, with its own PyPI identity, so scanners check it too. <code>--report diff</code>
+does not count them as installs.</p>
+<h3 id="new-checks">New checks<a class="headerlink" href="#new-checks" title="Permanent link">&para;</a></h3>
+<p><strong><code>--verify-files</code> checks an installed conda environment against itself.</strong> conda-meta records the SHA-256 of every
+file a package installed; with <code>--prefix</code>, <code>--verify-files</code> hashes each one and records modified and missing files on
+the package (<code>pixi:modified-files</code>, <code>pixi:missing-files</code>), and <code>--report files</code> lists them. Either ends the run with
+the new exit code 11. <code>.pyc</code> files Python regenerated are counted but never fail it. It is offline and opt-in: the
+Django example's 13,241 files take about 0.3 s.</p>
+<p><strong><code>--format github</code> puts a pixi environment in GitHub's dependency graph.</strong> It writes GitHub's dependency
+submission snapshot, so an environment's packages show up in the dependency graph and get Dependabot alerts,
+without syft in the pipeline. Conda packages with a PyPI identity are submitted by it, since that is where GitHub's
+advisories are. The Action submits it with <code>dependency-submission: "true"</code>.</p>
+<h3 id="licenses-and-grading">Licenses and grading<a class="headerlink" href="#licenses-and-grading" title="Permanent link">&para;</a></h3>
+<p><strong>A bare license name is no longer given a version.</strong> A package declaring <code>LGPL</code>, <code>GPL</code>, <code>AGPL</code> or <code>BSD</code> was written
+as <code>LGPL-2.0-only</code>, <code>GPL-2.0-only</code>, <code>AGPL-3.0</code> or <code>BSD-2-Clause</code>, versions and clause counts the package never
+stated, which a license policy then judged as if they were real. Bare family names are now kept as free text, and
+<code>MIT License</code> is now <code>MIT</code>. <strong>This can change a license gate's result:</strong> with <code>--require-license</code> or an allow list,
+a package declaring a bare <code>BSD</code> is now a violation where it passed as <code>BSD-2-Clause</code> before.</p>
+<p><strong><code>--report quality</code> grades other tools' documents on the same terms.</strong> A syft SBOM's suppliers (<code>Person: ...</code> in
+SPDX, <code>author</code> in CycloneDX) and CPEs were not read, so its supplier and identifier scores were 0 and a document that
+did identify its packages looked as if it did not. They are read now, and a CPE counts as the unique identifier
+alongside a purl, as the NTIA minimum elements allow (the purl count is still shown). Read with <code>--from-sbom</code> and
+written again, those suppliers and CPEs are kept.</p>
+<h3 id="installed-environments">Installed environments<a class="headerlink" href="#installed-environments" title="Permanent link">&para;</a></h3>
+<p><strong><code>--prefix</code> lists each pip-installed package once in a conda-forge environment.</strong> conda-forge's Python ships a
+<code>lib/python3.1</code> symlink to <code>lib/python3.11</code>, and packages installed with pip or uv were read through both, so each
+appeared twice with the same <code>bom-ref</code> or SPDXID. That made the document invalid CycloneDX and SPDX. Site-packages
+is now read once, through the real directory.</p>
+<p><strong><code>--prefix</code> records the scanned environment's platform, not the scanning machine's.</strong> A Python installation with
+only pure-Python packages, such as a container's <code>/usr/local</code>, named no platform, so the document took the platform
+of the machine doing the scan: a Linux image scanned on a Mac said <code>osx-arm64</code>. The platform now comes from the
+interpreter's or standard library's compiled files first. <code>pixi:python-version</code> is the full <code>X.Y.Z</code> where the
+installation ships its headers, and <code>3.12</code> is no longer taken as older than <code>3.9</code>.</p>
+<p><strong>An installed environment's document no longer names paths on the machine that made it.</strong> <code>--prefix</code> recorded a
+pip package's <code>file:///…/site-packages/…dist-info</code> as its location, and each conda package's extraction directory
+as a full path into the user's cache (<code>/Users/&lt;name&gt;/Library/Caches/rattler/…</code>). The first is dropped, the second
+keeps only the directory's name in the package cache (<code>pixi:extracted-package-dir</code> keeps its name), and an editable
+install's <code>pixi:direct-url</code> is relative to the project (<code>./libs/utils</code>), as the lockfile writes it. The same
+environment at two paths now gives the same document.</p>
+<h3 id="the-command-line">The command line<a class="headerlink" href="#the-command-line" title="Permanent link">&para;</a></h3>
+<p><strong><code>--help</code> groups its flags.</strong> The 70-odd flags were one list; they are now in sections (General, Input,
+Configuration, Output, Environment and platform, Enrichment, Filtering, License policy, Quality gates,
+Vulnerabilities, Reports, Network and cache, Diagnostics). Each section opens with a rule, <code>── INPUT ────…</code>, set
+apart by blank lines and coloured in a terminal, so a new one is plain even with colour off. The
+<a href="../cli/#options">CLI reference</a> follows the same grouping.</p>
+<p><strong>Tab completion lists flags alphabetically.</strong> It offered them in the order they are declared in the code, so in
+zsh <code>--fail-on-yanked</code> sat far from <code>--fail-on-kev</code> and a half-remembered name meant reading all of them. Every shell
+now gets flags and their values in alphabetical order.</p>
 <h2 id="190">1.9.0<a class="headerlink" href="#190" title="Permanent link">&para;</a></h2>
 <p><strong>Tab completion.</strong> Flags, the values they take (<code>--report &lt;TAB&gt;</code> lists the report kinds,
 <code>--format &lt;TAB&gt;</code> the formats) and file paths complete after one line in your shell's startup file:
