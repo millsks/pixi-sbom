@@ -1494,8 +1494,8 @@
 
 <h1 id="try-it-on-the-examples">Try it on the examples<a class="headerlink" href="#try-it-on-the-examples" title="Permanent link">&para;</a></h1>
 <p>The repository has more than a hundred real projects to try pixi-sbom on. There are fourteen
-scenarios, from a Django app on an old LTS to an LLM stack, each locked by every tool pixi-sbom
-reads. Every lockfile was written by the tool that owns its format. Some scenarios have known
+Python scenarios, from a Django app on an old LTS to an LLM stack, each locked by every tool pixi-sbom
+reads, and three conda-only ones with R, Go and JavaScript packages in them. Every lockfile was written by the tool that owns its format. Some scenarios have known
 vulnerabilities, one has a GPL package, one is an upgrade of another, and a separate set of
 <code>requirements.txt</code> files is built to be refused.</p>
 <p>Nothing needs installing beyond pixi-sbom itself (<a href="../installation/">Installation</a>). Get the examples
@@ -1581,89 +1581,105 @@ rest work offline.</p>
 <td><code>14-django-upgraded</code></td>
 <td><code>01-django</code> after the upgrade: the other side of a diff</td>
 </tr>
+<tr>
+<td><code>15-r-analysis</code></td>
+<td>R packages with CRAN purls, and a CRAN advisory through <code>--vulnerabilities osv</code></td>
+</tr>
+<tr>
+<td><code>16-go-tools</code></td>
+<td>the Go modules inside <code>go-yq</code> and <code>gh</code>, with <code>--prefix --embedded-sboms</code></td>
+</tr>
+<tr>
+<td><code>17-node-tools</code></td>
+<td>the npm packages <code>nodejs</code> installs, with <code>--prefix</code></td>
+</tr>
 </tbody>
 </table>
-<p><code>examples/README.md</code> in the repository lists all fourteen, with what each one shows.</p>
+<p>The last three describe what an installed environment holds, so install one first and point <code>--prefix</code> at it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pixi<span class="w"> </span>install<span class="w"> </span>--manifest-path<span class="w"> </span>examples/projects/pixi/16-go-tools/pixi.toml
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--prefix<span class="w"> </span>examples/projects/pixi/16-go-tools/.pixi/envs/default<span class="w"> </span>--embedded-sboms<span class="w"> </span>--report<span class="w"> </span>packages<span class="w">   </span><span class="c1"># after pixi install</span>
+</code></pre></div>
+<p><code>examples/README.md</code> in the repository lists all seventeen, with what each one shows.</p>
 <p>The conda and pixi examples are locked for linux-64 and osx-arm64, so the commands below pass
 <code>-p linux-64</code> to give the same answer on any machine.</p>
 <h2 id="one-document-from-every-kind-of-lockfile">One document from every kind of lockfile<a class="headerlink" href="#one-document-from-every-kind-of-lockfile" title="Permanent link">&para;</a></h2>
 <p>The same scenario through each reader. The package count differs between conda and PyPI, because a
 conda environment carries the interpreter and system libraries too.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/pixi/01-django/pixi.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>packages
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/01-django/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>packages
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/poetry/01-django/poetry.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>packages
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/pdm/01-django/pdm.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>packages
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/pylock/01-django/pylock.toml<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>packages
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/conda-lock/01-django/conda-lock.yml<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>packages
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/conda-explicit/01-django/explicit-linux-64.txt<span class="w"> </span>--report<span class="w"> </span>packages
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/requirements/01-django/requirements-dev.txt<span class="w"> </span>--report<span class="w"> </span>packages
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/pixi/01-django/pixi.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>packages
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/01-django/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>packages
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/poetry/01-django/poetry.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>packages
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/pdm/01-django/pdm.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>packages
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/pylock/01-django/pylock.toml<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>packages
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/conda-lock/01-django/conda-lock.yml<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>packages
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/conda-explicit/01-django/explicit-linux-64.txt<span class="w"> </span>--report<span class="w"> </span>packages
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/requirements/01-django/requirements-dev.txt<span class="w"> </span>--report<span class="w"> </span>packages
 </code></pre></div>
 <p>Writing the document rather than a table, in either format:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/01-django/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--output<span class="w"> </span>-
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/01-django/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--format<span class="w"> </span>spdx<span class="w"> </span>--spec-version<span class="w"> </span><span class="m">3</span>.0<span class="w"> </span>--output<span class="w"> </span>-
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/01-django/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--output<span class="w"> </span>-
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/01-django/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--format<span class="w"> </span>spdx<span class="w"> </span>--spec-version<span class="w"> </span><span class="m">3</span>.0<span class="w"> </span>--output<span class="w"> </span>-
 </code></pre></div>
 <p>See <a href="../without-pixi/">Using pixi-sbom without pixi</a> for what each reader takes from its lockfile.</p>
 <h2 id="a-requirements-file-that-is-not-a-lock">A requirements file that is not a lock<a class="headerlink" href="#a-requirements-file-that-is-not-a-lock" title="Permanent link">&para;</a></h2>
 <p>A <code>requirements.txt</code> is only a lock when every line is one version. Each project in
 <code>requirements-unpinned/</code> fails in a different way, and pixi-sbom refuses each one, naming the first
 line that isn't one version:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/requirements-unpinned/01-loose-ranges/requirements.txt<span class="w"> </span>--output<span class="w"> </span>-<span class="w">   </span><span class="c1"># exit 1</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/requirements-unpinned/03-one-loose-line/requirements.txt<span class="w"> </span>--output<span class="w"> </span>-<span class="w">   </span><span class="c1"># exit 1</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/requirements-unpinned/05-wildcard-pins/requirements.txt<span class="w"> </span>--output<span class="w"> </span>-<span class="w">   </span><span class="c1"># exit 1</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/requirements-unpinned/01-loose-ranges/requirements.txt<span class="w"> </span>--output<span class="w"> </span>-<span class="w">   </span><span class="c1"># exit 1</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/requirements-unpinned/03-one-loose-line/requirements.txt<span class="w"> </span>--output<span class="w"> </span>-<span class="w">   </span><span class="c1"># exit 1</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/requirements-unpinned/05-wildcard-pins/requirements.txt<span class="w"> </span>--output<span class="w"> </span>-<span class="w">   </span><span class="c1"># exit 1</span>
 </code></pre></div>
 <p>The third one is the subtle one: <code>Django==4.2.*</code> looks pinned and is any 4.2 release. See
 <a href="../cli/#reading-a-pinned-requirementstxt">Reading a pinned requirements.txt</a>.</p>
 <h2 id="every-environment-of-a-pixi-workspace">Every environment of a pixi workspace<a class="headerlink" href="#every-environment-of-a-pixi-workspace" title="Permanent link">&para;</a></h2>
 <p><code>pixi/01-django</code> has a default environment and one each for its <code>s3</code> extra and its <code>dev</code> and <code>test</code>
 groups. <code>--all-environments</code> writes one document each into a directory:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/pixi/01-django/pixi.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--all-environments<span class="w"> </span>--output<span class="w"> </span>sboms/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/pixi/01-django/pixi.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--all-environments<span class="w"> </span>--output<span class="w"> </span>sboms/
 </code></pre></div>
 <p>See <a href="../cli/#one-document-per-environment-and-platform">One document per environment and platform</a>.</p>
 <h2 id="where-a-fact-came-from">Where a fact came from<a class="headerlink" href="#where-a-fact-came-from" title="Permanent link">&para;</a></h2>
 <p><code>internal-utils</code> is a local package installed in editable mode. <code>--explain</code> shows what pixi-sbom
 knows about it and what it deliberately doesn't ask an index about:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/01-django/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--explain<span class="w"> </span>internal-utils
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/01-django/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--explain<span class="w"> </span>internal-utils
 </code></pre></div>
 <h2 id="before-and-after-an-upgrade">Before and after an upgrade<a class="headerlink" href="#before-and-after-an-upgrade" title="Permanent link">&para;</a></h2>
 <p><code>14-django-upgraded</code> is <code>01-django</code> moved to Django 4.2 LTS:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/14-django-upgraded/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>diff<span class="w"> </span>--against<span class="w"> </span>examples/projects/uv/01-django/uv.lock
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/14-django-upgraded/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>diff<span class="w"> </span>--against<span class="w"> </span>examples/projects/uv/01-django/uv.lock
 </code></pre></div>
 <p>See <a href="../cli/#looking-instead-of-writing">Looking instead of writing</a>.</p>
 <h2 id="vulnerabilities-and-which-to-fix-first">Vulnerabilities, and which to fix first<a class="headerlink" href="#vulnerabilities-and-which-to-fix-first" title="Permanent link">&para;</a></h2>
 <p><code>02-flask</code> has several findings. CISA KEV marks the ones being exploited now, and FIRST EPSS scores
 how likely the rest are to be exploited:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/02-flask/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--kev<span class="w"> </span>--epss<span class="w"> </span>--report<span class="w"> </span>vulnerabilities<span class="w">   </span><span class="c1"># needs the network</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/02-flask/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--kev<span class="w"> </span>--epss<span class="w"> </span>--report<span class="w"> </span>vulnerabilities<span class="w">   </span><span class="c1"># needs the network</span>
 </code></pre></div>
 <p>The same findings as a CI gate. The document is still written, and the run exits 4:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/02-flask/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--fail-on-severity<span class="w"> </span>high<span class="w"> </span>--output<span class="w"> </span>-<span class="w">   </span><span class="c1"># needs the network</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/02-flask/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--fail-on-severity<span class="w"> </span>high<span class="w"> </span>--output<span class="w"> </span>-<span class="w">   </span><span class="c1"># needs the network</span>
 </code></pre></div>
 <p><code>08-cli-tool</code> has none, which is the answer a clean project gets:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/08-cli-tool/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--report<span class="w"> </span>vulnerabilities<span class="w">   </span><span class="c1"># needs the network</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/08-cli-tool/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv<span class="w"> </span>--report<span class="w"> </span>vulnerabilities<span class="w">   </span><span class="c1"># needs the network</span>
 </code></pre></div>
 <p>See <a href="../cli/#looking-up-vulnerabilities">Looking up vulnerabilities</a>.</p>
 <h2 id="a-license-gate">A license gate<a class="headerlink" href="#a-license-gate" title="Permanent link">&para;</a></h2>
 <p><code>07-web-scraping</code> depends on <code>html2text</code>, which is GPL-3.0. Its wheel doesn't say so in a form a policy
 can match: it declares the free text <code>GNU GPL 3</code>. A deny list matches SPDX ids, so on its own it
 passes this project:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/07-web-scraping/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--fetch-licenses<span class="w"> </span>--deny-license<span class="w"> </span>GPL-3.0-only<span class="w"> </span>--deny-license<span class="w"> </span>GPL-3.0-or-later<span class="w"> </span>--output<span class="w"> </span>-<span class="w">   </span><span class="c1"># needs the network</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/07-web-scraping/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--fetch-licenses<span class="w"> </span>--deny-license<span class="w"> </span>GPL-3.0-only<span class="w"> </span>--deny-license<span class="w"> </span>GPL-3.0-or-later<span class="w"> </span>--output<span class="w"> </span>-<span class="w">   </span><span class="c1"># needs the network</span>
 </code></pre></div>
 <p><code>--require-license</code> closes that gap: a license that isn't an SPDX expression becomes a violation. The
 run names html2text and exits 3:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/07-web-scraping/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--fetch-licenses<span class="w"> </span>--deny-license<span class="w"> </span>GPL-3.0-only<span class="w"> </span>--deny-license<span class="w"> </span>GPL-3.0-or-later<span class="w"> </span>--require-license<span class="w"> </span>--output<span class="w"> </span>-<span class="w">   </span><span class="c1"># needs the network</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/07-web-scraping/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--fetch-licenses<span class="w"> </span>--deny-license<span class="w"> </span>GPL-3.0-only<span class="w"> </span>--deny-license<span class="w"> </span>GPL-3.0-or-later<span class="w"> </span>--require-license<span class="w"> </span>--output<span class="w"> </span>-<span class="w">   </span><span class="c1"># needs the network</span>
 </code></pre></div>
 <p>See <a href="../cli/#enforcing-a-license-policy">Enforcing a license policy</a>.</p>
 <h2 id="how-far-behind">How far behind<a class="headerlink" href="#how-far-behind" title="Permanent link">&para;</a></h2>
 <p><code>04-data-analysis</code> pins a scientific stack well behind its newest releases:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/poetry/04-data-analysis/poetry.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>outdated<span class="w">   </span><span class="c1"># needs the network</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/poetry/04-data-analysis/poetry.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>outdated<span class="w">   </span><span class="c1"># needs the network</span>
 </code></pre></div>
 <p>See <a href="../cli/#how-far-behind-the-environment-is">How far behind the environment is</a>.</p>
 <h2 id="someone-elses-sbom">Someone else's SBOM<a class="headerlink" href="#someone-elses-sbom" title="Permanent link">&para;</a></h2>
 <p>Make two documents, then treat them as if a vendor had sent them: grade one, and merge both into one
 document for the product:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/01-django/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--output<span class="w"> </span>app.cdx.json
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/requirements/12-aws-cloud/requirements.txt<span class="w"> </span>--format<span class="w"> </span>spdx<span class="w"> </span>--output<span class="w"> </span>vendor.spdx.json
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--from-sbom<span class="w"> </span>vendor.spdx.json<span class="w"> </span>--report<span class="w"> </span>quality
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--from-sbom<span class="w"> </span>app.cdx.json<span class="w"> </span>--from-sbom<span class="w"> </span>vendor.spdx.json<span class="w"> </span>--root-name<span class="w"> </span>product<span class="w"> </span>--report<span class="w"> </span>packages
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/uv/01-django/uv.lock<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--output<span class="w"> </span>app.cdx.json
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--lockfile<span class="w"> </span>examples/projects/requirements/12-aws-cloud/requirements.txt<span class="w"> </span>--format<span class="w"> </span>spdx<span class="w"> </span>--output<span class="w"> </span>vendor.spdx.json
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--from-sbom<span class="w"> </span>vendor.spdx.json<span class="w"> </span>--report<span class="w"> </span>quality
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--from-sbom<span class="w"> </span>app.cdx.json<span class="w"> </span>--from-sbom<span class="w"> </span>vendor.spdx.json<span class="w"> </span>--root-name<span class="w"> </span>product<span class="w"> </span>--report<span class="w"> </span>packages
 </code></pre></div>
 <p>See <a href="../cli/#how-complete-the-document-is">How complete the document is</a> and
 <a href="../cli/#merging-documents">Merging documents</a>.</p>
@@ -1671,7 +1687,7 @@ document for the product:</p>
 <p><code>--scan</code> finds every project with a lockfile of a fixed name under a directory: the pixi, uv,
 Poetry, PDM, pylock and conda-lock examples, 84 in all. Explicit specs and requirements files have
 no fixed name, so a scan doesn't pick them up.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--scan<span class="w"> </span>examples/projects<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>packages
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--scan<span class="w"> </span>examples/projects<span class="w"> </span>-p<span class="w"> </span>linux-64<span class="w"> </span>--report<span class="w"> </span>packages
 </code></pre></div>
 <p>See <a href="../cli/#a-monorepo-every-workspace-in-one-run">A monorepo: every workspace in one run</a>.</p>
 <h2 id="what-changes-from-day-to-day">What changes from day to day<a class="headerlink" href="#what-changes-from-day-to-day" title="Permanent link">&para;</a></h2>

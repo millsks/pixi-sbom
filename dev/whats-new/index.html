@@ -1802,6 +1802,9 @@ has every commit.</p>
 <li><strong>Learned tab completion</strong> in bash, zsh, fish and PowerShell, for <code>pixi-sbom</code> and <code>pixi sbom</code>.</li>
 </ul>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<p><strong>Three new examples to try these on.</strong> <code>examples/projects/pixi/15-r-analysis</code>, <code>16-go-tools</code> and <code>17-node-tools</code>
+(also locked by conda-lock and as explicit specs) are conda environments with R, Go and JavaScript packages in them.
+Install one and point <code>--prefix</code> at it; see <a href="../try-the-examples/">Try it on the examples</a>.</p>
 <p><strong><code>--prefix</code> lists the npm packages installed in a conda environment.</strong> <code>nodejs</code> brings npm and about 120 packages
 npm itself depends on, and a JavaScript tool such as <code>configurable-http-proxy</code> brings its own; none of them was in
 the document. Every package under the environment's <code>node_modules</code> is now a <code>pkg:npm</code> component under the conda
