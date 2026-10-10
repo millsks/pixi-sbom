@@ -25,6 +25,13 @@ Since 1.0, pixi-sbom has:
 
 ## Unreleased
 
+**The Go modules inside a conda environment's Go programs are listed.** conda-forge builds `gh`, `go-yq`,
+`terraform` and the rest from source, so the conda record names the package and nothing in it. With `--prefix` and
+`--embedded-sboms`, each Go binary's build information is read, the list `go version -m` prints, and every module
+becomes a `pkg:golang` component under the package that ships it, with the Go standard library as
+`pkg:golang/stdlib`. On a `go-yq` environment that is the same 26 modules `go version -m` lists, and Grype finds the
+same 18 Go advisories in it as in syft's document. See [Go modules inside a binary](output-format.md#go-modules-inside-a-binary).
+
 **R packages carry their CRAN identity, so OSV finds their advisories.** An `r-*` conda package had only a
 `pkg:conda` purl, which no advisory database indexes. Each one that is on CRAN now also has a `pkg:cran` purl, named
 and versioned as CRAN spells it (`r-rcpp` 1.0.13_1 is `pkg:cran/Rcpp@1.0.13-1`), read from the package's own

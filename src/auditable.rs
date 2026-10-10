@@ -157,23 +157,7 @@ fn installed_files(prefix: &Path) -> BTreeMap<String, Vec<String>> {
 /// package that ships it.
 pub fn enrich(sbom: &mut Sbom, prefix: &Path, progress: Progress) -> Outcome {
     let mut outcome = Outcome::default();
-    let files = installed_files(prefix);
-    // Only the conda packages that ship something worth opening.
-    let jobs: Vec<(usize, String, Vec<String>)> = sbom
-        .packages
-        .iter()
-        .enumerate()
-        .filter(|(_, p)| matches!(p.kind, PackageKind::CondaBinary | PackageKind::CondaSource))
-        .filter_map(|(i, p)| {
-            let candidates: Vec<String> = files
-                .get(&p.name)?
-                .iter()
-                .filter(|f| is_candidate(f))
-                .cloned()
-                .collect();
-            (!candidates.is_empty()).then(|| (i, p.name.clone(), candidates))
-        })
-        .collect();
+    let jobs = binaries_by_package(sbom, prefix);
     if jobs.is_empty() {
         return outcome;
     }
@@ -206,14 +190,39 @@ pub fn enrich(sbom: &mut Sbom, prefix: &Path, progress: Progress) -> Outcome {
     outcome
 }
 
-/// The crate list of one file, when it is an object file that carries one.
-fn read_binary(path: &Path) -> Option<VersionInfo> {
+/// The conda packages of an installed environment that ship something worth opening, with
+/// their index in the document, their name and the files to open, relative to the prefix.
+pub(crate) fn binaries_by_package(sbom: &Sbom, prefix: &Path) -> Vec<(usize, String, Vec<String>)> {
+    let files = installed_files(prefix);
+    sbom.packages
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| matches!(p.kind, PackageKind::CondaBinary | PackageKind::CondaSource))
+        .filter_map(|(i, p)| {
+            let candidates: Vec<String> = files
+                .get(&p.name)?
+                .iter()
+                .filter(|f| is_candidate(f))
+                .cloned()
+                .collect();
+            (!candidates.is_empty()).then(|| (i, p.name.clone(), candidates))
+        })
+        .collect()
+}
+
+/// A file's bytes, when it is an object file; only real binaries are read whole.
+pub(crate) fn read_object(path: &Path) -> Option<Vec<u8>> {
     let mut file = std::fs::File::open(path).ok()?;
     let mut magic = [0u8; 4];
     if std::io::Read::read_exact(&mut file, &mut magic).is_err() || !is_object(&magic) {
         return None;
     }
-    let bytes = std::fs::read(path).ok()?;
+    std::fs::read(path).ok()
+}
+
+/// The crate list of one file, when it is an object file that carries one.
+fn read_binary(path: &Path) -> Option<VersionInfo> {
+    let bytes = read_object(path)?;
     let info = crates(&bytes);
     if info.is_none() {
         tracing::trace!(path = %path.display(), "binary without a cargo auditable section");

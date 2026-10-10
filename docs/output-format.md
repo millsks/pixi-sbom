@@ -333,6 +333,19 @@ binary, `pixi:cargo-source` (`crates.io`, `git`, `local`, ...), and an edge from
 its program was built from. Crates that only built the program (`kind: build`) are not in it and are left out.
 Because the purls are `pkg:cargo`, `--vulnerabilities osv` covers them through RUSTSEC.
 
+### Go modules inside a binary
+
+Every Go binary built with module support carries its build information: the Go version and each module compiled
+in, what `go version -m` prints. conda-forge builds its Go packages (`gh`, `go-yq`, `terraform`) from source, so
+with `--prefix` and `--embedded-sboms` those modules are read out of the binaries the environment installed and
+attached like any other embedded component: `pixi:kind=embedded`, a `pkg:golang/<module>@<version>` purl (after any
+`=>` replacement), and `pixi:embedded-sbom=go-buildinfo:<file>`. The Go standard library is a component too,
+`stdlib` at version `go1.27.1` with the purl `pkg:golang/stdlib@1.27.1`, as Syft records it, so advisories against
+the Go runtime match. Go records which modules are in the binary, not which needs which, so they hang off the
+binary's main module when it has a released version, and off the conda package when it is a source build
+(`(devel)`). OSV and Grype both index Go advisories. Binaries built before Go 1.18, whose build information is in an
+older layout, are passed over.
+
 ### Vendored Python distributions
 
 Some packages ship other Python distributions inside themselves, each with its own `dist-info`: setuptools vendors

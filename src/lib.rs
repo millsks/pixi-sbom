@@ -59,6 +59,8 @@ pub mod format;
 #[doc(hidden)]
 pub mod fromsbom;
 #[doc(hidden)]
+pub mod gobuild;
+#[doc(hidden)]
 pub mod http;
 #[doc(hidden)]
 pub mod imports;

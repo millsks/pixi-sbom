@@ -6,9 +6,9 @@
 
 use pixi_sbom::{
     auditable, batch, cache, cli, concurrency, condaarchive, condalock, config, cran, diff, discover, doctor, embedded,
-    epss, explain, explicit, filter, format, fromsbom, http, imports, kev, license, lock, manifest, mapping, merge,
-    mirror, model, osv, outdated, pdm, phantom, pkgcache, poetry, policy, prefix, progress, pylock, pypi, report,
-    requirements, scorecard, style, timings, uv, verify, vexin, vulnpolicy, wheel,
+    epss, explain, explicit, filter, format, fromsbom, gobuild, http, imports, kev, license, lock, manifest, mapping,
+    merge, mirror, model, osv, outdated, pdm, phantom, pkgcache, poetry, policy, prefix, progress, pylock, pypi,
+    report, requirements, scorecard, style, timings, uv, verify, vexin, vulnpolicy, wheel,
 };
 
 /// The system allocator on macOS and Windows is slow under the many small allocations a
@@ -2405,6 +2405,13 @@ fn enrich(sbom: &mut model::Sbom, args: &cli::Args, input: &Input, progress: pro
                     merged,
                 } = auditable::enrich(sbom, dir, progress);
                 tracing::info!(binaries, added, merged, "read cargo auditable crate lists");
+                // Go binaries carry their module list the same way, as build information.
+                let gobuild::Outcome {
+                    binaries,
+                    added,
+                    merged,
+                } = gobuild::enrich(sbom, dir, progress);
+                tracing::info!(binaries, added, merged, "read Go build information");
                 // Python distributions a package ships inside itself (setuptools/_vendor).
                 let prefix::VendoredOutcome { added, merged } = prefix::attach_vendored(sbom, dir);
                 tracing::info!(added, merged, "attached vendored Python distributions");
