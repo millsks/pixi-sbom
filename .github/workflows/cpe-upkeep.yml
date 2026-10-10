@@ -1,0 +1,80 @@
+name: CPE table upkeep
+
+# Weekly checks that the curated CPE table (data/cpe.toml) has not gone stale (#435): products NVD
+# has deprecated, entries NVD does not know, conda-forge versions spelled unlike NVD's, and native
+# packages with no entry. The findings are one issue, edited in place. Deprecated entries are
+# rewritten to NVD's replacement in a pull request for review; new entries are never added here.
+# Coverage itself is checked by the Grype comparison (grype-compare.yml), on the same schedule.
+
+on:
+  schedule:
+    - cron: "41 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: cpe-upkeep
+  cancel-in-progress: false
+
+jobs:
+  upkeep:
+    name: Check the CPE table
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          environments: default
+          cache: true
+      - name: Run the checks
+        run: |
+          pixi run cargo build
+          pixi run python scripts/cpe_upkeep.py --report target/cpe-upkeep.md --apply
+      - name: Update the upkeep issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="CPE table upkeep"
+          number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq ".[] | select(.title == \"$title\") | .number" | head -1)
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file target/cpe-upkeep.md
+          else
+            gh issue create --title "$title" --body-file target/cpe-upkeep.md
+          fi
+      - name: Did any entry change?
+        id: changed
+        run: |
+          if git diff --quiet -- data/cpe.toml; then echo "table=false" >> "$GITHUB_OUTPUT"; else echo "table=true" >> "$GITHUB_OUTPUT"; fi
+      # A pull request opened with the workflow's own token does not trigger CI, so this one uses
+      # the release workflow's GitHub App.
+      - name: Mint a token for the pull request
+        id: app-token
+        if: steps.changed.outputs.table == 'true'
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      # A new dated branch each time, never a force-push; skipped while an earlier one is still open.
+      - name: Open a pull request for deprecated entries
+        if: steps.changed.outputs.table == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          title="fix(cpe): follow NVD's renames of deprecated products"
+          if [ -n "$(gh pr list --state open --search "\"$title\" in:title" --json number --jq '.[0].number')" ]; then
+            echo "An open pull request already proposes these; review that one first."
+            exit 0
+          fi
+          branch="bugfix/cpe-nvd-deprecations-$(date -u +%Y%m%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git checkout -b "$branch"
+          git commit -am "$title"
+          git push origin "$branch"
+          gh pr create --head "$branch" --title "$title" --body-file target/cpe-upkeep.md

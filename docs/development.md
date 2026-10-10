@@ -241,17 +241,34 @@ real document; the fixtures are small by design.
 ## The CPE table
 
 `data/cpe.toml` maps a conda package name to NVD's `vendor:product`, and is compiled into the binary
-(`src/cpe.rs`). An entry is added only when the pair is the one NVD and Grype's database use for that code, and the
-conda package's version is spelled as upstream's:
+(`src/cpe.rs`). A package missing from it gets no CPE: one is never guessed from a name.
+
+**Adding an entry** is one line in `data/cpe.toml`, `<conda name> = "<vendor>:<product>"`, plus nothing else:
+`cpe::tests::every_entry_is_a_valid_vendor_and_product` checks every line's format, and the Grype comparison
+(`pixi run grype-compare`) shows what the entry matches. Before adding one, check the pair is the one NVD and Grype's
+database use for that code:
 
 - Look the product up in Grype's database (`grype db status` says where it is; the `cpes` table joined to
   `affected_cpe_handles` gives each vendor:product its advisory count), or in NVD's CPE dictionary. Use the vendor
   that carries the advisories; where NVD splits a product between vendors that are not the same code, leave the
   package out.
 - Leave out compiler runtimes and C libraries (gcc, glibc), whose advisories are for code a conda package does not
-  contain, and packages whose conda version differs from upstream's spelling.
-- `cpe::tests::every_entry_is_a_valid_vendor_and_product` checks the format; it cannot check that a pair is right,
-  which is why every entry needs that lookup. Scheduled checks that every entry still matches are #435.
+  contain, and packages whose conda version is spelled unlike upstream's.
+
+**Weekly upkeep** (`.github/workflows/cpe-upkeep.yml`, also on demand) runs `scripts/cpe_upkeep.py` and keeps one
+issue, *CPE table upkeep*, up to date with what it finds:
+
+| Section | What to do |
+|---|---|
+| Deprecated in NVD | Review the pull request the workflow opened, which rewrites each entry to NVD's replacement |
+| Unknown to NVD | The pair is wrong or was withdrawn: correct or remove the entry |
+| Not a conda-forge package | The name is not one conda-forge uses, so the entry can never match: rename or remove it |
+| Version spelled unlike NVD's | conda-forge's latest version has a different shape from every version NVD records; check whether CPEs from it still match |
+| Candidates | Native packages in the examples with neither a CPE nor a PyPI identity. Add an entry, or list the package in `tests/cpe/reviewed.toml` with the reason it has none, so it is not proposed again |
+
+Nothing is added to the table automatically: which CPE a package should get is a person's call.
+`pixi run cpe-upkeep --report <file>` runs the same checks locally (about ten minutes: NVD allows five requests in
+thirty seconds without an API key); `pixi run cpe-upkeep-test` tests them.
 
 ## The GitHub Action
 

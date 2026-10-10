@@ -1,0 +1,15 @@
+# Native conda packages reviewed and deliberately left without a CPE, each with its reason, so the
+# weekly upkeep report (scripts/cpe_upkeep.py) does not list them as candidates again. A package
+# that should have one goes in data/cpe.toml instead.
+
+[reviewed]
+_libgcc_mutex = "a conda metapackage that selects a compiler runtime; it contains no code"
+_openmp_mutex = "a conda metapackage that selects an OpenMP runtime; it contains no code"
+ca-certificates = "certificate data, not software NVD tracks"
+ld_impl_linux-64 = "the GNU linker from binutils, used at build time; compiler toolchains are left out on purpose"
+libgcc = "the GCC runtime: its advisories are for the compiler, which the package does not contain"
+libgcc-ng = "the GCC runtime: its advisories are for the compiler, which the package does not contain"
+libgomp = "the GCC OpenMP runtime: its advisories are for the compiler, which the package does not contain"
+libstdcxx = "the GCC C++ runtime: its advisories are for the compiler, which the package does not contain"
+libstdcxx-ng = "the GCC C++ runtime: its advisories are for the compiler, which the package does not contain"
+tzdata = "time zone data, not software NVD tracks"
