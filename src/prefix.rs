@@ -1150,32 +1150,37 @@ mod tests {
     /// reads as the lockfile writes it, and outside it is dropped. A remote one is left alone.
     #[test]
     fn a_local_direct_url_becomes_relative_to_the_project() {
+        // Real absolute paths, so the test means the same on Windows (`C:\\...`) as elsewhere.
+        let root = std::env::temp_dir().join("pixi-sbom-portable");
+        let url = |path: &Path| {
+            format!(
+                "file:///{}",
+                path.display().to_string().replace('\\', "/").trim_start_matches('/')
+            )
+        };
         let mut sbom = crate::format::testing::sample_sbom();
         let urls = [
-            "file:///work/app/libs/utils",
-            "file:///elsewhere/wheels/x-1.0-py3-none-any.whl",
-            "https://example.com/x-1.0.tar.gz",
-            "file:///work/venv-project/src/pkg",
+            url(&root.join("app/libs/utils")),
+            url(&root.join("elsewhere/wheels/x-1.0-py3-none-any.whl")),
+            "https://example.com/x-1.0.tar.gz".to_string(),
+            url(&root.join("venv-project/src/pkg")),
         ];
         for (package, url) in sbom.packages.iter_mut().zip(urls) {
-            package.properties.insert(DIRECT_URL_PROPERTY.into(), url.into());
+            package.properties.insert(DIRECT_URL_PROPERTY.into(), url);
         }
         let direct = |sbom: &Sbom, i: usize| sbom.packages[i].properties.get(DIRECT_URL_PROPERTY).cloned();
         let mut pixi = sbom.clone();
-        make_portable(&mut pixi, Path::new("/work/app/.pixi/envs/default"));
+        make_portable(&mut pixi, &root.join("app/.pixi/envs/default"));
         assert_eq!(direct(&pixi, 0).as_deref(), Some("./libs/utils"), "a pixi workspace");
         assert_eq!(direct(&pixi, 1), None, "outside the project");
         assert_eq!(direct(&pixi, 2).as_deref(), Some("https://example.com/x-1.0.tar.gz"));
-        make_portable(&mut sbom, Path::new("/work/venv-project/.venv"));
+        make_portable(&mut sbom, &root.join("venv-project/.venv"));
         assert_eq!(
             direct(&sbom, 3).as_deref(),
             Some("./src/pkg"),
             "a venv's project is its directory"
         );
-        assert_eq!(
-            project_of(Path::new("/work/app/.pixi/envs/default")),
-            Path::new("/work/app")
-        );
+        assert_eq!(project_of(&root.join("app/.pixi/envs/default")), root.join("app"));
         assert_eq!(project_of(Path::new("/opt/conda")), Path::new("/opt"));
     }
 
