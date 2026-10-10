@@ -25,87 +25,101 @@ Since 1.0, pixi-sbom has:
 
 ## Unreleased
 
-**`--help` groups its flags.** The 70-odd flags were one list; they are now in sections (General, Input,
-Configuration, Output, Environment and platform, Enrichment, Filtering, License policy, Quality gates,
-Vulnerabilities, Reports, Network and cache, Diagnostics). Each section opens with a rule, `── INPUT ────…`, set apart
-by blank lines and coloured in a terminal, so a new one is plain even with colour off. The
-[CLI reference](cli.md#options) follows the same grouping.
+1.10.0 is about what a scanner can do with pixi-sbom's documents. Describing an installed environment offline,
+pixi-sbom now gives Grype everything syft's document does and more: on the installed Django example, with
+`--primary-purl pypi`, Grype finds 94 advisories against 82 from syft's document of the same directory. CI checks
+this on four environments on every change to identity code; [pixi-sbom and syft](syft.md) has the comparison.
 
-**Tab completion lists flags alphabetically.** It offered them in the order they are declared in the code, so in
-zsh `--fail-on-yanked` sat far from `--fail-on-kev` and a half-remembered name meant reading all of them. Every shell
-now gets flags and their values in alphabetical order.
-
-**`--format github` puts a pixi environment in GitHub's dependency graph.** It writes GitHub's dependency
-submission snapshot, so an environment's packages show up in the dependency graph and get Dependabot alerts,
-without syft in the pipeline. Conda packages with a PyPI identity are submitted by it, since that is where GitHub's
-advisories are. The Action submits it with `dependency-submission: "true"`.
-
-**`--verify-files` checks an installed conda environment against itself.** conda-meta records the SHA-256 of every
-file a package installed; with `--prefix`, `--verify-files` hashes each one and records modified and missing files on
-the package (`pixi:modified-files`, `pixi:missing-files`), and `--report files` lists them. Either ends the run with
-the new exit code 11. `.pyc` files Python regenerated are counted but never fail it. It is offline and opt-in: the
-Django example's 13,241 files take about 1.5 s.
-
-**pixi-sbom says when a scanner would miss packages.** Grype and other scanners read only a package's primary purl,
-and by default a conda-installed Python package's primary purl is `pkg:conda`, which no advisory database indexes: on
-the Django example Grype found none of django's 27 vulnerabilities. A run that writes a CycloneDX or SPDX document now warns once when that applies, naming
-`--primary-purl pypi` and the `primary-purl` configuration key; setting either, to `pypi` or `conda`, silences it.
-`--report quality` counts the same packages in a new, unscored **PyPI identity** row, and the CI recipes have a
-[Scanning with Grype](ci-recipes.md#scanning-with-grype) section. The default changes in 2.0 (#478).
-
-**An installed environment's document no longer names paths on the machine that made it.** `--prefix` recorded a
-pip package's `file:///…/site-packages/…dist-info` as its location, and each conda package's extraction directory
-as a full path into the user's cache (`/Users/<name>/Library/Caches/rattler/…`). The first is dropped, the second
-keeps only the directory's name in the package cache, and an editable install's `pixi:direct-url` is relative to the
-project (`./libs/utils`), as the lockfile writes it. The same environment at two paths now gives the same document.
-
-**`--report quality` grades other tools' documents on the same terms.** A syft SBOM's suppliers (`Person: ...` in
-SPDX, `author` in CycloneDX) and CPEs were not read, so its supplier and identifier scores were 0 and a document that
-did identify its packages looked as if it did not. They are read now, and a CPE counts as the unique identifier
-alongside a purl, as the NTIA minimum elements allow (the purl count is still shown). syft's CycloneDX fixture goes
-from 51 to 62. Read with `--from-sbom` and written again, those suppliers and CPEs are kept.
-
-**A bare license name is no longer given a version.** A package declaring `LGPL`, `GPL`, `AGPL` or `BSD` was written
-as `LGPL-2.0-only`, `GPL-2.0-only`, `AGPL-3.0` or `BSD-2-Clause`, versions and clause counts the package never
-stated, which a license policy then judged as if they were real. Bare family names are now kept as free text, and
-`MIT License` is now `MIT`.
-
-**`--embedded-sboms` finds Python distributions vendored inside packages.** setuptools ships packaging, wheel and a
-dozen more in `setuptools/_vendor/`, and a vendored copy can lag the installed one. With `--prefix`, each is now a
-component under the package that ships it, with its own PyPI identity, so scanners check it too. `--report diff`
-does not count them as installs.
-
-**A plain Python installation lists its interpreter.** `--prefix` on a container's `/usr/local` listed only what
-pip installed, though most advisories against such an image are against Python itself. The interpreter is now a
-`python` component at its full version, with CPython's CPE. On `python:3.12-slim`, Grype finds 8 CPython
-vulnerabilities in the document that it found none of before.
-
-**`--prefix` reads a conda package's PyPI identity from what it installed, offline.** A conda-installed Django,
-Pillow or sqlparse had only its `pkg:conda` purl unless `--pypi-mapping prefix` downloaded the name mapping. The
-`dist-info` the package put in site-packages already names the PyPI project and version, and the conda record says
-which package installed it, so the identity is now read from disk. On an installed Django environment with
-`--primary-purl pypi`, Grype finds 94 vulnerabilities with no network, against 82 from syft's SBOM of the same
-environment.
+### What a scanner finds
 
 **Native conda packages carry a CPE, so Grype finds their advisories.** openssl, libtiff, sqlite, python and about
 eighty other native libraries from a conda channel have only a `pkg:conda` purl, which no advisory database
 indexes, so a CPE-matching scanner reported nothing for them. They now carry the CPE NVD uses, from a curated table,
 in CycloneDX, SPDX 2.3 and SPDX 3.0.1, by default. On the Django example, Grype's findings from the default
 document went from 0 to 36. A package that is not in the table gets no CPE: one is never guessed from a name.
-`--explain` shows where a CPE came from, and `--report quality` counts native packages a scanner cannot match
-(shown, not scored). See [CPEs for native conda packages](output-format.md#cpes-for-native-conda-packages).
+`--explain` shows where a CPE came from. See [CPEs for native conda packages](output-format.md#cpes-for-native-conda-packages).
 
-**`--prefix` lists each pip-installed package once in a conda-forge environment.** conda-forge's
-Python ships a `lib/python3.1` symlink to `lib/python3.11`, and packages installed with pip or uv
-were read through both, so each appeared twice with the same `bom-ref` or SPDXID. That made the
-document invalid CycloneDX and SPDX. Site-packages is now read once, through the real directory.
+**`--prefix` reads a conda package's PyPI identity from what it installed, offline.** A conda-installed Django,
+Pillow or sqlparse had only its `pkg:conda` purl unless `--pypi-mapping prefix` downloaded the name mapping. The
+`dist-info` the package put in site-packages already names the PyPI project and version, and the conda record says
+which package installed it, so the identity is now read from disk.
 
-**`--prefix` records the scanned environment's platform, not the scanning machine's.** A Python
-installation with only pure-Python packages, such as a container's `/usr/local`, named no platform,
-so the document took the platform of the machine doing the scan: a Linux image scanned on a Mac said
-`osx-arm64`. The platform now comes from the interpreter's or standard library's compiled files
-first. `pixi:python-version` is the full `X.Y.Z` where the installation ships its headers, and
-`3.12` is no longer taken as older than `3.9`.
+**pixi-sbom says when a scanner would miss packages.** Grype and other scanners read only a package's primary purl,
+and by default a conda-installed Python package's primary purl is `pkg:conda`: on the Django example Grype found
+none of django's 27 vulnerabilities. A run that writes a CycloneDX or SPDX document now warns once when that applies,
+naming `--primary-purl pypi` and the `primary-purl` configuration key; setting either, to `pypi` or `conda`,
+silences it. `--report quality` counts the same packages in a new **PyPI identity** row, and native packages a
+scanner cannot match in a **scanner identity** row; neither is scored, so `--min-quality` results do not move. The
+CI recipes have a [Scanning with Grype](ci-recipes.md#scanning-with-grype) section. The default changes in 2.0 (#478).
+
+**A plain Python installation lists its interpreter.** `--prefix` on a container's `/usr/local` listed only what
+pip installed, though most advisories against such an image are against Python itself. The interpreter is now a
+`python` component at its full version, with CPython's CPE. On `python:3.12-slim`, Grype finds 8 CPython
+vulnerabilities in the document that it found none of before.
+
+**`--embedded-sboms` finds Python distributions vendored inside packages.** setuptools ships packaging, wheel and a
+dozen more in `setuptools/_vendor/`, and a vendored copy can lag the installed one. With `--prefix`, each is now a
+component under the package that ships it, with its own PyPI identity, so scanners check it too. `--report diff`
+does not count them as installs.
+
+### New checks
+
+**`--verify-files` checks an installed conda environment against itself.** conda-meta records the SHA-256 of every
+file a package installed; with `--prefix`, `--verify-files` hashes each one and records modified and missing files on
+the package (`pixi:modified-files`, `pixi:missing-files`), and `--report files` lists them. Either ends the run with
+the new exit code 11. `.pyc` files Python regenerated are counted but never fail it. It is offline and opt-in: the
+Django example's 13,241 files take about 0.3 s.
+
+**`--format github` puts a pixi environment in GitHub's dependency graph.** It writes GitHub's dependency
+submission snapshot, so an environment's packages show up in the dependency graph and get Dependabot alerts,
+without syft in the pipeline. Conda packages with a PyPI identity are submitted by it, since that is where GitHub's
+advisories are. The Action submits it with `dependency-submission: "true"`.
+
+### Licenses and grading
+
+**A bare license name is no longer given a version.** A package declaring `LGPL`, `GPL`, `AGPL` or `BSD` was written
+as `LGPL-2.0-only`, `GPL-2.0-only`, `AGPL-3.0` or `BSD-2-Clause`, versions and clause counts the package never
+stated, which a license policy then judged as if they were real. Bare family names are now kept as free text, and
+`MIT License` is now `MIT`. **This can change a license gate's result:** with `--require-license` or an allow list,
+a package declaring a bare `BSD` is now a violation where it passed as `BSD-2-Clause` before.
+
+**`--report quality` grades other tools' documents on the same terms.** A syft SBOM's suppliers (`Person: ...` in
+SPDX, `author` in CycloneDX) and CPEs were not read, so its supplier and identifier scores were 0 and a document that
+did identify its packages looked as if it did not. They are read now, and a CPE counts as the unique identifier
+alongside a purl, as the NTIA minimum elements allow (the purl count is still shown). Read with `--from-sbom` and
+written again, those suppliers and CPEs are kept.
+
+### Installed environments
+
+**`--prefix` lists each pip-installed package once in a conda-forge environment.** conda-forge's Python ships a
+`lib/python3.1` symlink to `lib/python3.11`, and packages installed with pip or uv were read through both, so each
+appeared twice with the same `bom-ref` or SPDXID. That made the document invalid CycloneDX and SPDX. Site-packages
+is now read once, through the real directory.
+
+**`--prefix` records the scanned environment's platform, not the scanning machine's.** A Python installation with
+only pure-Python packages, such as a container's `/usr/local`, named no platform, so the document took the platform
+of the machine doing the scan: a Linux image scanned on a Mac said `osx-arm64`. The platform now comes from the
+interpreter's or standard library's compiled files first. `pixi:python-version` is the full `X.Y.Z` where the
+installation ships its headers, and `3.12` is no longer taken as older than `3.9`.
+
+**An installed environment's document no longer names paths on the machine that made it.** `--prefix` recorded a
+pip package's `file:///…/site-packages/…dist-info` as its location, and each conda package's extraction directory
+as a full path into the user's cache (`/Users/<name>/Library/Caches/rattler/…`). The first is dropped, the second
+keeps only the directory's name in the package cache (`pixi:extracted-package-dir` keeps its name), and an editable
+install's `pixi:direct-url` is relative to the project (`./libs/utils`), as the lockfile writes it. The same
+environment at two paths now gives the same document.
+
+### The command line
+
+**`--help` groups its flags.** The 70-odd flags were one list; they are now in sections (General, Input,
+Configuration, Output, Environment and platform, Enrichment, Filtering, License policy, Quality gates,
+Vulnerabilities, Reports, Network and cache, Diagnostics). Each section opens with a rule, `── INPUT ────…`, set
+apart by blank lines and coloured in a terminal, so a new one is plain even with colour off. The
+[CLI reference](cli.md#options) follows the same grouping.
+
+**Tab completion lists flags alphabetically.** It offered them in the order they are declared in the code, so in
+zsh `--fail-on-yanked` sat far from `--fail-on-kev` and a half-remembered name meant reading all of them. Every shell
+now gets flags and their values in alphabetical order.
 
 ## 1.9.0
 

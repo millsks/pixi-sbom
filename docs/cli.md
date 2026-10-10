@@ -1303,8 +1303,9 @@ In a document, each checked conda package carries `pixi:verified-files` (how man
 `pixi:modified-files`, `pixi:missing-files` (comma-separated paths relative to the environment) and
 `pixi:regenerated-bytecode` (a count). Either way, a modified or missing file ends the run with exit 11, after the
 document or report is written and the files are listed on stderr. pip-installed packages are not checked: their
-`RECORD` is not what conda-meta is. Hashing every file reads the whole environment, about 1.5 s for the Django
-example's 13,241 files on a laptop, which is why it is opt-in.
+`RECORD` is not what conda-meta is. Hashing every file reads the whole environment: the Django example's 13,241
+files take about 0.3 s on a laptop with a warm disk cache, and a large environment read cold takes far longer, which
+is why it is opt-in.
 
 ## What is imported but never declared
 
