@@ -10102,7 +10102,10 @@ fn help_sections_are_rules_set_apart_by_blank_lines() {
 #[test]
 fn a_relative_prefix_makes_a_local_direct_url_relative_to_the_workspace() {
     let dir = tempfile::tempdir().unwrap();
-    let workspace = dir.path().canonicalize().unwrap().join("app");
+    // Canonical, so macOS's /var is /private/var as the run sees it; without Windows's `\\?\` prefix,
+    // which no file URL pip writes carries.
+    let canonical = dir.path().canonicalize().unwrap().display().to_string();
+    let workspace = PathBuf::from(canonical.trim_start_matches(r"\\?\")).join("app");
     let env = workspace.join(".pixi").join("envs").join("default");
     copy_dir(&tests_dir().join("fixtures").join("venv-sources"), &env);
     let source = workspace.join("libs").join("myapp");
