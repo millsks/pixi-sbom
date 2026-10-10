@@ -25,6 +25,12 @@ Since 1.0, pixi-sbom has:
 
 ## Unreleased
 
+**An installed environment's document no longer names paths on the machine that made it.** `--prefix` recorded a
+pip package's `file:///…/site-packages/…dist-info` as its location, and each conda package's extraction directory
+as a full path into the user's cache (`/Users/<name>/Library/Caches/rattler/…`). The first is dropped, the second
+keeps only the directory's name in the package cache, and the same environment at two paths now gives the same
+document.
+
 **`--report quality` grades other tools' documents on the same terms.** A syft SBOM's suppliers (`Person: ...` in
 SPDX, `author` in CycloneDX) and CPEs were not read, so its supplier and identifier scores were 0 and a document that
 did identify its packages looked as if it did not. They are read now, and a CPE counts as the unique identifier

@@ -9769,3 +9769,61 @@ fn native_conda_packages_carry_a_cpe_in_every_format() {
         "SPDX 3: a cpe23 external identifier"
     );
 }
+
+/// The same installed environment at two paths gives the same document, apart from when it was
+/// written and its serial number: nothing in it says where on the machine the environment, or
+/// the package cache it was extracted from, lives.
+#[test]
+fn an_installed_environment_documents_the_same_wherever_it_is() {
+    let dir = tempfile::tempdir().unwrap();
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/prefix");
+    let describe = |at: &Path| -> Value {
+        for file in walkdir(&fixture) {
+            let target = at.join(file.strip_prefix(&fixture).unwrap());
+            std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+            std::fs::copy(&file, &target).unwrap();
+        }
+        let assert = pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("sbom-cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .arg("--prefix")
+            .arg(at)
+            .args(["-p", "linux-64", "--output", "-"])
+            .assert()
+            .success();
+        let mut doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+        let text = doc.to_string();
+        assert!(
+            !text.contains(&*at.to_string_lossy()),
+            "the document names its path:\n{text}"
+        );
+        assert!(
+            !text.contains("/opt/pkgs"),
+            "the document names the package cache's path"
+        );
+        doc["metadata"]["timestamp"] = Value::Null;
+        doc["serialNumber"] = Value::Null;
+        doc
+    };
+    let first = describe(&dir.path().join("one/env"));
+    let second = describe(&dir.path().join("another/place/env"));
+    assert_eq!(first, second);
+    let python = first["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "python")
+        .unwrap();
+    let extracted = python["properties"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "pixi:extracted-package-dir")
+        .unwrap();
+    assert_eq!(
+        extracted["value"], "python-3.12.14-h5f976f7_3_cpython",
+        "the cache entry's name"
+    );
+}

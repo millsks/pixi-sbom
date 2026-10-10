@@ -732,6 +732,34 @@ fn installed_pypi_identity(prefix: &Path, record: &Record) -> Option<(String, St
     Some((purl, dist_info))
 }
 
+/// Take the machine out of an installed environment's document, once nothing more reads the
+/// files: the same environment at two paths, or on two machines, gives the same document. A pip
+/// package's location (its `dist-info` directory) is dropped, since a local directory is not a
+/// download location, and `pixi:extracted-package-dir` keeps only the directory's name in the
+/// package cache.
+pub fn make_portable(sbom: &mut Sbom, prefix: &Path) {
+    let canonical = prefix.canonicalize().unwrap_or_else(|_| prefix.to_path_buf());
+    let inside = |location: &str| {
+        let Some(path) = location.strip_prefix("file://") else {
+            return false;
+        };
+        let path = Path::new(path.strip_prefix('/').filter(|p| p.contains(':')).unwrap_or(path));
+        path.starts_with(prefix) || path.starts_with(&canonical)
+    };
+    for package in &mut sbom.packages {
+        if inside(&package.location) {
+            package.location.clear();
+        }
+        if let Some(dir) = package.properties.get_mut(EXTRACTED_DIR_PROPERTY)
+            && let Some(name) = Path::new(dir.as_str())
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+        {
+            *dir = name;
+        }
+    }
+}
+
 /// What [`attach_vendored`] found.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct VendoredOutcome {

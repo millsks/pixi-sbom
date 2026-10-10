@@ -824,6 +824,11 @@ fn main() -> Result<()> {
                 "the document records that enrichment was incomplete"
             );
         }
+        // Everything that reads the environment's files has run: the document need not say where
+        // on this machine they are.
+        if let Input::Prefix { dir, .. } = input {
+            prefix::make_portable(&mut sbom, dir);
+        }
         let ctx = format::WriteContext::for_document(&contents, &sbom, args.format, spec_version);
         let written = timings::time(timings::Phase::Write, || write_output(output, args.format, &sbom, &ctx))?;
         tracing::info!(
