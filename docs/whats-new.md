@@ -23,6 +23,13 @@ Since 1.0, pixi-sbom has:
   credentials are used, and `--doctor` says which host is the problem.
 - **Learned tab completion** in bash, zsh, fish and PowerShell, for `pixi-sbom` and `pixi sbom`.
 
+## Unreleased
+
+**`--prefix` lists each pip-installed package once in a conda-forge environment.** conda-forge's
+Python ships a `lib/python3.1` symlink to `lib/python3.11`, and packages installed with pip or uv
+were read through both, so each appeared twice with the same `bom-ref` or SPDXID. That made the
+document invalid CycloneDX and SPDX. Site-packages is now read once, through the real directory.
+
 ## 1.9.0
 
 **Tab completion.** Flags, the values they take (`--report <TAB>` lists the report kinds,

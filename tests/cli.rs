@@ -9579,3 +9579,62 @@ fn a_stray_completion_variable_does_not_change_a_run() {
             .stdout(predicates::str::starts_with("pixi-sbom "));
     }
 }
+
+/// Every `bom-ref` in a CycloneDX document, and every SPDXID in an SPDX 2.3 one, is unique. Both
+/// specifications require it and neither schema can say so.
+fn assert_unique_ids(doc: &Value) {
+    let mut ids: Vec<&str> = Vec::new();
+    if let Some(components) = doc["components"].as_array() {
+        ids.extend(components.iter().filter_map(|c| c["bom-ref"].as_str()));
+        ids.extend(doc["metadata"]["component"]["bom-ref"].as_str());
+    }
+    if let Some(packages) = doc["packages"].as_array() {
+        ids.extend(packages.iter().filter_map(|p| p["SPDXID"].as_str()));
+    }
+    assert!(!ids.is_empty(), "the document has ids to check");
+    let mut seen = std::collections::HashSet::new();
+    let duplicates: Vec<&&str> = ids.iter().filter(|id| !seen.insert(**id)).collect();
+    assert!(duplicates.is_empty(), "duplicate ids: {duplicates:?}");
+}
+
+/// conda-forge's Python ships `lib/python3.1 -> python3.11`. A pip-installed package is listed
+/// once, and the documents stay valid: every id unique, in CycloneDX and SPDX.
+#[cfg(unix)]
+#[test]
+fn a_symlinked_python_directory_lists_each_package_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let prefix = dir.path().join("env");
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/prefix");
+    for file in walkdir(&fixture) {
+        let target = prefix.join(file.strip_prefix(&fixture).unwrap());
+        std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+        std::fs::copy(&file, &target).unwrap();
+    }
+    std::os::unix::fs::symlink("python3.12", prefix.join("lib/python3.1")).unwrap();
+    for (format, validator) in [("cyclonedx", cyclonedx_validator()), ("spdx", spdx_validator())] {
+        let assert = pixi_sbom()
+            .current_dir(dir.path())
+            .env("PIXI_CACHE_DIR", dir.path().join("empty-pkgs-cache"))
+            .env("PIXI_SBOM_CACHE_DIR", dir.path().join("sbom-cache"))
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .arg("--prefix")
+            .arg(&prefix)
+            .args(["-p", "linux-64", "--format", format, "--output", "-"])
+            .assert()
+            .success();
+        let doc: Value = serde_json::from_slice(&assert.get_output().stdout).unwrap();
+        assert_valid(&validator, &doc);
+        assert_unique_ids(&doc);
+        let names: Vec<&str> = doc[if format == "cyclonedx" {
+            "components"
+        } else {
+            "packages"
+        }]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|c| c["name"].as_str())
+        .collect();
+        assert_eq!(names.iter().filter(|n| **n == "six").count(), 1, "{format}: {names:?}");
+    }
+}

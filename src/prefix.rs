@@ -590,18 +590,25 @@ pub fn dist_infos(prefix: &Path) -> Vec<PathBuf> {
 }
 
 /// The site-packages directories an environment may have, whichever layout the platform uses:
-/// `Lib/site-packages` on Windows, `lib/python3.X/site-packages` elsewhere.
+/// `Lib/site-packages` on Windows, `lib/python3.X/site-packages` elsewhere. Each directory once:
+/// conda-forge's Python ships `lib/python3.1 -> python3.11`, and reading through both would list
+/// every pip-installed package twice. The real path is kept over a symlink to it.
 fn site_packages(prefix: &Path) -> Vec<PathBuf> {
-    let mut roots = vec![prefix.join("Lib").join("site-packages")];
+    let mut candidates = vec![prefix.join("Lib").join("site-packages")];
     if let Ok(lib) = std::fs::read_dir(prefix.join("lib")) {
-        for entry in lib.flatten() {
-            let name = entry.file_name().to_string_lossy().into_owned();
-            if name.starts_with("python") {
-                roots.push(entry.path().join("site-packages"));
-            }
-        }
+        let mut pythons: Vec<_> = lib
+            .flatten()
+            .filter(|entry| entry.file_name().to_string_lossy().starts_with("python"))
+            .map(|entry| (entry.path().is_symlink(), entry.path()))
+            .collect();
+        pythons.sort();
+        candidates.extend(pythons.into_iter().map(|(_, dir)| dir.join("site-packages")));
     }
-    roots
+    let mut seen = std::collections::HashSet::new();
+    candidates
+        .into_iter()
+        .filter(|root| root.canonicalize().map_or(true, |real| seen.insert(real)))
+        .collect()
 }
 
 /// A pip-installed package from its `dist-info`; `None` when the metadata is unusable, or when
@@ -831,6 +838,23 @@ mod tests {
 
     fn fixtures(name: &str) -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(name)
+    }
+
+    /// conda-forge's Python ships `lib/python3.1 -> python3.11`; site-packages is read once,
+    /// through the real directory.
+    #[cfg(unix)]
+    #[test]
+    fn a_symlinked_python_directory_is_read_once_through_the_real_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("lib/python3.11/site-packages/six-1.17.0.dist-info");
+        std::fs::create_dir_all(&real).unwrap();
+        std::os::unix::fs::symlink("python3.11", dir.path().join("lib/python3.1")).unwrap();
+        let roots: Vec<_> = site_packages(dir.path())
+            .into_iter()
+            .filter(|root| root.is_dir())
+            .collect();
+        assert_eq!(roots, [dir.path().join("lib/python3.11/site-packages")]);
+        assert_eq!(dist_infos(dir.path()), [real]);
     }
 
     #[test]
