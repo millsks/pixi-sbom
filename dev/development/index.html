@@ -1927,18 +1927,54 @@ real document; the fixtures are small by design.</p>
 </ul>
 <h2 id="the-cpe-table">The CPE table<a class="headerlink" href="#the-cpe-table" title="Permanent link">&para;</a></h2>
 <p><code>data/cpe.toml</code> maps a conda package name to NVD's <code>vendor:product</code>, and is compiled into the binary
-(<code>src/cpe.rs</code>). An entry is added only when the pair is the one NVD and Grype's database use for that code, and the
-conda package's version is spelled as upstream's:</p>
+(<code>src/cpe.rs</code>). A package missing from it gets no CPE: one is never guessed from a name.</p>
+<p><strong>Adding an entry</strong> is one line in <code>data/cpe.toml</code>, <code>&lt;conda name&gt; = "&lt;vendor&gt;:&lt;product&gt;"</code>, plus nothing else:
+<code>cpe::tests::every_entry_is_a_valid_vendor_and_product</code> checks every line's format, and the Grype comparison
+(<code>pixi run grype-compare</code>) shows what the entry matches. Before adding one, check the pair is the one NVD and Grype's
+database use for that code:</p>
 <ul>
 <li>Look the product up in Grype's database (<code>grype db status</code> says where it is; the <code>cpes</code> table joined to
   <code>affected_cpe_handles</code> gives each vendor:product its advisory count), or in NVD's CPE dictionary. Use the vendor
   that carries the advisories; where NVD splits a product between vendors that are not the same code, leave the
   package out.</li>
 <li>Leave out compiler runtimes and C libraries (gcc, glibc), whose advisories are for code a conda package does not
-  contain, and packages whose conda version differs from upstream's spelling.</li>
-<li><code>cpe::tests::every_entry_is_a_valid_vendor_and_product</code> checks the format; it cannot check that a pair is right,
-  which is why every entry needs that lookup. Scheduled checks that every entry still matches are #435.</li>
+  contain, and packages whose conda version is spelled unlike upstream's.</li>
 </ul>
+<p><strong>Weekly upkeep</strong> (<code>.github/workflows/cpe-upkeep.yml</code>, also on demand) runs <code>scripts/cpe_upkeep.py</code> and keeps one
+issue, <em>CPE table upkeep</em>, up to date with what it finds:</p>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>What to do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Deprecated in NVD</td>
+<td>Review the pull request the workflow opened, which rewrites each entry to NVD's replacement</td>
+</tr>
+<tr>
+<td>Unknown to NVD</td>
+<td>The pair is wrong or was withdrawn: correct or remove the entry</td>
+</tr>
+<tr>
+<td>Not a conda-forge package</td>
+<td>The name is not one conda-forge uses, so the entry can never match: rename or remove it</td>
+</tr>
+<tr>
+<td>Version spelled unlike NVD's</td>
+<td>conda-forge's latest version has a different shape from every version NVD records; check whether CPEs from it still match</td>
+</tr>
+<tr>
+<td>Candidates</td>
+<td>Native packages in the examples with neither a CPE nor a PyPI identity. Add an entry, or list the package in <code>tests/cpe/reviewed.toml</code> with the reason it has none, so it is not proposed again</td>
+</tr>
+</tbody>
+</table>
+<p>Nothing is added to the table automatically: which CPE a package should get is a person's call.
+<code>pixi run cpe-upkeep --report &lt;file&gt;</code> runs the same checks locally (about ten minutes: NVD allows five requests in
+thirty seconds without an API key); <code>pixi run cpe-upkeep-test</code> tests them.</p>
 <h2 id="the-github-action">The GitHub Action<a class="headerlink" href="#the-github-action" title="Permanent link">&para;</a></h2>
 <p><code>action.yml</code> at the repository root is a composite action: it resolves the version (the action's own tag, an
 explicit <code>version</code> input, or the latest release), downloads the matching release archive and its <code>.sha256</code>,
