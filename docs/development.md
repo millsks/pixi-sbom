@@ -170,6 +170,26 @@ the whole grid is one insta snapshot with notes on every limited cell. A reader 
 report changes the table, which is the point: such a gap shows as an empty column, never as a failure. Nothing leaves
 the machine; the test asserts the upstream saw every service's requests.
 
+### Against syft, through Grype (`pixi run grype-compare`)
+
+The acceptance test for replacing syft in front of Grype. For each corpus environment (`pixi/01-django`, a web
+stack; `pixi/04-data-analysis`, a scientific stack; `pixi/10-dev-tooling`, Rust binaries; and a pip venv of
+`requirements/02-flask`), `scripts/grype_compare.py` installs it, describes it with syft and with
+`pixi sbom --prefix --primary-purl pypi --embedded-sboms` (offline: everything pixi-sbom needs is on disk or in its
+own tables), and scans both documents with the same Grype and the same database. syft and Grype run through
+`pixi exec` at versions pinned in the script, so neither is a dependency of the project.
+
+Every conda or Python finding from syft's document must also come from pixi-sbom's. One that does not fails the
+run unless `tests/grype/exceptions.toml` lists it, for that environment, with a reason: an exception is for a
+difference that is right, such as a Grype match on a CPE syft guessed from a name for code the package does not
+contain. Findings only pixi-sbom's document produces are printed, not failed. The run prints the Grype database's
+build date, because findings change as advisories are published.
+
+It needs the network (installing the environments, Grype's database) and takes a few minutes, so it is not part of
+`pixi run ci`. The `Grype comparison` workflow runs it on pull requests that touch identity code, weekly, and on
+demand; `pixi run grype-compare --only django` runs one environment locally. `pixi run grype-compare-test` tests
+the comparison itself.
+
 ### Schema validation
 
 `tests/schemas/` contains the official CycloneDX 1.6 and 1.7 schemas (with the `spdx.schema.json`,

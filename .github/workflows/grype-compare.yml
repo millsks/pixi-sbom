@@ -1,0 +1,46 @@
+name: Grype comparison
+
+# The acceptance test for replacing syft in front of Grype (#434): on installed corpus
+# environments, every conda or Python finding from syft's SBOM must also come from pixi-sbom's,
+# or be listed in tests/grype/exceptions.toml with a reason. Runs when identity code changes, and
+# weekly, since advisories are published every day.
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "src/cpe.rs"
+      - "src/prefix.rs"
+      - "src/mapping.rs"
+      - "src/purl.rs"
+      - "src/format/**"
+      - "data/cpe.toml"
+      - "scripts/grype_compare.py"
+      - "tests/grype/**"
+      - ".github/workflows/grype-compare.yml"
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    name: pixi-sbom vs syft, through Grype
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          environments: default
+          cache: true
+      # Grype's database is large; keep it between runs. Grype refreshes it when it is stale.
+      - uses: actions/cache@v4
+        with:
+          path: target/grype-db
+          key: grype-db-${{ github.run_id }}
+          restore-keys: grype-db-
+      - name: Compare
+        run: pixi run grype-compare

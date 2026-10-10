@@ -1,0 +1,10 @@
+# Findings Grype reports from syft's SBOM but not from pixi-sbom's, accepted with a reason.
+# scripts/grype_compare.py fails on any syft-only finding that is not listed here. Every entry
+# names the corpus environment, the vulnerability, the package, and why the difference is right:
+# for example a Grype match on a CPE syft guessed from a name, for code the package does not contain.
+#
+# [[exception]]
+# environment = "django"
+# vulnerability = "CVE-2024-00000"
+# package = "example"
+# reason = "syft guesses cpe:2.3:a:example:example for an unrelated package of the same name"

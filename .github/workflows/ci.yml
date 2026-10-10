@@ -112,6 +112,8 @@ jobs:
       # a mistake here either blocks every release or ships one with the wrong heading.
       - name: The What's new release step's own tests
         run: pixi run whats-new-test
+      - name: The Grype comparison's own tests
+        run: pixi run grype-compare-test
 
   # Tab completion as people get it: pixi-sbom's registration and the documented `pixi sbom`
   # snippets loaded into real fish, bash, zsh and PowerShell, each asked what Tab offers. Windows
