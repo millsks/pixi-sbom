@@ -216,8 +216,13 @@ The rules:
 1. A valid SPDX expression is kept verbatim. Deprecated identifiers such as `GPL-3.0` or `LGPL-2.1` count as valid
    because conda-forge still uses them widely.
 2. Common non-conforming spellings are parsed leniently and rewritten: `MIT/Apache-2.0` becomes `MIT OR Apache-2.0`,
-   `mit` becomes `MIT`. Operator precedence follows the SPDX rules (`AND` binds tighter than `OR`) and parentheses are
-   emitted only where needed.
+   `mit` becomes `MIT`, `MIT License` becomes `MIT` (a trailing `license` is dropped when what is left is an SPDX
+   identifier on its own). Operator precedence follows the SPDX rules (`AND` binds tighter than `OR`) and parentheses
+   are emitted only where needed. **A license is never given a version or variant the package did not state**: a
+   bare family name, `LGPL`, `GPL`, `AGPL` or `BSD` (also `GNU GPL`, `BSD License`, or inside a larger expression),
+   names no version or clause count, so it is kept as free text rather than guessed as `LGPL-2.0-only` or
+   `BSD-2-Clause`. A spelling that does state one is normalized: `GPLv3` is `GPL-3.0-only`, `GPLv2+` is
+   `GPL-2.0-or-later`.
 3. Anything else is treated as free text and preserved:
    - CycloneDX: `licenses[].license.name` instead of `licenses[].expression`.
    - SPDX: `licenseDeclared` becomes `LicenseRef-pixi-<sanitized text>` and a matching entry is added to

@@ -123,13 +123,15 @@ pixi sbom --lockfile examples/projects/uv/07-web-scraping/uv.lock -p linux-64 --
 ```text
 html2text 2020.1.16: license is not an SPDX expression (GNU GPL 3 (unknown term: 'GNU'))
 pyopenssl 26.4.0: license is not an SPDX expression (Apache License, Version 2.0 (unknown term: 'License'))
-Gate failed: license policy (3). Exiting 3.
+scrapy 2.6.1: license is not an SPDX expression (BSD)
+Gate failed: license policy (6). Exiting 3.
 ```
 
-It caught more than html2text: pyopenssl and twisted declare `Apache License, Version 2.0` and `MIT License`,
-which are free text too. Neither is a license you would forbid, but neither is one a policy can evaluate either, and
-that is what `--require-license` reports. Accept them by name once you have checked them
-([`--ignore-license`](cli.md#enforcing-a-license-policy)).
+It caught more than html2text. pyopenssl declares `Apache License, Version 2.0`, which is free text too, and
+parsel, pydispatcher, pysocks and scrapy declare just `BSD`: a family of licenses, not one of them, and pixi-sbom
+will not guess whether it is the 2-clause or the 3-clause. None is a license you would forbid, but none is one a
+policy can evaluate either, and that is what `--require-license` reports. Accept them by name once you have
+checked them ([`--ignore-license`](cli.md#enforcing-a-license-policy)).
 
 ??? question "Two gates trip in one run. Which exit code does CI see?"
     The first in a fixed order: license policy (3), vulnerabilities (4), then the others. stderr lists every gate

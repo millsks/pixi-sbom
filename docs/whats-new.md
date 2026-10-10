@@ -25,6 +25,11 @@ Since 1.0, pixi-sbom has:
 
 ## Unreleased
 
+**A bare license name is no longer given a version.** A package declaring `LGPL`, `GPL`, `AGPL` or `BSD` was written
+as `LGPL-2.0-only`, `GPL-2.0-only`, `AGPL-3.0` or `BSD-2-Clause`, versions and clause counts the package never
+stated, which a license policy then judged as if they were real. Bare family names are now kept as free text, and
+`MIT License` is now `MIT`.
+
 **`--embedded-sboms` finds Python distributions vendored inside packages.** setuptools ships packaging, wheel and a
 dozen more in `setuptools/_vendor/`, and a vendored copy can lag the installed one. With `--prefix`, each is now a
 component under the package that ships it, with its own PyPI identity, so scanners check it too. `--report diff`

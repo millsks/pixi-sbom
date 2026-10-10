@@ -71,6 +71,18 @@ pub fn normalize(raw: &str) -> License {
     if spdx::Expression::parse_mode(trimmed, strict_with_deprecated).is_ok() {
         return License::Expression(trimmed.to_string());
     }
+    // `MIT License`, the way trove classifiers and setup.py spell it: the identifier, when what is
+    // left is one on its own.
+    if let Some(id) = strip_license_word(trimmed)
+        && spdx::Expression::parse_mode(id, strict_with_deprecated).is_ok()
+    {
+        return License::Expression(id.to_string());
+    }
+    // A bare family name (`LGPL`, `GPL`, `BSD`) names no version or clause count. The lenient
+    // parser would pick one (`LGPL-2.0-only`), which the package never stated, so it stays text.
+    if names_a_bare_family(trimmed) {
+        return License::Text(trimmed.to_string());
+    }
     if let Ok(expr) = spdx::Expression::parse_mode(trimmed, ParseMode::LAX) {
         return License::Expression(canonical(&expr));
     }
@@ -86,6 +98,31 @@ pub fn normalize(raw: &str) -> License {
         return License::Expression(canonical(&expr));
     }
     License::Text(trimmed.to_string())
+}
+
+/// License families whose bare name says nothing about which version or variant is meant.
+const BARE_FAMILIES: &[&str] = &["gpl", "lgpl", "agpl", "bsd", "gnu gpl", "gnu lgpl", "gnu agpl"];
+
+/// Whether `raw`, or any operand of an expression in it, is a bare family name.
+fn names_a_bare_family(raw: &str) -> bool {
+    let lower = raw.to_ascii_lowercase();
+    if BARE_FAMILIES.contains(&lower.as_str()) {
+        return true;
+    }
+    lower
+        .split(|c: char| c.is_whitespace() || matches!(c, '(' | ')' | '/' | ',' | ';'))
+        .filter(|token| !token.is_empty() && !matches!(*token, "or" | "and" | "with"))
+        .any(|token| BARE_FAMILIES.contains(&token))
+}
+
+/// `raw` without a trailing ` license` (any case), when it has one.
+fn strip_license_word(raw: &str) -> Option<&str> {
+    let cut = raw.len().checked_sub(" license".len())?;
+    raw.get(cut..)
+        .filter(|tail| tail.eq_ignore_ascii_case(" license"))
+        .and_then(|_| raw.get(..cut))
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
 }
 
 /// Why `raw` is not an SPDX expression, for a human: the parser's reason and the offending
@@ -204,6 +241,34 @@ fn group(text: String, inner: Option<Operator>, outer: Operator) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A license is never given a version, clause count or `-only` / `-or-later` the package
+    /// did not state; a spelling that does state one is normalized as before.
+    #[test]
+    fn a_bare_family_name_is_never_given_a_version() {
+        let text = |s: &str| License::Text(s.to_string());
+        let expression = |s: &str| License::Expression(s.to_string());
+        for (raw, expected) in [
+            ("LGPL", text("LGPL")),
+            ("lgpl", text("lgpl")),
+            ("GPL", text("GPL")),
+            ("AGPL", text("AGPL")),
+            ("BSD", text("BSD")),
+            ("GNU GPL", text("GNU GPL")),
+            ("BSD License", text("BSD License")),
+            ("MIT OR GPL", text("MIT OR GPL")),
+            ("GPLv3", expression("GPL-3.0-only")),
+            ("GPLv2+", expression("GPL-2.0-or-later")),
+            ("LGPL-2.1-or-later", expression("LGPL-2.1-or-later")),
+            ("MIT license", expression("MIT")),
+            ("MIT License", expression("MIT")),
+            ("Apache-2.0 License", expression("Apache-2.0")),
+            ("mit", expression("MIT")),
+            ("Apache 2.0", expression("Apache-2.0")),
+        ] {
+            assert_eq!(normalize(raw), expected, "{raw}");
+        }
+    }
 
     #[test]
     fn the_document_holds_only_so_much_license_text() {
