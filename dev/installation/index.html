@@ -413,6 +413,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Shell completion">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pixi-sbom-with-a-space" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pixi sbom, with a space
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1285,6 +1302,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Shell completion">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pixi-sbom-with-a-space" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pixi sbom, with a space
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1471,12 +1505,78 @@ The binaries this project builds and hands out are the ones covered, which inclu
 installed version; don't save its output to a file. Pressing Tab runs <code>pixi-sbom</code> briefly to ask
 for suggestions. That run reads no lockfile, writes nothing and makes no network request, and
 <code>PIXI_SBOM_COMPLETE</code> is set only for it, so every other run writes its SBOM as usual.</p>
-<p><strong><code>pixi sbom</code> (with a space) is not completed.</strong> pixi's own completion knows only pixi's built-in
-commands and does not hand an extension's arguments to the extension
-(<a href="https://github.com/millsks/pixi-sbom/issues/424">#424</a> has the tests;
-<a href="https://github.com/prefix-dev/pixi/issues/7225">prefix-dev/pixi#7225</a> asks pixi to). The
-mechanism above is the one pixi would use to forward them, so completion will reach <code>pixi sbom</code>
-without a change here if it does. Until then, type <code>pixi-sbom</code> when you want Tab.</p>
+<h3 id="pixi-sbom-with-a-space"><code>pixi sbom</code>, with a space<a class="headerlink" href="#pixi-sbom-with-a-space" title="Permanent link">&para;</a></h3>
+<p>pixi's own completion knows only pixi's built-in commands: it does not hand an extension's
+arguments to the extension (<a href="https://github.com/millsks/pixi-sbom/issues/424">#424</a> has the tests,
+and <a href="https://github.com/prefix-dev/pixi/issues/7225">prefix-dev/pixi#7225</a> asks pixi to). The
+mechanism above is the one pixi would use to forward them, so if it does, <code>pixi sbom</code> completes
+with no change here.</p>
+<p>Until then, a short addition to your shell's startup file hands <code>pixi sbom …</code> to pixi-sbom's
+completion. Load it after pixi's completion (<code>pixi completion --shell &lt;shell&gt;</code>) and pixi-sbom's
+line above. Each one is run in that shell by CI on every change, next to pixi's own completion,
+which keeps working.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:4"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">bash</label><label for="__tabbed_1_2">zsh</label><label for="__tabbed_1_3">fish</label><label for="__tabbed_1_4">PowerShell</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Complete `pixi sbom ...` with pixi-sbom's own completion. Load after pixi's and pixi-sbom's.</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>_pixi_with_sbom<span class="o">()</span><span class="w"> </span><span class="o">{</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="o">((</span><span class="w"> </span>COMP_CWORD<span class="w"> </span>&gt;<span class="o">=</span><span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="o">))</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">[[</span><span class="w"> </span><span class="si">${</span><span class="nv">COMP_WORDS</span><span class="p">[1]</span><span class="si">}</span><span class="w"> </span><span class="o">==</span><span class="w"> </span>sbom<span class="w"> </span><span class="o">]]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nb">local</span><span class="w"> </span>spec<span class="w"> </span>fn<span class="w"> </span><span class="nv">old</span><span class="o">=</span><span class="si">${#</span><span class="nv">COMP_LINE</span><span class="si">}</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="nv">spec</span><span class="o">=</span><span class="k">$(</span><span class="nb">complete</span><span class="w"> </span>-p<span class="w"> </span>pixi-sbom<span class="w"> </span><span class="m">2</span>&gt;/dev/null<span class="k">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="m">0</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="nv">fn</span><span class="o">=</span><span class="si">${</span><span class="nv">spec</span><span class="p">##*-F </span><span class="si">}</span><span class="p">;</span><span class="w"> </span><span class="nv">fn</span><span class="o">=</span><span class="si">${</span><span class="nv">fn</span><span class="p">%% *</span><span class="si">}</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="nv">COMP_WORDS</span><span class="o">=(</span>pixi-sbom<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">COMP_WORDS</span><span class="p">[@]:</span><span class="nv">2</span><span class="si">}</span><span class="s2">"</span><span class="o">)</span><span class="p">;</span><span class="w"> </span><span class="o">((</span><span class="w"> </span>COMP_CWORD--<span class="w"> </span><span class="o">))</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="nv">COMP_LINE</span><span class="o">=</span><span class="s2">"pixi-sbom </span><span class="si">${</span><span class="nv">COMP_LINE</span><span class="p">#*sbom </span><span class="si">}</span><span class="s2">"</span><span class="p">;</span><span class="w"> </span><span class="o">((</span><span class="w"> </span>COMP_POINT<span class="w"> </span>-<span class="o">=</span><span class="w"> </span>old<span class="w"> </span>-<span class="w"> </span><span class="si">${#</span><span class="nv">COMP_LINE</span><span class="si">}</span><span class="w"> </span><span class="o">))</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="s2">"</span><span class="nv">$fn</span><span class="s2">"</span><span class="w"> </span>pixi-sbom<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">COMP_WORDS</span><span class="p">[COMP_CWORD]</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">COMP_WORDS</span><span class="p">[COMP_CWORD-1]</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span><span class="k">else</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">    </span>_pixi<span class="w"> </span><span class="s2">"</span><span class="nv">$@</span><span class="s2">"</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span><span class="k">fi</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="o">}</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="nb">complete</span><span class="w"> </span>-o<span class="w"> </span>bashdefault<span class="w"> </span>-o<span class="w"> </span>default<span class="w"> </span>-o<span class="w"> </span>nosort<span class="w"> </span>-F<span class="w"> </span>_pixi_with_sbom<span class="w"> </span>pixi
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Complete `pixi sbom ...` with pixi-sbom's own completion. Load after pixi's and pixi-sbom's.</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>_pixi_with_sbom<span class="o">()</span><span class="w"> </span><span class="o">{</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="o">((</span><span class="w"> </span>CURRENT<span class="w"> </span>&gt;<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="o">))</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">[[</span><span class="w"> </span><span class="si">${</span><span class="nv">words</span><span class="p">[2]</span><span class="si">}</span><span class="w"> </span><span class="o">==</span><span class="w"> </span>sbom<span class="w"> </span><span class="o">]]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nb">shift</span><span class="w"> </span>words<span class="p">;</span><span class="w"> </span><span class="o">((</span><span class="w"> </span>CURRENT--<span class="w"> </span><span class="o">))</span><span class="p">;</span><span class="w"> </span>words<span class="o">[</span><span class="m">1</span><span class="o">]=</span>pixi-sbom<span class="p">;</span><span class="w"> </span>_normal
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="k">else</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span>_pixi<span class="w"> </span><span class="s2">"</span><span class="nv">$@</span><span class="s2">"</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span><span class="k">fi</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="o">}</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>compdef<span class="w"> </span>_pixi_with_sbom<span class="w"> </span>pixi
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c"># Complete `pixi sbom ...` with pixi-sbom's own completion.</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nb">complete</span> -c pixi -n <span class="s1">'test (count (commandline -opc)) -ge 2; and test (commandline -opc)[2] = sbom'</span> -f <span class="se">\</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    -a <span class="s1">'(complete -C "pixi-sbom "(string replace -r "^\s*\S+\s+sbom\s+" "" -- (commandline -cp)))'</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c"># Complete `pixi sbom ...` with pixi-sbom's own completion. Replaces the usual</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c"># `pixi completion --shell powershell | Out-String | Invoke-Expression` line, because a command</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c"># has one native completer: pixi's is kept and called for everything that is not `pixi sbom`.</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="nv">$s</span> <span class="p">=</span> <span class="p">(</span><span class="n">pixi</span> <span class="n">completion</span> <span class="p">-</span><span class="n">-shell</span> <span class="n">powershell</span> <span class="p">|</span> <span class="nb">Out-String</span><span class="p">)</span> <span class="o">-replace</span> <span class="s2">"Register-ArgumentCompleter -Native -CommandName 'pixi' -ScriptBlock"</span><span class="p">,</span> <span class="s1">'$global:PixiCompleter ='</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="nb">Invoke-Expression</span> <span class="nv">$s</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="nb">Register-ArgumentCompleter</span> <span class="n">-Native</span> <span class="n">-CommandName</span> <span class="n">pixi</span> <span class="n">-ScriptBlock</span> <span class="p">{</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>  <span class="k">param</span><span class="p">(</span><span class="nv">$w</span><span class="p">,</span> <span class="nv">$ast</span><span class="p">,</span> <span class="nv">$pos</span><span class="p">)</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>  <span class="nv">$e</span> <span class="p">=</span> <span class="nv">$ast</span><span class="p">.</span><span class="n">CommandElements</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>  <span class="k">if</span> <span class="p">(</span><span class="nv">$e</span><span class="p">.</span><span class="n">Count</span> <span class="o">-ge</span> <span class="n">2</span> <span class="o">-and</span> <span class="nv">$e</span><span class="p">[</span><span class="n">1</span><span class="p">].</span><span class="n">Extent</span><span class="p">.</span><span class="n">Text</span> <span class="o">-eq</span> <span class="s1">'sbom'</span> <span class="o">-and</span> <span class="nv">$pos</span> <span class="o">-gt</span> <span class="nv">$e</span><span class="p">[</span><span class="n">1</span><span class="p">].</span><span class="n">Extent</span><span class="p">.</span><span class="n">EndOffset</span><span class="p">)</span> <span class="p">{</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    <span class="nv">$o</span> <span class="p">=</span> <span class="nv">$ast</span><span class="p">.</span><span class="n">Extent</span><span class="p">.</span><span class="n">StartOffset</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    <span class="nv">$line</span> <span class="p">=</span> <span class="nv">$ast</span><span class="p">.</span><span class="n">Extent</span><span class="p">.</span><span class="n">Text</span><span class="p">.</span><span class="n">Substring</span><span class="p">(</span><span class="n">0</span><span class="p">,</span> <span class="no">[math]</span><span class="p">::</span><span class="n">Min</span><span class="p">(</span><span class="nv">$pos</span> <span class="p">-</span> <span class="nv">$o</span><span class="p">,</span> <span class="nv">$ast</span><span class="p">.</span><span class="n">Extent</span><span class="p">.</span><span class="n">Text</span><span class="p">.</span><span class="n">Length</span><span class="p">)).</span><span class="n">PadRight</span><span class="p">(</span><span class="nv">$pos</span> <span class="p">-</span> <span class="nv">$o</span><span class="p">)</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="nv">$inner</span> <span class="p">=</span> <span class="s1">'pixi-sbom'</span> <span class="p">+</span> <span class="nv">$line</span><span class="p">.</span><span class="n">Substring</span><span class="p">(</span><span class="nv">$e</span><span class="p">[</span><span class="n">1</span><span class="p">].</span><span class="n">Extent</span><span class="p">.</span><span class="n">EndOffset</span> <span class="p">-</span> <span class="nv">$o</span><span class="p">)</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    <span class="p">(</span><span class="n">TabExpansion2</span> <span class="n">-inputScript</span> <span class="nv">$inner</span> <span class="n">-cursorColumn</span> <span class="nv">$inner</span><span class="p">.</span><span class="n">Length</span><span class="p">).</span><span class="n">CompletionMatches</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>  <span class="p">}</span> <span class="k">else</span> <span class="p">{</span> <span class="p">&amp;</span> <span class="nv">$global:PixiCompleter</span> <span class="nv">$w</span> <span class="nv">$ast</span> <span class="nv">$pos</span> <span class="p">}</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="p">}</span>
+</code></pre></div>
+<p>PowerShell allows one completer per command, so this replaces the usual pixi completion line
+and calls pixi's completer for everything that is not <code>pixi sbom</code>. It edits the text of pixi's
+script, and stops working if pixi changes that line.</p>
+</div>
+</div>
+</div>
+<p>Two limits: <code>sbom</code> is not added to the list <code>pixi &lt;TAB&gt;</code> offers, and pixi options placed before
+<code>sbom</code> (<code>pixi -v sbom …</code>) are not handled.</p>
 <h2 id="upgrading">Upgrading<a class="headerlink" href="#upgrading" title="Permanent link">&para;</a></h2>
 <p><code>pixi global update pixi-sbom</code> follows the conda-forge feedstock, which tracks releases within a day or two; a
 downloaded binary is replaced by the next one from the releases page. <code>pixi sbom --version</code> prints the running
