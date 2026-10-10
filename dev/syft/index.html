@@ -1458,11 +1458,11 @@ matches those packages by their PyPI identity, as it does from syft's SBOM.</p>
 <p>For a container that runs a Python or conda application, the two fit together: syft for the image's operating
 system, pixi-sbom for the environment, merged with <code>pixi sbom --from-sbom image.cdx.json --from-sbom app.cdx.json</code>.</p>
 <h2 id="formats-syft-writes-and-pixi-sbom-does-not">Formats syft writes and pixi-sbom does not<a class="headerlink" href="#formats-syft-writes-and-pixi-sbom-does-not" title="Permanent link">&para;</a></h2>
-<p>pixi-sbom writes CycloneDX JSON (1.6, 1.7) and SPDX JSON (2.3, 3.0.1). For another format, <code>syft convert</code> reads
-pixi-sbom's CycloneDX:</p>
+<p>pixi-sbom writes CycloneDX JSON (1.6, 1.7), SPDX JSON (2.3, 3.0.1) and GitHub's dependency submission format
+(<code>--format github</code>, see <a href="../formats/#githubs-dependency-graph">GitHub's dependency graph</a>). For another format,
+<code>syft convert</code> reads pixi-sbom's CycloneDX:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>syft<span class="w"> </span>convert<span class="w"> </span>sbom.cdx.json<span class="w"> </span>-o<span class="w"> </span>spdx-tag-value<span class="o">=</span>sbom.spdx
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>syft<span class="w"> </span>convert<span class="w"> </span>sbom.cdx.json<span class="w"> </span>-o<span class="w"> </span>cyclonedx-xml<span class="o">=</span>sbom.cdx.xml
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>syft<span class="w"> </span>convert<span class="w"> </span>sbom.cdx.json<span class="w"> </span>-o<span class="w"> </span>github-json<span class="o">=</span>sbom.github.json
 </code></pre></div>
 
 

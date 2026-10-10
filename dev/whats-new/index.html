@@ -1658,6 +1658,10 @@ has every commit.</p>
 <li><strong>Learned tab completion</strong> in bash, zsh, fish and PowerShell, for <code>pixi-sbom</code> and <code>pixi sbom</code>.</li>
 </ul>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<p><strong><code>--format github</code> puts a pixi environment in GitHub's dependency graph.</strong> It writes GitHub's dependency
+submission snapshot, so an environment's packages show up in the dependency graph and get Dependabot alerts,
+without syft in the pipeline. Conda packages with a PyPI identity are submitted by it, since that is where GitHub's
+advisories are. The Action submits it with <code>dependency-submission: "true"</code>.</p>
 <p><strong><code>--verify-files</code> checks an installed conda environment against itself.</strong> conda-meta records the SHA-256 of every
 file a package installed; with <code>--prefix</code>, <code>--verify-files</code> hashes each one and records modified and missing files on
 the package (<code>pixi:modified-files</code>, <code>pixi:missing-files</code>), and <code>--report files</code> lists them. Either ends the run with

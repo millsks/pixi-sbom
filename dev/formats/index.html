@@ -814,6 +814,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Which format to pick
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -830,6 +848,36 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#githubs-dependency-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitHub's dependency graph
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1160,6 +1208,25 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#githubs-dependency-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitHub's dependency graph
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1261,6 +1328,22 @@ what goes into it. The <a href="../output-format/">output format reference</a> c
 </ul>
 <p>Every flavour records which environment and platform it describes and carries the same purls, licenses and
 dependency edges, so converting later with <code>syft convert</code> loses nothing that <code>pixi sbom</code> put in.</p>
+<h2 id="githubs-dependency-graph">GitHub's dependency graph<a class="headerlink" href="#githubs-dependency-graph" title="Permanent link">&para;</a></h2>
+<p><code>--format github</code> writes a <a href="https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/using-the-dependency-submission-api">dependency submission</a>
+snapshot, <code>sbom.github.json</code>, instead of an SBOM. Submitted, it puts the environment's packages in the repository's
+dependency graph, and Dependabot raises alerts for the ones it has advisories for:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--format<span class="w"> </span>github<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>gh<span class="w"> </span>api<span class="w"> </span>--method<span class="w"> </span>POST<span class="w"> </span><span class="s2">"repos/OWNER/REPO/dependency-graph/snapshots"</span><span class="w"> </span>--input<span class="w"> </span>-
+</code></pre></div>
+<p>It is not an SBOM, so it records packages, versions, which are direct and which development-only, and the dependency
+edges, and nothing else: no licenses, hashes or findings, and <code>--spec-version</code> does not apply. A conda package that
+has a PyPI identity is submitted by it whatever <code>--primary-purl</code> says, since GitHub's advisory database has PyPI
+advisories and no conda ones; the rest keep their conda purl.</p>
+<p>The snapshot names the commit and workflow run it describes, from <code>GITHUB_SHA</code>, <code>GITHUB_REF</code>, <code>GITHUB_RUN_ID</code>,
+<code>GITHUB_WORKFLOW</code> and <code>GITHUB_JOB</code>. GitHub Actions sets them; elsewhere the API refuses a snapshot without a sha and
+a ref, and pixi-sbom warns when they are missing. Each environment and platform gets its own correlator, so
+submitting several does not replace one with another. In the <a href="../github-action/#dependabot-alerts">GitHub Action</a>,
+<code>dependency-submission: "true"</code> writes and submits it.</p>
 
 
 
