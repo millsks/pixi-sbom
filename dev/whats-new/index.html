@@ -1658,6 +1658,9 @@ has every commit.</p>
 <li><strong>Learned tab completion</strong> in bash, zsh, fish and PowerShell, for <code>pixi-sbom</code> and <code>pixi sbom</code>.</li>
 </ul>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<p><strong>Tab completion lists flags alphabetically.</strong> It offered them in the order they are declared in the code, so in
+zsh <code>--fail-on-yanked</code> sat far from <code>--fail-on-kev</code> and a half-remembered name meant reading all of them. Every shell
+now gets flags and their values in alphabetical order.</p>
 <p><strong><code>--format github</code> puts a pixi environment in GitHub's dependency graph.</strong> It writes GitHub's dependency
 submission snapshot, so an environment's packages show up in the dependency graph and get Dependabot alerts,
 without syft in the pipeline. Conda packages with a PyPI identity are submitted by it, since that is where GitHub's
