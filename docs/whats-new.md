@@ -22,6 +22,19 @@ Since 1.0, pixi-sbom has:
 - **Learned to work on restricted networks.** Every upstream can point at a mirror, pixi's own
   credentials are used, and `--doctor` says which host is the problem.
 
+## 1.8.2
+
+**Merging SBOMs no longer flags two files of one PyPI release as a conflict.** A bare
+`pkg:pypi/six@1.17.0` stands for every file of that release, so one document recording the wheel's
+hash and another recording the sdist's describe the same package. `--from-sbom` merges used to log a
+warning and record a `pixi:merge-conflict` for that. Now hashes count as a disagreement only when the
+purl names one file: a conda build, or a `file_name` qualifier. A license disagreement is still a
+conflict, as before.
+
+**New in the docs:** a [field manual](field-manual/index.md) of task-based playbooks, a hands-on
+[training lab](lab.md) that runs offline on the repository's examples, a
+[Try it on the examples](try-the-examples.md) tour, and this page.
+
 ## 1.8.1
 
 **`--report outdated` no longer stops counting at 50.** prefix.dev, the default conda index, returns
