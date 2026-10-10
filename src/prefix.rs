@@ -523,6 +523,37 @@ pub fn build_sbom(prefix: &Path, root: Root, platform: Option<&str>) -> Result<S
         packages.push(package);
         declared.push(DeclaredDeps::Pypi(requires));
     }
+    // A plain installation (a container's /usr/local) has no package that is the interpreter,
+    // though the interpreter is what most advisories against it name. A venv's is outside it,
+    // and a conda environment lists its `python` package.
+    if layout == Layout::Python
+        && let Some(version) = interpreter(prefix)
+        && let Ok(purl) = purl::generic("python", &version)
+    {
+        packages.push(Package {
+            id: purl.clone(),
+            name: "python".into(),
+            version: Some(version),
+            kind: PackageKind::External,
+            purl,
+            supplier: None,
+            extra_purls: Vec::new(),
+            purls_from_lock: false,
+            location: String::new(),
+            sha256: None,
+            md5: None,
+            license: None,
+            license_files: Vec::new(),
+            description: Some("The Python interpreter of this installation".into()),
+            homepage: None,
+            repository: None,
+            documentation: None,
+            yanked: None,
+            properties: BTreeMap::from([(INTERPRETER_PROPERTY.to_string(), "true".to_string())]),
+            dependencies: Vec::new(),
+        });
+        declared.push(DeclaredDeps::Pypi(Vec::new()));
+    }
 
     link_dependencies(&mut packages, &declared);
     packages.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
@@ -666,6 +697,9 @@ fn conda_package(record: &Record) -> Result<Package, PrefixError> {
         dependencies: Vec::new(),
     })
 }
+
+/// Marks the component a plain Python installation's interpreter is described by.
+pub const INTERPRETER_PROPERTY: &str = "pixi:interpreter";
 
 /// The installed dist-info a conda package's PyPI identity was read from, relative to the prefix.
 pub const DIST_INFO_PROPERTY: &str = "pixi:pypi-dist-info";
@@ -1062,6 +1096,20 @@ mod tests {
             Some("3.12.15"),
             "3.12 over 3.9, then patchlevel.h"
         );
+        let python = sbom
+            .packages
+            .iter()
+            .find(|p| p.name == "python")
+            .expect("the interpreter is listed");
+        assert_eq!(python.purl, "pkg:generic/python@3.12.15");
+        assert_eq!(python.kind, PackageKind::External);
+        assert_eq!(
+            crate::cpe::for_package(python).as_deref(),
+            Some("cpe:2.3:a:python:python:3.12.15:*:*:*:*:*:*:*")
+        );
+        let explained = crate::explain::facts(python, &sbom, crate::explain::Context::default());
+        let cpe = explained.iter().find(|f| f.label == "cpe").unwrap();
+        assert!(cpe.source.as_deref().unwrap().contains("CPython"), "{cpe:?}");
 
         std::fs::remove_file(local.join("include/python3.12/patchlevel.h")).unwrap();
         let sbom = build_sbom(local, Root::default(), None).unwrap();
@@ -1070,6 +1118,9 @@ mod tests {
             Some("3.12"),
             "without headers, the directory's X.Y"
         );
+        let python = sbom.packages.iter().find(|p| p.name == "python").unwrap();
+        assert_eq!(python.purl, "pkg:generic/python@3.12");
+        assert_eq!(crate::cpe::for_package(python), None, "no CPE for a bare X.Y");
     }
 
     #[test]
@@ -1132,8 +1183,13 @@ mod tests {
         let names: Vec<&str> = plain.packages.iter().map(|p| p.name.as_str()).collect();
         assert_eq!(
             names,
-            ["numpy", "six"],
-            "INSTALLER conda decides nothing without conda records"
+            ["numpy", "six", "python"],
+            "INSTALLER conda decides nothing without conda records; the interpreter is listed"
+        );
+        assert_eq!(
+            posix.packages.iter().filter(|p| p.name == "python").count(),
+            0,
+            "a venv's interpreter is outside it: its version is in pixi:python-version"
         );
         assert_eq!(
             plain.interpreter.as_deref(),

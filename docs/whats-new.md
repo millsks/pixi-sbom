@@ -25,6 +25,11 @@ Since 1.0, pixi-sbom has:
 
 ## Unreleased
 
+**A plain Python installation lists its interpreter.** `--prefix` on a container's `/usr/local` listed only what
+pip installed, though most advisories against such an image are against Python itself. The interpreter is now a
+`python` component at its full version, with CPython's CPE. On `python:3.12-slim`, Grype finds 8 CPython
+vulnerabilities in the document that it found none of before.
+
 **`--prefix` reads a conda package's PyPI identity from what it installed, offline.** A conda-installed Django,
 Pillow or sqlparse had only its `pkg:conda` purl unless `--pypi-mapping prefix` downloaded the name mapping. The
 `dist-info` the package put in site-packages already names the PyPI project and version, and the conda record says

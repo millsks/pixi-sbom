@@ -342,6 +342,22 @@ fn pypi_identity(package: &Package, ctx: Context, input: &str) -> Fact {
 /// The CPE a scanner matches a channel's conda package by, from the curated table, or why there is
 /// none. Nothing for other kinds: a PyPI package is matched by its purl.
 fn cpe(package: &Package) -> Option<Fact> {
+    if package.properties.contains_key(crate::prefix::INTERPRETER_PROPERTY) {
+        return Some(match crate::cpe::for_package(package) {
+            Some(cpe) => Fact::known(
+                "cpe",
+                cpe,
+                format!("{}: CPython's entry, for the interpreter", crate::cpe::SOURCE),
+            ),
+            None => Fact::unknown(
+                "cpe",
+                vec![
+                    "the interpreter's version is not a full X.Y.Z, and a CPE for X.Y would match fixed releases"
+                        .into(),
+                ],
+            ),
+        });
+    }
     if package.kind != PackageKind::CondaBinary {
         return None;
     }

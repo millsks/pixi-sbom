@@ -58,12 +58,32 @@ pub fn entry(name: &str) -> Option<&'static Entry> {
 /// The CPE 2.3 formatted string for a package: only a conda package from a channel, with a table
 /// entry and a version, has one. A pixi-build source package is not the channel's build.
 pub fn for_package(package: &Package) -> Option<String> {
+    if package.properties.contains_key(crate::prefix::INTERPRETER_PROPERTY) {
+        return interpreter(package);
+    }
     // A conda package with a PyPI identity is matched by that purl, like any PyPI package.
     if package.kind != PackageKind::CondaBinary || package.extra_purls.iter().any(|p| p.starts_with("pkg:pypi/")) {
         return None;
     }
     let entry = entry(&package.name)?;
     let version = package.version.as_deref().filter(|v| !v.is_empty())?;
+    Some(format!(
+        "cpe:2.3:a:{}:{}:{}:*:*:*:*:*:*:*",
+        entry.vendor,
+        entry.product,
+        escape(version)
+    ))
+}
+
+/// CPython's CPE for an installation's interpreter, only when its full `X.Y.Z` is known: a bare
+/// `3.12` would match every 3.12 advisory, fixed or not.
+fn interpreter(package: &Package) -> Option<String> {
+    let version = package.version.as_deref()?;
+    let parts: Vec<&str> = version.split('.').collect();
+    if parts.len() < 3 || !parts[..2].iter().all(|p| p.parse::<u32>().is_ok()) {
+        return None;
+    }
+    let entry = entry("python")?;
     Some(format!(
         "cpe:2.3:a:{}:{}:{}:*:*:*:*:*:*:*",
         entry.vendor,

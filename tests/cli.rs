@@ -8129,7 +8129,7 @@ fn prefix_reads_venvs_and_plain_site_packages() {
     for (dir, platform, python, count) in [
         ("venv-posix", "linux-64", "3.12.7", 6),
         ("venv-windows", "win-64", "3.13.5", 2),
-        ("site-packages", "osx-arm64", "3.11", 2),
+        ("site-packages", "osx-arm64", "3.11", 3), // numpy, six and the interpreter
     ] {
         let prefix = fixtures.join(dir);
         let output = run(&["--prefix", prefix.to_str().unwrap(), "--output", "-"])

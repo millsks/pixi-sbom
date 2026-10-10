@@ -315,8 +315,12 @@ With `--prefix` the document describes an installed environment instead of a loc
 says `prefix <name>`, and pip-installed packages are located by a `file://` URL of their `dist-info` directory (or
 `<vcs>+<url>` for direct VCS installs, with `pixi:direct-url` and `pixi:source-rev`), carry `pixi:installer`, and
 have no hashes. Conda packages carry `pixi:extracted-package-dir`, where the record says the archive was
-unpacked. A venv or a plain Python installation has no `python` package to list, so the Python it was made with is
-the document's `pixi:python-version` (a CycloneDX metadata property, a line of the SPDX root package's comment).
+unpacked. The Python a venv or a plain installation was made with is the document's `pixi:python-version` (a
+CycloneDX metadata property, a line of the SPDX root package's comment). A plain installation, such as a container's
+`/usr/local`, also lists its interpreter as a component, since most advisories against it name the interpreter:
+`python` at that version, `pkg:generic/python@<version>`, with `pixi:interpreter=true`, and CPython's CPE when the
+full `X.Y.Z` is known (a CPE for a bare `X.Y` would match releases that already have the fix). A venv's interpreter
+lives outside it, and a conda environment lists its `python` package, so neither gets one.
 
 ### Documents derived from documents
 
