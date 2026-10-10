@@ -3392,7 +3392,9 @@ library's compiled modules (<code>lib-dynload</code>, <code>DLLs</code>), so a L
 <code>WHEEL</code> tags); <code>win-64</code> for a <code>Lib/site-packages</code> layout; and only then the platform of the machine doing the
 scan. The document records <code>pixi:prefix</code> instead of <code>pixi:lockfile</code>, and for a venv or a Python installation
 <code>pixi:python-version</code>: the Python from <code>pyvenv.cfg</code>, or the newest <code>pythonX.Y</code> with a site-packages directory,
-made <code>X.Y.Z</code> by the <code>PY_VERSION</code> in <code>include/pythonX.Y/patchlevel.h</code> when the installation ships its headers. <code>--fetch-licenses</code> reads the license files from the directory each record says the
+made <code>X.Y.Z</code> by the <code>PY_VERSION</code> in <code>include/pythonX.Y/patchlevel.h</code> when the installation ships its headers. A conda package that installed a Python distribution gets that distribution's PyPI
+identity from the <code>dist-info</code> its record lists (<code>pixi:pypi-mapping=dist-info</code>), with no network and no
+<code>--pypi-mapping</code>; <code>--primary-purl pypi</code> makes it the identity scanners read. <code>--fetch-licenses</code> reads the license files from the directory each record says the
 package was extracted to (<code>extracted_package_dir</code>, the package cache), so it needs no network on the machine
 that installed the environment. The default output is <code>sbom.cdx.json</code> in the working directory, and the
 configuration file is looked up there too.</p>

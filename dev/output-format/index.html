@@ -2308,7 +2308,7 @@ and platform they always are. The <code>bom-ref</code> / <code>SPDXID</code> is 
 <h3 id="pypi-identities-for-conda-packages">PyPI identities for conda packages<a class="headerlink" href="#pypi-identities-for-conda-packages" title="Permanent link">&para;</a></h3>
 <p>Vulnerability databases (OSV, GHSA) and the scanners built on them have no conda ecosystem: a <code>pkg:conda/numpy@...</code>
 purl matches nothing, so a conda-only Python environment scans as clean whatever it contains. Three sources supply a
-<code>pkg:pypi/...</code> purl for a conda package:</p>
+<code>pkg:pypi/...</code> purl for a conda package, and a fourth for an installed environment:</p>
 <table>
 <thead>
 <tr>
@@ -2333,9 +2333,16 @@ purl matches nothing, so a conda-only Python environment scans as clean whatever
 <td>an offline copy of that mapping (<code>{"&lt;conda name&gt;": "&lt;pypi name&gt;" \| ["..."] \| null}</code>)</td>
 <td>as above, plus <code>pixi:pypi-mapping=file</code></td>
 </tr>
+<tr>
+<td>The installed <code>dist-info</code> (<code>--prefix</code> only)</td>
+<td>the conda record's <code>files</code> list the <code>site-packages/&lt;name&gt;-&lt;version&gt;.dist-info/METADATA</code> the package installed; its <code>Name</code> and <code>Version</code> are the PyPI project's. Read from disk, no network, no flag</td>
+<td>as above, plus <code>pixi:pypi-mapping=dist-info</code> and <code>pixi:pypi-dist-info</code> (the directory, relative to the prefix)</td>
+</tr>
 </tbody>
 </table>
-<p>The mapping is applied only to conda-forge binary packages whose lock entry has no <code>purls:</code> at all; the lockfile's own
+<p>What a package installed outranks a name mapping: one with an identity from its <code>dist-info</code> is left alone by
+<code>--pypi-mapping</code>, which still answers for the packages that installed none. The mapping is applied only to
+conda-forge binary packages whose lock entry has no <code>purls:</code> at all; the lockfile's own
 answer, including an explicit empty list, is authoritative. The PyPI purl carries the conda package's version.</p>
 <p>pixi writes lockfile purls as bare names — <code>pkg:pypi/click?source=compressed-mapping</code>, with no version, because the
 mapping behind them is name to name. A purl with no version is a name, not an identity: no database can be asked
