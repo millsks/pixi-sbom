@@ -415,6 +415,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#190" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.9.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#182" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1392,6 +1403,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#190" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.9.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#182" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1609,6 +1631,11 @@ has every commit.</p>
 <li><strong>Learned tab completion</strong> in bash, zsh, fish and PowerShell, for <code>pixi-sbom</code> and <code>pixi sbom</code>.</li>
 </ul>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<p><strong><code>--prefix</code> lists each pip-installed package once in a conda-forge environment.</strong> conda-forge's
+Python ships a <code>lib/python3.1</code> symlink to <code>lib/python3.11</code>, and packages installed with pip or uv
+were read through both, so each appeared twice with the same <code>bom-ref</code> or SPDXID. That made the
+document invalid CycloneDX and SPDX. Site-packages is now read once, through the real directory.</p>
+<h2 id="190">1.9.0<a class="headerlink" href="#190" title="Permanent link">&para;</a></h2>
 <p><strong>Tab completion.</strong> Flags, the values they take (<code>--report &lt;TAB&gt;</code> lists the report kinds,
 <code>--format &lt;TAB&gt;</code> the formats) and file paths complete after one line in your shell's startup file:
 bash (including macOS's own bash 3.2), zsh, fish, PowerShell 7, Windows PowerShell 5.1 and elvish.
