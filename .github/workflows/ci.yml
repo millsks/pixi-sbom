@@ -108,6 +108,10 @@ jobs:
       # of numbers is checked here rather than discovered on a red run.
       - name: The performance gate's own tests
         run: pixi run perf-test
+      # A release refuses to tag without What's new notes and moves them into the release commit;
+      # a mistake here either blocks every release or ships one with the wrong heading.
+      - name: The What's new release step's own tests
+        run: pixi run whats-new-test
 
   build:
     name: Build (${{ matrix.os }})

@@ -9039,6 +9039,35 @@ fn the_whats_new_page_covers_every_release_since_1_0() {
         "docs/whats-new.md describes releases that do not exist: {invented:?}"
     );
     assert!(released.contains(&(1, 8, 1)), "the changelog was read");
+
+    // Notes for the next release collect under one `## Unreleased`, above every release, and the
+    // release workflow refuses to tag without them and renames them in the release commit.
+    let unreleased: Vec<usize> = page
+        .lines()
+        .enumerate()
+        .filter(|(_, l)| l.trim_end() == "## Unreleased")
+        .map(|(i, _)| i)
+        .collect();
+    assert!(
+        unreleased.len() <= 1,
+        "docs/whats-new.md has {} '## Unreleased' sections",
+        unreleased.len()
+    );
+    if let Some(&at) = unreleased.first() {
+        let first_release = page.lines().position(|l| version_of(l, "## ").is_some()).unwrap();
+        assert!(
+            at < first_release,
+            "'## Unreleased' in docs/whats-new.md is below a release's section"
+        );
+    }
+    let release = std::fs::read_to_string(root.join(".github/workflows/release.yml")).unwrap();
+    for step in [
+        "scripts/whats_new.py check",
+        "pixi run whats-new release",
+        "pixi.toml docs/whats-new.md",
+    ] {
+        assert!(release.contains(step), "release.yml no longer runs `{step}`");
+    }
 }
 
 /// Every `pixi sbom` line on the examples tour runs as written, in order, against a copy of

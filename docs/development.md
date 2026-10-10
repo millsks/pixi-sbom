@@ -336,21 +336,30 @@ operator action, two runs.
 
 A **pre-release is expressed in the version**, not by a separate flag: `1.0.0-rc.1` is one and `1.0.0` is not.
 
-**Write the release up in [What's new](whats-new.md)** in the pull request after the release, while it is fresh:
-one section per final release, saying what it means for someone using the tool, not what the commits were.
-`the_whats_new_page_covers_every_release_since_1_0` in `tests/cli.rs` fails the build until that section exists,
-and fails it for a section naming a release that does not. Release candidates do not get one; their final does.
+**Write the release up in [What's new](whats-new.md) as you go**, under a `## Unreleased` section at the top of
+the page: a pull request that changes something a user would notice adds its line there, saying what it means for
+someone using the tool, not what the commits were. Before cutting a final release, give the section an editing
+pass in its own pull request. The release workflow refuses to tag a final release whose `## Unreleased` is missing
+or empty (`pixi run whats-new check <version>` asks the same question locally), and renames it to `## <version>`
+in the `chore(release)` commit next to the changelog, so the tag carries its notes and `main` never has a release
+the page does not describe. `the_whats_new_page_covers_every_release_since_1_0` in `tests/cli.rs` fails the build
+for a release without a section, for a section naming a release that does not exist, and for an `## Unreleased`
+that is not the only one or not above every release. Release candidates do not get a section, and leave
+`## Unreleased` as it is; their final does. A release with nothing a user would notice still gets one line, such
+as "No changes to behaviour; dependency updates only."
 That is what semver already means by the suffix, and a flag could contradict the version it was attached to.
 
 What the two do, in order:
 
 1. **Version and guard.** Finds the latest `v*` tag, computes the next version, and exits quietly (no release) if
    nothing changed on `main` since that tag. Validates the version and refuses to reuse an existing tag unless
-   `force_recreate` is set.
+   `force_recreate` is set. For a final release, refuses to go on unless `docs/whats-new.md` has a non-empty
+   `## Unreleased` section.
 2. **Bump.** Writes the version into `Cargo.toml`, `Cargo.lock` (via `cargo update --workspace`) and `pixi.toml`.
 3. **Gate.** Runs `pixi run ci` on the bumped tree; a red gate stops the release before anything is pushed.
-4. **Changelog.** Regenerates `CHANGELOG.md` with `git-cliff --tag vX.Y.Z` (`cliff.toml`), commits the bump and
-   changelog as `chore(release): vX.Y.Z`, tags that commit, and pushes both to `main`. It then waits until
+4. **Changelog.** Regenerates `CHANGELOG.md` with `git-cliff --tag vX.Y.Z` (`cliff.toml`), renames What's new's
+   `## Unreleased` to `## X.Y.Z` (final releases only), commits the bump, changelog and page as
+   `chore(release): vX.Y.Z`, tags that commit, and pushes both to `main`. It then waits until
    `release-artifacts.yml` is visibly running for that tag before going green: a tag that pushed but started
    nothing would otherwise look like a successful release with no binaries behind it.
 

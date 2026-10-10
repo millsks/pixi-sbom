@@ -153,6 +153,13 @@ jobs:
             echo "Version is new"
           fi
 
+      # A final release carries its notes: docs/whats-new.md needs a non-empty `## Unreleased`
+      # section, checked here so a release without one stops before anything is pushed.
+      # Release candidates are skipped by the script.
+      - name: Check the What's new notes are written
+        if: steps.should_skip.outputs.skip != 'true'
+        run: python3 scripts/whats_new.py check "${{ env.NEW_TAG }}"
+
       - name: Remove existing tag and release (force_recreate)
         if: steps.should_skip.outputs.skip != 'true' && inputs.force_recreate == true
         env:
@@ -202,12 +209,18 @@ jobs:
           pixi run git-cliff --config cliff.toml --tag "v${{ env.NEW_TAG }}" -o CHANGELOG.md
           echo "CHANGELOG.md updated for v${{ env.NEW_TAG }}"
 
+      # The notes become the release's section in the same commit as the changelog, so main
+      # never has a release the What's new page does not describe.
+      - name: Turn the What's new notes into the release's section
+        if: steps.should_skip.outputs.skip != 'true'
+        run: pixi run whats-new release "${{ env.NEW_TAG }}"
+
       - name: Commit the release and tag it
         if: steps.should_skip.outputs.skip != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md Cargo.toml Cargo.lock pixi.toml
+          git add CHANGELOG.md Cargo.toml Cargo.lock pixi.toml docs/whats-new.md
           git commit -m "chore(release): v${{ env.NEW_TAG }}"
           git tag -a "v${{ env.NEW_TAG }}" -m "Release v${{ env.NEW_TAG }}"
           git push origin HEAD:main --tags
