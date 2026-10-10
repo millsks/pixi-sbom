@@ -1,0 +1,2180 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="CycloneDX and SPDX Software Bills of Materials from pixi.lock">
+      
+      
+      
+        <link rel="canonical" href="https://millsks.github.io/pixi-sbom/latest/stability/">
+      
+      
+        <link rel="prev" href="../output-format/">
+      
+      
+        <link rel="next" href="../troubleshooting/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>What 1.0 freezes - pixi-sbom</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  <script>
+    (function () {
+      try {
+        var key = "__source_fetched_at";
+        var fetched = Number(sessionStorage.getItem(key) || 0);
+        if (Date.now() - fetched > 10 * 60 * 1000) {
+          sessionStorage.removeItem("__source");
+          sessionStorage.setItem(key, String(Date.now()));
+        }
+      } catch (e) {}
+    })();
+  </script>
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#what-10-freezes" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="pixi-sbom" class="md-header__button md-logo" aria-label="pixi-sbom" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            pixi-sbom
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              What 1.0 freezes
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/millsks/pixi-sbom" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    millsks/pixi-sbom
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="pixi-sbom" class="md-nav__button md-logo" aria-label="pixi-sbom" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    pixi-sbom
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/millsks/pixi-sbom" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    millsks/pixi-sbom
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../whats-new/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What's new
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../without-pixi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Without pixi
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../try-the-examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Try it on the examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Training lab
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field manual
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Field manual
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../field-manual/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../field-manual/ci-gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate a repository in CI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../field-manual/vendor-sbom/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Take in a vendor's SBOM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../field-manual/product-sbom/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    One SBOM for a product
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../field-manual/are-we-exposed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Are we exposed?
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../field-manual/restricted-network/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A restricted network
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../field-manual/without-pixi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A project without pixi
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../field-manual/signed-release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release with a signed SBOM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Command-line reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../github-action/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Action
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ci-recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../formats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Which format to pick
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../syft/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pixi-sbom and syft
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../output-format/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Output format reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What 1.0 freezes
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What 1.0 freezes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#command-line-flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command-line flags
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Command-line flags">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#spellings-that-answer-to-an-older-name" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spellings that answer to an older name
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#values-with-a-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Values with a structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration keys
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pixi-names-in-a-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pixi:* names in a document
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#report-json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Report JSON
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-github-action" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The GitHub Action
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-formats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document formats
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-cpe-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The CPE table
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-covered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not covered
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changing-something-that-is-frozen" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changing something that is frozen
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_17" >
+        
+          
+          <label class="md-nav__link" for="__nav_17" id="__nav_17_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contributing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#command-line-flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command-line flags
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Command-line flags">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#spellings-that-answer-to-an-older-name" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spellings that answer to an older name
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#values-with-a-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Values with a structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration keys
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pixi-names-in-a-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pixi:* names in a document
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#report-json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Report JSON
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-github-action" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The GitHub Action
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-formats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document formats
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-cpe-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The CPE table
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-covered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not covered
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changing-something-that-is-frozen" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changing something that is frozen
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/millsks/pixi-sbom/edit/main/docs/stability.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="what-10-freezes">What 1.0 freezes<a class="headerlink" href="#what-10-freezes" title="Permanent link">&para;</a></h1>
+<p>From 1.0.0, the things on this page are covered by semantic versioning: they do not change in a
+patch or minor release, and changing any of them means a new major version. Everything under
+<a href="#not-covered">Not covered</a> may change in any release.</p>
+<p>This page is the contract. It is deliberately a list of <strong>names and shapes</strong>, not a second copy of
+the reference — what each flag <em>does</em> is in <a href="../cli/">the command-line reference</a>, what each
+document field means is in <a href="../output-format/">the output format reference</a>. What is frozen is that
+the name exists, takes the same kind of value, and means the same thing.</p>
+<p>Every list here is checked against the code by <code>tests/stability.rs</code>. A flag added without a line on
+this page fails the build, and so does a line on this page for something that does not exist.</p>
+<h2 id="command-line-flags">Command-line flags<a class="headerlink" href="#command-line-flags" title="Permanent link">&para;</a></h2>
+<p>All 74. Their meanings are in <a href="../cli/">cli.md</a>; what this page promises is that none of them
+disappears or changes shape before 2.0.</p>
+<p>| <code>--against</code> | <code>--all-environments</code> | <code>--all-platforms</code> | <code>--allow-license</code> |
+| <code>--assume-used</code> | <code>--ca-bundle</code> | <code>--color</code> | <code>--concurrency</code> |
+| <code>--conda-index-kind</code> | <code>--config</code> | <code>--deny-license</code> | <code>--depth</code> |
+| <code>--doctor</code> | <code>--embedded-sboms</code> | <code>--environment</code> | <code>--epss</code> |
+| <code>--exclude</code> | <code>--exclude-kind</code> | <code>--explain</code> | <code>--fail-on-diff</code> |
+| <code>--fail-on-epss</code> | <code>--fail-on-kev</code> | <code>--fail-on-phantom</code> | <code>--fail-on-scorecard</code> |
+| <code>--fail-on-severity</code> | <code>--fail-on-yanked</code> | <code>--fetch-licenses</code> | <code>--format</code> |
+| <code>--from-sbom</code> | <code>--group-by</code> | <code>--help</code> | <code>--ignore-license</code> |
+| <code>--ignore-vuln</code> | <code>--include</code> | <code>--infer-extras</code> | <code>--keep-orphans</code> |
+| <code>--kev</code> | <code>--license-texts</code> | <code>--lockfile</code> | <code>--log-format</code> |
+| <code>--merge</code> | <code>--min-quality</code> | <code>--no-cache</code> | <code>--no-config</code> |
+| <code>--outdated-min</code> | <code>--output</code> | <code>--platform</code> | <code>--prefix</code> |
+| <code>--primary-purl</code> | <code>--pypi-mapping</code> | <code>--pypi-mapping-file</code> | <code>--quiet</code> |
+| <code>--refresh</code> | <code>--report</code> | <code>--report-format</code> | <code>--require-license</code> |
+| <code>--root-name</code> | <code>--root-version</code> | <code>--scan</code> | <code>--scan-depth</code> |
+| <code>--scorecard</code> | <code>--scorecard-min</code> | <code>--source</code> | <code>--spec-version</code> |
+| <code>--timings</code> | <code>--tree</code> | <code>--verbose</code> | <code>--verify-files</code> |
+| <code>--version</code> | <code>--version-details</code> | <code>--vex</code> | <code>--vex-in</code> |
+| <code>--vex-open</code> | <code>--vulnerabilities</code> |  |  |</p>
+<h3 id="spellings-that-answer-to-an-older-name">Spellings that answer to an older name<a class="headerlink" href="#spellings-that-answer-to-an-older-name" title="Permanent link">&para;</a></h3>
+<p>Accepted permanently, hidden from <code>--help</code> so there is one name to learn. Removing any of these
+would be a major version with its own notice.</p>
+<table>
+<thead>
+<tr>
+<th>Accepted</th>
+<th>Canonical</th>
+<th>Since</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--name</code></td>
+<td><code>--root-name</code></td>
+<td>renamed in 1.0.0</td>
+</tr>
+<tr>
+<td><code>--outdated-only</code></td>
+<td><code>--outdated-min</code></td>
+<td>renamed in 1.0.0</td>
+</tr>
+<tr>
+<td><code>--pypi-licenses</code></td>
+<td><code>--fetch-licenses</code></td>
+<td>renamed in 0.4.0</td>
+</tr>
+<tr>
+<td><code>--build-info</code></td>
+<td><code>--version-details</code></td>
+<td>a visible alias, both shown</td>
+</tr>
+</tbody>
+</table>
+<h3 id="values-with-a-structure">Values with a structure<a class="headerlink" href="#values-with-a-structure" title="Permanent link">&para;</a></h3>
+<p><code>--ignore-vuln</code> (and the <code>ignore-vuln</code> config key and action input) takes <code>ID</code>, <code>ID:TEXT</code> or
+<code>ID:STATE[:JUSTIFICATION][:RESPONSE,...][:TEXT]</code>. <code>STATE</code> is a CycloneDX impact-analysis state,
+<code>JUSTIFICATION</code> a CycloneDX impact-analysis justification (only after <code>not_affected</code>) and <code>RESPONSE</code> a
+comma-separated list of CycloneDX impact-analysis responses; each segment is read as one only when every word in
+it names a known value, otherwise it is text. Every form keeps its meaning through 1.x; a new segment may be added only in
+the same way, recognised by a fixed vocabulary, so an existing entry never changes meaning.</p>
+<h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>The document or report was written.</td>
+</tr>
+<tr>
+<td>1</td>
+<td>A runtime error, or <code>--doctor</code> found a problem. A diagnostic goes to stderr.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>A command-line usage error: an unknown flag, conflicting flags, or a value the flag does not accept.</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>--allow-license</code> / <code>--deny-license</code> / <code>--require-license</code> was violated.</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>--fail-on-severity</code>, <code>--fail-on-kev</code> or <code>--fail-on-epss</code> matched.</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>--fail-on-diff</code> found a change it was asked to gate on.</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>--fail-on-yanked</code> found a yanked release.</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>--fail-on-phantom</code> found an undeclared import.</td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>--fail-on-scorecard</code> found a repository below the threshold.</td>
+</tr>
+<tr>
+<td>10</td>
+<td><code>--min-quality</code> found the document's quality score below the threshold.</td>
+</tr>
+<tr>
+<td>11</td>
+<td><code>--verify-files</code> or <code>--report files</code> found an installed file modified or missing against its conda-meta record.</td>
+</tr>
+</tbody>
+</table>
+<p>Every gate above 2 writes its document or report first and lists what tripped it on stderr, so a
+failing gate still leaves you the artifact.</p>
+<p><strong>5 is deliberately unused.</strong> It has never been assigned — not in any release — and it stays free
+rather than being filled by the next gate, so that a script testing for a specific code is never
+surprised by a number that used to mean nothing. Gates take 10 and upward: <code>--min-quality</code> is 10, <code>--verify-files</code> is 11, and the next one takes 12.</p>
+<h2 id="configuration-keys">Configuration keys<a class="headerlink" href="#configuration-keys" title="Permanent link">&para;</a></h2>
+<p>A key is the flag's own name without the leading <code>--</code>, so <code>--fetch-licenses</code> is <code>fetch-licenses</code>.
+The command line always wins over the files.</p>
+<p>Three layers are read, least specific first, and merged per key — a layer overrides what a less
+specific one said and inherits what it did not mention:</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>system</td>
+<td><code>/etc/pixi/pixi-sbom-config.toml</code>, or <code>%PROGRAMDATA%\pixi\pixi-sbom-config.toml</code> on Windows</td>
+</tr>
+<tr>
+<td>user</td>
+<td><code>$PIXI_HOME/pixi-sbom-config.toml</code>, else <code>~/.pixi/pixi-sbom-config.toml</code></td>
+</tr>
+<tr>
+<td>project</td>
+<td><code>&lt;workspace&gt;/.pixi/pixi-sbom-config.toml</code>, else <code>[tool.pixi-sbom]</code> in <code>pyproject.toml</code>, else <code>pixi-sbom.toml</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>--config &lt;PATH&gt;</code> replaces the search with one file; <code>--no-config</code> reads none. Both keep the
+meanings they have always had: ours differ from pixi's flags of similar name, which still read
+project-local files, and they are frozen as the broader meaning.</p>
+<p><strong><code>pixi-sbom.toml</code> at the workspace root is deprecated.</strong> It is read, and named as deprecated by
+<code>--doctor</code> and in the logs, until 2.0. <code>[tool.pixi-sbom]</code> in <code>pyproject.toml</code> is not deprecated and
+stays supported.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>format</code></td>
+<td><code>spec-version</code></td>
+<td><code>pypi-mapping</code></td>
+<td><code>pypi-mapping-file</code></td>
+</tr>
+<tr>
+<td><code>primary-purl</code></td>
+<td><code>fetch-licenses</code></td>
+<td><code>license-texts</code></td>
+<td><code>embedded-sboms</code></td>
+</tr>
+<tr>
+<td><code>exclude</code></td>
+<td><code>include</code></td>
+<td><code>exclude-kind</code></td>
+<td><code>keep-orphans</code></td>
+</tr>
+<tr>
+<td><code>allow-license</code></td>
+<td><code>deny-license</code></td>
+<td><code>require-license</code></td>
+<td><code>fail-on-yanked</code></td>
+</tr>
+<tr>
+<td><code>vulnerabilities</code></td>
+<td><code>kev</code></td>
+<td><code>fail-on-kev</code></td>
+<td><code>fail-on-severity</code></td>
+</tr>
+<tr>
+<td><code>ignore-vuln</code></td>
+<td><code>ignore-license</code></td>
+<td><code>scorecard</code></td>
+<td><code>scorecard-min</code></td>
+</tr>
+<tr>
+<td><code>fail-on-scorecard</code></td>
+<td><code>fail-on-diff</code></td>
+<td><code>source</code></td>
+<td><code>assume-used</code></td>
+</tr>
+<tr>
+<td><code>fail-on-phantom</code></td>
+<td><code>conda-index-kind</code></td>
+<td><code>concurrency</code></td>
+<td><code>infer-extras</code></td>
+</tr>
+<tr>
+<td><code>min-quality</code></td>
+<td><code>epss</code></td>
+<td><code>fail-on-epss</code></td>
+<td><code>vex-in</code></td>
+</tr>
+</tbody>
+</table>
+<p>An unknown key is an error, not a warning, and the diagnostic lists every key that is accepted — so
+a typo cannot pass silently and you are never left guessing at the spelling.</p>
+<h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
+<p><code>RATTLER_AUTH_FILE</code> and <code>NETRC</code> are read for credentials. They are not this project's to define,
+so they are not frozen here; they are honoured with the meanings rattler and curl give them.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PIXI_SBOM_CACHE_DIR</code></td>
+<td>Where the caches live.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_CONCURRENCY</code></td>
+<td>How many requests at once; <code>--concurrency</code> and the <code>concurrency</code> key say the same thing, and the command line beats the variable, which beats the file. Requests only: threads for local work follow the core count. Above 100 is honoured with a warning; above 1000 is clamped, and the run is never sized past the number of packages.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_OFFLINE</code></td>
+<td>Make no network requests.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_NO_PROGRESS</code></td>
+<td>No progress bars.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_LOG_FORMAT</code></td>
+<td><code>text</code> or <code>json</code>.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_COMPLETE</code></td>
+<td><code>bash</code>, <code>zsh</code>, <code>fish</code>, <code>powershell</code> or <code>elvish</code>: print that shell's completion registration instead of an SBOM. Any other value is ignored.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_CA_BUNDLE</code></td>
+<td>A PEM bundle to trust.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_OSV_URL</code></td>
+<td>Where to query OSV.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_KEV_URL</code></td>
+<td>Where to fetch the CISA catalog.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_EPSS_URL</code></td>
+<td>Where to ask FIRST for EPSS scores.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_PYPI_URL</code></td>
+<td>Where to read PyPI metadata.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_ANACONDA_URL</code></td>
+<td>Where to read anaconda.org metadata.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_CONDA_FALLBACK_CHANNEL</code></td>
+<td>The channel a mirrored package is checked against, by hash.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_PREFIX_INDEX_URL</code></td>
+<td>Where to reach prefix.dev's GraphQL API.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_MAPPING_URL</code></td>
+<td>Where to download the conda-to-PyPI name mapping.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_CONDA_ARCHIVE_URL</code></td>
+<td>Base that conda package archives are read from, in place of each package's own host.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_WHEEL_ARCHIVE_URL</code></td>
+<td>Base that PyPI wheel archives are read from, in place of each wheel's own host.</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_SCORECARD_URL</code></td>
+<td>Where to query OpenSSF Scorecard.</td>
+</tr>
+</tbody>
+</table>
+<p>Also read, and owned by other tools: <code>SSL_CERT_FILE</code>, <code>PIXI_CACHE_DIR</code>, <code>RATTLER_CACHE_DIR</code>,
+<code>HTTPS_PROXY</code> / <code>HTTP_PROXY</code> / <code>NO_PROXY</code>, <code>NO_COLOR</code>, <code>CLICOLOR_FORCE</code>, <code>RUST_LOG</code>.</p>
+<h2 id="pixi-names-in-a-document"><code>pixi:*</code> names in a document<a class="headerlink" href="#pixi-names-in-a-document" title="Permanent link">&para;</a></h2>
+<p>Property names in CycloneDX and comment / annotation names in SPDX. What is frozen is the name and
+what it holds; whether a given run emits a particular one depends on the flags. <code>output-format.md</code>
+says which flag produces which.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pixi:build</code></td>
+<td><code>pixi:build-number</code></td>
+<td><code>pixi:cargo-source</code></td>
+</tr>
+<tr>
+<td><code>pixi:channel</code></td>
+<td><code>pixi:channel-url</code></td>
+<td><code>pixi:declared-in</code></td>
+</tr>
+<tr>
+<td><code>pixi:direct</code></td>
+<td><code>pixi:direct-url</code></td>
+<td><code>pixi:editable</code></td>
+</tr>
+<tr>
+<td><code>pixi:embedded-sbom</code></td>
+<td><code>pixi:environment</code></td>
+<td><code>pixi:epss</code></td>
+</tr>
+<tr>
+<td><code>pixi:epss-cve</code></td>
+<td><code>pixi:epss-date</code></td>
+<td><code>pixi:epss-percentile</code></td>
+</tr>
+<tr>
+<td><code>pixi:excluded</code></td>
+<td><code>pixi:extracted-package-dir</code></td>
+<td><code>pixi:file-name</code></td>
+</tr>
+<tr>
+<td><code>pixi:identifier-hash</code></td>
+<td><code>pixi:incomplete</code></td>
+<td><code>pixi:incomplete-detail</code></td>
+</tr>
+<tr>
+<td><code>pixi:index-url</code></td>
+<td><code>pixi:installer</code></td>
+<td><code>pixi:interpreter</code></td>
+</tr>
+<tr>
+<td><code>pixi:kev</code></td>
+<td><code>pixi:kev-cve</code></td>
+<td><code>pixi:kev-date-added</code></td>
+</tr>
+<tr>
+<td><code>pixi:kev-due-date</code></td>
+<td><code>pixi:kev-ransomware</code></td>
+<td><code>pixi:kind</code></td>
+</tr>
+<tr>
+<td><code>pixi:license-exempt</code></td>
+<td><code>pixi:license-family</code></td>
+<td><code>pixi:license-file</code></td>
+</tr>
+<tr>
+<td><code>pixi:license-files-source</code></td>
+<td><code>pixi:license-raw</code></td>
+<td><code>pixi:license-source</code></td>
+</tr>
+<tr>
+<td><code>pixi:lockfile</code></td>
+<td><code>pixi:marker</code></td>
+<td><code>pixi:merge-conflict</code></td>
+</tr>
+<tr>
+<td><code>pixi:missing-files</code></td>
+<td><code>pixi:modified-files</code></td>
+<td><code>pixi:noarch</code></td>
+</tr>
+<tr>
+<td><code>pixi:platform</code></td>
+<td><code>pixi:prefix</code></td>
+<td><code>pixi:purl</code></td>
+</tr>
+<tr>
+<td><code>pixi:pypi-dist-info</code></td>
+<td><code>pixi:pypi-mapping</code></td>
+<td><code>pixi:python-extras</code></td>
+</tr>
+<tr>
+<td><code>pixi:python-extras-evidence</code></td>
+<td><code>pixi:python-extras-inferred</code></td>
+<td><code>pixi:python-version</code></td>
+</tr>
+<tr>
+<td><code>pixi:regenerated-bytecode</code></td>
+<td><code>pixi:repository-source</code></td>
+<td><code>pixi:requires-python</code></td>
+</tr>
+<tr>
+<td><code>pixi:resolution-markers</code></td>
+<td><code>pixi:scorecard</code></td>
+<td><code>pixi:scorecard-date</code></td>
+</tr>
+<tr>
+<td><code>pixi:size</code></td>
+<td><code>pixi:source</code></td>
+<td><code>pixi:source-branch</code></td>
+</tr>
+<tr>
+<td><code>pixi:source-document</code></td>
+<td><code>pixi:source-git</code></td>
+<td><code>pixi:source-path</code></td>
+</tr>
+<tr>
+<td><code>pixi:source-rev</code></td>
+<td><code>pixi:source-subdirectory</code></td>
+<td><code>pixi:source-tag</code></td>
+</tr>
+<tr>
+<td><code>pixi:source-url</code></td>
+<td><code>pixi:stale-cache</code></td>
+<td><code>pixi:subdir</code></td>
+</tr>
+<tr>
+<td><code>pixi:verified-files</code></td>
+<td><code>pixi:vex-for</code></td>
+<td><code>pixi:vex-source</code></td>
+</tr>
+<tr>
+<td><code>pixi:via-extra</code></td>
+<td><code>pixi:yanked</code></td>
+<td><code>pixi:yanked-reason</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>pixi:scorecard-check-&lt;name&gt;</code> is a family rather than one name: the suffix is the OpenSSF check,
+so the set grows when OpenSSF adds a check. The prefix is frozen; the suffixes are theirs.</p>
+<h2 id="report-json">Report JSON<a class="headerlink" href="#report-json" title="Permanent link">&para;</a></h2>
+<p><code>--report &lt;kind&gt; --report-format json</code> writes an object with one key named after the report —
+<code>packages</code>, <code>licenses</code>, <code>vulnerabilities</code>, <code>diff</code>, <code>outdated</code>, <code>python</code>, <code>phantom</code>, <code>scorecard</code>,
+<code>quality</code>, <code>files</code> —
+holding an array of rows. Row field names are frozen; <strong>row order is not</strong>, except where the
+report documents an order (worst-first for vulnerabilities).</p>
+<p>CSV columns and their order are frozen. A flag that adds data adds columns only after them and only
+when given: <code>--epss</code> appends <code>epss,epss_percentile</code> to the vulnerabilities CSV. The Markdown and
+table renderings are not frozen — see below.</p>
+<h2 id="the-github-action">The GitHub Action<a class="headerlink" href="#the-github-action" title="Permanent link">&para;</a></h2>
+<p>Inputs and outputs of <code>action.yml</code>. An input maps to the flag of the same name; <code>extra-args</code>
+passes anything through.</p>
+<p><strong>Inputs:</strong> <code>all-environments</code>, <code>all-platforms</code>, <code>allow-license</code>, <code>artifact-name</code>, <code>attest</code>,
+<code>attest-subject</code>, <code>config</code>, <code>dependency-submission</code>, <code>deny-license</code>, <code>diff-against</code>, <code>embedded-sboms</code>, <code>environment</code>,
+<code>extra-args</code>, <code>fail-on-diff</code>, <code>fail-on-kev</code>, <code>fail-on-policy</code>, <code>fail-on-scorecard</code>,
+<code>fail-on-severity</code>, <code>fail-on-vulnerabilities</code>, <code>fail-on-yanked</code>, <code>fetch-licenses</code>, <code>format</code>,
+<code>from-sbom</code>, <code>ignore-license</code>, <code>ignore-vuln</code>, <code>kev</code>, <code>license-texts</code>, <code>lockfile</code>, <code>output</code>,
+<code>platform</code>, <code>prefix</code>, <code>primary-purl</code>, <code>pypi-mapping</code>, <code>require-license</code>, <code>sarif-category</code>, <code>scan</code>,
+<code>scorecard</code>, <code>scorecard-min</code>, <code>spec-version</code>, <code>upload-artifact</code>, <code>upload-sarif</code>, <code>version</code>, <code>vex</code>,
+<code>vex-open</code>, <code>vulnerabilities</code>.</p>
+<p><strong>Outputs:</strong> <code>attestation-url</code>, <code>diff-changed</code>, <code>document</code>, <code>output</code>, <code>policy-violated</code>, <code>sarif</code>,
+<code>version</code>, <code>vulnerabilities-found</code>.</p>
+<h2 id="document-formats">Document formats<a class="headerlink" href="#document-formats" title="Permanent link">&para;</a></h2>
+<p>CycloneDX 1.6 and 1.7, SPDX 2.3 and 3.0.1 stay writable, and <code>--spec-version</code> keeps accepting
+<code>1.6</code>, <code>1.7</code>, <code>2.3</code> and <code>3.0</code>. Which is the default for each <code>--format</code> is frozen too: CycloneDX
+1.6 and SPDX 2.3.</p>
+<p><code>--from-sbom</code> keeps reading CycloneDX 1.4–1.7 and SPDX 2.x / 3.0 JSON.</p>
+<p>Lockfile format versions 1 through 7 stay readable. A newer one is refused by name rather than
+half-read, and that refusal is exit code 1.</p>
+<h2 id="the-cpe-table">The CPE table<a class="headerlink" href="#the-cpe-table" title="Permanent link">&para;</a></h2>
+<p>The format of <code>data/cpe.toml</code> and of the CPEs written from it (a CPE 2.3 formatted string in CycloneDX's <code>cpe</code>,
+SPDX 2.3's <code>cpe23Type</code> reference and SPDX 3.0.1's <code>cpe23</code> identifier) is covered. <strong>Its entries are not</strong>: which conda
+packages have a CPE, and with which vendor and product, change in any release, patch releases included, as entries
+are added and corrected.</p>
+<h2 id="not-covered">Not covered<a class="headerlink" href="#not-covered" title="Permanent link">&para;</a></h2>
+<p>These change without a major version, and nothing should be parsed out of them:</p>
+<ul>
+<li><strong>Log lines.</strong> Every <code>INFO</code> / <code>WARN</code> / <code>DEBUG</code> line, its wording, its fields and whether it
+  appears at all. <code>--log-format json</code> gives stable <em>shape</em> — a JSON object per line — but the
+  messages and fields inside it are not a contract. Gate on exit codes, not on log text.</li>
+<li><strong>Table and Markdown report layout.</strong> Column widths, ordering of unordered reports, box drawing,
+  colour, the tree glyphs. Use <code>--report-format json</code> or <code>csv</code> if something reads it.</li>
+<li><strong>Recommendation and diagnostic wording.</strong> <code>recommendation</code> text in a document, the phrasing of a
+  miette diagnostic, the help text of a flag.</li>
+<li><strong>Progress output.</strong> Bars, spinners, what they count.</li>
+<li><strong><code>--timings</code> output.</strong> The phases, their names, the table.</li>
+<li><strong><code>--doctor</code> output.</strong> What it checks and how it says so; only the exit code is frozen.</li>
+<li><strong><code>--explain</code> output.</strong> A human-facing explanation, free to improve.</li>
+<li><strong>The published Rust library.</strong> Every module is <code>#[doc(hidden)]</code> and none of it is an API; see
+  the crate documentation. The command line is the interface.</li>
+<li><strong>Element ids and ordering inside a document.</strong> <code>bom-ref</code>, <code>SPDXID</code> and JSON-LD <code>spdxId</code> values
+  are derived and may change shape; so may the order of <code>components</code> / <code>packages</code> / <code>@graph</code>
+  entries. Match on <code>purl</code>, <code>name</code> and <code>version</code>.</li>
+<li><strong>Cache layout.</strong> Directory names and file formats under the cache directory.</li>
+<li><strong>Completion scripts and candidates.</strong> What <code>PIXI_SBOM_COMPLETE=&lt;shell&gt; pixi-sbom</code> prints, how the
+  shell and the binary talk to each other (clap's dynamic completion, which clap itself marks
+  unstable), and which candidates are offered. Source the registration at shell start rather than
+  saving it, so it always matches the binary.</li>
+</ul>
+<h2 id="changing-something-that-is-frozen">Changing something that is frozen<a class="headerlink" href="#changing-something-that-is-frozen" title="Permanent link">&para;</a></h2>
+<p>A rename keeps the old spelling as a permanent alias, the way <code>--root-name</code> and <code>--outdated-min</code>
+did. That is additive and ships in a minor release. Removing a spelling, changing what a flag
+means, or changing an exit code waits for a major version, and gets a deprecation warning in a
+release before it.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../output-format/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Output format reference">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Output format reference
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../troubleshooting/" class="md-footer__link md-footer__link--next" aria-label="Next: Troubleshooting">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Troubleshooting
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Apache-2.0 licensed
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/millsks/pixi-sbom" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../javascripts/lab-progress.js"></script>
+      
+    
+  </body>
+</html>
