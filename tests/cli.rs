@@ -9902,3 +9902,83 @@ fn the_syft_page_counts_are_what_pixi_sbom_writes() {
     }
     assert_eq!(checked, 3, "the table's rows were found");
 }
+
+/// `--verify-files` and `--report files` (#455): an altered file and a missing one are found,
+/// recorded on the package and end the run with 11; an unaltered environment passes.
+#[test]
+fn verify_files_finds_altered_and_missing_files_and_exits_11() {
+    use sha2::{Digest, Sha256};
+    let hex = |bytes: &[u8]| -> String { Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect() };
+    let dir = tempfile::tempdir().unwrap();
+    let prefix = dir.path().join("env");
+    copy_dir(&tests_dir().join("fixtures").join("prefix"), &prefix);
+    std::fs::write(prefix.join("lib").join("libz.so.1"), b"zlib").unwrap();
+    std::fs::write(prefix.join("lib").join("zlib.h"), b"header").unwrap();
+    let record_path = prefix.join("conda-meta").join("libzlib-1.3.2-h25fd6f3_3.json");
+    let mut record: Value = serde_json::from_str(&std::fs::read_to_string(&record_path).unwrap()).unwrap();
+    record["paths_data"] = serde_json::json!({"paths": [
+        {"_path": "lib/libz.so.1", "path_type": "hardlink", "sha256": hex(b"zlib")},
+        {"_path": "lib/zlib.h", "path_type": "hardlink", "sha256": hex(b"header")},
+    ]});
+    std::fs::write(&record_path, record.to_string()).unwrap();
+    let run = |args: &[&str]| {
+        pixi_sbom()
+            .arg("--prefix")
+            .arg(&prefix)
+            .args(["--primary-purl", "conda"])
+            .args(args)
+            .assert()
+    };
+
+    let clean = run(&["--report", "files"]).success();
+    let out = String::from_utf8(clean.get_output().stdout.clone()).unwrap();
+    assert!(
+        out.contains("Files: 2 checked in 1 conda packages; 0 modified, 0 missing"),
+        "{out}"
+    );
+
+    std::fs::write(prefix.join("lib").join("zlib.h"), b"tampered").unwrap();
+    std::fs::remove_file(prefix.join("lib").join("libz.so.1")).unwrap();
+    let report = run(&["--report", "files", "--report-format", "json"]).code(11);
+    let json: Value = serde_json::from_slice(&report.get_output().stdout).unwrap();
+    assert_eq!(json["summary"]["modified"], 1);
+    assert_eq!(json["summary"]["missing"], 1);
+    let states: Vec<(&str, &str)> = json["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| (r["state"].as_str().unwrap(), r["path"].as_str().unwrap()))
+        .collect();
+    assert_eq!(states, [("modified", "lib/zlib.h"), ("missing", "lib/libz.so.1")]);
+
+    let document = run(&["--verify-files", "--output", "-"])
+        .code(11)
+        .stderr(predicate::str::contains("modified: lib/zlib.h (libzlib)"))
+        .stderr(predicate::str::contains("installed files"));
+    let doc: Value = serde_json::from_slice(&document.get_output().stdout).unwrap();
+    let zlib = doc["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "libzlib")
+        .unwrap();
+    let property = |name: &str| {
+        zlib["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == name)
+            .map(|p| p["value"].as_str().unwrap().to_string())
+    };
+    assert_eq!(property("pixi:verified-files").as_deref(), Some("2"));
+    assert_eq!(property("pixi:modified-files").as_deref(), Some("lib/zlib.h"));
+    assert_eq!(property("pixi:missing-files").as_deref(), Some("lib/libz.so.1"));
+
+    let workspace = workspace("conda-python");
+    pixi_sbom()
+        .args(["--report", "files"])
+        .current_dir(workspace.path())
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("'--report files' needs '--prefix <DIR>'"));
+}

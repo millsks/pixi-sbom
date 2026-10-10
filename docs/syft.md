@@ -74,7 +74,8 @@ pixi-sbom describes Python and conda projects and environments. syft catalogs mu
 - **Container images**, read from a registry or a tarball, layer by layer.
 - **Operating system packages**: dpkg, rpm, apk.
 - **Other ecosystems**: npm, Go, Java, Rust crates outside conda binaries, and many more.
-- **Every installed file** with its digests (pixi-sbom records packages, not files).
+- **Every installed file** with its digests. pixi-sbom records packages, not files; for a conda environment
+  `--verify-files` instead checks every file against the hash conda recorded at installation, which syft does not do.
 
 For a container that runs a Python or conda application, the two fit together: syft for the image's operating
 system, pixi-sbom for the environment, merged with `pixi sbom --from-sbom image.cdx.json --from-sbom app.cdx.json`.

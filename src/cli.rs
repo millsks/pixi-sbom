@@ -485,6 +485,13 @@ pub struct Args {
     #[arg(long, requires = "prefix")]
     pub infer_extras: bool,
 
+    /// With --prefix, hash every file each conda package installed and compare it with its
+    /// conda-meta record. Modified and missing files are recorded (pixi:modified-files,
+    /// pixi:missing-files) and end the run with exit code 11; .pyc files Python regenerated are
+    /// counted, never a failure. --report files lists them.
+    #[arg(long, requires = "prefix")]
+    pub verify_files: bool,
+
     /// Deprecated alias for --fetch-licenses (it used to cover PyPI packages only).
     #[arg(long, hide = true)]
     pub pypi_licenses: bool,

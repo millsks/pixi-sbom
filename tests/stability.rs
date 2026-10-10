@@ -120,7 +120,7 @@ fn the_page_lists_every_flag_and_only_flags_that_exist() {
     let defined = defined_flags();
 
     assert_same("flags", &defined, &listed);
-    assert_eq!(defined.len(), 73, "the count in the page's prose needs updating too");
+    assert_eq!(defined.len(), 74, "the count in the page's prose needs updating too");
 }
 
 #[test]

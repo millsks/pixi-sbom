@@ -14,7 +14,7 @@ this page fails the build, and so does a line on this page for something that do
 
 ## Command-line flags
 
-All 73. Their meanings are in [cli.md](cli.md); what this page promises is that none of them
+All 74. Their meanings are in [cli.md](cli.md); what this page promises is that none of them
 disappears or changes shape before 2.0.
 
 | `--against` | `--all-environments` | `--all-platforms` | `--allow-license` |
@@ -33,9 +33,9 @@ disappears or changes shape before 2.0.
 | `--refresh` | `--report` | `--report-format` | `--require-license` |
 | `--root-name` | `--root-version` | `--scan` | `--scan-depth` |
 | `--scorecard` | `--scorecard-min` | `--source` | `--spec-version` |
-| `--timings` | `--tree` | `--verbose` | `--version` |
-| `--version-details` | `--vex` | `--vex-in` | `--vex-open` |
-| `--vulnerabilities` |  |  |  |
+| `--timings` | `--tree` | `--verbose` | `--verify-files` |
+| `--version` | `--version-details` | `--vex` | `--vex-in` |
+| `--vex-open` | `--vulnerabilities` |  |  |
 
 ### Spellings that answer to an older name
 
@@ -72,13 +72,14 @@ the same way, recognised by a fixed vocabulary, so an existing entry never chang
 | 8 | `--fail-on-phantom` found an undeclared import. |
 | 9 | `--fail-on-scorecard` found a repository below the threshold. |
 | 10 | `--min-quality` found the document's quality score below the threshold. |
+| 11 | `--verify-files` or `--report files` found an installed file modified or missing against its conda-meta record. |
 
 Every gate above 2 writes its document or report first and lists what tripped it on stderr, so a
 failing gate still leaves you the artifact.
 
 **5 is deliberately unused.** It has never been assigned — not in any release — and it stays free
 rather than being filled by the next gate, so that a script testing for a specific code is never
-surprised by a number that used to mean nothing. Gates take 10 and upward: `--min-quality` is 10, and the next one takes 11.
+surprised by a number that used to mean nothing. Gates take 10 and upward: `--min-quality` is 10, `--verify-files` is 11, and the next one takes 12.
 
 ## Configuration keys
 
@@ -167,17 +168,18 @@ says which flag produces which.
 | `pixi:license-exempt` | `pixi:license-family` | `pixi:license-file` |
 | `pixi:license-files-source` | `pixi:license-raw` | `pixi:license-source` |
 | `pixi:lockfile` | `pixi:marker` | `pixi:merge-conflict` |
-| `pixi:noarch` | `pixi:platform` | `pixi:prefix` |
-| `pixi:purl` | `pixi:pypi-dist-info` | `pixi:pypi-mapping` |
-| `pixi:python-extras` | `pixi:python-extras-evidence` | `pixi:python-extras-inferred` |
-| `pixi:python-version` | `pixi:repository-source` | `pixi:requires-python` |
+| `pixi:missing-files` | `pixi:modified-files` | `pixi:noarch` |
+| `pixi:platform` | `pixi:prefix` | `pixi:purl` |
+| `pixi:pypi-dist-info` | `pixi:pypi-mapping` | `pixi:python-extras` |
+| `pixi:python-extras-evidence` | `pixi:python-extras-inferred` | `pixi:python-version` |
+| `pixi:regenerated-bytecode` | `pixi:repository-source` | `pixi:requires-python` |
 | `pixi:resolution-markers` | `pixi:scorecard` | `pixi:scorecard-date` |
 | `pixi:size` | `pixi:source` | `pixi:source-branch` |
 | `pixi:source-document` | `pixi:source-git` | `pixi:source-path` |
 | `pixi:source-rev` | `pixi:source-subdirectory` | `pixi:source-tag` |
 | `pixi:source-url` | `pixi:stale-cache` | `pixi:subdir` |
-| `pixi:vex-for` | `pixi:vex-source` | `pixi:via-extra` |
-| `pixi:yanked` | `pixi:yanked-reason` |  |
+| `pixi:verified-files` | `pixi:vex-for` | `pixi:vex-source` |
+| `pixi:via-extra` | `pixi:yanked` | `pixi:yanked-reason` |
 
 `pixi:scorecard-check-<name>` is a family rather than one name: the suffix is the OpenSSF check,
 so the set grows when OpenSSF adds a check. The prefix is frozen; the suffixes are theirs.
@@ -186,7 +188,7 @@ so the set grows when OpenSSF adds a check. The prefix is frozen; the suffixes a
 
 `--report <kind> --report-format json` writes an object with one key named after the report —
 `packages`, `licenses`, `vulnerabilities`, `diff`, `outdated`, `python`, `phantom`, `scorecard`,
-`quality` —
+`quality`, `files` —
 holding an array of rows. Row field names are frozen; **row order is not**, except where the
 report documents an order (worst-first for vulnerabilities).
 
