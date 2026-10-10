@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://millsks.github.io/pixi-sbom/latest/stability/">
+        <link rel="canonical" href="https://millsks.github.io/pixi-sbom/latest/ci-recipes/">
       
       
-        <link rel="prev" href="../output-format/">
+        <link rel="prev" href="../github-action/">
       
       
-        <link rel="next" href="../troubleshooting/">
+        <link rel="next" href="../formats/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>What 1.0 freezes - pixi-sbom</title>
+        <title>CI recipes - pixi-sbom</title>
       
     
     
@@ -91,7 +91,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#what-10-freezes" class="md-skip">
+        <a href="#ci-recipes" class="md-skip">
           Skip to content
         </a>
       
@@ -131,7 +131,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              What 1.0 freezes
+              CI recipes
             
           </span>
         </div>
@@ -775,10 +775,37 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../ci-recipes/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI recipes
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -794,6 +821,114 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#consuming-the-output-with-other-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consuming the output with other tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#failing-the-build-on-license-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failing the build on license policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-license-table-in-a-pull-request-comment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A license table in a pull request comment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-changed-in-the-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What changed in the environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#does-the-image-still-match-the-lockfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does the image still match the lockfile?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diffing-sboms-between-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diffing SBOMs between commits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pre-commit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#air-gapped-runners" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Air-gapped runners
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -856,37 +991,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    What 1.0 freezes
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../stability/" class="md-nav__link">
         
   
   
@@ -902,164 +1010,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#command-line-flags" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Command-line flags
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Command-line flags">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#spellings-that-answer-to-an-older-name" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Spellings that answer to an older name
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#values-with-a-structure" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Values with a structure
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#exit-codes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Exit codes
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#configuration-keys" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Configuration keys
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#environment-variables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Environment variables
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pixi-names-in-a-document" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        pixi:* names in a document
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#report-json" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Report JSON
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-github-action" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The GitHub Action
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#document-formats" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Document formats
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#not-covered" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Not covered
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changing-something-that-is-frozen" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Changing something that is frozen
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1315,49 +1265,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#command-line-flags" class="md-nav__link">
+  <a href="#consuming-the-output-with-other-tools" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Command-line flags
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Command-line flags">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#spellings-that-answer-to-an-older-name" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Spellings that answer to an older name
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#values-with-a-structure" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Values with a structure
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#exit-codes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Exit codes
+        Consuming the output with other tools
       
     </span>
   </a>
@@ -1365,10 +1276,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#configuration-keys" class="md-nav__link">
+  <a href="#failing-the-build-on-license-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Configuration keys
+        Failing the build on license policy
       
     </span>
   </a>
@@ -1376,10 +1287,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#environment-variables" class="md-nav__link">
+  <a href="#a-license-table-in-a-pull-request-comment" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Environment variables
+        A license table in a pull request comment
       
     </span>
   </a>
@@ -1387,10 +1298,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#pixi-names-in-a-document" class="md-nav__link">
+  <a href="#what-changed-in-the-environment" class="md-nav__link">
     <span class="md-ellipsis">
       
-        pixi:* names in a document
+        What changed in the environment
       
     </span>
   </a>
@@ -1398,10 +1309,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#report-json" class="md-nav__link">
+  <a href="#does-the-image-still-match-the-lockfile" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Report JSON
+        Does the image still match the lockfile?
       
     </span>
   </a>
@@ -1409,10 +1320,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-github-action" class="md-nav__link">
+  <a href="#diffing-sboms-between-commits" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The GitHub Action
+        Diffing SBOMs between commits
       
     </span>
   </a>
@@ -1420,10 +1331,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#document-formats" class="md-nav__link">
+  <a href="#pre-commit" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Document formats
+        pre-commit
       
     </span>
   </a>
@@ -1431,21 +1342,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#not-covered" class="md-nav__link">
+  <a href="#air-gapped-runners" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Not covered
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changing-something-that-is-frozen" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Changing something that is frozen
+        Air-gapped runners
       
     </span>
   </a>
@@ -1469,7 +1369,7 @@
 
 
   
-    <a href="https://github.com/millsks/pixi-sbom/edit/main/docs/stability.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/millsks/pixi-sbom/edit/main/docs/ci-recipes.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1477,514 +1377,110 @@
   
 
 
-<h1 id="what-10-freezes">What 1.0 freezes<a class="headerlink" href="#what-10-freezes" title="Permanent link">&para;</a></h1>
-<p>From 1.0.0, the things on this page are covered by semantic versioning: they do not change in a
-patch or minor release, and changing any of them means a new major version. Everything under
-<a href="#not-covered">Not covered</a> may change in any release.</p>
-<p>This page is the contract. It is deliberately a list of <strong>names and shapes</strong>, not a second copy of
-the reference — what each flag <em>does</em> is in <a href="../cli/">the command-line reference</a>, what each
-document field means is in <a href="../output-format/">the output format reference</a>. What is frozen is that
-the name exists, takes the same kind of value, and means the same thing.</p>
-<p>Every list here is checked against the code by <code>tests/stability.rs</code>. A flag added without a line on
-this page fails the build, and so does a line on this page for something that does not exist.</p>
-<h2 id="command-line-flags">Command-line flags<a class="headerlink" href="#command-line-flags" title="Permanent link">&para;</a></h2>
-<p>All 73. Their meanings are in <a href="../cli/">cli.md</a>; what this page promises is that none of them
-disappears or changes shape before 2.0.</p>
-<p>| <code>--against</code> | <code>--all-environments</code> | <code>--all-platforms</code> | <code>--allow-license</code> |
-| <code>--assume-used</code> | <code>--ca-bundle</code> | <code>--color</code> | <code>--concurrency</code> |
-| <code>--conda-index-kind</code> | <code>--config</code> | <code>--deny-license</code> | <code>--depth</code> |
-| <code>--doctor</code> | <code>--embedded-sboms</code> | <code>--environment</code> | <code>--epss</code> |
-| <code>--exclude</code> | <code>--exclude-kind</code> | <code>--explain</code> | <code>--fail-on-diff</code> |
-| <code>--fail-on-epss</code> | <code>--fail-on-kev</code> | <code>--fail-on-phantom</code> | <code>--fail-on-scorecard</code> |
-| <code>--fail-on-severity</code> | <code>--fail-on-yanked</code> | <code>--fetch-licenses</code> | <code>--format</code> |
-| <code>--from-sbom</code> | <code>--group-by</code> | <code>--help</code> | <code>--ignore-license</code> |
-| <code>--ignore-vuln</code> | <code>--include</code> | <code>--infer-extras</code> | <code>--keep-orphans</code> |
-| <code>--kev</code> | <code>--license-texts</code> | <code>--lockfile</code> | <code>--log-format</code> |
-| <code>--merge</code> | <code>--min-quality</code> | <code>--no-cache</code> | <code>--no-config</code> |
-| <code>--outdated-min</code> | <code>--output</code> | <code>--platform</code> | <code>--prefix</code> |
-| <code>--primary-purl</code> | <code>--pypi-mapping</code> | <code>--pypi-mapping-file</code> | <code>--quiet</code> |
-| <code>--refresh</code> | <code>--report</code> | <code>--report-format</code> | <code>--require-license</code> |
-| <code>--root-name</code> | <code>--root-version</code> | <code>--scan</code> | <code>--scan-depth</code> |
-| <code>--scorecard</code> | <code>--scorecard-min</code> | <code>--source</code> | <code>--spec-version</code> |
-| <code>--timings</code> | <code>--tree</code> | <code>--verbose</code> | <code>--version</code> |
-| <code>--version-details</code> | <code>--vex</code> | <code>--vex-in</code> | <code>--vex-open</code> |
-| <code>--vulnerabilities</code> |  |  |  |</p>
-<h3 id="spellings-that-answer-to-an-older-name">Spellings that answer to an older name<a class="headerlink" href="#spellings-that-answer-to-an-older-name" title="Permanent link">&para;</a></h3>
-<p>Accepted permanently, hidden from <code>--help</code> so there is one name to learn. Removing any of these
-would be a major version with its own notice.</p>
-<table>
-<thead>
-<tr>
-<th>Accepted</th>
-<th>Canonical</th>
-<th>Since</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--name</code></td>
-<td><code>--root-name</code></td>
-<td>renamed in 1.0.0</td>
-</tr>
-<tr>
-<td><code>--outdated-only</code></td>
-<td><code>--outdated-min</code></td>
-<td>renamed in 1.0.0</td>
-</tr>
-<tr>
-<td><code>--pypi-licenses</code></td>
-<td><code>--fetch-licenses</code></td>
-<td>renamed in 0.4.0</td>
-</tr>
-<tr>
-<td><code>--build-info</code></td>
-<td><code>--version-details</code></td>
-<td>a visible alias, both shown</td>
-</tr>
-</tbody>
-</table>
-<h3 id="values-with-a-structure">Values with a structure<a class="headerlink" href="#values-with-a-structure" title="Permanent link">&para;</a></h3>
-<p><code>--ignore-vuln</code> (and the <code>ignore-vuln</code> config key and action input) takes <code>ID</code>, <code>ID:TEXT</code> or
-<code>ID:STATE[:JUSTIFICATION][:RESPONSE,...][:TEXT]</code>. <code>STATE</code> is a CycloneDX impact-analysis state,
-<code>JUSTIFICATION</code> a CycloneDX impact-analysis justification (only after <code>not_affected</code>) and <code>RESPONSE</code> a
-comma-separated list of CycloneDX impact-analysis responses; each segment is read as one only when every word in
-it names a known value, otherwise it is text. Every form keeps its meaning through 1.x; a new segment may be added only in
-the same way, recognised by a fixed vocabulary, so an existing entry never changes meaning.</p>
-<h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Code</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>0</td>
-<td>The document or report was written.</td>
-</tr>
-<tr>
-<td>1</td>
-<td>A runtime error, or <code>--doctor</code> found a problem. A diagnostic goes to stderr.</td>
-</tr>
-<tr>
-<td>2</td>
-<td>A command-line usage error: an unknown flag, conflicting flags, or a value the flag does not accept.</td>
-</tr>
-<tr>
-<td>3</td>
-<td><code>--allow-license</code> / <code>--deny-license</code> / <code>--require-license</code> was violated.</td>
-</tr>
-<tr>
-<td>4</td>
-<td><code>--fail-on-severity</code>, <code>--fail-on-kev</code> or <code>--fail-on-epss</code> matched.</td>
-</tr>
-<tr>
-<td>6</td>
-<td><code>--fail-on-diff</code> found a change it was asked to gate on.</td>
-</tr>
-<tr>
-<td>7</td>
-<td><code>--fail-on-yanked</code> found a yanked release.</td>
-</tr>
-<tr>
-<td>8</td>
-<td><code>--fail-on-phantom</code> found an undeclared import.</td>
-</tr>
-<tr>
-<td>9</td>
-<td><code>--fail-on-scorecard</code> found a repository below the threshold.</td>
-</tr>
-<tr>
-<td>10</td>
-<td><code>--min-quality</code> found the document's quality score below the threshold.</td>
-</tr>
-</tbody>
-</table>
-<p>Every gate above 2 writes its document or report first and lists what tripped it on stderr, so a
-failing gate still leaves you the artifact.</p>
-<p><strong>5 is deliberately unused.</strong> It has never been assigned — not in any release — and it stays free
-rather than being filled by the next gate, so that a script testing for a specific code is never
-surprised by a number that used to mean nothing. Gates take 10 and upward: <code>--min-quality</code> is 10, and the next one takes 11.</p>
-<h2 id="configuration-keys">Configuration keys<a class="headerlink" href="#configuration-keys" title="Permanent link">&para;</a></h2>
-<p>A key is the flag's own name without the leading <code>--</code>, so <code>--fetch-licenses</code> is <code>fetch-licenses</code>.
-The command line always wins over the files.</p>
-<p>Three layers are read, least specific first, and merged per key — a layer overrides what a less
-specific one said and inherits what it did not mention:</p>
-<table>
-<thead>
-<tr>
-<th>Layer</th>
-<th>Where</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>system</td>
-<td><code>/etc/pixi/pixi-sbom-config.toml</code>, or <code>%PROGRAMDATA%\pixi\pixi-sbom-config.toml</code> on Windows</td>
-</tr>
-<tr>
-<td>user</td>
-<td><code>$PIXI_HOME/pixi-sbom-config.toml</code>, else <code>~/.pixi/pixi-sbom-config.toml</code></td>
-</tr>
-<tr>
-<td>project</td>
-<td><code>&lt;workspace&gt;/.pixi/pixi-sbom-config.toml</code>, else <code>[tool.pixi-sbom]</code> in <code>pyproject.toml</code>, else <code>pixi-sbom.toml</code></td>
-</tr>
-</tbody>
-</table>
-<p><code>--config &lt;PATH&gt;</code> replaces the search with one file; <code>--no-config</code> reads none. Both keep the
-meanings they have always had: ours differ from pixi's flags of similar name, which still read
-project-local files, and they are frozen as the broader meaning.</p>
-<p><strong><code>pixi-sbom.toml</code> at the workspace root is deprecated.</strong> It is read, and named as deprecated by
-<code>--doctor</code> and in the logs, until 2.0. <code>[tool.pixi-sbom]</code> in <code>pyproject.toml</code> is not deprecated and
-stays supported.</p>
-<table>
-<thead>
-<tr>
-<th></th>
-<th></th>
-<th></th>
-<th></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>format</code></td>
-<td><code>spec-version</code></td>
-<td><code>pypi-mapping</code></td>
-<td><code>pypi-mapping-file</code></td>
-</tr>
-<tr>
-<td><code>primary-purl</code></td>
-<td><code>fetch-licenses</code></td>
-<td><code>license-texts</code></td>
-<td><code>embedded-sboms</code></td>
-</tr>
-<tr>
-<td><code>exclude</code></td>
-<td><code>include</code></td>
-<td><code>exclude-kind</code></td>
-<td><code>keep-orphans</code></td>
-</tr>
-<tr>
-<td><code>allow-license</code></td>
-<td><code>deny-license</code></td>
-<td><code>require-license</code></td>
-<td><code>fail-on-yanked</code></td>
-</tr>
-<tr>
-<td><code>vulnerabilities</code></td>
-<td><code>kev</code></td>
-<td><code>fail-on-kev</code></td>
-<td><code>fail-on-severity</code></td>
-</tr>
-<tr>
-<td><code>ignore-vuln</code></td>
-<td><code>ignore-license</code></td>
-<td><code>scorecard</code></td>
-<td><code>scorecard-min</code></td>
-</tr>
-<tr>
-<td><code>fail-on-scorecard</code></td>
-<td><code>fail-on-diff</code></td>
-<td><code>source</code></td>
-<td><code>assume-used</code></td>
-</tr>
-<tr>
-<td><code>fail-on-phantom</code></td>
-<td><code>conda-index-kind</code></td>
-<td><code>concurrency</code></td>
-<td><code>infer-extras</code></td>
-</tr>
-<tr>
-<td><code>min-quality</code></td>
-<td><code>epss</code></td>
-<td><code>fail-on-epss</code></td>
-<td><code>vex-in</code></td>
-</tr>
-</tbody>
-</table>
-<p>An unknown key is an error, not a warning, and the diagnostic lists every key that is accepted — so
-a typo cannot pass silently and you are never left guessing at the spelling.</p>
-<h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
-<p><code>RATTLER_AUTH_FILE</code> and <code>NETRC</code> are read for credentials. They are not this project's to define,
-so they are not frozen here; they are honoured with the meanings rattler and curl give them.</p>
-<table>
-<thead>
-<tr>
-<th>Variable</th>
-<th></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>PIXI_SBOM_CACHE_DIR</code></td>
-<td>Where the caches live.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_CONCURRENCY</code></td>
-<td>How many requests at once; <code>--concurrency</code> and the <code>concurrency</code> key say the same thing, and the command line beats the variable, which beats the file. Requests only: threads for local work follow the core count. Above 100 is honoured with a warning; above 1000 is clamped, and the run is never sized past the number of packages.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_OFFLINE</code></td>
-<td>Make no network requests.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_NO_PROGRESS</code></td>
-<td>No progress bars.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_LOG_FORMAT</code></td>
-<td><code>text</code> or <code>json</code>.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_COMPLETE</code></td>
-<td><code>bash</code>, <code>zsh</code>, <code>fish</code>, <code>powershell</code> or <code>elvish</code>: print that shell's completion registration instead of an SBOM. Any other value is ignored.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_CA_BUNDLE</code></td>
-<td>A PEM bundle to trust.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_OSV_URL</code></td>
-<td>Where to query OSV.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_KEV_URL</code></td>
-<td>Where to fetch the CISA catalog.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_EPSS_URL</code></td>
-<td>Where to ask FIRST for EPSS scores.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_PYPI_URL</code></td>
-<td>Where to read PyPI metadata.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_ANACONDA_URL</code></td>
-<td>Where to read anaconda.org metadata.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_CONDA_FALLBACK_CHANNEL</code></td>
-<td>The channel a mirrored package is checked against, by hash.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_PREFIX_INDEX_URL</code></td>
-<td>Where to reach prefix.dev's GraphQL API.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_MAPPING_URL</code></td>
-<td>Where to download the conda-to-PyPI name mapping.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_CONDA_ARCHIVE_URL</code></td>
-<td>Base that conda package archives are read from, in place of each package's own host.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_WHEEL_ARCHIVE_URL</code></td>
-<td>Base that PyPI wheel archives are read from, in place of each wheel's own host.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_SCORECARD_URL</code></td>
-<td>Where to query OpenSSF Scorecard.</td>
-</tr>
-</tbody>
-</table>
-<p>Also read, and owned by other tools: <code>SSL_CERT_FILE</code>, <code>PIXI_CACHE_DIR</code>, <code>RATTLER_CACHE_DIR</code>,
-<code>HTTPS_PROXY</code> / <code>HTTP_PROXY</code> / <code>NO_PROXY</code>, <code>NO_COLOR</code>, <code>CLICOLOR_FORCE</code>, <code>RUST_LOG</code>.</p>
-<h2 id="pixi-names-in-a-document"><code>pixi:*</code> names in a document<a class="headerlink" href="#pixi-names-in-a-document" title="Permanent link">&para;</a></h2>
-<p>Property names in CycloneDX and comment / annotation names in SPDX. What is frozen is the name and
-what it holds; whether a given run emits a particular one depends on the flags. <code>output-format.md</code>
-says which flag produces which.</p>
-<table>
-<thead>
-<tr>
-<th></th>
-<th></th>
-<th></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>pixi:build</code></td>
-<td><code>pixi:build-number</code></td>
-<td><code>pixi:cargo-source</code></td>
-</tr>
-<tr>
-<td><code>pixi:channel</code></td>
-<td><code>pixi:channel-url</code></td>
-<td><code>pixi:declared-in</code></td>
-</tr>
-<tr>
-<td><code>pixi:direct</code></td>
-<td><code>pixi:direct-url</code></td>
-<td><code>pixi:editable</code></td>
-</tr>
-<tr>
-<td><code>pixi:embedded-sbom</code></td>
-<td><code>pixi:environment</code></td>
-<td><code>pixi:epss</code></td>
-</tr>
-<tr>
-<td><code>pixi:epss-cve</code></td>
-<td><code>pixi:epss-date</code></td>
-<td><code>pixi:epss-percentile</code></td>
-</tr>
-<tr>
-<td><code>pixi:excluded</code></td>
-<td><code>pixi:extracted-package-dir</code></td>
-<td><code>pixi:file-name</code></td>
-</tr>
-<tr>
-<td><code>pixi:identifier-hash</code></td>
-<td><code>pixi:incomplete</code></td>
-<td><code>pixi:incomplete-detail</code></td>
-</tr>
-<tr>
-<td><code>pixi:index-url</code></td>
-<td><code>pixi:installer</code></td>
-<td><code>pixi:kev</code></td>
-</tr>
-<tr>
-<td><code>pixi:kev-cve</code></td>
-<td><code>pixi:kev-date-added</code></td>
-<td><code>pixi:kev-due-date</code></td>
-</tr>
-<tr>
-<td><code>pixi:kev-ransomware</code></td>
-<td><code>pixi:kind</code></td>
-<td><code>pixi:license-exempt</code></td>
-</tr>
-<tr>
-<td><code>pixi:license-family</code></td>
-<td><code>pixi:license-file</code></td>
-<td><code>pixi:license-files-source</code></td>
-</tr>
-<tr>
-<td><code>pixi:license-raw</code></td>
-<td><code>pixi:license-source</code></td>
-<td><code>pixi:lockfile</code></td>
-</tr>
-<tr>
-<td><code>pixi:marker</code></td>
-<td><code>pixi:merge-conflict</code></td>
-<td><code>pixi:noarch</code></td>
-</tr>
-<tr>
-<td><code>pixi:platform</code></td>
-<td><code>pixi:prefix</code></td>
-<td><code>pixi:purl</code></td>
-</tr>
-<tr>
-<td><code>pixi:pypi-mapping</code></td>
-<td><code>pixi:python-extras</code></td>
-<td><code>pixi:python-extras-evidence</code></td>
-</tr>
-<tr>
-<td><code>pixi:python-extras-inferred</code></td>
-<td><code>pixi:python-version</code></td>
-<td><code>pixi:repository-source</code></td>
-</tr>
-<tr>
-<td><code>pixi:requires-python</code></td>
-<td><code>pixi:resolution-markers</code></td>
-<td><code>pixi:scorecard</code></td>
-</tr>
-<tr>
-<td><code>pixi:scorecard-date</code></td>
-<td><code>pixi:size</code></td>
-<td><code>pixi:source</code></td>
-</tr>
-<tr>
-<td><code>pixi:source-branch</code></td>
-<td><code>pixi:source-document</code></td>
-<td><code>pixi:source-git</code></td>
-</tr>
-<tr>
-<td><code>pixi:source-path</code></td>
-<td><code>pixi:source-rev</code></td>
-<td><code>pixi:source-subdirectory</code></td>
-</tr>
-<tr>
-<td><code>pixi:source-tag</code></td>
-<td><code>pixi:source-url</code></td>
-<td><code>pixi:stale-cache</code></td>
-</tr>
-<tr>
-<td><code>pixi:subdir</code></td>
-<td><code>pixi:vex-for</code></td>
-<td><code>pixi:vex-source</code></td>
-</tr>
-<tr>
-<td><code>pixi:via-extra</code></td>
-<td><code>pixi:yanked</code></td>
-<td><code>pixi:yanked-reason</code></td>
-</tr>
-</tbody>
-</table>
-<p><code>pixi:scorecard-check-&lt;name&gt;</code> is a family rather than one name: the suffix is the OpenSSF check,
-so the set grows when OpenSSF adds a check. The prefix is frozen; the suffixes are theirs.</p>
-<h2 id="report-json">Report JSON<a class="headerlink" href="#report-json" title="Permanent link">&para;</a></h2>
-<p><code>--report &lt;kind&gt; --report-format json</code> writes an object with one key named after the report —
-<code>packages</code>, <code>licenses</code>, <code>vulnerabilities</code>, <code>diff</code>, <code>outdated</code>, <code>python</code>, <code>phantom</code>, <code>scorecard</code>,
-<code>quality</code> —
-holding an array of rows. Row field names are frozen; <strong>row order is not</strong>, except where the
-report documents an order (worst-first for vulnerabilities).</p>
-<p>CSV columns and their order are frozen. A flag that adds data adds columns only after them and only
-when given: <code>--epss</code> appends <code>epss,epss_percentile</code> to the vulnerabilities CSV. The Markdown and
-table renderings are not frozen — see below.</p>
-<h2 id="the-github-action">The GitHub Action<a class="headerlink" href="#the-github-action" title="Permanent link">&para;</a></h2>
-<p>Inputs and outputs of <code>action.yml</code>. An input maps to the flag of the same name; <code>extra-args</code>
-passes anything through.</p>
-<p><strong>Inputs:</strong> <code>all-environments</code>, <code>all-platforms</code>, <code>allow-license</code>, <code>artifact-name</code>, <code>attest</code>,
-<code>attest-subject</code>, <code>config</code>, <code>deny-license</code>, <code>diff-against</code>, <code>embedded-sboms</code>, <code>environment</code>,
-<code>extra-args</code>, <code>fail-on-diff</code>, <code>fail-on-kev</code>, <code>fail-on-policy</code>, <code>fail-on-scorecard</code>,
-<code>fail-on-severity</code>, <code>fail-on-vulnerabilities</code>, <code>fail-on-yanked</code>, <code>fetch-licenses</code>, <code>format</code>,
-<code>from-sbom</code>, <code>ignore-license</code>, <code>ignore-vuln</code>, <code>kev</code>, <code>license-texts</code>, <code>lockfile</code>, <code>output</code>,
-<code>platform</code>, <code>prefix</code>, <code>primary-purl</code>, <code>pypi-mapping</code>, <code>require-license</code>, <code>sarif-category</code>, <code>scan</code>,
-<code>scorecard</code>, <code>scorecard-min</code>, <code>spec-version</code>, <code>upload-artifact</code>, <code>upload-sarif</code>, <code>version</code>, <code>vex</code>,
-<code>vex-open</code>, <code>vulnerabilities</code>.</p>
-<p><strong>Outputs:</strong> <code>attestation-url</code>, <code>diff-changed</code>, <code>document</code>, <code>output</code>, <code>policy-violated</code>, <code>sarif</code>,
-<code>version</code>, <code>vulnerabilities-found</code>.</p>
-<h2 id="document-formats">Document formats<a class="headerlink" href="#document-formats" title="Permanent link">&para;</a></h2>
-<p>CycloneDX 1.6 and 1.7, SPDX 2.3 and 3.0.1 stay writable, and <code>--spec-version</code> keeps accepting
-<code>1.6</code>, <code>1.7</code>, <code>2.3</code> and <code>3.0</code>. Which is the default for each <code>--format</code> is frozen too: CycloneDX
-1.6 and SPDX 2.3.</p>
-<p><code>--from-sbom</code> keeps reading CycloneDX 1.4–1.7 and SPDX 2.x / 3.0 JSON.</p>
-<p>Lockfile format versions 1 through 7 stay readable. A newer one is refused by name rather than
-half-read, and that refusal is exit code 1.</p>
-<h2 id="not-covered">Not covered<a class="headerlink" href="#not-covered" title="Permanent link">&para;</a></h2>
-<p>These change without a major version, and nothing should be parsed out of them:</p>
-<ul>
-<li><strong>Log lines.</strong> Every <code>INFO</code> / <code>WARN</code> / <code>DEBUG</code> line, its wording, its fields and whether it
-  appears at all. <code>--log-format json</code> gives stable <em>shape</em> — a JSON object per line — but the
-  messages and fields inside it are not a contract. Gate on exit codes, not on log text.</li>
-<li><strong>Table and Markdown report layout.</strong> Column widths, ordering of unordered reports, box drawing,
-  colour, the tree glyphs. Use <code>--report-format json</code> or <code>csv</code> if something reads it.</li>
-<li><strong>Recommendation and diagnostic wording.</strong> <code>recommendation</code> text in a document, the phrasing of a
-  miette diagnostic, the help text of a flag.</li>
-<li><strong>Progress output.</strong> Bars, spinners, what they count.</li>
-<li><strong><code>--timings</code> output.</strong> The phases, their names, the table.</li>
-<li><strong><code>--doctor</code> output.</strong> What it checks and how it says so; only the exit code is frozen.</li>
-<li><strong><code>--explain</code> output.</strong> A human-facing explanation, free to improve.</li>
-<li><strong>The published Rust library.</strong> Every module is <code>#[doc(hidden)]</code> and none of it is an API; see
-  the crate documentation. The command line is the interface.</li>
-<li><strong>Element ids and ordering inside a document.</strong> <code>bom-ref</code>, <code>SPDXID</code> and JSON-LD <code>spdxId</code> values
-  are derived and may change shape; so may the order of <code>components</code> / <code>packages</code> / <code>@graph</code>
-  entries. Match on <code>purl</code>, <code>name</code> and <code>version</code>.</li>
-<li><strong>Cache layout.</strong> Directory names and file formats under the cache directory.</li>
-<li><strong>Completion scripts and candidates.</strong> What <code>PIXI_SBOM_COMPLETE=&lt;shell&gt; pixi-sbom</code> prints, how the
-  shell and the binary talk to each other (clap's dynamic completion, which clap itself marks
-  unstable), and which candidates are offered. Source the registration at shell start rather than
-  saving it, so it always matches the binary.</li>
-</ul>
-<h2 id="changing-something-that-is-frozen">Changing something that is frozen<a class="headerlink" href="#changing-something-that-is-frozen" title="Permanent link">&para;</a></h2>
-<p>A rename keeps the old spelling as a permanent alias, the way <code>--root-name</code> and <code>--outdated-min</code>
-did. That is additive and ships in a minor release. Removing a spelling, changing what a flag
-means, or changing an exit code waits for a major version, and gets a deprecation warning in a
-release before it.</p>
+<h1 id="ci-recipes">CI recipes<a class="headerlink" href="#ci-recipes" title="Permanent link">&para;</a></h1>
+<h2 id="consuming-the-output-with-other-tools">Consuming the output with other tools<a class="headerlink" href="#consuming-the-output-with-other-tools" title="Permanent link">&para;</a></h2>
+<p>The documents validate against the official JSON schemas and load in the usual tooling. Examples:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Convert between formats or inspect</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>syft<span class="w"> </span>convert<span class="w"> </span>sbom.cdx.json<span class="w"> </span>-o<span class="w"> </span>spdx-json
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>cyclonedx-cli<span class="w"> </span>validate<span class="w"> </span>--input-file<span class="w"> </span>sbom.cdx.json<span class="w"> </span>--input-format<span class="w"> </span>json
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Vulnerability scan</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>grype<span class="w"> </span>sbom:sbom.cdx.json
+</code></pre></div>
+<p>Conda packages are identified by <code>pkg:conda/...</code> purls with <code>channel</code>, <code>subdir</code>, <code>build</code> and <code>type</code> qualifiers; PyPI
+packages by <code>pkg:pypi/...</code>.</p>
+<p>Scanners have no conda vulnerability data, so by default a conda-only Python environment scans as clean no matter
+what it contains. To get real results, give conda-forge Python packages their PyPI identity and make it the primary
+purl:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--pypi-mapping<span class="w"> </span>prefix<span class="w"> </span>--primary-purl<span class="w"> </span>pypi<span class="w"> </span>--output<span class="w"> </span>-<span class="w"> </span><span class="p">|</span><span class="w"> </span>grype
+</code></pre></div>
+<p><code>--pypi-mapping prefix</code> consults the same conda-forge mapping pixi uses (downloaded once a day into a cache);
+<code>--pypi-mapping-file</code> takes an offline copy. On a typical conda-forge Python environment this gives roughly 60% of the
+components a <code>pkg:pypi</code> purl. See <a href="../output-format/#pypi-identities-for-conda-packages">output-format.md</a> for exactly
+what is recorded.</p>
+<h2 id="failing-the-build-on-license-policy">Failing the build on license policy<a class="headerlink" href="#failing-the-build-on-license-policy" title="Permanent link">&para;</a></h2>
+<p>Any of <code>--allow-license</code>, <code>--deny-license</code> and <code>--require-license</code> turns the run into a gate: the document is still
+written, the violations are listed, and the exit code is 3. In the <a href="../github-action/">action</a> that fails the step
+unless <code>fail-on-policy</code> is <code>false</code>; anywhere else, let the non-zero exit propagate:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--deny-license<span class="w"> </span>GPL-3.0-only<span class="w"> </span>--deny-license<span class="w"> </span>AGPL-3.0-only<span class="w"> </span>--require-license
+</code></pre></div>
+<p>See <a href="../cli/#enforcing-a-license-policy">the policy semantics</a> for how expressions such as <code>MIT OR GPL-3.0-only</code> are
+evaluated.</p>
+<h2 id="a-license-table-in-a-pull-request-comment">A license table in a pull request comment<a class="headerlink" href="#a-license-table-in-a-pull-request-comment" title="Permanent link">&para;</a></h2>
+<p><code>--report licenses --report-format markdown</code> prints a per-license summary with unlicensed and non-SPDX packages
+called out, ready to paste:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">License report</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi sbom --fetch-licenses --report licenses --report-format markdown &gt; report.md</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">marocchino/sticky-pull-request-comment@v2</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">report.md</span>
+</code></pre></div>
+<p><code>--report-format csv</code> and <code>json</code> feed spreadsheets and scripts the same way; see
+<a href="../cli/#looking-instead-of-writing">looking instead of writing</a>.</p>
+<h2 id="what-changed-in-the-environment">What changed in the environment<a class="headerlink" href="#what-changed-in-the-environment" title="Permanent link">&para;</a></h2>
+<p><code>--report diff --against &lt;previous&gt;</code> answers the pull-request question directly: which packages were added,
+removed or bumped since the document on <code>main</code>, as a Markdown table ready for a comment.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/download-artifact@v4</span><span class="w">   </span><span class="c1"># the sboms artifact the main branch uploaded</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">sboms</span><span class="p p-Indicator">,</span><span class="nt"> path</span><span class="p">:</span><span class="w"> </span><span class="nv">previous</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Environment changes</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi sbom --report diff --against previous/sbom-default.cdx.json --report-format markdown &gt; diff.md</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">marocchino/sticky-pull-request-comment@v2</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> path</span><span class="p">:</span><span class="w"> </span><span class="nv">diff.md</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</code></pre></div>
+<p>To gate on it instead of only reporting it, add <code>--fail-on-diff</code> (exit code 6), or let the action do both — it puts
+the comparison in the job summary:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/download-artifact@v4</span><span class="w">   </span><span class="c1"># the sboms artifact the main branch uploaded</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">sboms</span><span class="p p-Indicator">,</span><span class="nt"> path</span><span class="p">:</span><span class="w"> </span><span class="nv">previous</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">millsks/pixi-sbom@v1</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">with</span><span class="p">:</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="nt">diff-against</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">previous/sbom-default.cdx.json</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="nt">fail-on-diff</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">removed version</span><span class="w">    </span><span class="c1"># adding a package is fine; losing or bumping one is not</span>
+</code></pre></div>
+<h2 id="does-the-image-still-match-the-lockfile">Does the image still match the lockfile?<a class="headerlink" href="#does-the-image-still-match-the-lockfile" title="Permanent link">&para;</a></h2>
+<p>The check for a container built earlier, or one whose base image was rebuilt: compare what is installed with what
+was locked. <code>pip</code> installs into the conda environment and packages rebuilt at the same version are sections of
+their own, so they are not lost among ordinary additions.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Drift check</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="no">pixi sbom --prefix /opt/conda/envs/app --against pixi.lock       --report diff --report-format markdown --fail-on-diff &gt;&gt; "$GITHUB_STEP_SUMMARY"</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Locally, against a running container</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">:/w"</span><span class="w"> </span>-w<span class="w"> </span>/w<span class="w"> </span>myimage<span class="w">   </span>pixi-sbom<span class="w"> </span>--prefix<span class="w"> </span>/opt/conda/envs/app<span class="w"> </span>--against<span class="w"> </span>pixi.lock<span class="w"> </span>--report<span class="w"> </span>diff<span class="w"> </span>--fail-on-diff<span class="w"> </span>pip<span class="w"> </span>build
+</code></pre></div>
+<h2 id="diffing-sboms-between-commits">Diffing SBOMs between commits<a class="headerlink" href="#diffing-sboms-between-commits" title="Permanent link">&para;</a></h2>
+<p>With <code>SOURCE_DATE_EPOCH</code> set, two runs over the same lockfile are byte-identical (the serial number is derived from
+the lockfile contents and the timestamp is pinned), so a plain <code>diff</code> shows exactly which packages changed:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">SOURCE_DATE_EPOCH</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--output<span class="w"> </span>sbom.cdx.json
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>git<span class="w"> </span>diff<span class="w"> </span>--no-index<span class="w"> </span>--<span class="w"> </span>sbom-previous.cdx.json<span class="w"> </span>sbom.cdx.json
+</code></pre></div>
+<p>See <a href="../output-format/#reproducibility">reproducibility</a> for what the guarantee covers.</p>
+<h2 id="pre-commit">pre-commit<a class="headerlink" href="#pre-commit" title="Permanent link">&para;</a></h2>
+<p>Two hooks, from the mirror repository <a href="https://github.com/millsks/pixi-sbom-pre-commit"><code>millsks/pixi-sbom-pre-commit</code></a>:
+each of its tags installs the pixi-sbom wheel of the same version from PyPI, so nothing is compiled.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># .pre-commit-config.yaml</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nt">repos</span><span class="p">:</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">repo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/millsks/pixi-sbom-pre-commit</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nt">rev</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1.7.0</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="nt">hooks</span><span class="p">:</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">      </span><span class="c1"># Write sbom.cdx.json next to the lockfile whenever a lockfile changes.</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi-sbom</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">      </span><span class="c1"># The license gate with your policy; writes no file.</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pixi-sbom-policy</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">        </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">--deny-license</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">GPL-3.0-only</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">--deny-license</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">AGPL-3.0-only</span><span class="p p-Indicator">]</span>
+</code></pre></div>
+<p>Both run when <code>pixi.lock</code>, <code>uv.lock</code>, <code>pylock.toml</code> (or <code>pylock.&lt;name&gt;.toml</code>), <code>poetry.lock</code>, <code>pdm.lock</code> or
+<code>conda-lock.yml</code> changes, from the repository root, where the <a href="../cli/#which-lockfile-is-found">usual search</a> finds
+the lockfile; <code>args:</code> adds any other flag (<code>--scan .</code> for a monorepo, <code>--format spdx</code>). <code>pixi-sbom-policy</code> runs
+<code>--fetch-licenses --require-license --report licenses</code>, so it needs the network to fetch licenses.</p>
+<p>pre-commit fails a hook that modifies a tracked file, and an SBOM is deterministic except for its timestamp: a rerun
+that would change nothing but the timestamp leaves the file alone, so the hook passes until the SBOM really changes.
+Commit the SBOM the first time it is written; after that a lockfile change that changes the SBOM fails the hook once,
+with the new SBOM ready to stage.</p>
+<h2 id="air-gapped-runners">Air-gapped runners<a class="headerlink" href="#air-gapped-runners" title="Permanent link">&para;</a></h2>
+<p><code>PIXI_SBOM_OFFLINE=1</code> forbids every network request; the PyPI mapping, wheel and archive caches are used when present
+and everything else is skipped with a warning, and the run still succeeds. Pair it with <code>--pypi-mapping-file</code> pointing
+at a saved copy of the conda-forge mapping and a warm <code>PIXI_SBOM_CACHE_DIR</code> from an online run. The
+<a href="../cli/#environment-variables">environment variables</a> page lists every knob, including the PyPI mirror URL.</p>
 
 
 
@@ -2020,7 +1516,7 @@ release before it.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../output-format/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Output format reference">
+          <a href="../github-action/" class="md-footer__link md-footer__link--prev" aria-label="Previous: GitHub Action">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2030,20 +1526,20 @@ release before it.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Output format reference
+                GitHub Action
               </div>
             </div>
           </a>
         
         
           
-          <a href="../troubleshooting/" class="md-footer__link md-footer__link--next" aria-label="Next: Troubleshooting">
+          <a href="../formats/" class="md-footer__link md-footer__link--next" aria-label="Next: Which format to pick">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Troubleshooting
+                Which format to pick
               </div>
             </div>
             <div class="md-footer__button md-icon">

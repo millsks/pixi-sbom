@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://millsks.github.io/pixi-sbom/latest/stability/">
+        <link rel="canonical" href="https://millsks.github.io/pixi-sbom/latest/troubleshooting/">
       
       
-        <link rel="prev" href="../output-format/">
+        <link rel="prev" href="../stability/">
       
       
-        <link rel="next" href="../troubleshooting/">
+        <link rel="next" href="../security/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>What 1.0 freezes - pixi-sbom</title>
+        <title>Troubleshooting - pixi-sbom</title>
       
     
     
@@ -91,7 +91,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#what-10-freezes" class="md-skip">
+        <a href="#troubleshooting-results-on-one-network-none-on-another" class="md-skip">
           Skip to content
         </a>
       
@@ -131,7 +131,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              What 1.0 freezes
+              Troubleshooting
             
           </span>
         </div>
@@ -856,6 +856,33 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../stability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What 1.0 freezes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -875,7 +902,7 @@
   <span class="md-ellipsis">
     
   
-    What 1.0 freezes
+    Troubleshooting
   
 
     
@@ -893,7 +920,7 @@
   <span class="md-ellipsis">
     
   
-    What 1.0 freezes
+    Troubleshooting
   
 
     
@@ -919,22 +946,33 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#command-line-flags" class="md-nav__link">
+  <a href="#1-ask-the-tool-what-it-sees" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Command-line flags
+        1. Ask the tool what it sees
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Command-line flags">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-the-three-usual-causes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. The three usual causes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. The three usual causes">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#spellings-that-answer-to-an-older-name" class="md-nav__link">
+  <a href="#proxies" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Spellings that answer to an older name
+        Proxies
       
     </span>
   </a>
@@ -942,10 +980,43 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#values-with-a-structure" class="md-nav__link">
+  <a href="#a-private-certificate-authority" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Values with a structure
+        A private certificate authority
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-channel-that-needs-credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A channel that needs credentials
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-rate-limited-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A rate-limited run
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-blocked-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A blocked host
       
     </span>
   </a>
@@ -958,10 +1029,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#exit-codes" class="md-nav__link">
+  <a href="#3-read-the-requests" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Exit codes
+        3. Read the requests
       
     </span>
   </a>
@@ -969,10 +1040,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#configuration-keys" class="md-nav__link">
+  <a href="#4-work-from-the-cache" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Configuration keys
+        4. Work from the cache
       
     </span>
   </a>
@@ -980,76 +1051,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#environment-variables" class="md-nav__link">
+  <a href="#reporting-it" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Environment variables
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pixi-names-in-a-document" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        pixi:* names in a document
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#report-json" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Report JSON
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-github-action" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The GitHub Action
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#document-formats" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Document formats
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#not-covered" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Not covered
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changing-something-that-is-frozen" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Changing something that is frozen
+        Reporting it
       
     </span>
   </a>
@@ -1060,33 +1065,6 @@
   
 </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../troubleshooting/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Troubleshooting
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1315,22 +1293,33 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#command-line-flags" class="md-nav__link">
+  <a href="#1-ask-the-tool-what-it-sees" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Command-line flags
+        1. Ask the tool what it sees
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Command-line flags">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-the-three-usual-causes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. The three usual causes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. The three usual causes">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#spellings-that-answer-to-an-older-name" class="md-nav__link">
+  <a href="#proxies" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Spellings that answer to an older name
+        Proxies
       
     </span>
   </a>
@@ -1338,10 +1327,43 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#values-with-a-structure" class="md-nav__link">
+  <a href="#a-private-certificate-authority" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Values with a structure
+        A private certificate authority
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-channel-that-needs-credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A channel that needs credentials
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-rate-limited-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A rate-limited run
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-blocked-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A blocked host
       
     </span>
   </a>
@@ -1354,10 +1376,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#exit-codes" class="md-nav__link">
+  <a href="#3-read-the-requests" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Exit codes
+        3. Read the requests
       
     </span>
   </a>
@@ -1365,10 +1387,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#configuration-keys" class="md-nav__link">
+  <a href="#4-work-from-the-cache" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Configuration keys
+        4. Work from the cache
       
     </span>
   </a>
@@ -1376,76 +1398,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#environment-variables" class="md-nav__link">
+  <a href="#reporting-it" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Environment variables
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pixi-names-in-a-document" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        pixi:* names in a document
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#report-json" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Report JSON
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-github-action" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The GitHub Action
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#document-formats" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Document formats
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#not-covered" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Not covered
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changing-something-that-is-frozen" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Changing something that is frozen
+        Reporting it
       
     </span>
   </a>
@@ -1469,7 +1425,7 @@
 
 
   
-    <a href="https://github.com/millsks/pixi-sbom/edit/main/docs/stability.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/millsks/pixi-sbom/edit/main/docs/troubleshooting.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1477,514 +1433,274 @@
   
 
 
-<h1 id="what-10-freezes">What 1.0 freezes<a class="headerlink" href="#what-10-freezes" title="Permanent link">&para;</a></h1>
-<p>From 1.0.0, the things on this page are covered by semantic versioning: they do not change in a
-patch or minor release, and changing any of them means a new major version. Everything under
-<a href="#not-covered">Not covered</a> may change in any release.</p>
-<p>This page is the contract. It is deliberately a list of <strong>names and shapes</strong>, not a second copy of
-the reference — what each flag <em>does</em> is in <a href="../cli/">the command-line reference</a>, what each
-document field means is in <a href="../output-format/">the output format reference</a>. What is frozen is that
-the name exists, takes the same kind of value, and means the same thing.</p>
-<p>Every list here is checked against the code by <code>tests/stability.rs</code>. A flag added without a line on
-this page fails the build, and so does a line on this page for something that does not exist.</p>
-<h2 id="command-line-flags">Command-line flags<a class="headerlink" href="#command-line-flags" title="Permanent link">&para;</a></h2>
-<p>All 73. Their meanings are in <a href="../cli/">cli.md</a>; what this page promises is that none of them
-disappears or changes shape before 2.0.</p>
-<p>| <code>--against</code> | <code>--all-environments</code> | <code>--all-platforms</code> | <code>--allow-license</code> |
-| <code>--assume-used</code> | <code>--ca-bundle</code> | <code>--color</code> | <code>--concurrency</code> |
-| <code>--conda-index-kind</code> | <code>--config</code> | <code>--deny-license</code> | <code>--depth</code> |
-| <code>--doctor</code> | <code>--embedded-sboms</code> | <code>--environment</code> | <code>--epss</code> |
-| <code>--exclude</code> | <code>--exclude-kind</code> | <code>--explain</code> | <code>--fail-on-diff</code> |
-| <code>--fail-on-epss</code> | <code>--fail-on-kev</code> | <code>--fail-on-phantom</code> | <code>--fail-on-scorecard</code> |
-| <code>--fail-on-severity</code> | <code>--fail-on-yanked</code> | <code>--fetch-licenses</code> | <code>--format</code> |
-| <code>--from-sbom</code> | <code>--group-by</code> | <code>--help</code> | <code>--ignore-license</code> |
-| <code>--ignore-vuln</code> | <code>--include</code> | <code>--infer-extras</code> | <code>--keep-orphans</code> |
-| <code>--kev</code> | <code>--license-texts</code> | <code>--lockfile</code> | <code>--log-format</code> |
-| <code>--merge</code> | <code>--min-quality</code> | <code>--no-cache</code> | <code>--no-config</code> |
-| <code>--outdated-min</code> | <code>--output</code> | <code>--platform</code> | <code>--prefix</code> |
-| <code>--primary-purl</code> | <code>--pypi-mapping</code> | <code>--pypi-mapping-file</code> | <code>--quiet</code> |
-| <code>--refresh</code> | <code>--report</code> | <code>--report-format</code> | <code>--require-license</code> |
-| <code>--root-name</code> | <code>--root-version</code> | <code>--scan</code> | <code>--scan-depth</code> |
-| <code>--scorecard</code> | <code>--scorecard-min</code> | <code>--source</code> | <code>--spec-version</code> |
-| <code>--timings</code> | <code>--tree</code> | <code>--verbose</code> | <code>--version</code> |
-| <code>--version-details</code> | <code>--vex</code> | <code>--vex-in</code> | <code>--vex-open</code> |
-| <code>--vulnerabilities</code> |  |  |  |</p>
-<h3 id="spellings-that-answer-to-an-older-name">Spellings that answer to an older name<a class="headerlink" href="#spellings-that-answer-to-an-older-name" title="Permanent link">&para;</a></h3>
-<p>Accepted permanently, hidden from <code>--help</code> so there is one name to learn. Removing any of these
-would be a major version with its own notice.</p>
+<h1 id="troubleshooting-results-on-one-network-none-on-another">Troubleshooting: results on one network, none on another<a class="headerlink" href="#troubleshooting-results-on-one-network-none-on-another" title="Permanent link">&para;</a></h1>
+<p>The same command, the same <code>pixi.lock</code>, a different network — and the vulnerability table is empty, or every
+license is missing. Nothing in the output says why, because from the tool's point of view nothing went wrong: it
+asked, it did not get an answer, it carried on and wrote a document.</p>
+<p>This page is the order to check things in. Every step is a command you can paste.</p>
+<h2 id="1-ask-the-tool-what-it-sees">1. Ask the tool what it sees<a class="headerlink" href="#1-ask-the-tool-what-it-sees" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">$ </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--doctor<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">Configuration</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">  offline    false</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">  proxy      HTTPS_PROXY=http://user:***@proxy.corp:8080</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">  no-proxy   NO_PROXY=.corp,localhost</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">  TLS roots  the platform verifier (the operating system trust store)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="go">  timeout    120s</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="go">  cache      /home/u/.cache/rattler/pixi-sbom (exists)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="go">Upstreams</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="go">  PyPI index         https://pypi.org/pypi            ok 200, 184 ms</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="go">  OSV                https://api.osv.dev              failed: io: invalid peer certificate: UnknownIssuer</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="go">  package archives   each package's own download URL  ok 200, 96 ms</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="go">1 of 3 upstream(s) could not be reached: OSV.</span>
+</code></pre></div>
+<p><code>--doctor</code> needs no lockfile and no workspace. Give it the flags of the run you are diagnosing, so it probes the
+same upstreams that run would. It exits 1 when anything is unreachable, which makes it usable as a CI pre-flight.</p>
+<p>The three lines that answer most questions are <code>proxy</code>, <code>TLS roots</code> and the failure text beside each upstream.
+<code>pixi sbom --version-details</code> prints the same configuration plus what the binary was built with.</p>
+<h2 id="2-the-three-usual-causes">2. The three usual causes<a class="headerlink" href="#2-the-three-usual-causes" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Accepted</th>
-<th>Canonical</th>
-<th>Since</th>
+<th>Symptom in <code>--doctor</code></th>
+<th>Cause</th>
+<th>Fix</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>--name</code></td>
-<td><code>--root-name</code></td>
-<td>renamed in 1.0.0</td>
+<td><code>failed: io: invalid peer certificate: UnknownIssuer</code></td>
+<td>A TLS-intercepting appliance re-signs traffic with a CA the tool does not trust</td>
+<td>Install the CA system-wide, or point <code>--ca-bundle</code> at it (below)</td>
 </tr>
 <tr>
-<td><code>--outdated-only</code></td>
-<td><code>--outdated-min</code></td>
-<td>renamed in 1.0.0</td>
+<td><code>failed: io: Connection refused</code> / a timeout, with <code>proxy none</code></td>
+<td>The network needs a proxy and none is configured</td>
+<td>Set <code>HTTPS_PROXY</code> (and <code>NO_PROXY</code> for internal hosts)</td>
 </tr>
 <tr>
-<td><code>--pypi-licenses</code></td>
-<td><code>--fetch-licenses</code></td>
-<td>renamed in 0.4.0</td>
+<td><code>failed: ...</code> with a <code>socks5://</code> proxy set</td>
+<td>—</td>
+<td>Supported; if it still fails, check <code>pixi sbom --version-details</code> says <code>socks-proxy</code></td>
 </tr>
 <tr>
-<td><code>--build-info</code></td>
-<td><code>--version-details</code></td>
-<td>a visible alias, both shown</td>
-</tr>
-</tbody>
-</table>
-<h3 id="values-with-a-structure">Values with a structure<a class="headerlink" href="#values-with-a-structure" title="Permanent link">&para;</a></h3>
-<p><code>--ignore-vuln</code> (and the <code>ignore-vuln</code> config key and action input) takes <code>ID</code>, <code>ID:TEXT</code> or
-<code>ID:STATE[:JUSTIFICATION][:RESPONSE,...][:TEXT]</code>. <code>STATE</code> is a CycloneDX impact-analysis state,
-<code>JUSTIFICATION</code> a CycloneDX impact-analysis justification (only after <code>not_affected</code>) and <code>RESPONSE</code> a
-comma-separated list of CycloneDX impact-analysis responses; each segment is read as one only when every word in
-it names a known value, otherwise it is text. Every form keeps its meaning through 1.x; a new segment may be added only in
-the same way, recognised by a fixed vocabulary, so an existing entry never changes meaning.</p>
-<h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Code</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>0</td>
-<td>The document or report was written.</td>
-</tr>
-<tr>
-<td>1</td>
-<td>A runtime error, or <code>--doctor</code> found a problem. A diagnostic goes to stderr.</td>
-</tr>
-<tr>
-<td>2</td>
-<td>A command-line usage error: an unknown flag, conflicting flags, or a value the flag does not accept.</td>
-</tr>
-<tr>
-<td>3</td>
-<td><code>--allow-license</code> / <code>--deny-license</code> / <code>--require-license</code> was violated.</td>
-</tr>
-<tr>
-<td>4</td>
-<td><code>--fail-on-severity</code>, <code>--fail-on-kev</code> or <code>--fail-on-epss</code> matched.</td>
-</tr>
-<tr>
-<td>6</td>
-<td><code>--fail-on-diff</code> found a change it was asked to gate on.</td>
-</tr>
-<tr>
-<td>7</td>
-<td><code>--fail-on-yanked</code> found a yanked release.</td>
-</tr>
-<tr>
-<td>8</td>
-<td><code>--fail-on-phantom</code> found an undeclared import.</td>
-</tr>
-<tr>
-<td>9</td>
-<td><code>--fail-on-scorecard</code> found a repository below the threshold.</td>
-</tr>
-<tr>
-<td>10</td>
-<td><code>--min-quality</code> found the document's quality score below the threshold.</td>
+<td><code>ok 200</code> for everything, but the report is still empty</td>
+<td>Nothing was asked, rather than nothing found</td>
+<td>See <a href="../cli/#when-something-comes-back-empty">when something comes back empty</a></td>
 </tr>
 </tbody>
 </table>
-<p>Every gate above 2 writes its document or report first and lists what tripped it on stderr, so a
-failing gate still leaves you the artifact.</p>
-<p><strong>5 is deliberately unused.</strong> It has never been assigned — not in any release — and it stays free
-rather than being filled by the next gate, so that a script testing for a specific code is never
-surprised by a number that used to mean nothing. Gates take 10 and upward: <code>--min-quality</code> is 10, and the next one takes 11.</p>
-<h2 id="configuration-keys">Configuration keys<a class="headerlink" href="#configuration-keys" title="Permanent link">&para;</a></h2>
-<p>A key is the flag's own name without the leading <code>--</code>, so <code>--fetch-licenses</code> is <code>fetch-licenses</code>.
-The command line always wins over the files.</p>
-<p>Three layers are read, least specific first, and merged per key — a layer overrides what a less
-specific one said and inherits what it did not mention:</p>
+<h3 id="proxies">Proxies<a class="headerlink" href="#proxies" title="Permanent link">&para;</a></h3>
+<p>Every request honours <code>ALL_PROXY</code>, <code>HTTPS_PROXY</code>, <code>HTTP_PROXY</code> and <code>NO_PROXY</code> (either case), including
+<code>socks5://</code> and <code>socks5h://</code> addresses. On Windows, a proxy configured only in the system settings, with no
+environment variable at all, is used as well.</p>
+<p>The configuration block prints the variable in effect with the password replaced, so it is safe to paste into an
+issue — internal host names are not, so read it first.</p>
+<h3 id="a-private-certificate-authority">A private certificate authority<a class="headerlink" href="#a-private-certificate-authority" title="Permanent link">&para;</a></h3>
+<p>Trust comes from the operating system's store by default, which is right wherever the appliance's CA is installed
+system-wide. Where it is not — a container, a CI image, a machine where only Python was ever configured — point
+the tool at the bundle:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--ca-bundle<span class="w"> </span>/etc/ssl/certs/corp-ca.pem<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PIXI_SBOM_CA_BUNDLE</span><span class="o">=</span>/etc/ssl/certs/corp-ca.pem<span class="w">     </span><span class="c1"># the same, for a CI job</span>
+</code></pre></div>
+<p><code>SSL_CERT_FILE</code> is honoured when neither is given, which is the variable the rest of the Python and conda world
+already sets in such an image, so a correctly configured container usually needs nothing at all.</p>
+<p>The trust anchors are resolved once, before the first request, and the first of these that is set wins:</p>
+<ol>
+<li><code>--ca-bundle &lt;FILE&gt;</code></li>
+<li><code>PIXI_SBOM_CA_BUNDLE</code></li>
+<li><code>SSL_CERT_FILE</code></li>
+<li>the platform verifier — the operating system's own trust store, which is the default when none of the three
+   is set, and which is what every earlier release used</li>
+</ol>
+<p><code>--doctor</code> and <code>pixi sbom --version-details</code> both print which one is in play, as the <code>TLS roots</code> line. Nothing is
+compiled into the binary: there is no vendored root store to go stale.</p>
+<p>The file must be PEM; a bundle that is missing or holds no certificate is
+reported before the first request, naming the file and the flag that gave it, rather than arriving later as a
+handshake failure:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gp">$ </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--ca-bundle<span class="w"> </span>./corp.der<span class="w"> </span>--fetch-licenses
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">Error: pixi_sbom::http::ca_bundle</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="go">  × no certificate in the CA bundle at ./corp.der</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="go">  help: the file given by --ca-bundle must be PEM, with at least one -----BEGIN CERTIFICATE----- block;</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="go">        a DER file must be converted first (openssl x509 -inform der -in ca.der -out ca.pem)</span>
+</code></pre></div>
+<h3 id="a-channel-that-needs-credentials">A channel that needs credentials<a class="headerlink" href="#a-channel-that-needs-credentials" title="Permanent link">&para;</a></h3>
+<p>A private channel or index answers 401, usually on <code>--fetch-licenses</code>, which reads each archive
+from the host the lockfile names. pixi-sbom reads the credentials the conda ecosystem already
+keeps, in the order <code>rattler</code> consults them:</p>
 <table>
 <thead>
 <tr>
-<th>Layer</th>
-<th>Where</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>system</td>
-<td><code>/etc/pixi/pixi-sbom-config.toml</code>, or <code>%PROGRAMDATA%\pixi\pixi-sbom-config.toml</code> on Windows</td>
-</tr>
-<tr>
-<td>user</td>
-<td><code>$PIXI_HOME/pixi-sbom-config.toml</code>, else <code>~/.pixi/pixi-sbom-config.toml</code></td>
-</tr>
-<tr>
-<td>project</td>
-<td><code>&lt;workspace&gt;/.pixi/pixi-sbom-config.toml</code>, else <code>[tool.pixi-sbom]</code> in <code>pyproject.toml</code>, else <code>pixi-sbom.toml</code></td>
-</tr>
-</tbody>
-</table>
-<p><code>--config &lt;PATH&gt;</code> replaces the search with one file; <code>--no-config</code> reads none. Both keep the
-meanings they have always had: ours differ from pixi's flags of similar name, which still read
-project-local files, and they are frozen as the broader meaning.</p>
-<p><strong><code>pixi-sbom.toml</code> at the workspace root is deprecated.</strong> It is read, and named as deprecated by
-<code>--doctor</code> and in the logs, until 2.0. <code>[tool.pixi-sbom]</code> in <code>pyproject.toml</code> is not deprecated and
-stays supported.</p>
-<table>
-<thead>
-<tr>
-<th></th>
-<th></th>
-<th></th>
+<th>Source</th>
 <th></th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>format</code></td>
-<td><code>spec-version</code></td>
-<td><code>pypi-mapping</code></td>
-<td><code>pypi-mapping-file</code></td>
+<td><code>RATTLER_AUTH_FILE</code></td>
+<td>a credentials file named by the environment</td>
 </tr>
 <tr>
-<td><code>primary-purl</code></td>
-<td><code>fetch-licenses</code></td>
-<td><code>license-texts</code></td>
-<td><code>embedded-sboms</code></td>
+<td><code>~/.rattler/credentials.json</code></td>
+<td>where <code>pixi auth login</code> writes</td>
 </tr>
 <tr>
-<td><code>exclude</code></td>
-<td><code>include</code></td>
-<td><code>exclude-kind</code></td>
-<td><code>keep-orphans</code></td>
-</tr>
-<tr>
-<td><code>allow-license</code></td>
-<td><code>deny-license</code></td>
-<td><code>require-license</code></td>
-<td><code>fail-on-yanked</code></td>
-</tr>
-<tr>
-<td><code>vulnerabilities</code></td>
-<td><code>kev</code></td>
-<td><code>fail-on-kev</code></td>
-<td><code>fail-on-severity</code></td>
-</tr>
-<tr>
-<td><code>ignore-vuln</code></td>
-<td><code>ignore-license</code></td>
-<td><code>scorecard</code></td>
-<td><code>scorecard-min</code></td>
-</tr>
-<tr>
-<td><code>fail-on-scorecard</code></td>
-<td><code>fail-on-diff</code></td>
-<td><code>source</code></td>
-<td><code>assume-used</code></td>
-</tr>
-<tr>
-<td><code>fail-on-phantom</code></td>
-<td><code>conda-index-kind</code></td>
-<td><code>concurrency</code></td>
-<td><code>infer-extras</code></td>
-</tr>
-<tr>
-<td><code>min-quality</code></td>
-<td><code>epss</code></td>
-<td><code>fail-on-epss</code></td>
-<td><code>vex-in</code></td>
+<td><code>~/.netrc</code></td>
+<td><code>NETRC</code> overrides the path; <code>_netrc</code> on Windows</td>
 </tr>
 </tbody>
 </table>
-<p>An unknown key is an error, not a warning, and the diagnostic lists every key that is accepted — so
-a typo cannot pass silently and you are never left guessing at the spelling.</p>
-<h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
-<p><code>RATTLER_AUTH_FILE</code> and <code>NETRC</code> are read for credentials. They are not this project's to define,
-so they are not frozen here; they are honoured with the meanings rattler and curl give them.</p>
+<p>So a host already set up for pixi needs nothing further:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pixi<span class="w"> </span>auth<span class="w"> </span>login<span class="w"> </span>artifactory.corp<span class="w"> </span>--token<span class="w"> </span><span class="s2">"</span><span class="nv">$TOKEN</span><span class="s2">"</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses
+</code></pre></div>
+<p>Entries are matched by exact host first, then <code>*.domain</code> walking up the labels, so
+<code>*.corp.example</code> covers <code>artifactory.corp.example</code>. A <code>.netrc</code> <code>default</code> entry applies to any host
+with no better match.</p>
+<p>Bearer tokens, basic auth and conda tokens are all used; a conda token goes in the path as
+<code>/t/&lt;token&gt;/</code> the way conda does it. Credentials never appear in a log line, a cache key or a
+produced document.</p>
+<p><strong>The platform keyring is not read.</strong> pixi can keep credentials there, and pixi-sbom cannot reach
+them without a platform dependency that would not help a CI runner anyway. Export the entry into a
+file and point <code>RATTLER_AUTH_FILE</code> at it.</p>
+<p><strong>S3 and OAuth credentials are recognised but not used.</strong> A host configured with either is
+requested unauthenticated, with a warning naming the host, rather than failing silently.</p>
+<p><strong>401 and 403 are different problems.</strong> A 401 means the host wants authentication, and the warning
+names what this machine had for it, because a rejected credential and a missing one look identical
+from the status code and want opposite fixes. A 403 means the host refused — usually a proxy or a
+policy — and credentials are only named when some were actually sent and refused anyway. A 403 from
+a host you have no credentials for is not a credentials problem, and is not reported as one.</p>
+<h3 id="a-rate-limited-run">A rate-limited run<a class="headerlink" href="#a-rate-limited-run" title="Permanent link">&para;</a></h3>
+<p>The indexes are free public services, and asking for more parallelism than one will tolerate gets
+<code>429 Too Many Requests</code> back. A request that is refused that way is retried a few times, waiting
+longer each time with a little jitter so a batch launched together does not retry together and
+reproduce the burst. <code>502</code>, <code>503</code> and <code>504</code> are treated the same way: a proxy saying an upstream is
+briefly out.</p>
+<p>Attempts and total waiting are both capped — this is a tool that has to finish, not a daemon — so a
+genuinely rate-limited run ends rather than sleeping indefinitely. Packages it could not ask about
+are then named in their own line:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>No releases to compare against (1): mylib
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Could not be checked (37), the index did not answer: numpy, pandas, ...
+</code></pre></div>
+<p><strong>Those two lines mean opposite things.</strong> The first is a fact about the packages: nothing upstream
+carries them, which is the normal answer for a private or source package. The second is a failure
+of the run: the packages have an upstream and we did not manage to ask. Reporting them together
+would make a rate-limited run look like a confident answer with packages quietly missing from it.</p>
+<p>If the second line appears, lower the concurrency (<code>PIXI_SBOM_CONCURRENCY</code>) and run again; the cache
+keeps whatever did answer, so a second run asks only for the rest.</p>
+<p>A timeout or a host that does not resolve is <strong>not</strong> retried. The first has already spent the whole
+request budget and the second will not resolve any sooner for being asked twice; retrying either
+would multiply the worst case rather than recover from it.</p>
+<h3 id="a-blocked-host">A blocked host<a class="headerlink" href="#a-blocked-host" title="Permanent link">&para;</a></h3>
+<p><code>pixi sbom --doctor</code> on its own probes every fixed upstream and names the ones that did not answer, so start
+there rather than guessing which flag reaches which host. <a href="../cli/#every-upstream-it-can-reach">Every upstream it can
+reach</a> lists all eight addresses and the option that brings each one in.</p>
+<p>Where the host itself is unreachable and no proxy or CA will change that, point the tool at whatever the network
+does allow:</p>
 <table>
 <thead>
 <tr>
 <th>Variable</th>
-<th></th>
+<th>What it replaces</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>PIXI_SBOM_CACHE_DIR</code></td>
-<td>Where the caches live.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_CONCURRENCY</code></td>
-<td>How many requests at once; <code>--concurrency</code> and the <code>concurrency</code> key say the same thing, and the command line beats the variable, which beats the file. Requests only: threads for local work follow the core count. Above 100 is honoured with a warning; above 1000 is clamped, and the run is never sized past the number of packages.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_OFFLINE</code></td>
-<td>Make no network requests.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_NO_PROGRESS</code></td>
-<td>No progress bars.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_LOG_FORMAT</code></td>
-<td><code>text</code> or <code>json</code>.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_COMPLETE</code></td>
-<td><code>bash</code>, <code>zsh</code>, <code>fish</code>, <code>powershell</code> or <code>elvish</code>: print that shell's completion registration instead of an SBOM. Any other value is ignored.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_CA_BUNDLE</code></td>
-<td>A PEM bundle to trust.</td>
+<td><code>PIXI_SBOM_PYPI_URL</code></td>
+<td>The PyPI JSON API — a devpi or Artifactory mirror</td>
 </tr>
 <tr>
 <td><code>PIXI_SBOM_OSV_URL</code></td>
-<td>Where to query OSV.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_KEV_URL</code></td>
-<td>Where to fetch the CISA catalog.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_EPSS_URL</code></td>
-<td>Where to ask FIRST for EPSS scores.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_PYPI_URL</code></td>
-<td>Where to read PyPI metadata.</td>
+<td>The OSV API</td>
 </tr>
 <tr>
 <td><code>PIXI_SBOM_ANACONDA_URL</code></td>
-<td>Where to read anaconda.org metadata.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_CONDA_FALLBACK_CHANNEL</code></td>
-<td>The channel a mirrored package is checked against, by hash.</td>
+<td>The anaconda.org API used by <code>--report outdated</code>; naming one also lets it be asked about channels the lockfile fetched from elsewhere</td>
 </tr>
 <tr>
 <td><code>PIXI_SBOM_PREFIX_INDEX_URL</code></td>
-<td>Where to reach prefix.dev's GraphQL API.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_MAPPING_URL</code></td>
-<td>Where to download the conda-to-PyPI name mapping.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_CONDA_ARCHIVE_URL</code></td>
-<td>Base that conda package archives are read from, in place of each package's own host.</td>
-</tr>
-<tr>
-<td><code>PIXI_SBOM_WHEEL_ARCHIVE_URL</code></td>
-<td>Base that PyPI wheel archives are read from, in place of each wheel's own host.</td>
+<td>prefix.dev's GraphQL endpoint, which <code>--report outdated</code> uses by default</td>
 </tr>
 <tr>
 <td><code>PIXI_SBOM_SCORECARD_URL</code></td>
-<td>Where to query OpenSSF Scorecard.</td>
+<td>The OpenSSF Scorecard API</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_KEV_URL</code></td>
+<td>The CISA KEV catalog</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_EPSS_URL</code></td>
+<td>The FIRST EPSS API (<code>--epss</code>)</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_MAPPING_URL</code></td>
+<td>The conda-to-PyPI name mapping</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_CONDA_ARCHIVE_URL</code></td>
+<td>Base for conda package archives, replacing each package's own host</td>
+</tr>
+<tr>
+<td><code>PIXI_SBOM_WHEEL_ARCHIVE_URL</code></td>
+<td>Base for PyPI wheel archives, replacing each wheel's host and keeping its path</td>
 </tr>
 </tbody>
 </table>
-<p>Also read, and owned by other tools: <code>SSL_CERT_FILE</code>, <code>PIXI_CACHE_DIR</code>, <code>RATTLER_CACHE_DIR</code>,
-<code>HTTPS_PROXY</code> / <code>HTTP_PROXY</code> / <code>NO_PROXY</code>, <code>NO_COLOR</code>, <code>CLICOLOR_FORCE</code>, <code>RUST_LOG</code>.</p>
-<h2 id="pixi-names-in-a-document"><code>pixi:*</code> names in a document<a class="headerlink" href="#pixi-names-in-a-document" title="Permanent link">&para;</a></h2>
-<p>Property names in CycloneDX and comment / annotation names in SPDX. What is frozen is the name and
-what it holds; whether a given run emits a particular one depends on the flags. <code>output-format.md</code>
-says which flag produces which.</p>
+<p><code>--pypi-mapping-file &lt;FILE&gt;</code> takes the conda → PyPI name mapping from disk instead of downloading it, for a run
+with no network at all. That mapping is what an air-gapped run of <code>--vulnerabilities osv</code> over conda packages
+cannot do without.</p>
+<h2 id="3-read-the-requests">3. Read the requests<a class="headerlink" href="#3-read-the-requests" title="Permanent link">&para;</a></h2>
+<p><code>-v</code> turns on the per-request lines; <code>-vv</code> adds the detail that matters when a run cannot be reproduced on
+another machine:</p>
 <table>
 <thead>
 <tr>
-<th></th>
-<th></th>
+<th>Level</th>
 <th></th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>pixi:build</code></td>
-<td><code>pixi:build-number</code></td>
-<td><code>pixi:cargo-source</code></td>
+<td><code>-v</code> (debug)</td>
+<td>every request and its outcome, which credentials file was loaded, cache hits and misses</td>
 </tr>
 <tr>
-<td><code>pixi:channel</code></td>
-<td><code>pixi:channel-url</code></td>
-<td><code>pixi:declared-in</code></td>
-</tr>
-<tr>
-<td><code>pixi:direct</code></td>
-<td><code>pixi:direct-url</code></td>
-<td><code>pixi:editable</code></td>
-</tr>
-<tr>
-<td><code>pixi:embedded-sbom</code></td>
-<td><code>pixi:environment</code></td>
-<td><code>pixi:epss</code></td>
-</tr>
-<tr>
-<td><code>pixi:epss-cve</code></td>
-<td><code>pixi:epss-date</code></td>
-<td><code>pixi:epss-percentile</code></td>
-</tr>
-<tr>
-<td><code>pixi:excluded</code></td>
-<td><code>pixi:extracted-package-dir</code></td>
-<td><code>pixi:file-name</code></td>
-</tr>
-<tr>
-<td><code>pixi:identifier-hash</code></td>
-<td><code>pixi:incomplete</code></td>
-<td><code>pixi:incomplete-detail</code></td>
-</tr>
-<tr>
-<td><code>pixi:index-url</code></td>
-<td><code>pixi:installer</code></td>
-<td><code>pixi:kev</code></td>
-</tr>
-<tr>
-<td><code>pixi:kev-cve</code></td>
-<td><code>pixi:kev-date-added</code></td>
-<td><code>pixi:kev-due-date</code></td>
-</tr>
-<tr>
-<td><code>pixi:kev-ransomware</code></td>
-<td><code>pixi:kind</code></td>
-<td><code>pixi:license-exempt</code></td>
-</tr>
-<tr>
-<td><code>pixi:license-family</code></td>
-<td><code>pixi:license-file</code></td>
-<td><code>pixi:license-files-source</code></td>
-</tr>
-<tr>
-<td><code>pixi:license-raw</code></td>
-<td><code>pixi:license-source</code></td>
-<td><code>pixi:lockfile</code></td>
-</tr>
-<tr>
-<td><code>pixi:marker</code></td>
-<td><code>pixi:merge-conflict</code></td>
-<td><code>pixi:noarch</code></td>
-</tr>
-<tr>
-<td><code>pixi:platform</code></td>
-<td><code>pixi:prefix</code></td>
-<td><code>pixi:purl</code></td>
-</tr>
-<tr>
-<td><code>pixi:pypi-mapping</code></td>
-<td><code>pixi:python-extras</code></td>
-<td><code>pixi:python-extras-evidence</code></td>
-</tr>
-<tr>
-<td><code>pixi:python-extras-inferred</code></td>
-<td><code>pixi:python-version</code></td>
-<td><code>pixi:repository-source</code></td>
-</tr>
-<tr>
-<td><code>pixi:requires-python</code></td>
-<td><code>pixi:resolution-markers</code></td>
-<td><code>pixi:scorecard</code></td>
-</tr>
-<tr>
-<td><code>pixi:scorecard-date</code></td>
-<td><code>pixi:size</code></td>
-<td><code>pixi:source</code></td>
-</tr>
-<tr>
-<td><code>pixi:source-branch</code></td>
-<td><code>pixi:source-document</code></td>
-<td><code>pixi:source-git</code></td>
-</tr>
-<tr>
-<td><code>pixi:source-path</code></td>
-<td><code>pixi:source-rev</code></td>
-<td><code>pixi:source-subdirectory</code></td>
-</tr>
-<tr>
-<td><code>pixi:source-tag</code></td>
-<td><code>pixi:source-url</code></td>
-<td><code>pixi:stale-cache</code></td>
-</tr>
-<tr>
-<td><code>pixi:subdir</code></td>
-<td><code>pixi:vex-for</code></td>
-<td><code>pixi:vex-source</code></td>
-</tr>
-<tr>
-<td><code>pixi:via-extra</code></td>
-<td><code>pixi:yanked</code></td>
-<td><code>pixi:yanked-reason</code></td>
+<td><code>-vv</code> (trace)</td>
+<td>per-request credential attribution, the hosts credentials exist for, and <strong>response headers</strong></td>
 </tr>
 </tbody>
 </table>
-<p><code>pixi:scorecard-check-&lt;name&gt;</code> is a family rather than one name: the suffix is the OpenSSF check,
-so the set grows when OpenSSF adds a check. The prefix is frozen; the suffixes are theirs.</p>
-<h2 id="report-json">Report JSON<a class="headerlink" href="#report-json" title="Permanent link">&para;</a></h2>
-<p><code>--report &lt;kind&gt; --report-format json</code> writes an object with one key named after the report —
-<code>packages</code>, <code>licenses</code>, <code>vulnerabilities</code>, <code>diff</code>, <code>outdated</code>, <code>python</code>, <code>phantom</code>, <code>scorecard</code>,
-<code>quality</code> —
-holding an array of rows. Row field names are frozen; <strong>row order is not</strong>, except where the
-report documents an order (worst-first for vulnerabilities).</p>
-<p>CSV columns and their order are frozen. A flag that adds data adds columns only after them and only
-when given: <code>--epss</code> appends <code>epss,epss_percentile</code> to the vulnerabilities CSV. The Markdown and
-table renderings are not frozen — see below.</p>
-<h2 id="the-github-action">The GitHub Action<a class="headerlink" href="#the-github-action" title="Permanent link">&para;</a></h2>
-<p>Inputs and outputs of <code>action.yml</code>. An input maps to the flag of the same name; <code>extra-args</code>
-passes anything through.</p>
-<p><strong>Inputs:</strong> <code>all-environments</code>, <code>all-platforms</code>, <code>allow-license</code>, <code>artifact-name</code>, <code>attest</code>,
-<code>attest-subject</code>, <code>config</code>, <code>deny-license</code>, <code>diff-against</code>, <code>embedded-sboms</code>, <code>environment</code>,
-<code>extra-args</code>, <code>fail-on-diff</code>, <code>fail-on-kev</code>, <code>fail-on-policy</code>, <code>fail-on-scorecard</code>,
-<code>fail-on-severity</code>, <code>fail-on-vulnerabilities</code>, <code>fail-on-yanked</code>, <code>fetch-licenses</code>, <code>format</code>,
-<code>from-sbom</code>, <code>ignore-license</code>, <code>ignore-vuln</code>, <code>kev</code>, <code>license-texts</code>, <code>lockfile</code>, <code>output</code>,
-<code>platform</code>, <code>prefix</code>, <code>primary-purl</code>, <code>pypi-mapping</code>, <code>require-license</code>, <code>sarif-category</code>, <code>scan</code>,
-<code>scorecard</code>, <code>scorecard-min</code>, <code>spec-version</code>, <code>upload-artifact</code>, <code>upload-sarif</code>, <code>version</code>, <code>vex</code>,
-<code>vex-open</code>, <code>vulnerabilities</code>.</p>
-<p><strong>Outputs:</strong> <code>attestation-url</code>, <code>diff-changed</code>, <code>document</code>, <code>output</code>, <code>policy-violated</code>, <code>sarif</code>,
-<code>version</code>, <code>vulnerabilities-found</code>.</p>
-<h2 id="document-formats">Document formats<a class="headerlink" href="#document-formats" title="Permanent link">&para;</a></h2>
-<p>CycloneDX 1.6 and 1.7, SPDX 2.3 and 3.0.1 stay writable, and <code>--spec-version</code> keeps accepting
-<code>1.6</code>, <code>1.7</code>, <code>2.3</code> and <code>3.0</code>. Which is the default for each <code>--format</code> is frozen too: CycloneDX
-1.6 and SPDX 2.3.</p>
-<p><code>--from-sbom</code> keeps reading CycloneDX 1.4–1.7 and SPDX 2.x / 3.0 JSON.</p>
-<p>Lockfile format versions 1 through 7 stay readable. A newer one is refused by name rather than
-half-read, and that refusal is exit code 1.</p>
-<h2 id="not-covered">Not covered<a class="headerlink" href="#not-covered" title="Permanent link">&para;</a></h2>
-<p>These change without a major version, and nothing should be parsed out of them:</p>
-<ul>
-<li><strong>Log lines.</strong> Every <code>INFO</code> / <code>WARN</code> / <code>DEBUG</code> line, its wording, its fields and whether it
-  appears at all. <code>--log-format json</code> gives stable <em>shape</em> — a JSON object per line — but the
-  messages and fields inside it are not a contract. Gate on exit codes, not on log text.</li>
-<li><strong>Table and Markdown report layout.</strong> Column widths, ordering of unordered reports, box drawing,
-  colour, the tree glyphs. Use <code>--report-format json</code> or <code>csv</code> if something reads it.</li>
-<li><strong>Recommendation and diagnostic wording.</strong> <code>recommendation</code> text in a document, the phrasing of a
-  miette diagnostic, the help text of a flag.</li>
-<li><strong>Progress output.</strong> Bars, spinners, what they count.</li>
-<li><strong><code>--timings</code> output.</strong> The phases, their names, the table.</li>
-<li><strong><code>--doctor</code> output.</strong> What it checks and how it says so; only the exit code is frozen.</li>
-<li><strong><code>--explain</code> output.</strong> A human-facing explanation, free to improve.</li>
-<li><strong>The published Rust library.</strong> Every module is <code>#[doc(hidden)]</code> and none of it is an API; see
-  the crate documentation. The command line is the interface.</li>
-<li><strong>Element ids and ordering inside a document.</strong> <code>bom-ref</code>, <code>SPDXID</code> and JSON-LD <code>spdxId</code> values
-  are derived and may change shape; so may the order of <code>components</code> / <code>packages</code> / <code>@graph</code>
-  entries. Match on <code>purl</code>, <code>name</code> and <code>version</code>.</li>
-<li><strong>Cache layout.</strong> Directory names and file formats under the cache directory.</li>
-<li><strong>Completion scripts and candidates.</strong> What <code>PIXI_SBOM_COMPLETE=&lt;shell&gt; pixi-sbom</code> prints, how the
-  shell and the binary talk to each other (clap's dynamic completion, which clap itself marks
-  unstable), and which candidates are offered. Source the registration at shell start rather than
-  saving it, so it always matches the binary.</li>
-</ul>
-<h2 id="changing-something-that-is-frozen">Changing something that is frozen<a class="headerlink" href="#changing-something-that-is-frozen" title="Permanent link">&para;</a></h2>
-<p>A rename keeps the old spelling as a permanent alias, the way <code>--root-name</code> and <code>--outdated-min</code>
-did. That is additive and ships in a minor release. Removing a spelling, changing what a flag
-means, or changing an exit code waits for a major version, and gets a deprecation warning in a
-release before it.</p>
+<p>Response headers are the thing to reach for when a request fails and the status does not say why. A proxy or a
+gateway that strips or rewrites <code>Authorization</code> is invisible from a status code and obvious from the headers.
+Values that carry a credential are masked by length rather than printed, so a log is safe to paste:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>TRACE pixi_sbom::http: response headers url="https://artifactory.corp/..."
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>      headers="server: Artifactory; set-cookie: &lt;32 chars&gt;; x-api-key: &lt;15 chars&gt;; content-length: 11"
+</code></pre></div>
+<p><code>Authorization</code>, <code>Proxy-Authorization</code>, <code>Cookie</code>, <code>Set-Cookie</code>, <code>X-JFrog-Art-Api</code> and <code>X-Api-Key</code> are masked
+everywhere they appear. A conda token changes the URL that is requested, and the original is what gets logged.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">RUST_LOG</span><span class="o">=</span>pixi_sbom::http<span class="o">=</span>debug,pixi_sbom<span class="o">=</span>info<span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+</code></pre></div>
+<p>Every request is logged with its URL, status, size and elapsed time, and every failure with its <strong>whole error
+chain</strong> — <code>invalid peer certificate</code>, <code>Connection refused</code>, the proxy's own message — rather than only the
+outermost "request failed". <a href="../cli/#what-the-log-says-and-how-to-narrow-it">What the log says</a> has the module
+targets and three worked recipes.</p>
+<h2 id="4-work-from-the-cache">4. Work from the cache<a class="headerlink" href="#4-work-from-the-cache" title="Permanent link">&para;</a></h2>
+<p>An unreachable upstream does not have to stop a run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">PIXI_SBOM_OFFLINE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pixi<span class="w"> </span>sbom<span class="w"> </span>--fetch-licenses<span class="w"> </span>--vulnerabilities<span class="w"> </span>osv
+</code></pre></div>
+<p>Nothing is requested; every cache is used where it has an answer and every skipped request is logged. Warm the
+caches on a machine that can reach the network, copy <code>PIXI_SBOM_CACHE_DIR</code> across, and the restricted machine
+produces the same document.</p>
+<p>What such a run could <strong>not</strong> finish is recorded in the document itself — <code>pixi:incomplete</code>,
+<code>pixi:incomplete-detail</code> and <code>pixi:stale-cache</code> (see
+<a href="../output-format/#incomplete-enrichment">incomplete enrichment</a>) — so an SBOM built on a restricted network does
+not read as "no known vulnerabilities" months later.</p>
+<h2 id="reporting-it">Reporting it<a class="headerlink" href="#reporting-it" title="Permanent link">&para;</a></h2>
+<p>If none of this explains it, open an issue with the output of <code>pixi sbom --version-details</code>, the command, and the
+same command with <code>-vv</code>. The bug report form asks for exactly those three.</p>
 
 
 
@@ -2020,7 +1736,7 @@ release before it.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../output-format/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Output format reference">
+          <a href="../stability/" class="md-footer__link md-footer__link--prev" aria-label="Previous: What 1.0 freezes">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2030,20 +1746,20 @@ release before it.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Output format reference
+                What 1.0 freezes
               </div>
             </div>
           </a>
         
         
           
-          <a href="../troubleshooting/" class="md-footer__link md-footer__link--next" aria-label="Next: Troubleshooting">
+          <a href="../security/" class="md-footer__link md-footer__link--next" aria-label="Next: Security policy">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Troubleshooting
+                Security policy
               </div>
             </div>
             <div class="md-footer__button md-icon">
