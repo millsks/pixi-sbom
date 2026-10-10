@@ -144,7 +144,12 @@ fn entry_of(package: &crate::model::Package) -> Entry {
 /// side the comparison reads.
 pub fn previous_from_sbom(sbom: &Sbom) -> Previous {
     Previous {
-        entries: sbom.packages.iter().map(entry_of).collect(),
+        entries: sbom
+            .packages
+            .iter()
+            .filter(|p| !p.id.ends_with(crate::prefix::VENDORED_ID_SUFFIX))
+            .map(entry_of)
+            .collect(),
         format: sbom.input_description(),
         pypi_only: describes_pypi_only(sbom),
     }
@@ -209,6 +214,7 @@ pub fn parse_previous(text: &str) -> Option<Previous> {
             .components
             .into_iter()
             .filter(|c| root.as_deref() != Some(c.reference.as_str()))
+            .filter(|c| !is_vendored(&c.reference, c.purl.as_deref()))
             .map(|c| Entry {
                 kind: kind_of(c.purl.as_deref()),
                 name: c.name,
@@ -226,6 +232,13 @@ pub fn parse_previous(text: &str) -> Option<Previous> {
         });
     }
     parse_spdx3(text)
+}
+
+/// Whether a component read back from a document is a vendored copy: its CycloneDX `bom-ref` ends
+/// in the vendored suffix, or its SPDX 2.3 id is an embedded component's and its purl a PyPI one.
+fn is_vendored(reference: &str, purl: Option<&str>) -> bool {
+    reference.ends_with(crate::prefix::VENDORED_ID_SUFFIX)
+        || (reference.starts_with("SPDXRef-Package-embedded-") && purl.is_some_and(|p| p.starts_with("pkg:pypi/")))
 }
 
 /// SPDX 3.0.1 JSON-LD: every `software_Package` but the root, with its purl from
@@ -435,9 +448,12 @@ pub const DIFF_EXIT_CODE: i32 = 6;
 /// Compare `sbom` (the new side) with `previous`.
 pub fn compare(sbom: &Sbom, previous: &Previous, against: &Path) -> Diff {
     let mut old: BTreeMap<String, &Entry> = previous.entries.iter().map(|e| (key(&e.kind, &e.name), e)).collect();
+    // A vendored copy (setuptools/_vendor/packaging) is not an install of its own: comparing it by
+    // name would make it stand in for, or be mistaken for, the installed distribution.
     let mut new: BTreeMap<String, Entry> = sbom
         .packages
         .iter()
+        .filter(|p| !p.id.ends_with(crate::prefix::VENDORED_ID_SUFFIX))
         .map(|p| {
             let entry = entry_of(p);
             (key(&entry.kind, &entry.name), entry)

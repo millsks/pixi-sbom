@@ -732,6 +732,196 @@ fn installed_pypi_identity(prefix: &Path, record: &Record) -> Option<(String, St
     Some((purl, dist_info))
 }
 
+/// What [`attach_vendored`] found.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct VendoredOutcome {
+    /// Vendored distributions added as components.
+    pub added: usize,
+    /// Copies of one already added, vendored by another package.
+    pub merged: usize,
+}
+
+/// Where a vendored distribution was found, in `pixi:embedded-sbom`: `vendored:<dir>`.
+const VENDORED_SOURCE: &str = "vendored";
+
+/// The id suffix that keeps a vendored copy apart from an installed distribution of the same
+/// name and version: the two are different copies of the code.
+pub const VENDORED_ID_SUFFIX: &str = "#vendored";
+
+/// Python distributions a package ships inside itself (`setuptools/_vendor/packaging-26.0.dist-info`),
+/// attached as [`PackageKind::Embedded`] components under the package that owns the directory, the
+/// way [`crate::auditable`] attaches the crates in a binary. A vendored copy can lag the installed
+/// one, and an advisory against it is a finding in the environment.
+pub fn attach_vendored(sbom: &mut Sbom, prefix: &Path) -> VendoredOutcome {
+    let mut outcome = VendoredOutcome::default();
+    let owners = vendor_owners(sbom, prefix);
+    let mut by_id: BTreeMap<String, usize> = sbom
+        .packages
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.id.ends_with(VENDORED_ID_SUFFIX))
+        .map(|(i, p)| (p.id.clone(), i))
+        .collect();
+    for root in site_packages(prefix) {
+        let Ok(tops) = std::fs::read_dir(&root) else {
+            continue;
+        };
+        let mut tops: Vec<PathBuf> = tops.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect();
+        tops.sort();
+        for top in tops {
+            let Some(top_name) = top.file_name().map(|n| n.to_string_lossy().into_owned()) else {
+                continue;
+            };
+            if top_name.ends_with(".dist-info") {
+                continue;
+            }
+            for vendor in ["_vendor", "vendor"] {
+                let dir = top.join(vendor);
+                let Ok(entries) = std::fs::read_dir(&dir) else {
+                    continue;
+                };
+                let mut dists: Vec<PathBuf> = entries
+                    .flatten()
+                    .map(|e| e.path())
+                    .filter(|p| p.is_dir() && p.extension().is_some_and(|e| e == "dist-info"))
+                    .collect();
+                dists.sort();
+                let source = format!("{VENDORED_SOURCE}:{top_name}/{vendor}");
+                for dist in dists {
+                    let Some((name, version)) = name_and_version(&dist) else {
+                        continue;
+                    };
+                    let Ok(purl) = purl::pypi(&name, &version) else {
+                        continue;
+                    };
+                    let id = format!("{purl}{VENDORED_ID_SUFFIX}");
+                    let index = match by_id.get(&id) {
+                        Some(&index) => {
+                            let value = sbom.packages[index]
+                                .properties
+                                .entry(crate::embedded::SOURCE_PROPERTY.to_string())
+                                .or_default();
+                            if !value.split(';').any(|s| s == source) {
+                                value.push(';');
+                                value.push_str(&source);
+                            }
+                            outcome.merged += 1;
+                            index
+                        }
+                        None => {
+                            sbom.packages
+                                .push(vendored_package(&id, &purl, &name, &version, &source));
+                            by_id.insert(id.clone(), sbom.packages.len() - 1);
+                            outcome.added += 1;
+                            sbom.packages.len() - 1
+                        }
+                    };
+                    let id = sbom.packages[index].id.clone();
+                    if let Some(&owner) = owners.get(&top_name) {
+                        let deps = &mut sbom.packages[owner].dependencies;
+                        if !deps.contains(&id) {
+                            deps.push(id);
+                            deps.sort();
+                        }
+                    }
+                }
+            }
+        }
+    }
+    sbom.packages.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
+    outcome
+}
+
+/// `Name` and `Version` from a dist-info's `METADATA`.
+fn name_and_version(dist_info: &Path) -> Option<(String, String)> {
+    let text = std::fs::read_to_string(dist_info.join("METADATA")).ok()?;
+    let headers = wheel::parse_headers(&text);
+    let first = |key: &str| {
+        headers
+            .get(key)
+            .and_then(|v| v.first())
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+    };
+    Some((first("name")?, first("version")?))
+}
+
+/// The package that owns each top-level directory in site-packages: from the files a conda record
+/// lists, and from the `RECORD` of a pip-installed dist-info. Indexes into `sbom.packages`.
+fn vendor_owners(sbom: &Sbom, prefix: &Path) -> BTreeMap<String, usize> {
+    let mut owners = BTreeMap::new();
+    let top_of = |file: &str| -> Option<String> {
+        let file = file.replace('\\', "/");
+        let rest = file.split("site-packages/").nth(1).unwrap_or(&file);
+        let top = rest.split('/').next()?;
+        (!top.is_empty() && !top.ends_with(".dist-info") && rest.contains('/')).then(|| top.to_string())
+    };
+    let find = |kind: PackageKind, name: &str| {
+        sbom.packages
+            .iter()
+            .position(|p| p.kind == kind && purl::normalize_pypi_name(&p.name) == purl::normalize_pypi_name(name))
+    };
+    if let Ok(records) = std::fs::read_dir(prefix.join("conda-meta")) {
+        for path in records.flatten().map(|e| e.path()) {
+            let Some(record) = std::fs::read_to_string(&path)
+                .ok()
+                .and_then(|text| serde_json::from_str::<Record>(&text).ok())
+            else {
+                continue;
+            };
+            let Some(index) = find(PackageKind::CondaBinary, &record.name) else {
+                continue;
+            };
+            for file in record.files.iter().filter(|f| f.contains("site-packages/")) {
+                if let Some(top) = top_of(file) {
+                    owners.entry(top).or_insert(index);
+                }
+            }
+        }
+    }
+    for dist_info in dist_infos(prefix) {
+        let Some((name, _)) = name_and_version(&dist_info) else {
+            continue;
+        };
+        let Some(index) = find(PackageKind::Pypi, &name) else {
+            continue;
+        };
+        let record = std::fs::read_to_string(dist_info.join("RECORD")).unwrap_or_default();
+        for line in record.lines() {
+            if let Some(top) = line.split(',').next().and_then(top_of) {
+                owners.entry(top).or_insert(index);
+            }
+        }
+    }
+    owners
+}
+
+fn vendored_package(id: &str, purl: &str, name: &str, version: &str, source: &str) -> Package {
+    Package {
+        id: id.to_string(),
+        name: name.to_string(),
+        version: Some(version.to_string()),
+        kind: PackageKind::Embedded,
+        purl: purl.to_string(),
+        supplier: None,
+        extra_purls: Vec::new(),
+        // The dist-info on disk is the authority on what was vendored.
+        purls_from_lock: true,
+        location: String::new(),
+        sha256: None,
+        md5: None,
+        license: None,
+        license_files: Vec::new(),
+        description: None,
+        homepage: None,
+        repository: None,
+        documentation: None,
+        yanked: None,
+        properties: BTreeMap::from([(crate::embedded::SOURCE_PROPERTY.to_string(), source.to_string())]),
+        dependencies: Vec::new(),
+    }
+}
+
 /// Every `*.dist-info` directory under the environment's site-packages, whichever layout the
 /// platform uses.
 pub fn dist_infos(prefix: &Path) -> Vec<PathBuf> {
@@ -1007,6 +1197,116 @@ mod tests {
             Some("osx-64")
         );
         assert_eq!(object_platform(b"#!/bin/sh\n"), None);
+    }
+
+    fn dist_info(dir: &Path, name: &str, version: &str, record: &[&str]) {
+        std::fs::create_dir_all(dir).unwrap();
+        std::fs::write(
+            dir.join("METADATA"),
+            format!("Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n"),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("RECORD"),
+            record.iter().map(|f| format!("{f},,\n")).collect::<String>(),
+        )
+        .unwrap();
+    }
+
+    /// Distributions a package vendors are components under it, apart from the installed copy of
+    /// the same project; two packages vendoring the same release share one component; and a diff
+    /// does not take a vendored copy for an install.
+    #[test]
+    fn vendored_distributions_are_components_under_the_package_that_ships_them() {
+        let dir = tempfile::tempdir().unwrap();
+        let env = dir.path();
+        let site = env.join("lib/python3.12/site-packages");
+        std::fs::create_dir_all(env.join("conda-meta")).unwrap();
+        let record = serde_json::json!({
+            "name": "setuptools", "version": "80.0.0", "build": "pyh0", "subdir": "noarch",
+            "files": ["lib/python3.12/site-packages/setuptools/__init__.py", "lib/python3.12/site-packages/pkg_resources/__init__.py"],
+        });
+        std::fs::write(env.join("conda-meta/setuptools-80.0.0-pyh0.json"), record.to_string()).unwrap();
+        dist_info(
+            &site.join("setuptools/_vendor/packaging-26.0.dist-info"),
+            "packaging",
+            "26.0",
+            &[],
+        );
+        dist_info(
+            &site.join("setuptools/_vendor/wheel-0.46.3.dist-info"),
+            "wheel",
+            "0.46.3",
+            &[],
+        );
+        dist_info(
+            &site.join("pkg_resources/_vendor/packaging-26.0.dist-info"),
+            "packaging",
+            "26.0",
+            &[],
+        );
+        dist_info(
+            &site.join("packaging-26.3.dist-info"),
+            "packaging",
+            "26.3",
+            &["packaging/__init__.py"],
+        );
+        dist_info(
+            &site.join("bleach-6.0.0.dist-info"),
+            "bleach",
+            "6.0.0",
+            &["bleach/__init__.py"],
+        );
+        dist_info(
+            &site.join("bleach/_vendor/html5lib-1.1.dist-info"),
+            "html5lib",
+            "1.1",
+            &[],
+        );
+
+        let mut sbom = build_sbom(env, Root::default(), None).unwrap();
+        let before = crate::diff::previous_from_sbom(&sbom);
+        let outcome = attach_vendored(&mut sbom, env);
+        assert_eq!(outcome, VendoredOutcome { added: 3, merged: 1 });
+
+        let find = |id: &str| {
+            sbom.packages
+                .iter()
+                .find(|p| p.id == id)
+                .unwrap_or_else(|| panic!("{id}"))
+        };
+        let vendored = find("pkg:pypi/packaging@26.0#vendored");
+        assert_eq!(vendored.kind, PackageKind::Embedded);
+        assert_eq!(vendored.purl, "pkg:pypi/packaging@26.0");
+        assert_eq!(
+            vendored.properties[crate::embedded::SOURCE_PROPERTY],
+            "vendored:pkg_resources/_vendor;vendored:setuptools/_vendor"
+        );
+        assert_eq!(
+            find("pkg:pypi/packaging@26.3").kind,
+            PackageKind::Pypi,
+            "the installed copy is its own"
+        );
+        let setuptools = sbom.packages.iter().find(|p| p.name == "setuptools").unwrap();
+        assert!(
+            setuptools
+                .dependencies
+                .contains(&"pkg:pypi/packaging@26.0#vendored".to_string())
+        );
+        assert!(
+            setuptools
+                .dependencies
+                .contains(&"pkg:pypi/wheel@0.46.3#vendored".to_string())
+        );
+        let bleach = find("pkg:pypi/bleach@6.0.0");
+        assert_eq!(
+            bleach.dependencies,
+            ["pkg:pypi/html5lib@1.1#vendored"],
+            "owned through the pip RECORD"
+        );
+
+        let diff = crate::diff::compare(&sbom, &before, Path::new("before"));
+        assert!(diff.is_empty(), "vendored copies are not installs: {diff:?}");
     }
 
     /// A Python package conda installed carries its PyPI identity from the dist-info it put in

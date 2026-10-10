@@ -25,6 +25,11 @@ Since 1.0, pixi-sbom has:
 
 ## Unreleased
 
+**`--embedded-sboms` finds Python distributions vendored inside packages.** setuptools ships packaging, wheel and a
+dozen more in `setuptools/_vendor/`, and a vendored copy can lag the installed one. With `--prefix`, each is now a
+component under the package that ships it, with its own PyPI identity, so scanners check it too. `--report diff`
+does not count them as installs.
+
 **A plain Python installation lists its interpreter.** `--prefix` on a container's `/usr/local` listed only what
 pip installed, though most advisories against such an image are against Python itself. The interpreter is now a
 `python` component at its full version, with CPython's CPE. On `python:3.12-slim`, Grype finds 8 CPython

@@ -308,6 +308,20 @@ binary, `pixi:cargo-source` (`crates.io`, `git`, `local`, ...), and an edge from
 its program was built from. Crates that only built the program (`kind: build`) are not in it and are left out.
 Because the purls are `pkg:cargo`, `--vulnerabilities osv` covers them through RUSTSEC.
 
+### Vendored Python distributions
+
+Some packages ship other Python distributions inside themselves, each with its own `dist-info`: setuptools vendors
+packaging, wheel and a dozen more under `setuptools/_vendor/`, and bleach vendors html5lib. A vendored copy can lag
+the installed one (packaging 26.0 vendored beside 26.3 installed), and an advisory against it is a finding in the
+environment. With `--prefix` and `--embedded-sboms`, every `<package>/_vendor/*.dist-info` and
+`<package>/vendor/*.dist-info` in site-packages is attached like any other embedded component: `pixi:kind=embedded`,
+the `pkg:pypi/<name>@<version>` its `METADATA` names, `pixi:embedded-sbom=vendored:<package>/_vendor` (several,
+separated by `;`, when more than one package vendors the same release), and an edge from the package that owns the
+directory, found from its conda record's files or its pip `RECORD`.
+
+Its id (`bom-ref`) ends in `#vendored`, so it stays apart from an installed distribution of the same name and version:
+they are different copies of the code. `--report diff` leaves vendored copies out: they are not installs.
+
 ### Installed environments
 
 With `--prefix` the document describes an installed environment instead of a lockfile: the metadata property is

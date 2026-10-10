@@ -2276,6 +2276,9 @@ fn enrich(sbom: &mut model::Sbom, args: &cli::Args, input: &Input, progress: pro
                     merged,
                 } = auditable::enrich(sbom, dir, progress);
                 tracing::info!(binaries, added, merged, "read cargo auditable crate lists");
+                // Python distributions a package ships inside itself (setuptools/_vendor).
+                let prefix::VendoredOutcome { added, merged } = prefix::attach_vendored(sbom, dir);
+                tracing::info!(added, merged, "attached vendored Python distributions");
             }
         }
         let pkgcache::Outcome {
