@@ -1646,7 +1646,9 @@ with a PyPI identity are submitted by it, so <code>pypi-mapping: prefix</code> g
 <a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">      </span><span class="nt">dependency-submission</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
 </code></pre></div>
 <p>Each environment and platform is submitted under its own correlator, so a run with <code>all-environments</code> keeps every
-environment in the graph. The submission is a second run of the same inputs with <code>--format github</code>; the document,
+environment in the graph. This repository submits its own environments this way, on every push to <code>main</code> that
+changes the lockfile or the action:
+<a href="https://github.com/millsks/pixi-sbom/blob/main/.github/workflows/dependency-graph.yml"><code>dependency-graph.yml</code></a>. The submission is a second run of the same inputs with <code>--format github</code>; the document,
 gates and artifact of the first are unchanged.</p>
 <h2 id="signed-sboms">Signed SBOMs<a class="headerlink" href="#signed-sboms" title="Permanent link">&para;</a></h2>
 <p>An SBOM published from CI is only as trustworthy as its provenance. <code>attest: "true"</code> signs the documents with a
