@@ -9673,7 +9673,20 @@ fn completion_offers_flags_values_and_paths() {
             .collect::<Vec<_>>()
     };
     assert_eq!(complete(&["--form"]), ["--format"]);
-    assert_eq!(complete(&["--format", ""]), ["cyclonedx", "spdx", "github"]);
+    assert_eq!(complete(&["--format", ""]), ["cyclonedx", "github", "spdx"]);
+    // Alphabetical, not the order the flags are declared in (#481).
+    assert_eq!(
+        complete(&["--fail-on-"]),
+        [
+            "--fail-on-diff",
+            "--fail-on-epss",
+            "--fail-on-kev",
+            "--fail-on-phantom",
+            "--fail-on-scorecard",
+            "--fail-on-severity",
+            "--fail-on-yanked"
+        ]
+    );
     let reports = complete(&["--report", ""]);
     for kind in ["packages", "licenses", "vulnerabilities", "quality"] {
         assert!(reports.iter().any(|r| r == kind), "--report offers {kind}: {reports:?}");

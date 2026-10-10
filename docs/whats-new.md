@@ -25,6 +25,10 @@ Since 1.0, pixi-sbom has:
 
 ## Unreleased
 
+**Tab completion lists flags alphabetically.** It offered them in the order they are declared in the code, so in
+zsh `--fail-on-yanked` sat far from `--fail-on-kev` and a half-remembered name meant reading all of them. Every shell
+now gets flags and their values in alphabetical order.
+
 **`--format github` puts a pixi environment in GitHub's dependency graph.** It writes GitHub's dependency
 submission snapshot, so an environment's packages show up in the dependency graph and get Dependabot alerts,
 without syft in the pipeline. Conda packages with a PyPI identity are submitted by it, since that is where GitHub's

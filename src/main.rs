@@ -33,7 +33,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
     if cli::completion_requested(shell.as_deref()) {
-        clap_complete::CompleteEnv::with_factory(|| cli::Args::command().bin_name("pixi-sbom"))
+        clap_complete::CompleteEnv::with_factory(cli::completion_command)
             .var(cli::COMPLETE_ENV)
             .bin("pixi-sbom")
             .completer("pixi-sbom")

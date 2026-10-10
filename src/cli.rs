@@ -179,6 +179,36 @@ pub fn completion_requested(value: Option<&str>) -> bool {
     value.is_some_and(|shell| COMPLETION_SHELLS.contains(&shell))
 }
 
+/// The command the completion engine reads: this one, with its flags and each flag's values in
+/// alphabetical order. clap offers candidates in declaration order, a thematic order nobody picked
+/// for lookup, and every shell's registration keeps the order it is given (#481). Parsing and
+/// `--help` use [`Args::command`] and are unaffected.
+pub fn completion_command() -> clap::Command {
+    use clap::CommandFactory;
+    let mut command = Args::command().bin_name("pixi-sbom");
+    // Built, so `--help` and `--version` exist as arguments and are sorted with the rest.
+    command.build();
+    let mut args: Vec<clap::Arg> = command.get_arguments().cloned().collect();
+    args.sort_by_key(|arg| arg.get_long().unwrap_or(arg.get_id().as_str()).to_string());
+    // The engine lists flags by display order, which the derive numbers in declaration order.
+    let args = args.into_iter().enumerate().map(|(position, arg)| {
+        let arg = arg.display_order(position);
+        let mut values = arg.get_possible_values();
+        if values.is_empty() {
+            return arg;
+        }
+        values.sort_by(|a, b| a.get_name().cmp(b.get_name()));
+        arg.value_parser(clap::builder::PossibleValuesParser::new(values))
+    });
+    clap::Command::new(command.get_name().to_string())
+        .bin_name("pixi-sbom")
+        .version(command.get_version().map(str::to_string).unwrap_or_default())
+        .disable_help_flag(true)
+        .disable_version_flag(true)
+        .args(args)
+        .groups(command.get_groups().cloned())
+}
+
 /// The line in clap's PowerShell registration that passes an empty word at the cursor.
 const POWERSHELL_EMPTY_WORD: &str = "        $args += \" ''\";\n";
 
@@ -758,6 +788,43 @@ pub fn parse_probability(text: &str) -> Result<f64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Completion offers every flag `--help` lists, alphabetically, and each flag's values sorted;
+    /// the command that parses keeps its own order (#481).
+    #[test]
+    fn the_completion_command_has_every_flag_and_value_in_alphabetical_order() {
+        use clap::CommandFactory;
+        let names = |command: &clap::Command| -> Vec<String> {
+            let mut built = command.clone();
+            built.build();
+            let mut by_order: Vec<(usize, String)> = built
+                .get_arguments()
+                .map(|arg| (arg.get_display_order(), arg.get_long().unwrap_or("").to_string()))
+                .collect();
+            by_order.sort();
+            by_order.into_iter().map(|(_, long)| long).collect()
+        };
+        let completion = completion_command();
+        let offered = names(&completion);
+        let mut sorted = offered.clone();
+        sorted.sort();
+        assert_eq!(offered, sorted);
+        let mut declared = names(&Args::command());
+        assert_ne!(declared, offered, "the parsing command keeps its thematic order");
+        declared.sort();
+        assert_eq!(declared, offered, "the same flags");
+        for arg in completion.get_arguments() {
+            let values: Vec<String> = arg
+                .get_possible_values()
+                .iter()
+                .map(|v| v.get_name().to_string())
+                .collect();
+            let mut sorted = values.clone();
+            sorted.sort();
+            assert_eq!(values, sorted, "--{}", arg.get_long().unwrap_or(""));
+        }
+        assert_eq!(completion.get_groups().count(), Args::command().get_groups().count());
+    }
 
     #[test]
     fn the_powershell_registration_passes_the_empty_word_in_every_powershell() {

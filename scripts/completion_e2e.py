@@ -32,6 +32,10 @@ CASES: list[tuple[str, set[str], bool]] = [
     ("pixi ins", {"install"}, False),
 ]
 
+# Lines whose candidates must come back in alphabetical order (#481): pixi-sbom sorts them, and
+# every registration keeps the order it is given.
+ORDERED = ["pixi-sbom --fail-on-", "pixi sbom --fail-on-", "pixi-sbom --report "]
+
 
 if os.name == "nt":
     DEFAULT_SHELLS = ["powershell", "windows-powershell"]
@@ -66,14 +70,14 @@ def shells() -> dict[str, list[str]]:
     return found
 
 
-def offered(command: list[str], line: str) -> set[str]:
-    """Return the candidates a shell offers for a line."""
+def offered(command: list[str], line: str) -> list[str]:
+    """Return the candidates a shell offers for a line, in the order it offers them."""
     result = subprocess.run(
         [*command, line], cwd=ROOT, capture_output=True, text=True, timeout=120, check=False,
     )
     if result.returncode != 0:
         raise RuntimeError(f"exit {result.returncode}: {result.stderr.strip()}")
-    return {candidate.strip() for candidate in result.stdout.splitlines() if candidate.strip()}
+    return list(dict.fromkeys(candidate.strip() for candidate in result.stdout.splitlines() if candidate.strip()))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -103,10 +107,21 @@ def main(argv: list[str] | None = None) -> int:
                 sys.stderr.write(f"FAIL {shell}: {line!r}: {error}\n")
                 failures += 1
                 continue
-            ok = got == expected if exact else expected <= got
+            ok = set(got) == expected if exact else expected <= set(got)
             sys.stderr.write(f"{'ok  ' if ok else 'FAIL'} {shell}: {line!r} -> {sorted(got)}\n")
             failures += not ok
-    sys.stderr.write(f"{failures} failure(s) in {len(available) * len(CASES)} checks with {binary}\n")
+        for line in ORDERED:
+            try:
+                got = offered(command, line)
+            except (RuntimeError, subprocess.TimeoutExpired) as error:
+                sys.stderr.write(f"FAIL {shell}: {line!r}: {error}\n")
+                failures += 1
+                continue
+            ok = len(got) > 1 and got == sorted(got)
+            sys.stderr.write(f"{'ok  ' if ok else 'FAIL'} {shell}: {line!r} in order -> {got}\n")
+            failures += not ok
+    checks = len(available) * (len(CASES) + len(ORDERED))
+    sys.stderr.write(f"{failures} failure(s) in {checks} checks with {binary}\n")
     return 1 if failures else 0
 
 

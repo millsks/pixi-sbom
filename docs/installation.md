@@ -92,7 +92,8 @@ The binaries this project builds and hands out are the ones covered, which inclu
 ## Shell completion
 
 `pixi-sbom` completes its flags, the values they take (`--report <TAB>` lists the report kinds,
-`--format <TAB>` the formats) and file paths. Add the line for your shell to its startup file:
+`--format <TAB>` the formats) and file paths. Flags and values are listed alphabetically in every shell, so the
+`--fail-on-…` gates sit together. Add the line for your shell to its startup file:
 
 | Shell | Startup file | Line |
 |---|---|---|
