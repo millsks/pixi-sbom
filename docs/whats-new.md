@@ -25,6 +25,13 @@ Since 1.0, pixi-sbom has:
 
 ## Unreleased
 
+**`--prefix` reads a conda package's PyPI identity from what it installed, offline.** A conda-installed Django,
+Pillow or sqlparse had only its `pkg:conda` purl unless `--pypi-mapping prefix` downloaded the name mapping. The
+`dist-info` the package put in site-packages already names the PyPI project and version, and the conda record says
+which package installed it, so the identity is now read from disk. On an installed Django environment with
+`--primary-purl pypi`, Grype finds 94 vulnerabilities with no network, against 82 from syft's SBOM of the same
+environment.
+
 **Native conda packages carry a CPE, so Grype finds their advisories.** openssl, libtiff, sqlite, python and about
 eighty other native libraries from a conda channel have only a `pkg:conda` purl, which no advisory database
 indexes, so a CPE-matching scanner reported nothing for them. They now carry the CPE NVD uses, from a curated table,

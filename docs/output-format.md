@@ -158,15 +158,18 @@ and platform they always are. The `bom-ref` / `SPDXID` is always derived from th
 
 Vulnerability databases (OSV, GHSA) and the scanners built on them have no conda ecosystem: a `pkg:conda/numpy@...`
 purl matches nothing, so a conda-only Python environment scans as clean whatever it contains. Three sources supply a
-`pkg:pypi/...` purl for a conda package:
+`pkg:pypi/...` purl for a conda package, and a fourth for an installed environment:
 
 | Source | When | Recorded as |
 |---|---|---|
 | Lockfile `purls:` | pixi writes them for environments that have `pypi-dependencies`; an empty list means "not on PyPI" | `pixi:purl` property / extra `externalRefs` entry |
 | `--pypi-mapping prefix` | the [conda-forge mapping](https://conda-mapping.prefix.dev/compressed-v0/compressed_mapping.json) pixi itself uses, downloaded and cached for a day | as above, plus `pixi:pypi-mapping=prefix` |
 | `--pypi-mapping-file <PATH>` | an offline copy of that mapping (`{"<conda name>": "<pypi name>" \| ["..."] \| null}`) | as above, plus `pixi:pypi-mapping=file` |
+| The installed `dist-info` (`--prefix` only) | the conda record's `files` list the `site-packages/<name>-<version>.dist-info/METADATA` the package installed; its `Name` and `Version` are the PyPI project's. Read from disk, no network, no flag | as above, plus `pixi:pypi-mapping=dist-info` and `pixi:pypi-dist-info` (the directory, relative to the prefix) |
 
-The mapping is applied only to conda-forge binary packages whose lock entry has no `purls:` at all; the lockfile's own
+What a package installed outranks a name mapping: one with an identity from its `dist-info` is left alone by
+`--pypi-mapping`, which still answers for the packages that installed none. The mapping is applied only to
+conda-forge binary packages whose lock entry has no `purls:` at all; the lockfile's own
 answer, including an explicit empty list, is authoritative. The PyPI purl carries the conda package's version.
 
 pixi writes lockfile purls as bare names — `pkg:pypi/click?source=compressed-mapping`, with no version, because the

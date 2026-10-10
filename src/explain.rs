@@ -329,6 +329,10 @@ fn pypi_identity(package: &Package, ctx: Context, input: &str) -> Fact {
     let source = match mapped.map(String::as_str) {
         Some("prefix") => "the conda-forge PyPI mapping".to_string(),
         Some("file") => "the PyPI mapping given with --pypi-mapping-file".to_string(),
+        Some("dist-info") => match package.properties.get(crate::prefix::DIST_INFO_PROPERTY) {
+            Some(dist_info) => format!("the installed dist-info ({dist_info})"),
+            None => "the installed dist-info".to_string(),
+        },
         Some(other) => format!("the PyPI mapping ({other})"),
         None => input.to_string(),
     };

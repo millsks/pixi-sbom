@@ -168,15 +168,16 @@ says which flag produces which.
 | `pixi:license-raw` | `pixi:license-source` | `pixi:lockfile` |
 | `pixi:marker` | `pixi:merge-conflict` | `pixi:noarch` |
 | `pixi:platform` | `pixi:prefix` | `pixi:purl` |
-| `pixi:pypi-mapping` | `pixi:python-extras` | `pixi:python-extras-evidence` |
-| `pixi:python-extras-inferred` | `pixi:python-version` | `pixi:repository-source` |
-| `pixi:requires-python` | `pixi:resolution-markers` | `pixi:scorecard` |
-| `pixi:scorecard-date` | `pixi:size` | `pixi:source` |
-| `pixi:source-branch` | `pixi:source-document` | `pixi:source-git` |
-| `pixi:source-path` | `pixi:source-rev` | `pixi:source-subdirectory` |
-| `pixi:source-tag` | `pixi:source-url` | `pixi:stale-cache` |
-| `pixi:subdir` | `pixi:vex-for` | `pixi:vex-source` |
-| `pixi:via-extra` | `pixi:yanked` | `pixi:yanked-reason` |
+| `pixi:pypi-dist-info` | `pixi:pypi-mapping` | `pixi:python-extras` |
+| `pixi:python-extras-evidence` | `pixi:python-extras-inferred` | `pixi:python-version` |
+| `pixi:repository-source` | `pixi:requires-python` | `pixi:resolution-markers` |
+| `pixi:scorecard` | `pixi:scorecard-date` | `pixi:size` |
+| `pixi:source` | `pixi:source-branch` | `pixi:source-document` |
+| `pixi:source-git` | `pixi:source-path` | `pixi:source-rev` |
+| `pixi:source-subdirectory` | `pixi:source-tag` | `pixi:source-url` |
+| `pixi:stale-cache` | `pixi:subdir` | `pixi:vex-for` |
+| `pixi:vex-source` | `pixi:via-extra` | `pixi:yanked` |
+| `pixi:yanked-reason` |  |  |
 
 `pixi:scorecard-check-<name>` is a family rather than one name: the suffix is the OpenSSF check,
 so the set grows when OpenSSF adds a check. The prefix is frozen; the suffixes are theirs.
