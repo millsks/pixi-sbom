@@ -1470,7 +1470,7 @@ directory; <a href="../syft/#in-front-of-grype">pixi-sbom and syft</a> has the c
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">pypi-mapping</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"prefix"</span>
 </code></pre></div>
 <p>In the <a href="../github-action/">GitHub Action</a> the inputs are <code>primary-purl: pypi</code> and <code>pypi-mapping: prefix</code>.</p>
-<p>Until it is set, a run whose document has conda packages with a PyPI identity scanners cannot see says so once on
+<p>Until it is set, a run that writes a CycloneDX or SPDX document with conda packages with a PyPI identity scanners cannot see says so once on
 stderr, with how many. Setting <code>primary-purl</code> either way, <code>conda</code> included, is a decision and silences it. The
 <strong>PyPI identity</strong> row of <a href="../cli/#how-complete-the-document-is"><code>--report quality</code></a> gives the same count, unscored.</p>
 <h2 id="failing-the-build-on-license-policy">Failing the build on license policy<a class="headerlink" href="#failing-the-build-on-license-policy" title="Permanent link">&para;</a></h2>
