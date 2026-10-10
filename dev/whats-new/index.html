@@ -404,6 +404,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#182" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.8.2
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#181" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1359,6 +1370,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#182" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.8.2
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#181" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1563,6 +1585,16 @@ has every commit.</p>
 <li><strong>Learned to work on restricted networks.</strong> Every upstream can point at a mirror, pixi's own
   credentials are used, and <code>--doctor</code> says which host is the problem.</li>
 </ul>
+<h2 id="182">1.8.2<a class="headerlink" href="#182" title="Permanent link">&para;</a></h2>
+<p><strong>Merging SBOMs no longer flags two files of one PyPI release as a conflict.</strong> A bare
+<code>pkg:pypi/six@1.17.0</code> stands for every file of that release, so one document recording the wheel's
+hash and another recording the sdist's describe the same package. <code>--from-sbom</code> merges used to log a
+warning and record a <code>pixi:merge-conflict</code> for that. Now hashes count as a disagreement only when the
+purl names one file: a conda build, or a <code>file_name</code> qualifier. A license disagreement is still a
+conflict, as before.</p>
+<p><strong>New in the docs:</strong> a <a href="../field-manual/">field manual</a> of task-based playbooks, a hands-on
+<a href="../lab/">training lab</a> that runs offline on the repository's examples, a
+<a href="../try-the-examples/">Try it on the examples</a> tour, and this page.</p>
 <h2 id="181">1.8.1<a class="headerlink" href="#181" title="Permanent link">&para;</a></h2>
 <p><strong><code>--report outdated</code> no longer stops counting at 50.</strong> prefix.dev, the default conda index, returns
 versions 50 to a page. Only the first page was read, so a package more than 50 releases behind was
