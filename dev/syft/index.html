@@ -1452,7 +1452,8 @@ matches those packages by their PyPI identity, as it does from syft's SBOM.</p>
 <li><strong>Container images</strong>, read from a registry or a tarball, layer by layer.</li>
 <li><strong>Operating system packages</strong>: dpkg, rpm, apk.</li>
 <li><strong>Other ecosystems</strong>: npm, Go, Java, Rust crates outside conda binaries, and many more.</li>
-<li><strong>Every installed file</strong> with its digests (pixi-sbom records packages, not files).</li>
+<li><strong>Every installed file</strong> with its digests. pixi-sbom records packages, not files; for a conda environment
+  <code>--verify-files</code> instead checks every file against the hash conda recorded at installation, which syft does not do.</li>
 </ul>
 <p>For a container that runs a Python or conda application, the two fit together: syft for the image's operating
 system, pixi-sbom for the environment, merged with <code>pixi sbom --from-sbom image.cdx.json --from-sbom app.cdx.json</code>.</p>

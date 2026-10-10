@@ -1537,7 +1537,7 @@ the name exists, takes the same kind of value, and means the same thing.</p>
 <p>Every list here is checked against the code by <code>tests/stability.rs</code>. A flag added without a line on
 this page fails the build, and so does a line on this page for something that does not exist.</p>
 <h2 id="command-line-flags">Command-line flags<a class="headerlink" href="#command-line-flags" title="Permanent link">&para;</a></h2>
-<p>All 73. Their meanings are in <a href="../cli/">cli.md</a>; what this page promises is that none of them
+<p>All 74. Their meanings are in <a href="../cli/">cli.md</a>; what this page promises is that none of them
 disappears or changes shape before 2.0.</p>
 <p>| <code>--against</code> | <code>--all-environments</code> | <code>--all-platforms</code> | <code>--allow-license</code> |
 | <code>--assume-used</code> | <code>--ca-bundle</code> | <code>--color</code> | <code>--concurrency</code> |
@@ -1555,9 +1555,9 @@ disappears or changes shape before 2.0.</p>
 | <code>--refresh</code> | <code>--report</code> | <code>--report-format</code> | <code>--require-license</code> |
 | <code>--root-name</code> | <code>--root-version</code> | <code>--scan</code> | <code>--scan-depth</code> |
 | <code>--scorecard</code> | <code>--scorecard-min</code> | <code>--source</code> | <code>--spec-version</code> |
-| <code>--timings</code> | <code>--tree</code> | <code>--verbose</code> | <code>--version</code> |
-| <code>--version-details</code> | <code>--vex</code> | <code>--vex-in</code> | <code>--vex-open</code> |
-| <code>--vulnerabilities</code> |  |  |  |</p>
+| <code>--timings</code> | <code>--tree</code> | <code>--verbose</code> | <code>--verify-files</code> |
+| <code>--version</code> | <code>--version-details</code> | <code>--vex</code> | <code>--vex-in</code> |
+| <code>--vex-open</code> | <code>--vulnerabilities</code> |  |  |</p>
 <h3 id="spellings-that-answer-to-an-older-name">Spellings that answer to an older name<a class="headerlink" href="#spellings-that-answer-to-an-older-name" title="Permanent link">&para;</a></h3>
 <p>Accepted permanently, hidden from <code>--help</code> so there is one name to learn. Removing any of these
 would be a major version with its own notice.</p>
@@ -1648,13 +1648,17 @@ the same way, recognised by a fixed vocabulary, so an existing entry never chang
 <td>10</td>
 <td><code>--min-quality</code> found the document's quality score below the threshold.</td>
 </tr>
+<tr>
+<td>11</td>
+<td><code>--verify-files</code> or <code>--report files</code> found an installed file modified or missing against its conda-meta record.</td>
+</tr>
 </tbody>
 </table>
 <p>Every gate above 2 writes its document or report first and lists what tripped it on stderr, so a
 failing gate still leaves you the artifact.</p>
 <p><strong>5 is deliberately unused.</strong> It has never been assigned — not in any release — and it stays free
 rather than being filled by the next gate, so that a script testing for a specific code is never
-surprised by a number that used to mean nothing. Gates take 10 and upward: <code>--min-quality</code> is 10, and the next one takes 11.</p>
+surprised by a number that used to mean nothing. Gates take 10 and upward: <code>--min-quality</code> is 10, <code>--verify-files</code> is 11, and the next one takes 12.</p>
 <h2 id="configuration-keys">Configuration keys<a class="headerlink" href="#configuration-keys" title="Permanent link">&para;</a></h2>
 <p>A key is the flag's own name without the leading <code>--</code>, so <code>--fetch-licenses</code> is <code>fetch-licenses</code>.
 The command line always wins over the files.</p>
@@ -1922,22 +1926,27 @@ says which flag produces which.</p>
 <td><code>pixi:merge-conflict</code></td>
 </tr>
 <tr>
+<td><code>pixi:missing-files</code></td>
+<td><code>pixi:modified-files</code></td>
 <td><code>pixi:noarch</code></td>
+</tr>
+<tr>
 <td><code>pixi:platform</code></td>
 <td><code>pixi:prefix</code></td>
+<td><code>pixi:purl</code></td>
 </tr>
 <tr>
-<td><code>pixi:purl</code></td>
 <td><code>pixi:pypi-dist-info</code></td>
 <td><code>pixi:pypi-mapping</code></td>
+<td><code>pixi:python-extras</code></td>
 </tr>
 <tr>
-<td><code>pixi:python-extras</code></td>
 <td><code>pixi:python-extras-evidence</code></td>
 <td><code>pixi:python-extras-inferred</code></td>
+<td><code>pixi:python-version</code></td>
 </tr>
 <tr>
-<td><code>pixi:python-version</code></td>
+<td><code>pixi:regenerated-bytecode</code></td>
 <td><code>pixi:repository-source</code></td>
 <td><code>pixi:requires-python</code></td>
 </tr>
@@ -1967,14 +1976,14 @@ says which flag produces which.</p>
 <td><code>pixi:subdir</code></td>
 </tr>
 <tr>
+<td><code>pixi:verified-files</code></td>
 <td><code>pixi:vex-for</code></td>
 <td><code>pixi:vex-source</code></td>
-<td><code>pixi:via-extra</code></td>
 </tr>
 <tr>
+<td><code>pixi:via-extra</code></td>
 <td><code>pixi:yanked</code></td>
 <td><code>pixi:yanked-reason</code></td>
-<td></td>
 </tr>
 </tbody>
 </table>
@@ -1983,7 +1992,7 @@ so the set grows when OpenSSF adds a check. The prefix is frozen; the suffixes a
 <h2 id="report-json">Report JSON<a class="headerlink" href="#report-json" title="Permanent link">&para;</a></h2>
 <p><code>--report &lt;kind&gt; --report-format json</code> writes an object with one key named after the report —
 <code>packages</code>, <code>licenses</code>, <code>vulnerabilities</code>, <code>diff</code>, <code>outdated</code>, <code>python</code>, <code>phantom</code>, <code>scorecard</code>,
-<code>quality</code> —
+<code>quality</code>, <code>files</code> —
 holding an array of rows. Row field names are frozen; <strong>row order is not</strong>, except where the
 report documents an order (worst-first for vulnerabilities).</p>
 <p>CSV columns and their order are frozen. A flag that adds data adds columns only after them and only

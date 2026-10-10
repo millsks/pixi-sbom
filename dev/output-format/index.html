@@ -2603,6 +2603,10 @@ CycloneDX metadata property, a line of the SPDX root package's comment). A plain
 <code>python</code> at that version, <code>pkg:generic/python@&lt;version&gt;</code>, with <code>pixi:interpreter=true</code>, and CPython's CPE when the
 full <code>X.Y.Z</code> is known (a CPE for a bare <code>X.Y</code> would match releases that already have the fix). A venv's interpreter
 lives outside it, and a conda environment lists its <code>python</code> package, so neither gets one.</p>
+<p>With <code>--verify-files</code>, each conda package whose record lists file hashes carries <code>pixi:verified-files</code>, the number of
+its files checked, and where they apply <code>pixi:modified-files</code> and <code>pixi:missing-files</code> (comma-separated paths relative
+to the environment) and <code>pixi:regenerated-bytecode</code> (how many <code>.pyc</code> files Python has rewritten, which is not a
+failure). See <a href="../cli/#has-anything-changed-since-installation">Has anything changed since installation</a>.</p>
 <h3 id="documents-derived-from-documents">Documents derived from documents<a class="headerlink" href="#documents-derived-from-documents" title="Permanent link">&para;</a></h3>
 <p>With <code>--from-sbom</code> the document describes what another document described: the metadata property is
 <code>pixi:source-document</code> — the source's CycloneDX serial number or SPDX document namespace — rather than

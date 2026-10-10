@@ -1658,6 +1658,11 @@ has every commit.</p>
 <li><strong>Learned tab completion</strong> in bash, zsh, fish and PowerShell, for <code>pixi-sbom</code> and <code>pixi sbom</code>.</li>
 </ul>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<p><strong><code>--verify-files</code> checks an installed conda environment against itself.</strong> conda-meta records the SHA-256 of every
+file a package installed; with <code>--prefix</code>, <code>--verify-files</code> hashes each one and records modified and missing files on
+the package (<code>pixi:modified-files</code>, <code>pixi:missing-files</code>), and <code>--report files</code> lists them. Either ends the run with
+the new exit code 11. <code>.pyc</code> files Python regenerated are counted but never fail it. It is offline and opt-in: the
+Django example's 13,241 files take about 1.5 s.</p>
 <p><strong>pixi-sbom says when a scanner would miss packages.</strong> Grype and other scanners read only a package's primary purl,
 and by default a conda-installed Python package's primary purl is <code>pkg:conda</code>, which no advisory database indexes: on
 the Django example Grype found none of django's 27 vulnerabilities. A run now warns once when that applies, naming
