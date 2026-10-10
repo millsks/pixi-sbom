@@ -1,0 +1,18 @@
+{
+  "v": 4,
+  "createdOnFiles": {"v": 1, "at": "2026-10-09T22:30:00Z"},
+  "lists": "css",
+  "title": "The Hole in Your SBOM",
+  "order": ["cover", "inventory", "hole", "evidence", "approach", "demo-read", "demo-gate", "demo-vendor", "any-project", "ci", "honest", "get-it"],
+  "sections": {
+    "s1": {"description": "What an SBOM is for, and the hole conda and pixi environments fall into", "start": "cover"},
+    "s2": {"description": "How big the hole is, and what closes it", "start": "evidence"},
+    "s3": {"description": "A live demo on the repository's examples: read, gate, someone else's SBOM", "start": "demo-read"},
+    "s4": {"description": "Using it on any Python project and in CI, what it does not do, and where to get it", "start": "any-project"}
+  },
+  "faces": {
+    "ibm-plex-sans": {"family": "IBM Plex Sans", "href": "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"},
+    "jetbrains-mono": {"family": "JetBrains Mono", "href": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap"}
+  },
+  "designSystems": []
+}

@@ -1,17 +1,33 @@
 # Presentations
 
-Two decks making the case for pixi-sbom, to two different rooms. The slide sources live here so the numbers in
+Two decks making the case for pixi-sbom, to two different rooms, and a public talk. The slide sources live here so the numbers in
 them can be corrected when the numbers change, which they will.
 
 | Deck | Audience | Slides |
 |---|---|---|
 | `engineering-management/` | Engineering management, plus people who already know what an SBOM is | 12 |
 | `executive/` | C-suite: the decision, what it costs, what happens if it is wrong | 10 |
+| `talk/` | A public, technical audience: a conference, a meetup, a community call | 12 |
 
 They are not two versions of one deck. The engineering deck argues from capability — what the tool does, what it
 refuses to claim, what a team gets. The executive deck argues from consequence — what we cannot answer today, what
 that costs, and what the downside of saying yes is. Slides that matter to one room are absent from the other on
 purpose.
+
+## The public talk
+
+`talk/` is "The Hole in Your SBOM": why a conda or pixi environment's SBOM can be valid and still unsearchable, the
+evidence from [the paper](../papers/package-identity-sbom-matching.md), and a live demo on `examples/`. It runs 13
+minutes 30 seconds, and the speaker notes on every slide give its place in the full talk and in a 5-minute cut for
+a community call.
+
+Unlike the two decks below, it has no placeholders and no sales argument, so it can be shown and shared as it is.
+
+[`talk/demo-script.md`](talk/demo-script.md) is the live part: the setup, both timed running orders, each command
+with what it prints, a fallback recording for each step, and where every number on a slide comes from. The demo
+runs offline against `examples/lab-cache`, so the counts on the slides are the counts on stage. A test runs every
+command in the script and checks every output line on the demo slides against what the command printed, so the
+slides cannot drift from the tool. Export as `pixi-sbom-talk.*`.
 
 ## Fill these in before presenting
 
@@ -55,9 +71,9 @@ Each deck is here in three forms, exported from the artifact it lives on:
 | `.pdf` | Sending. Renders identically for someone who will not open a deck they cannot preview. |
 | `.html` | Presenting anywhere. One self-contained file, opens in a browser, needs no PowerPoint. |
 
-Named `pixi-sbom-engineering.*` and `pixi-sbom-executive.*` in their respective directories.
+Named `pixi-sbom-engineering.*`, `pixi-sbom-executive.*` and `pixi-sbom-talk.*` in their respective directories.
 
-**They are templates, not finished decks.** All three forms still carry the bracketed placeholders — open one,
+**The two pitch decks are templates, not finished decks.** All three forms still carry the bracketed placeholders — open one,
 fill them in, and save your own copy. Presenting straight from this directory means presenting `[Presenter]` on
 the title slide, and `[__]` where the cost figures should be.
 

@@ -1,0 +1,13 @@
+<section id="demo-gate" data-transition="fade" style="background:#F7F8F6; color:#10212B; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:40px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:24px; font-weight:600; letter-spacing:3px; color:#1F7A6C">DEMO 2 OF 3 · FIND AND GATE</p>
+<h2 style="font-size:72px; font-weight:600; line-height:1.1">Find what is known, rank it, fail the build</h2>
+<div style="background:#10212B; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:14px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:28px; color:#6FBFAE">$ pixi sbom --lockfile examples/projects/uv/02-flask/uv.lock -p linux-64 --vulnerabilities osv --kev --epss --report vulnerabilities</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:28px; color:#F7F8F6">Summary: 41 findings in 8 packages</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:28px; color:#6FBFAE">$ pixi sbom --lockfile examples/projects/uv/02-flask/uv.lock -p linux-64 --vulnerabilities osv --fail-on-severity high --output sbom.cdx.json</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:28px; color:#F7F8F6">Gate failed: vulnerabilities (17). Exiting 4.</p>
+</div>
+<p style="font-size:32px; line-height:1.4; color:#4A5568; width:1620px">CISA's KEV marks what is exploited now; FIRST's EPSS scores how likely the rest is. Each gate has its own exit code, and the document is written either way.</p>
+<aside>[5-minute cut: yes. Full talk: 7:00–8:30. 5-minute: 2:25–4:25.]
+A 2021-era Flask stack, locked by uv. Answers are from the lab cache recorded 9 October 2026, so they match the slide; say that live counts drift as advisories are published. Point at the EPSS column: none of these findings is in the KEV catalog, and EPSS is what orders the rest. Then the gate: exit 4 is a vulnerability, 3 a license, 10 a document too thin to trust. If the live run fails, play the EPSS recording from the docs.</aside>
+</section>

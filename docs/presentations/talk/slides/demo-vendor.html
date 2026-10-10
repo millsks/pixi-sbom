@@ -1,0 +1,15 @@
+<section id="demo-vendor" data-transition="fade" style="background:#F7F8F6; color:#10212B; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:40px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:24px; font-weight:600; letter-spacing:3px; color:#1F7A6C">DEMO 3 OF 3 · SOMEONE ELSE'S SBOM</p>
+<h2 style="font-size:72px; font-weight:600; line-height:1.1">Check a supplier's SBOM before you accept it</h2>
+<div style="background:#10212B; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:14px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:28px; color:#6FBFAE">$ pixi sbom --from-sbom vendor.cdx.json --report quality</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:28px; color:#F7F8F6">Quality: 77 of 100 for 24 packages</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:28px; color:#6FBFAE">$ pixi sbom --from-sbom vendor.cdx.json --min-quality 80 --output -</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:28px; color:#F7F8F6">Gate failed: quality (1). Exiting 10.</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:28px; color:#6FBFAE">$ pixi sbom --lockfile examples/projects/uv/02-flask/uv.lock -p linux-64 --vulnerabilities osv --vex-in examples/lab/vendor.openvex.json --report vulnerabilities</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:28px; color:#F7F8F6">Summary: 40 open findings in 8 packages, 1 ignored</p>
+</div>
+<p style="font-size:32px; line-height:1.4; color:#4A5568; width:1620px">Score what you were sent, gate on it, and take a supplier's "not affected" statements as VEX, with their reasons kept in the record.</p>
+<aside>[5-minute cut: skip. Full talk: 8:30–10:00.]
+The first two commands read a CycloneDX file someone else produced (here built from examples/projects/requirements/12-aws-cloud/requirements.txt; any CycloneDX or SPDX file works). The score says which elements are missing: no author, no licenses. The third switches to the Flask example from demo 2, because the OpenVEX statement in examples/lab is about its packages: one finding is marked not affected, and the reason the vendor gave stays in the report. Exit 10 is a document too thin to trust; it fails the gate the same way a vulnerability would.</aside>
+</section>

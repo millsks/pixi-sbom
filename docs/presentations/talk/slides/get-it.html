@@ -1,0 +1,12 @@
+<section id="get-it" data-transition="fade" style="background:#10212B; color:#F7F8F6; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; justify-content:center; gap:44px">
+<h2 style="font-size:96px; font-weight:600; line-height:1.05; color:#F7F8F6; width:1500px">Look at your own SBOM: is the hole there?</h2>
+<div style="display:flex; flex-direction:column; gap:16px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:36px; color:#6FBFAE">pixi global install pixi-sbom</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:36px; color:#6FBFAE">uvx pixi-sbom --lockfile uv.lock</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:36px; color:#6FBFAE">uses: millsks/pixi-sbom@v1</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:36px; color:#6FBFAE">repo: https://github.com/millsks/pixi-sbom-pre-commit</p>
+</div>
+<p style="font-size:36px; line-height:1.4; color:#B5C4CA; width:1500px">Docs, the field manual and a hands-on lab: millsks.github.io/pixi-sbom<br>Source, examples and the paper: github.com/millsks/pixi-sbom</p>
+<aside>[5-minute cut: yes. Full talk: 12:30–13:30, then questions. 5-minute: 4:25–5:00.]
+End on the question, not the tool: open whatever SBOM your build produces today and look for pkg:conda purls with no PyPI identity beside them. If they are there, the vulnerability report for those packages is empty for the wrong reason. Then the four ways in: pixi global, PyPI (uvx or pip, no pixi needed), the GitHub Action, and the pre-commit hook (id pixi-sbom). Then the links. The lab runs offline from a clone in about an hour.</aside>
+</section>

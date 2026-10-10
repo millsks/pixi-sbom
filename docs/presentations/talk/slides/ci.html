@@ -1,0 +1,20 @@
+<section id="ci" data-transition="fade" style="background:#F7F8F6; color:#10212B; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:44px">
+<h2 style="font-size:72px; font-weight:600; line-height:1.1">In CI: one step, a gate, an attached document</h2>
+<div style="background:#10212B; border-radius:16px; padding:32px 40px; display:flex; flex-direction:column; gap:6px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:26px; color:#6FBFAE">- uses: millsks/pixi-sbom@v1</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:26px; color:#F7F8F6">  with:</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:26px; color:#F7F8F6">    vulnerabilities: osv</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:26px; color:#F7F8F6">    kev: "true"</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:26px; color:#F7F8F6">    fail-on-kev: "true"</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:26px; color:#F7F8F6">    fail-on-severity: high</p>
+</div>
+<div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:20px">
+<div style="background:#FFFFFF; border:1px solid #DFE3DE; border-radius:16px; padding:28px; display:flex; flex-direction:column; gap:8px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:44px; font-weight:600; color:#1F7A6C">4</p><p style="font-size:26px; line-height:1.3; color:#4A5568">a vulnerability past the line</p></div>
+<div style="background:#FFFFFF; border:1px solid #DFE3DE; border-radius:16px; padding:28px; display:flex; flex-direction:column; gap:8px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:44px; font-weight:600; color:#1F7A6C">3</p><p style="font-size:26px; line-height:1.3; color:#4A5568">a license the policy forbids</p></div>
+<div style="background:#FFFFFF; border:1px solid #DFE3DE; border-radius:16px; padding:28px; display:flex; flex-direction:column; gap:8px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:44px; font-weight:600; color:#1F7A6C">6</p><p style="font-size:26px; line-height:1.3; color:#4A5568">a change from the last SBOM</p></div>
+<div style="background:#FFFFFF; border:1px solid #DFE3DE; border-radius:16px; padding:28px; display:flex; flex-direction:column; gap:8px"><p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:44px; font-weight:600; color:#1F7A6C">10</p><p style="font-size:26px; line-height:1.3; color:#4A5568">a document too thin to trust</p></div>
+</div>
+<p style="font-size:32px; line-height:1.4; color:#4A5568; width:1620px">Each gate has its own exit code, so the pipeline can tell what failed. The document is written either way.</p>
+<aside>[5-minute cut: skip. Full talk: 10:45–11:30.]
+The action wraps the same binary. Mention that there are also codes for yanked packages (7), imports the manifest never declared (8), and OpenSSF Scorecard (9); the docs list them all. A restricted network works too: PIXI_SBOM_OFFLINE=1 with a prepared cache, which is what this demo ran on.</aside>
+</section>

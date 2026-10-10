@@ -1,0 +1,12 @@
+<section id="approach" data-transition="fade" style="background:#10212B; color:#F7F8F6; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:48px">
+<h2 style="font-size:72px; font-weight:600; line-height:1.1; color:#F7F8F6">The fix: give every package both of its names</h2>
+<p style="font-size:40px; line-height:1.35; color:#B5C4CA; width:1620px">pixi-sbom reads the lockfile and writes CycloneDX or SPDX. A conda package that is a Python project keeps its conda identity and also gets its PyPI one.</p>
+<div style="display:flex; flex-direction:column; gap:20px; background:#18313E; border-radius:16px; padding:44px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:32px; color:#F7F8F6">numpy 2.3.4, from conda-forge</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:30px; color:#B5C4CA">pkg:conda/numpy@2.3.4?build=py312h33ff503_0&amp;channel=conda-forge</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:30px; color:#6FBFAE">pkg:pypi/numpy@2.3.4</p>
+</div>
+<p style="font-size:32px; line-height:1.4; color:#B5C4CA; width:1620px">The PyPI name comes from the mapping conda-forge publishes, matched by the package's hash. A scanner can match either one.</p>
+<aside>[5-minute cut: skip. Full talk: 4:30–5:30.]
+This is the mechanism in one picture. Nothing is guessed from the package name: the conda-forge mapping identifies the PyPI project by the archive's hash, and the document records which source the identity came from. The conda purl stays, so anything that matched before still does. With --primary-purl pypi the PyPI one becomes the primary identity, for scanners that only read one.</aside>
+</section>

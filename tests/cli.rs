@@ -9378,3 +9378,93 @@ fn the_training_lab_runs_as_written_and_shows_what_it_says() {
     assert!(ran >= 14, "the lab's commands were found and run ({ran})");
     assert!(checked >= 12, "and its expected outputs checked ({checked})");
 }
+
+/// The public talk's demo slides show commands and what they print. Every command in the demo script runs offline
+/// against the lab cache as written, and every output line on a demo slide is in what its command printed.
+#[test]
+fn the_talk_demo_runs_as_written_and_its_slides_show_what_it_prints() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let talk = root.join("docs/presentations/talk");
+    let script = std::fs::read_to_string(talk.join("demo-script.md")).unwrap();
+    let work = tempfile::tempdir().unwrap();
+    let examples = root.join("examples");
+    for file in walkdir(&examples) {
+        let target = work.path().join("examples").join(file.strip_prefix(&examples).unwrap());
+        std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+        std::fs::copy(&file, &target).unwrap();
+    }
+    let cache = work.path().join("examples/lab-cache");
+
+    let mut printed = std::collections::HashMap::new();
+    let mut in_console = false;
+    for line in script.lines() {
+        if let Some(fence) = line.strip_prefix("```") {
+            in_console = !in_console && fence == "console";
+            continue;
+        }
+        if !in_console || !line.starts_with("pixi sbom ") {
+            continue;
+        }
+        let (command, comment) = line.split_once(" # ").unwrap_or((line, ""));
+        let (_, words) = shell_words(command);
+        let output = pixi_sbom()
+            .current_dir(work.path())
+            .env("PIXI_SBOM_OFFLINE", "1")
+            .env("PIXI_SBOM_CACHE_DIR", &cache)
+            .env("PIXI_CACHE_DIR", work.path().join(".empty-pkgs-cache"))
+            .env("COLUMNS", "120")
+            .args(&words[2..])
+            .output()
+            .unwrap();
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let expected = comment
+            .trim()
+            .strip_prefix("exit ")
+            .map_or(0, |n| n.parse::<i32>().unwrap());
+        assert_eq!(output.status.code(), Some(expected), "{line}\n{text}");
+        printed.insert(command.trim().to_string(), text);
+    }
+    assert!(
+        printed.len() >= 8,
+        "the demo script's commands were found and run ({})",
+        printed.len()
+    );
+
+    let (mut commands, mut checked) = (0, 0);
+    for slide in ["demo-read", "demo-gate", "demo-vendor"] {
+        let html = std::fs::read_to_string(talk.join(format!("slides/{slide}.html"))).unwrap();
+        let mut last: Option<&String> = None;
+        for p in html.split("<p ").skip(1) {
+            let (style, rest) = p.split_once('>').unwrap();
+            let text = rest.split("</p>").next().unwrap().replace("&amp;", "&");
+            if !style.contains("JetBrains Mono") {
+                continue;
+            }
+            if let Some(command) = text.strip_prefix("$ ") {
+                let found = printed.get(command);
+                assert!(
+                    found.is_some(),
+                    "slide {slide} shows `{command}`, which the demo script never runs"
+                );
+                last = found;
+                commands += 1;
+            } else if style.contains("#F7F8F6") {
+                let output = last.unwrap_or_else(|| panic!("slide {slide} shows `{text}` before any command"));
+                assert!(
+                    output.contains(&text),
+                    "slide {slide} shows `{text}`, but its command printed:\n{output}"
+                );
+                checked += 1;
+            }
+        }
+    }
+    assert_eq!(
+        (commands, checked),
+        (7, 6),
+        "every command and output line on the demo slides was checked"
+    );
+}

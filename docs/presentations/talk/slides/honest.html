@@ -1,0 +1,11 @@
+<section id="honest" data-transition="fade" style="background:#F7F8F6; color:#10212B; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:44px">
+<h2 style="font-size:72px; font-weight:600; line-height:1.1">What it does not do</h2>
+<div style="display:flex; flex-direction:column; gap:0px">
+<div style="display:grid; grid-template-columns:520px 1fr; gap:32px; padding:28px 0; border-top:1px solid #DFE3DE"><p style="font-size:34px; font-weight:600">Prove you are safe</p><p style="font-size:30px; line-height:1.4; color:#4A5568">It finds what is already published. An advisory that does not exist yet is not in any database.</p></div>
+<div style="display:grid; grid-template-columns:520px 1fr; gap:32px; padding:28px 0; border-top:1px solid #DFE3DE"><p style="font-size:34px; font-weight:600">See what is not locked</p><p style="font-size:30px; line-height:1.4; color:#4A5568">Vendored code, a binary copied into the image, a package installed by hand: the lockfile does not name them.</p></div>
+<div style="display:grid; grid-template-columns:520px 1fr; gap:32px; padding:28px 0; border-top:1px solid #DFE3DE"><p style="font-size:34px; font-weight:600">Decide reachability</p><p style="font-size:30px; line-height:1.4; color:#4A5568">A finding means a vulnerable version is present, not that your code calls it. VEX records that judgment; it does not make it.</p></div>
+<div style="display:grid; grid-template-columns:520px 1fr; gap:32px; padding:28px 0; border-top:1px solid #DFE3DE; border-bottom:1px solid #DFE3DE"><p style="font-size:34px; font-weight:600">Replace the mapping</p><p style="font-size:30px; line-height:1.4; color:#4A5568">The PyPI identity is only as good as conda-forge's mapping. Where there is none, it says so.</p></div>
+</div>
+<aside>[5-minute cut: one line ("it finds what is published, in what is locked"). Full talk: 11:30–12:30.]
+Say this plainly; a security audience trusts a tool more when it states its edges. The mapping point: packages from other channels or private builds may have no PyPI identity, and the document then carries only the conda one, with no guess.</aside>
+</section>

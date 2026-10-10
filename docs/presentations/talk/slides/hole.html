@@ -1,0 +1,19 @@
+<section id="hole" data-transition="fade" style="background:#F7F8F6; color:#10212B; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:44px">
+<h2 style="font-size:72px; font-weight:600; line-height:1.1">The hole: the right package, under a name nobody searches</h2>
+<p style="font-size:36px; line-height:1.4; color:#4A5568; width:1600px">A pixi or conda environment is conda packages and PyPI packages, resolved together. NumPy comes from conda-forge, so a tool that does emit it names it the conda way.</p>
+<div style="display:flex; gap:32px; align-items:stretch">
+<div style="flex:1; background:#FFFFFF; border:1px solid #DFE3DE; border-left:8px solid #C2571A; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:14px">
+<h3 style="font-size:32px; font-weight:600">What most tools write</h3>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:34px; color:#10212B">pkg:conda/numpy@2.3.1</p>
+<p style="font-size:30px; line-height:1.4; color:#4A5568">Correct, valid against the schema, and matched by almost no advisory database.</p>
+</div>
+<div style="flex:1; background:#10212B; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:14px">
+<h3 style="font-size:32px; font-weight:600; color:#6FBFAE">Where NumPy's advisories are filed</h3>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:34px; color:#F7F8F6">pkg:pypi/numpy@2.3.1</p>
+<p style="font-size:30px; line-height:1.4; color:#B5C4CA">Same code, same version. The scanner only finds it under this name.</p>
+</div>
+</div>
+<p style="font-size:32px; line-height:1.4; color:#10212B; width:1620px">The document is present, well formed and hollow. Nobody chases an empty result that looks like a clean one.</p>
+<aside>[5-minute cut: yes. Full talk: 1:45–3:15. 5-minute: 0:20–1:35.]
+This is the whole problem in one slide. Nobody is lying here: the conda purl is correct. It is also the wrong key for the question we are asking, because Python advisories are filed against PyPI. A missing document gets noticed; a valid, hollow one gets filed and believed. If the room uses a Python-only scanner instead, the other half goes missing: it reads a requirements file and never sees what conda installed.</aside>
+</section>

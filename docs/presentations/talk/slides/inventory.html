@@ -1,0 +1,22 @@
+<section id="inventory" data-transition="fade" style="background:#F7F8F6; color:#10212B; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:48px">
+<h2 style="font-size:72px; font-weight:600; line-height:1.1">An SBOM is an inventory, joined to everything else by one key</h2>
+<p style="font-size:36px; line-height:1.4; color:#4A5568; width:1600px">Every package in a build: its name, version, supplier, hashes, license, and what depends on it. What it is for is a query: when an advisory lands, are we exposed?</p>
+<div style="display:flex; align-items:center; gap:24px">
+<div style="flex:1; background:#FFFFFF; border:1px solid #DFE3DE; border-radius:16px; padding:36px; display:flex; flex-direction:column; gap:10px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:28px; font-weight:600; color:#10212B">Your SBOM</p>
+<p style="font-size:28px; line-height:1.3; color:#4A5568">One component per package, each named by a package URL</p>
+</div>
+<x-shape kind="arrow-right" style="width:110px; height:56px; background:#1F7A6C"></x-shape>
+<div style="flex:1; background:#10212B; border-radius:16px; padding:36px; display:flex; flex-direction:column; gap:10px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:28px; font-weight:600; color:#6FBFAE">pkg:pypi/requests@2.25.1</p>
+<p style="font-size:28px; line-height:1.3; color:#B5C4CA">The purl: the join key every scanner and advisory database matches on</p>
+</div>
+<x-shape kind="arrow-right" style="width:110px; height:56px; background:#1F7A6C"></x-shape>
+<div style="flex:1; background:#FFFFFF; border:1px solid #DFE3DE; border-radius:16px; padding:36px; display:flex; flex-direction:column; gap:10px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:28px; font-weight:600; color:#10212B">Advisories</p>
+<p style="font-size:28px; line-height:1.3; color:#4A5568">OSV, GitHub, CISA: filed against that same identity</p>
+</div>
+</div>
+<aside>[5-minute cut: skip. Full talk: 0:45–1:45.]
+Keep this short; most rooms know what an SBOM is. The one idea to land is the middle box: the purl is the join key. An inventory is only as useful as the identifiers in it, because every downstream tool matches on them. If the identifier is one no database files advisories against, the query returns nothing, and nothing looks wrong.</aside>
+</section>

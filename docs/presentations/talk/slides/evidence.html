@@ -1,0 +1,21 @@
+<section id="evidence" data-transition="fade" style="background:#10212B; color:#F7F8F6; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:52px">
+<h2 style="font-size:72px; font-weight:600; line-height:1.1; color:#F7F8F6">How big the hole is</h2>
+<p style="font-size:40px; line-height:1.35; color:#B5C4CA; width:1620px">118 public conda and pixi workspaces, 15,722 packages, each looked up twice with only the identity changed.</p>
+<div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:28px">
+<div style="background:#18313E; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:10px">
+<p style="font-size:88px; font-weight:600; line-height:1.05; color:#6FBFAE">+37.1%</p>
+<p style="font-size:30px; line-height:1.35; color:#B5C4CA">1,274 advisories visible only under the PyPI identity</p>
+</div>
+<div style="background:#18313E; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:10px">
+<p style="font-size:88px; font-weight:600; line-height:1.05; color:#6FBFAE">45 of 96</p>
+<p style="font-size:30px; line-height:1.35; color:#B5C4CA">affected workspaces showed no advisories at all the conventional way</p>
+</div>
+<div style="background:#18313E; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:10px">
+<p style="font-size:88px; font-weight:600; line-height:1.05; color:#6FBFAE">0</p>
+<p style="font-size:30px; line-height:1.35; color:#B5C4CA">advisories lost by adding the PyPI identity</p>
+</div>
+</div>
+<p style="position:absolute; left:128px; bottom:64px; font-size:24px; color:#7A8C93">Source: pixi-sbom repository, docs/papers · measured 30 Sep 2026 against OSV</p>
+<aside>[5-minute cut: yes. Full talk: 3:15–4:30. 5-minute: 1:35–2:25.]
+The number to say out loud is 45 of 96: almost half of the workspaces that do carry known advisories reported none at all with conventional identification. Among the 1,274 extra advisories were 32 critical and 600 high. The change only adds an identity, so nothing that matched before stops matching. Advisory databases change daily, so a re-run gives different counts; the shape holds because it follows from which purl namespaces the databases index. The corpus and scripts are in the repository.</aside>
+</section>

@@ -1,0 +1,12 @@
+<section id="demo-read" data-transition="fade" style="background:#F7F8F6; color:#10212B; font-family:'IBM Plex Sans', Verdana, sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:40px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:24px; font-weight:600; letter-spacing:3px; color:#1F7A6C">DEMO 1 OF 3 · READ</p>
+<h2 style="font-size:72px; font-weight:600; line-height:1.1">One command, one document</h2>
+<div style="background:#10212B; border-radius:16px; padding:40px; display:flex; flex-direction:column; gap:14px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:28px; color:#6FBFAE">$ pixi sbom --lockfile examples/projects/pixi/01-django/pixi.lock -p linux-64 --report packages</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:28px; color:#F7F8F6">Summary: 66 packages, 9 declared by the workspace</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace; font-size:28px; color:#6FBFAE">$ pixi sbom --lockfile examples/projects/pixi/01-django/pixi.lock -p linux-64 --output sbom.cdx.json</p>
+</div>
+<p style="font-size:32px; line-height:1.4; color:#4A5568; width:1620px">A pixi workspace with Django on an old LTS: conda packages, PyPI packages, an editable local package. The interpreter and its system libraries are in the inventory too.</p>
+<aside>[5-minute cut: fold into demo 2 (show the first command only). Full talk: 5:30–7:00.]
+Run from a clone of the repository, offline: export PIXI_SBOM_OFFLINE=1 and PIXI_SBOM_CACHE_DIR=$PWD/examples/lab-cache first, so the answers match the slides and nothing depends on the venue's network. Show the table scroll past, then point at the Python and system libraries: a conda environment ships them, and a PyPI-only tool never sees them. If the live run fails, play the packages recording from the docs (Looking instead of writing).</aside>
+</section>
