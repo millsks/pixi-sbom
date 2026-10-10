@@ -1486,12 +1486,14 @@ cannot match; <code>--require-license</code> makes that a violation too:</p>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>html2text 2020.1.16: license is not an SPDX expression (GNU GPL 3 (unknown term: 'GNU'))
 <a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>pyopenssl 26.4.0: license is not an SPDX expression (Apache License, Version 2.0 (unknown term: 'License'))
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>Gate failed: license policy (3). Exiting 3.
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>scrapy 2.6.1: license is not an SPDX expression (BSD)
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>Gate failed: license policy (6). Exiting 3.
 </code></pre></div>
-<p>It caught more than html2text: pyopenssl and twisted declare <code>Apache License, Version 2.0</code> and <code>MIT License</code>,
-which are free text too. Neither is a license you would forbid, but neither is one a policy can evaluate either, and
-that is what <code>--require-license</code> reports. Accept them by name once you have checked them
-(<a href="../cli/#enforcing-a-license-policy"><code>--ignore-license</code></a>).</p>
+<p>It caught more than html2text. pyopenssl declares <code>Apache License, Version 2.0</code>, which is free text too, and
+parsel, pydispatcher, pysocks and scrapy declare just <code>BSD</code>: a family of licenses, not one of them, and pixi-sbom
+will not guess whether it is the 2-clause or the 3-clause. None is a license you would forbid, but none is one a
+policy can evaluate either, and that is what <code>--require-license</code> reports. Accept them by name once you have
+checked them (<a href="../cli/#enforcing-a-license-policy"><code>--ignore-license</code></a>).</p>
 <details class="question">
 <summary>Two gates trip in one run. Which exit code does CI see?</summary>
 <p>The first in a fixed order: license policy (3), vulnerabilities (4), then the others. stderr lists every gate

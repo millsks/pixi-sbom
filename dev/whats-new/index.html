@@ -1631,6 +1631,10 @@ has every commit.</p>
 <li><strong>Learned tab completion</strong> in bash, zsh, fish and PowerShell, for <code>pixi-sbom</code> and <code>pixi sbom</code>.</li>
 </ul>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<p><strong>A bare license name is no longer given a version.</strong> A package declaring <code>LGPL</code>, <code>GPL</code>, <code>AGPL</code> or <code>BSD</code> was written
+as <code>LGPL-2.0-only</code>, <code>GPL-2.0-only</code>, <code>AGPL-3.0</code> or <code>BSD-2-Clause</code>, versions and clause counts the package never
+stated, which a license policy then judged as if they were real. Bare family names are now kept as free text, and
+<code>MIT License</code> is now <code>MIT</code>.</p>
 <p><strong><code>--embedded-sboms</code> finds Python distributions vendored inside packages.</strong> setuptools ships packaging, wheel and a
 dozen more in <code>setuptools/_vendor/</code>, and a vendored copy can lag the installed one. With <code>--prefix</code>, each is now a
 component under the package that ships it, with its own PyPI identity, so scanners check it too. <code>--report diff</code>

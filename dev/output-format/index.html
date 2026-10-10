@@ -2418,8 +2418,13 @@ The rules:</p>
 <li>A valid SPDX expression is kept verbatim. Deprecated identifiers such as <code>GPL-3.0</code> or <code>LGPL-2.1</code> count as valid
    because conda-forge still uses them widely.</li>
 <li>Common non-conforming spellings are parsed leniently and rewritten: <code>MIT/Apache-2.0</code> becomes <code>MIT OR Apache-2.0</code>,
-   <code>mit</code> becomes <code>MIT</code>. Operator precedence follows the SPDX rules (<code>AND</code> binds tighter than <code>OR</code>) and parentheses are
-   emitted only where needed.</li>
+   <code>mit</code> becomes <code>MIT</code>, <code>MIT License</code> becomes <code>MIT</code> (a trailing <code>license</code> is dropped when what is left is an SPDX
+   identifier on its own). Operator precedence follows the SPDX rules (<code>AND</code> binds tighter than <code>OR</code>) and parentheses
+   are emitted only where needed. <strong>A license is never given a version or variant the package did not state</strong>: a
+   bare family name, <code>LGPL</code>, <code>GPL</code>, <code>AGPL</code> or <code>BSD</code> (also <code>GNU GPL</code>, <code>BSD License</code>, or inside a larger expression),
+   names no version or clause count, so it is kept as free text rather than guessed as <code>LGPL-2.0-only</code> or
+   <code>BSD-2-Clause</code>. A spelling that does state one is normalized: <code>GPLv3</code> is <code>GPL-3.0-only</code>, <code>GPLv2+</code> is
+   <code>GPL-2.0-or-later</code>.</li>
 <li>Anything else is treated as free text and preserved:</li>
 <li>CycloneDX: <code>licenses[].license.name</code> instead of <code>licenses[].expression</code>.</li>
 <li>SPDX: <code>licenseDeclared</code> becomes <code>LicenseRef-pixi-&lt;sanitized text&gt;</code> and a matching entry is added to
