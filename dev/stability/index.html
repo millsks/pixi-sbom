@@ -1739,6 +1739,10 @@ so they are not frozen here; they are honoured with the meanings rattler and cur
 <td><code>text</code> or <code>json</code>.</td>
 </tr>
 <tr>
+<td><code>PIXI_SBOM_COMPLETE</code></td>
+<td><code>bash</code>, <code>zsh</code>, <code>fish</code>, <code>powershell</code> or <code>elvish</code>: print that shell's completion registration instead of an SBOM. Any other value is ignored.</td>
+</tr>
+<tr>
 <td><code>PIXI_SBOM_CA_BUNDLE</code></td>
 <td>A PEM bundle to trust.</td>
 </tr>
@@ -1971,6 +1975,10 @@ half-read, and that refusal is exit code 1.</p>
   are derived and may change shape; so may the order of <code>components</code> / <code>packages</code> / <code>@graph</code>
   entries. Match on <code>purl</code>, <code>name</code> and <code>version</code>.</li>
 <li><strong>Cache layout.</strong> Directory names and file formats under the cache directory.</li>
+<li><strong>Completion scripts and candidates.</strong> What <code>PIXI_SBOM_COMPLETE=&lt;shell&gt; pixi-sbom</code> prints, how the
+  shell and the binary talk to each other (clap's dynamic completion, which clap itself marks
+  unstable), and which candidates are offered. Source the registration at shell start rather than
+  saving it, so it always matches the binary.</li>
 </ul>
 <h2 id="changing-something-that-is-frozen">Changing something that is frozen<a class="headerlink" href="#changing-something-that-is-frozen" title="Permanent link">&para;</a></h2>
 <p>A rename keeps the old spelling as a permanent alias, the way <code>--root-name</code> and <code>--outdated-min</code>

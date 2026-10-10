@@ -405,6 +405,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#shell-completion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shell completion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#upgrading" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1266,6 +1277,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#shell-completion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shell completion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#upgrading" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1406,6 +1428,55 @@ were signed by <code>release.yml</code> on <code>refs/heads/main</code>, before 
 <code>cargo install</code> time and that path builds from source regardless. The conda-forge package is not, because the
 feedstock builds on conda-forge's infrastructure rather than ours — the provenance there would be theirs to make.
 The binaries this project builds and hands out are the ones covered, which includes what <code>cargo binstall</code> fetches.</p>
+<h2 id="shell-completion">Shell completion<a class="headerlink" href="#shell-completion" title="Permanent link">&para;</a></h2>
+<p><code>pixi-sbom</code> completes its flags, the values they take (<code>--report &lt;TAB&gt;</code> lists the report kinds,
+<code>--format &lt;TAB&gt;</code> the formats) and file paths. Add the line for your shell to its startup file:</p>
+<table>
+<thead>
+<tr>
+<th>Shell</th>
+<th>Startup file</th>
+<th>Line</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bash</td>
+<td><code>~/.bashrc</code></td>
+<td><code>source &lt;(PIXI_SBOM_COMPLETE=bash pixi-sbom)</code></td>
+</tr>
+<tr>
+<td>zsh</td>
+<td><code>~/.zshrc</code></td>
+<td><code>source &lt;(PIXI_SBOM_COMPLETE=zsh pixi-sbom)</code></td>
+</tr>
+<tr>
+<td>fish</td>
+<td><code>~/.config/fish/config.fish</code></td>
+<td><code>PIXI_SBOM_COMPLETE=fish pixi-sbom \| source</code></td>
+</tr>
+<tr>
+<td>PowerShell</td>
+<td><code>$PROFILE</code></td>
+<td><code>$env:PIXI_SBOM_COMPLETE = "powershell"; pixi-sbom \| Out-String \| Invoke-Expression; Remove-Item Env:\PIXI_SBOM_COMPLETE</code></td>
+</tr>
+<tr>
+<td>elvish</td>
+<td><code>~/.config/elvish/rc.elv</code></td>
+<td><code>eval (E:PIXI_SBOM_COMPLETE=elvish pixi-sbom \| slurp)</code></td>
+</tr>
+</tbody>
+</table>
+<p>The line asks the binary for its registration each time a shell starts, so it always matches the
+installed version; don't save its output to a file. Pressing Tab runs <code>pixi-sbom</code> briefly to ask
+for suggestions. That run reads no lockfile, writes nothing and makes no network request, and
+<code>PIXI_SBOM_COMPLETE</code> is set only for it, so every other run writes its SBOM as usual.</p>
+<p><strong><code>pixi sbom</code> (with a space) is not completed.</strong> pixi's own completion knows only pixi's built-in
+commands and does not hand an extension's arguments to the extension
+(<a href="https://github.com/millsks/pixi-sbom/issues/424">#424</a> has the tests;
+<a href="https://github.com/prefix-dev/pixi/issues/7225">prefix-dev/pixi#7225</a> asks pixi to). The
+mechanism above is the one pixi would use to forward them, so completion will reach <code>pixi sbom</code>
+without a change here if it does. Until then, type <code>pixi-sbom</code> when you want Tab.</p>
 <h2 id="upgrading">Upgrading<a class="headerlink" href="#upgrading" title="Permanent link">&para;</a></h2>
 <p><code>pixi global update pixi-sbom</code> follows the conda-forge feedstock, which tracks releases within a day or two; a
 downloaded binary is replaced by the next one from the releases page. <code>pixi sbom --version</code> prints the running

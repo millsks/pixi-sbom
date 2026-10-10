@@ -404,6 +404,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unreleased
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#182" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1370,6 +1381,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unreleased
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#182" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1585,6 +1607,11 @@ has every commit.</p>
 <li><strong>Learned to work on restricted networks.</strong> Every upstream can point at a mirror, pixi's own
   credentials are used, and <code>--doctor</code> says which host is the problem.</li>
 </ul>
+<h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<p><strong>Tab completion for <code>pixi-sbom</code>.</strong> Flags, the values they take and file paths complete in bash,
+zsh, fish, PowerShell and elvish after one line in the shell's startup file
+(<a href="../installation/#shell-completion">shell completion</a>). <code>pixi sbom</code> with a space is not completed
+yet: that needs pixi to hand an extension's arguments to the extension, which has been asked for.</p>
 <h2 id="182">1.8.2<a class="headerlink" href="#182" title="Permanent link">&para;</a></h2>
 <p><strong>Merging SBOMs no longer flags two files of one PyPI release as a conflict.</strong> A bare
 <code>pkg:pypi/six@1.17.0</code> stands for every file of that release, so one document recording the wheel's
