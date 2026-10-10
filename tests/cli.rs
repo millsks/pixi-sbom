@@ -8316,10 +8316,8 @@ fn installs_from_outside_an_index_do_not_claim_a_pypi_release() {
     );
     let local = component("internal_lib");
     assert_eq!(local["purl"], "pkg:generic/internal_lib@1.0.0");
-    assert_eq!(
-        property(&local, "pixi:direct-url").as_deref(),
-        Some("file:///srv/app/libs/internal-lib")
-    );
+    // A local directory outside the venv's project says only where it is on that machine.
+    assert_eq!(property(&local, "pixi:direct-url"), None);
     assert_eq!(property(&local, "pixi:editable"), None);
     let editable = component("myapp");
     assert_eq!(editable["purl"], "pkg:generic/myapp@2.1.0");

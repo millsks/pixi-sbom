@@ -736,19 +736,30 @@ fn installed_pypi_identity(prefix: &Path, record: &Record) -> Option<(String, St
 /// files: the same environment at two paths, or on two machines, gives the same document. A pip
 /// package's location (its `dist-info` directory) is dropped, since a local directory is not a
 /// download location, and `pixi:extracted-package-dir` keeps only the directory's name in the
-/// package cache.
+/// package cache. A local `pixi:direct-url` (an editable checkout, a wheel file) becomes relative to
+/// the project, as a lockfile writes it (`./libs/utils`), or is dropped when it lies outside.
 pub fn make_portable(sbom: &mut Sbom, prefix: &Path) {
     let canonical = prefix.canonicalize().unwrap_or_else(|_| prefix.to_path_buf());
-    let inside = |location: &str| {
-        let Some(path) = location.strip_prefix("file://") else {
-            return false;
-        };
-        let path = Path::new(path.strip_prefix('/').filter(|p| p.contains(':')).unwrap_or(path));
-        path.starts_with(prefix) || path.starts_with(&canonical)
+    let local = |location: &str| -> Option<std::path::PathBuf> {
+        let path = location.strip_prefix("file://")?;
+        Some(Path::new(path.strip_prefix('/').filter(|p| p.contains(':')).unwrap_or(path)).to_path_buf())
     };
+    let inside =
+        |location: &str| local(location).is_some_and(|path| path.starts_with(prefix) || path.starts_with(&canonical));
+    let projects = [project_of(prefix), project_of(&canonical)];
     for package in &mut sbom.packages {
         if inside(&package.location) {
             package.location.clear();
+        }
+        if let Some(path) = package.properties.get(DIRECT_URL_PROPERTY).and_then(|url| local(url)) {
+            let relative = projects
+                .iter()
+                .find_map(|project| path.strip_prefix(project).ok())
+                .map(|rest| format!("./{}", rest.to_string_lossy().replace('\\', "/")));
+            match relative {
+                Some(relative) => package.properties.insert(DIRECT_URL_PROPERTY.into(), relative),
+                None => package.properties.remove(DIRECT_URL_PROPERTY),
+            };
         }
         if let Some(dir) = package.properties.get_mut(EXTRACTED_DIR_PROPERTY)
             && let Some(name) = Path::new(dir.as_str())
@@ -757,6 +768,21 @@ pub fn make_portable(sbom: &mut Sbom, prefix: &Path) {
         {
             *dir = name;
         }
+    }
+}
+
+/// PEP 610's direct URL of a pip install: where it came from when not from an index.
+const DIRECT_URL_PROPERTY: &str = "pixi:direct-url";
+
+/// The project an environment belongs to: the workspace of a pixi environment
+/// (`<workspace>/.pixi/envs/<name>`), else the directory that holds it (a venv's project).
+fn project_of(prefix: &Path) -> std::path::PathBuf {
+    let parent = prefix.parent().unwrap_or(prefix);
+    let is = |dir: Option<&Path>, name: &str| dir.and_then(Path::file_name).is_some_and(|n| n == name);
+    if is(Some(parent), "envs") && is(parent.parent(), ".pixi") {
+        parent.parent().and_then(Path::parent).unwrap_or(parent).to_path_buf()
+    } else {
+        parent.to_path_buf()
     }
 }
 
@@ -1043,7 +1069,7 @@ fn pypi_package(dist_info: &Path, conda_records: bool) -> Result<Option<(Package
         && let Ok(direct) = serde_json::from_str::<serde_json::Value>(&text)
         && let Some(url) = direct.get("url").and_then(|u| u.as_str())
     {
-        properties.insert("pixi:direct-url".into(), url.to_string());
+        properties.insert(DIRECT_URL_PROPERTY.into(), url.to_string());
         if direct
             .pointer("/dir_info/editable")
             .and_then(serde_json::Value::as_bool)
@@ -1111,6 +1137,39 @@ mod tests {
 
     fn fixture() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/prefix")
+    }
+
+    /// A local direct URL says where the project is on this machine: relative to the project it
+    /// reads as the lockfile writes it, and outside it is dropped. A remote one is left alone.
+    #[test]
+    fn a_local_direct_url_becomes_relative_to_the_project() {
+        let mut sbom = crate::format::testing::sample_sbom();
+        let urls = [
+            "file:///work/app/libs/utils",
+            "file:///elsewhere/wheels/x-1.0-py3-none-any.whl",
+            "https://example.com/x-1.0.tar.gz",
+            "file:///work/venv-project/src/pkg",
+        ];
+        for (package, url) in sbom.packages.iter_mut().zip(urls) {
+            package.properties.insert(DIRECT_URL_PROPERTY.into(), url.into());
+        }
+        let direct = |sbom: &Sbom, i: usize| sbom.packages[i].properties.get(DIRECT_URL_PROPERTY).cloned();
+        let mut pixi = sbom.clone();
+        make_portable(&mut pixi, Path::new("/work/app/.pixi/envs/default"));
+        assert_eq!(direct(&pixi, 0).as_deref(), Some("./libs/utils"), "a pixi workspace");
+        assert_eq!(direct(&pixi, 1), None, "outside the project");
+        assert_eq!(direct(&pixi, 2).as_deref(), Some("https://example.com/x-1.0.tar.gz"));
+        make_portable(&mut sbom, Path::new("/work/venv-project/.venv"));
+        assert_eq!(
+            direct(&sbom, 3).as_deref(),
+            Some("./src/pkg"),
+            "a venv's project is its directory"
+        );
+        assert_eq!(
+            project_of(Path::new("/work/app/.pixi/envs/default")),
+            Path::new("/work/app")
+        );
+        assert_eq!(project_of(Path::new("/opt/conda")), Path::new("/opt"));
     }
 
     #[test]

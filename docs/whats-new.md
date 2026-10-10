@@ -56,8 +56,8 @@ the Django example Grype found none of django's 27 vulnerabilities. A run that w
 **An installed environment's document no longer names paths on the machine that made it.** `--prefix` recorded a
 pip package's `file:///…/site-packages/…dist-info` as its location, and each conda package's extraction directory
 as a full path into the user's cache (`/Users/<name>/Library/Caches/rattler/…`). The first is dropped, the second
-keeps only the directory's name in the package cache, and the same environment at two paths now gives the same
-document.
+keeps only the directory's name in the package cache, and an editable install's `pixi:direct-url` is relative to the
+project (`./libs/utils`), as the lockfile writes it. The same environment at two paths now gives the same document.
 
 **`--report quality` grades other tools' documents on the same terms.** A syft SBOM's suppliers (`Person: ...` in
 SPDX, `author` in CycloneDX) and CPEs were not read, so its supplier and identifier scores were 0 and a document that

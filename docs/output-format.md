@@ -338,7 +338,7 @@ located by `<vcs>+<url>`, with `pixi:direct-url` and `pixi:source-rev`). Conda p
 `pixi:extracted-package-dir`: the name of the directory in the package cache the record says the archive was unpacked
 to. **Nothing in the document says where on the machine the environment or the package cache is**: the same
 environment at two paths, or on two machines, gives the same document apart from its timestamp and serial number. A
-pip package's local `dist-info` directory is not a download location and is not recorded as one. The Python a venv or a plain installation was made with is the document's `pixi:python-version` (a
+pip package's local `dist-info` directory is not a download location and is not recorded as one. A local `pixi:direct-url` (an editable checkout, a wheel installed from a file) is written relative to the project, as the lockfile writes it (`./libs/utils`); the project is the workspace of a pixi environment, else the directory holding the environment. One outside it is left out. The Python a venv or a plain installation was made with is the document's `pixi:python-version` (a
 CycloneDX metadata property, a line of the SPDX root package's comment). A plain installation, such as a container's
 `/usr/local`, also lists its interpreter as a component, since most advisories against it name the interpreter:
 `python` at that version, `pkg:generic/python@<version>`, with `pixi:interpreter=true`, and CPython's CPE when the
