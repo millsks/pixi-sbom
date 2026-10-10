@@ -2563,10 +2563,12 @@ they are different copies of the code. <code>--report diff</code> leaves vendore
 <h3 id="installed-environments">Installed environments<a class="headerlink" href="#installed-environments" title="Permanent link">&para;</a></h3>
 <p>With <code>--prefix</code> the document describes an installed environment instead of a lockfile: the metadata property is
 <code>pixi:prefix</code> (the environment directory's name) rather than <code>pixi:lockfile</code>, the SPDX root package's source info
-says <code>prefix &lt;name&gt;</code>, and pip-installed packages are located by a <code>file://</code> URL of their <code>dist-info</code> directory (or
-<code>&lt;vcs&gt;+&lt;url&gt;</code> for direct VCS installs, with <code>pixi:direct-url</code> and <code>pixi:source-rev</code>), carry <code>pixi:installer</code>, and
-have no hashes. Conda packages carry <code>pixi:extracted-package-dir</code>, where the record says the archive was
-unpacked. The Python a venv or a plain installation was made with is the document's <code>pixi:python-version</code> (a
+says <code>prefix &lt;name&gt;</code>, and pip-installed packages carry <code>pixi:installer</code> and have no hashes (a direct VCS install is
+located by <code>&lt;vcs&gt;+&lt;url&gt;</code>, with <code>pixi:direct-url</code> and <code>pixi:source-rev</code>). Conda packages carry
+<code>pixi:extracted-package-dir</code>: the name of the directory in the package cache the record says the archive was unpacked
+to. <strong>Nothing in the document says where on the machine the environment or the package cache is</strong>: the same
+environment at two paths, or on two machines, gives the same document apart from its timestamp and serial number. A
+pip package's local <code>dist-info</code> directory is not a download location and is not recorded as one. The Python a venv or a plain installation was made with is the document's <code>pixi:python-version</code> (a
 CycloneDX metadata property, a line of the SPDX root package's comment). A plain installation, such as a container's
 <code>/usr/local</code>, also lists its interpreter as a component, since most advisories against it name the interpreter:
 <code>python</code> at that version, <code>pkg:generic/python@&lt;version&gt;</code>, with <code>pixi:interpreter=true</code>, and CPython's CPE when the
