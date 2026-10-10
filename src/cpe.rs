@@ -14,6 +14,11 @@ use crate::model::{Package, PackageKind};
 /// The table, compiled into the binary.
 const TABLE: &str = include_str!("../data/cpe.toml");
 
+/// Where a package read from another document keeps the CPE that document gave it. Not a
+/// `pixi:*` property: the writers turn it back into the format's CPE field and never write it as a
+/// property.
+pub const DOCUMENT_CPE: &str = "cpe";
+
 /// Where a CPE came from, for `--explain`.
 pub const SOURCE: &str = "the CPE table (data/cpe.toml)";
 
@@ -58,6 +63,9 @@ pub fn entry(name: &str) -> Option<&'static Entry> {
 /// The CPE 2.3 formatted string for a package: only a conda package from a channel, with a table
 /// entry and a version, has one. A pixi-build source package is not the channel's build.
 pub fn for_package(package: &Package) -> Option<String> {
+    if let Some(cpe) = package.properties.get(DOCUMENT_CPE) {
+        return Some(cpe.clone());
+    }
     if package.properties.contains_key(crate::prefix::INTERPRETER_PROPERTY) {
         return interpreter(package);
     }

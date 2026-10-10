@@ -347,7 +347,10 @@ With `--from-sbom` the document describes what another document described: the m
 `pixi:source-document` — the source's CycloneDX serial number or SPDX document namespace — rather than
 `pixi:lockfile`, and the SPDX root package's source info says `document <identity>`. Everything the source records
 is carried over, including the `pixi:*` properties, so a document this tool wrote round-trips unchanged; a package
-whose purl is neither `pkg:conda` nor `pkg:pypi`, or which has no purl, gets `pixi:kind=external`.
+whose purl is neither `pkg:conda` nor `pkg:pypi`, or which has no purl, gets `pixi:kind=external`. Another tool's
+facts are read in their standard places: the supplier from CycloneDX `supplier`, `manufacturer`, `authors` or
+`author`, or SPDX `supplier` or `originator` (the name, without `Person:` / `Organization:` or an email); and the CPE
+from CycloneDX `cpe` or an SPDX `cpe23Type` / `cpe22Type` reference, written back to the output's CPE field.
 
 Merged (`--from-sbom` more than once, or `--scan --merge`), the metadata property lists every input, and each
 package carries `pixi:source-document` naming the inputs it came from. Each input's root is a component of its own

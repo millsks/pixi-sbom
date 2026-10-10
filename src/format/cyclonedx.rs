@@ -603,7 +603,12 @@ fn entity(supplier: &Supplier) -> Entity {
 }
 
 fn component(package: &Package) -> Component {
-    let mut properties: Vec<Property> = package.properties.iter().map(|(k, v)| property(k, v)).collect();
+    let mut properties: Vec<Property> = package
+        .properties
+        .iter()
+        .filter(|(k, _)| k.as_str() != crate::cpe::DOCUMENT_CPE)
+        .map(|(k, v)| property(k, v))
+        .collect();
     properties.push(property("pixi:kind", kind_name(package.kind)));
     properties.extend(package.extra_purls.iter().map(|purl| property("pixi:purl", purl)));
     let licenses = package_licenses(package);

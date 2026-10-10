@@ -302,7 +302,12 @@ fn packages_of(text: &str, value: &serde_json::Value) -> Option<Vec<Package>> {
                         name: c.name.clone(),
                         version: c.version.clone(),
                         kind: kind_of(c.purl.as_deref()),
-                        supplier: supplier_of(&c.properties),
+                        supplier: supplier_of(&c.properties).or_else(|| {
+                            c.supplier.as_ref().map(|name| crate::model::Supplier {
+                                name: name.clone(),
+                                url: None,
+                            })
+                        }),
                         extra_purls: Vec::new(),
                         // The document has already answered the identity question.
                         purls_from_lock: true,
@@ -323,6 +328,12 @@ fn packages_of(text: &str, value: &serde_json::Value) -> Option<Vec<Package>> {
                             .iter()
                             .filter(|(key, _)| key.as_str() != "pixi:kind")
                             .map(|(key, value)| (key.clone(), value.clone()))
+                            // The document's own CPE, written back as a CPE, never as a property.
+                            .chain(
+                                c.cpe
+                                    .iter()
+                                    .map(|cpe| (crate::cpe::DOCUMENT_CPE.to_string(), cpe.clone())),
+                            )
                             // Where the repository came from: what the document says, if it is one this
                             // tool wrote, else the document itself.
                             .chain(

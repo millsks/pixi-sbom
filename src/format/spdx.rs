@@ -327,14 +327,13 @@ fn spdx_package(
         )
     };
 
-    let comment = (!package.properties.is_empty()).then(|| {
-        package
-            .properties
-            .iter()
-            .map(|(k, v)| format!("{k}={v}"))
-            .collect::<Vec<_>>()
-            .join("\n")
-    });
+    let lines: Vec<String> = package
+        .properties
+        .iter()
+        .filter(|(k, _)| k.as_str() != crate::cpe::DOCUMENT_CPE)
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect();
+    let comment = (!lines.is_empty()).then(|| lines.join("\n"));
 
     SpdxPackage {
         spdx_id: ids[package.id.as_str()].clone(),

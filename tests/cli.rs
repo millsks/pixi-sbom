@@ -8773,9 +8773,63 @@ fn the_quality_report_grades_a_complete_and_a_sparse_document() {
     );
     let report: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(report["report"], "quality");
-    assert_eq!(report["summary"]["overall"], 51);
+    assert_eq!(
+        report["summary"]["overall"], 62,
+        "syft's authors are suppliers, its CPEs identifiers"
+    );
     let rows = report["quality"].as_array().unwrap();
     assert_eq!(rows.len(), 10);
+    // The same tool's SPDX: `supplier: Person: ...` and `cpe23Type` references are read too.
+    let spdx = tests_dir().join("fixtures/syft/app.spdx.json");
+    let output = run(
+        work.path(),
+        &[
+            "--from-sbom",
+            spdx.to_str().unwrap(),
+            "--report",
+            "quality",
+            "--report-format",
+            "json",
+        ],
+    );
+    let spdx: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let element = |name: &str| {
+        spdx["quality"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["element"] == name)
+            .unwrap()
+            .clone()
+    };
+    assert!(
+        element("supplier")["score"].as_u64().unwrap() > 0,
+        "{}",
+        element("supplier")
+    );
+    assert!(
+        element("unique identifier")["detail"]
+            .as_str()
+            .unwrap()
+            .contains("a purl or a CPE"),
+        "{}",
+        element("unique identifier")
+    );
+
+    // Read and written again, the CPEs stay CPEs and the suppliers suppliers.
+    let syft = tests_dir().join("fixtures/syft/app.cdx.json");
+    let output = run(work.path(), &["--from-sbom", syft.to_str().unwrap(), "--output", "-"]);
+    let written: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let components = written["components"].as_array().unwrap();
+    assert_eq!(components.iter().filter(|c| c["cpe"].is_string()).count(), 15);
+    assert_eq!(components.iter().filter(|c| c["supplier"].is_object()).count(), 9);
+    assert!(
+        !components
+            .iter()
+            .flat_map(|c| c["properties"].as_array().into_iter().flatten())
+            .any(|p| p["name"] == "cpe"),
+        "the CPE is a field, never a property"
+    );
     let informational: Vec<&Value> = rows
         .iter()
         .filter(|r| r["informational"] == true)

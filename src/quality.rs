@@ -100,11 +100,16 @@ pub fn assess(sbom: &Sbom) -> Grade {
         share("supplier", true, count(&|p| p.supplier.is_some()), "name a supplier"),
         share("name", true, count(&|p| !p.name.trim().is_empty()), "have a name"),
         share("version", true, count(&|p| p.version.is_some()), "have a version"),
+        // NTIA accepts a purl, a CPE or a SWID tag as the unique identifier; a document from another
+        // tool may give some packages only a CPE.
         share(
             "unique identifier",
             true,
-            count(&|p| p.purl.starts_with("pkg:")),
-            "have a purl",
+            count(&|p| p.purl.starts_with("pkg:") || crate::cpe::for_package(p).is_some()),
+            &format!(
+                "have a purl or a CPE ({} a purl)",
+                count(&|p| p.purl.starts_with("pkg:"))
+            ),
         ),
         share("dependency relationships", true, graphed, "are in the dependency graph"),
         whole(
@@ -218,6 +223,8 @@ mod tests {
         let mut sparse = sample_sbom();
         sparse.root.authors.clear();
         for package in &mut sparse.packages {
+            // Not a channel's conda package either, or the CPE table would identify it.
+            package.kind = crate::model::PackageKind::External;
             package.purl = format!("{}@x", package.name);
             package.supplier = None;
             package.license = None;

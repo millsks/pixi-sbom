@@ -49,6 +49,11 @@ pub struct Component {
     pub repository: Option<String>,
     /// A CycloneDX `website` reference, or the SPDX `homepage`.
     pub homepage: Option<String>,
+    /// Who the document says supplied it: CycloneDX `supplier`, `manufacturer`, `authors` or
+    /// `author`; SPDX `supplier` or `originator`, without the `Person:` / `Organization:` prefix.
+    pub supplier: Option<String>,
+    /// The CPE the document gives it: CycloneDX `cpe`, or an SPDX `cpe23Type` / `cpe22Type` reference.
+    pub cpe: Option<String>,
     /// References of the components this one depends on.
     pub depends_on: Vec<String>,
     /// The `pixi:*` facts the document records, which is how a document this tool wrote keeps
@@ -102,6 +107,23 @@ struct CdxComponent {
     properties: Vec<CdxProperty>,
     #[serde(default, rename = "externalReferences")]
     external_references: Vec<CdxExternalReference>,
+    #[serde(default)]
+    supplier: Option<CdxEntity>,
+    #[serde(default)]
+    manufacturer: Option<CdxEntity>,
+    #[serde(default)]
+    authors: Vec<CdxEntity>,
+    /// The single-string author of CycloneDX 1.5 and earlier.
+    #[serde(default)]
+    author: Option<String>,
+    #[serde(default)]
+    cpe: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct CdxEntity {
+    #[serde(default)]
+    name: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -174,7 +196,16 @@ fn parse_cyclonedx(text: &str) -> Option<Fragment> {
             .clone()
             .or_else(|| c.purl.clone())
             .unwrap_or_else(|| format!("component-{i}"));
+        let named = |entity: &Option<CdxEntity>| entity.as_ref().and_then(|e| e.name.clone());
+        let supplier = named(&c.supplier)
+            .or_else(|| named(&c.manufacturer))
+            .or_else(|| c.authors.iter().find_map(|a| a.name.clone()))
+            .or_else(|| c.author.clone())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
         fragment.components.push(Component {
+            supplier,
+            cpe: c.cpe.clone().filter(|cpe| !cpe.trim().is_empty()),
             depends_on: deps.get(reference.as_str()).map(|d| (*d).clone()).unwrap_or_default(),
             reference,
             name: c.name.clone(),
@@ -273,6 +304,26 @@ struct SpdxPackage {
     checksums: Vec<SpdxChecksum>,
     #[serde(default, rename = "externalRefs")]
     external_refs: Vec<SpdxExternalRef>,
+    #[serde(default)]
+    supplier: Option<String>,
+    #[serde(default)]
+    originator: Option<String>,
+}
+
+/// The name in an SPDX 2.3 entity: `Person: Jane Doe (jane@example.org)` is `Jane Doe`;
+/// `NOASSERTION` is nothing.
+fn spdx_entity(value: &Option<String>) -> Option<String> {
+    let value = value.as_deref()?.trim();
+    let name = ["Person:", "Organization:", "Tool:"]
+        .iter()
+        .find_map(|prefix| value.strip_prefix(prefix))
+        .unwrap_or(value)
+        .trim();
+    let name = match name.rfind(" (") {
+        Some(at) if name.ends_with(')') => name[..at].trim(),
+        _ => name,
+    };
+    (!name.is_empty() && name != "NOASSERTION" && name != "NONE").then(|| name.to_string())
 }
 
 #[derive(Deserialize)]
@@ -348,6 +399,12 @@ fn parse_spdx(text: &str) -> Option<Fragment> {
         }
         let noassertion = |v: &Option<String>| v.clone().filter(|s| s != "NOASSERTION" && s != "NONE");
         fragment.components.push(Component {
+            supplier: spdx_entity(&p.supplier).or_else(|| spdx_entity(&p.originator)),
+            cpe: p
+                .external_refs
+                .iter()
+                .find(|r| r.reference_type == "cpe23Type" || r.reference_type == "cpe22Type")
+                .map(|r| r.reference_locator.clone()),
             reference: p.spdx_id.clone(),
             name: p.name.clone(),
             version: p.version_info.clone(),
@@ -547,6 +604,15 @@ fn to_package(component: &Component, id: String, source: &str) -> Package {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_spdx_entity_is_its_name() {
+        let name = |v: &str| spdx_entity(&Some(v.to_string()));
+        assert_eq!(name("Person: Jane Doe (jane@example.org)").as_deref(), Some("Jane Doe"));
+        assert_eq!(name("Organization: Acme Corp").as_deref(), Some("Acme Corp"));
+        assert_eq!(name("NOASSERTION"), None);
+        assert_eq!(spdx_entity(&None), None);
+    }
     use crate::format::testing::sample_sbom;
 
     const CDX: &str = r#"{"bomFormat":"CycloneDX","specVersion":"1.5",

@@ -25,6 +25,12 @@ Since 1.0, pixi-sbom has:
 
 ## Unreleased
 
+**`--report quality` grades other tools' documents on the same terms.** A syft SBOM's suppliers (`Person: ...` in
+SPDX, `author` in CycloneDX) and CPEs were not read, so its supplier and identifier scores were 0 and a document that
+did identify its packages looked as if it did not. They are read now, and a CPE counts as the unique identifier
+alongside a purl, as the NTIA minimum elements allow (the purl count is still shown). syft's CycloneDX fixture goes
+from 51 to 62. Read with `--from-sbom` and written again, those suppliers and CPEs are kept.
+
 **A bare license name is no longer given a version.** A package declaring `LGPL`, `GPL`, `AGPL` or `BSD` was written
 as `LGPL-2.0-only`, `GPL-2.0-only`, `AGPL-3.0` or `BSD-2-Clause`, versions and clause counts the package never
 stated, which a license policy then judged as if they were real. Bare family names are now kept as free text, and

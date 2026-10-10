@@ -468,7 +468,12 @@ pub(crate) fn document(sbom: &Sbom, ctx: &WriteContext) -> Document {
             });
         }
         node.verified_using = (!hashes.is_empty()).then_some(hashes);
-        let mut comment: Vec<String> = package.properties.iter().map(|(k, v)| format!("{k}={v}")).collect();
+        let mut comment: Vec<String> = package
+            .properties
+            .iter()
+            .filter(|(k, _)| k.as_str() != crate::cpe::DOCUMENT_CPE)
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect();
         comment.push(format!("pixi:kind={}", kind_name(package.kind)));
         if !package.license_files.is_empty() {
             comment.push(format!(
