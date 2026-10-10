@@ -27,7 +27,12 @@ fn main() -> Result<()> {
     // A shell asking for completion gets its registration script or its candidates, and the
     // process exits here, before any lockfile is read. Registered and called by the name on
     // PATH, so the script survives an upgrade that moves the binary.
-    if cli::completion_requested(std::env::var(cli::COMPLETE_ENV).ok().as_deref()) {
+    let shell = std::env::var(cli::COMPLETE_ENV).ok();
+    if shell.as_deref() == Some("powershell") && std::env::args_os().len() == 1 {
+        print!("{}", cli::powershell_registration());
+        return Ok(());
+    }
+    if cli::completion_requested(shell.as_deref()) {
         clap_complete::CompleteEnv::with_factory(|| cli::Args::command().bin_name("pixi-sbom"))
             .var(cli::COMPLETE_ENV)
             .bin("pixi-sbom")

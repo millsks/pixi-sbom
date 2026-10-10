@@ -174,6 +174,33 @@ pub fn completion_requested(value: Option<&str>) -> bool {
     value.is_some_and(|shell| COMPLETION_SHELLS.contains(&shell))
 }
 
+/// The line in clap's PowerShell registration that passes an empty word at the cursor.
+const POWERSHELL_EMPTY_WORD: &str = "        $args += \" ''\";\n";
+
+/// The same, for every PowerShell. Windows PowerShell 5.1 and PowerShell 7.0 to 7.2 drop an empty
+/// argument when they call a program (legacy argument passing), so `--format <TAB>` offered
+/// `--format` again instead of its values. There a quoted `""` reaches the program as the empty
+/// argument; PowerShell 7.3 and later pass `''` as it is.
+const POWERSHELL_EMPTY_WORD_EVERYWHERE: &str = r#"        if ($null -eq $PSNativeCommandArgumentPassing -or $PSNativeCommandArgumentPassing -eq 'Legacy') {
+            $args += ' ''""''';
+        } else {
+            $args += " ''";
+        }
+"#;
+
+/// What `PIXI_SBOM_COMPLETE=powershell pixi-sbom` prints: clap's registration, with the empty word
+/// passed so that every PowerShell keeps it.
+pub fn powershell_registration() -> String {
+    use clap_complete::env::EnvCompleter;
+    let mut script = Vec::new();
+    clap_complete::env::Powershell
+        .write_registration(COMPLETE_ENV, "pixi-sbom", "pixi-sbom", "pixi-sbom", &mut script)
+        .expect("writing to memory cannot fail");
+    String::from_utf8(script)
+        .expect("the registration is UTF-8")
+        .replace(POWERSHELL_EMPTY_WORD, POWERSHELL_EMPTY_WORD_EVERYWHERE)
+}
+
 /// How the log on stderr is rendered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
 pub enum LogFormat {
@@ -713,6 +740,17 @@ pub fn parse_probability(text: &str) -> Result<f64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_powershell_registration_passes_the_empty_word_in_every_powershell() {
+        let script = powershell_registration();
+        assert!(
+            script.contains("$PSNativeCommandArgumentPassing -eq 'Legacy'"),
+            "clap's registration changed and the empty-word line was not found:\n{script}"
+        );
+        assert!(!script.contains(&format!("{{\n{POWERSHELL_EMPTY_WORD}")), "{script}");
+        assert!(script.contains("-CommandName pixi-sbom") && script.contains("$env:PIXI_SBOM_COMPLETE"));
+    }
 
     #[test]
     fn only_a_shells_name_asks_for_completion() {
