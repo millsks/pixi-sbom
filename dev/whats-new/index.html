@@ -1802,6 +1802,13 @@ has every commit.</p>
 <li><strong>Learned tab completion</strong> in bash, zsh, fish and PowerShell, for <code>pixi-sbom</code> and <code>pixi sbom</code>.</li>
 </ul>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<p><strong><code>--prefix</code> lists the npm packages installed in a conda environment.</strong> <code>nodejs</code> brings npm and about 120 packages
+npm itself depends on, and a JavaScript tool such as <code>configurable-http-proxy</code> brings its own; none of them was in
+the document. Every package under the environment's <code>node_modules</code> is now a <code>pkg:npm</code> component under the conda
+package that installed it, with its dependencies and license, so OSV and Grype check them. On a <code>nodejs</code> plus
+<code>configurable-http-proxy</code> environment that is 178 releases and 12 Grype findings, the same as syft's with its
+installed-package cataloger on (by default syft reads only JavaScript lockfiles in a directory, and finds none).
+See <a href="../output-format/#npm-packages-in-an-environment">npm packages in an environment</a>.</p>
 <p><strong>The Go modules inside a conda environment's Go programs are listed.</strong> conda-forge builds <code>gh</code>, <code>go-yq</code>,
 <code>terraform</code> and the rest from source, so the conda record names the package and nothing in it. With <code>--prefix</code> and
 <code>--embedded-sboms</code>, each Go binary's build information is read, the list <code>go version -m</code> prints, and every module

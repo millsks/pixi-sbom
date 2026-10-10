@@ -1880,7 +1880,7 @@ stack; <code>pixi/04-data-analysis</code>, a scientific stack; <code>pixi/10-dev
 <code>pixi sbom --prefix --primary-purl pypi --embedded-sboms</code> (offline: everything pixi-sbom needs is on disk or in its
 own tables), and scans both documents with the same Grype and the same database. syft and Grype run through
 <code>pixi exec</code> at versions pinned in the script, so neither is a dependency of the project.</p>
-<p>Every conda or Python finding from syft's document must also come from pixi-sbom's. One that does not fails the
+<p>Every conda, Python or npm finding from syft's document must also come from pixi-sbom's. One that does not fails the
 run unless <code>tests/grype/exceptions.toml</code> lists it, for that environment, with a reason: an exception is for a
 difference that is right, such as a Grype match on a CPE syft guessed from a name for code the package does not
 contain. Findings only pixi-sbom's document produces are printed, not failed. The run prints the Grype database's

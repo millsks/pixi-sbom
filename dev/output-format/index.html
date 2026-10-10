@@ -1130,6 +1130,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#npm-packages-in-an-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        npm packages in an environment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#documents-derived-from-documents" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1757,6 +1768,17 @@
     <span class="md-ellipsis">
       
         Installed environments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#npm-packages-in-an-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        npm packages in an environment
       
     </span>
   </a>
@@ -2692,6 +2714,18 @@ lives outside it, and a conda environment lists its <code>python</code> package,
 its files checked, and where they apply <code>pixi:modified-files</code> and <code>pixi:missing-files</code> (comma-separated paths relative
 to the environment) and <code>pixi:regenerated-bytecode</code> (how many <code>.pyc</code> files Python has rewritten, which is not a
 failure). See <a href="../cli/#has-anything-changed-since-installation">Has anything changed since installation</a>.</p>
+<h3 id="npm-packages-in-an-environment">npm packages in an environment<a class="headerlink" href="#npm-packages-in-an-environment" title="Permanent link">&para;</a></h3>
+<p>With <code>--prefix</code>, the JavaScript packages installed in the environment are listed too: every package under its
+<code>node_modules</code> trees (<code>lib/node_modules</code>, <code>node_modules</code> on Windows, and any other a conda package's files are in),
+nested ones included, as <code>pkg:npm/&lt;name&gt;@&lt;version&gt;</code> components (<code>pkg:npm/%40npmcli/arborist@8.0.0</code> for a scoped
+one). <code>nodejs</code> installs npm and npm's own dependencies this way, and a JavaScript tool such as
+<code>configurable-http-proxy</code> installs its own under <code>lib/node_modules/&lt;tool&gt;</code>. Each is attached to the conda package
+whose files contain it, with <code>pixi:kind=embedded</code>, <code>pixi:embedded-sbom=node_modules:&lt;directory&gt;</code> (several, separated
+by <code>;</code>, when a release is installed in more than one place), and the license, description and homepage its
+<code>package.json</code> declares. A dependency points at the copy Node would load: the package's own <code>node_modules</code>, then each
+enclosing one outward. A <code>package.json</code> inside a package (<code>esm/</code>, <code>dist/</code>) is a file of that package, a <code>private</code>
+one is not a release, and a build-time lockfile is not installed code: none of them is listed. A project's own
+<code>node_modules</code>, outside the environment, is not read.</p>
 <h3 id="documents-derived-from-documents">Documents derived from documents<a class="headerlink" href="#documents-derived-from-documents" title="Permanent link">&para;</a></h3>
 <p>With <code>--from-sbom</code> the document describes what another document described: the metadata property is
 <code>pixi:source-document</code> — the source's CycloneDX serial number or SPDX document namespace — rather than
