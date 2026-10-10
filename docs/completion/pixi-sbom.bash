@@ -11,4 +11,9 @@ _pixi_with_sbom() {
     _pixi "$@"
   fi
 }
-complete -o bashdefault -o default -o nosort -F _pixi_with_sbom pixi
+# -o nosort keeps pixi-sbom's order, and needs bash 4.4 or later (macOS's /bin/bash is 3.2).
+if (( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 4) )); then
+  complete -o bashdefault -o default -o nosort -F _pixi_with_sbom pixi
+else
+  complete -o bashdefault -o default -F _pixi_with_sbom pixi
+fi

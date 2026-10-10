@@ -96,13 +96,15 @@ The binaries this project builds and hands out are the ones covered, which inclu
 
 | Shell | Startup file | Line |
 |---|---|---|
-| bash | `~/.bashrc` | `source <(PIXI_SBOM_COMPLETE=bash pixi-sbom)` |
+| bash | `~/.bashrc` (`~/.bash_profile` on macOS) | `eval "$(PIXI_SBOM_COMPLETE=bash pixi-sbom)"` |
 | zsh | `~/.zshrc` | `source <(PIXI_SBOM_COMPLETE=zsh pixi-sbom)` |
 | fish | `~/.config/fish/config.fish` | `PIXI_SBOM_COMPLETE=fish pixi-sbom \| source` |
 | PowerShell | `$PROFILE` | `$env:PIXI_SBOM_COMPLETE = "powershell"; pixi-sbom \| Out-String \| Invoke-Expression; Remove-Item Env:\PIXI_SBOM_COMPLETE` |
 | elvish | `~/.config/elvish/rc.elv` | `eval (E:PIXI_SBOM_COMPLETE=elvish pixi-sbom \| slurp)` |
 
-The line asks the binary for its registration each time a shell starts, so it always matches the
+For bash, `eval` rather than `source <(…)`: macOS's own bash is 3.2, where `source` reading a
+process substitution gets nothing and completion silently stays off. The line asks the binary for
+its registration each time a shell starts, so it always matches the
 installed version; don't save its output to a file. Pressing Tab runs `pixi-sbom` briefly to ask
 for suggestions. That run reads no lockfile, writes nothing and makes no network request, and
 `PIXI_SBOM_COMPLETE` is set only for it, so every other run writes its SBOM as usual.

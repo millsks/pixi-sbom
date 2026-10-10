@@ -2,7 +2,7 @@
 
 Each shell loads pixi's completion, pixi-sbom's registration and docs/completion/pixi-sbom.<ext>,
 then is asked what Tab offers for a line (tests/completion/probe.*). fish, bash and PowerShell 7 come
-from conda-forge through `pixi exec`; zsh is the system's, because conda-forge's has no zsh/zpty, and
+from conda-forge through `pixi exec`; on macOS bash also runs as the system's 3.2; zsh is the system's, because conda-forge's has no zsh/zpty, and
 Windows PowerShell 5.1 is the one Windows ships.
 
     pixi run completion-e2e                 # every shell this OS has
@@ -33,7 +33,12 @@ CASES: list[tuple[str, set[str], bool]] = [
 ]
 
 
-DEFAULT_SHELLS = ["powershell", "windows-powershell"] if os.name == "nt" else ["fish", "bash", "powershell", "zsh"]
+if os.name == "nt":
+    DEFAULT_SHELLS = ["powershell", "windows-powershell"]
+elif sys.platform == "darwin":
+    DEFAULT_SHELLS = ["fish", "bash", "macos-bash", "powershell", "zsh"]
+else:
+    DEFAULT_SHELLS = ["fish", "bash", "powershell", "zsh"]
 
 
 def shells() -> dict[str, list[str]]:
@@ -46,6 +51,9 @@ def shells() -> dict[str, list[str]]:
             "-File", str(PROBES / "probe.ps1"),
         ],
     }
+    # The bash 3.2 that macOS ships as /bin/bash, beside conda-forge's 5.2.
+    if sys.platform == "darwin" and Path("/bin/bash").exists():
+        found["macos-bash"] = ["/bin/bash", "--noprofile", "--norc", str(PROBES / "probe.bash")]
     zsh = shutil.which("zsh")
     if zsh:
         found["zsh"] = [zsh, "-f", str(PROBES / "probe.zsh")]
