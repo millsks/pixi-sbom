@@ -2028,20 +2028,29 @@ operator action, two runs.</p>
 </tbody>
 </table>
 <p>A <strong>pre-release is expressed in the version</strong>, not by a separate flag: <code>1.0.0-rc.1</code> is one and <code>1.0.0</code> is not.</p>
-<p><strong>Write the release up in <a href="../whats-new/">What's new</a></strong> in the pull request after the release, while it is fresh:
-one section per final release, saying what it means for someone using the tool, not what the commits were.
-<code>the_whats_new_page_covers_every_release_since_1_0</code> in <code>tests/cli.rs</code> fails the build until that section exists,
-and fails it for a section naming a release that does not. Release candidates do not get one; their final does.
+<p><strong>Write the release up in <a href="../whats-new/">What's new</a> as you go</strong>, under a <code>## Unreleased</code> section at the top of
+the page: a pull request that changes something a user would notice adds its line there, saying what it means for
+someone using the tool, not what the commits were. Before cutting a final release, give the section an editing
+pass in its own pull request. The release workflow refuses to tag a final release whose <code>## Unreleased</code> is missing
+or empty (<code>pixi run whats-new check &lt;version&gt;</code> asks the same question locally), and renames it to <code>## &lt;version&gt;</code>
+in the <code>chore(release)</code> commit next to the changelog, so the tag carries its notes and <code>main</code> never has a release
+the page does not describe. <code>the_whats_new_page_covers_every_release_since_1_0</code> in <code>tests/cli.rs</code> fails the build
+for a release without a section, for a section naming a release that does not exist, and for an <code>## Unreleased</code>
+that is not the only one or not above every release. Release candidates do not get a section, and leave
+<code>## Unreleased</code> as it is; their final does. A release with nothing a user would notice still gets one line, such
+as "No changes to behaviour; dependency updates only."
 That is what semver already means by the suffix, and a flag could contradict the version it was attached to.</p>
 <p>What the two do, in order:</p>
 <ol>
 <li><strong>Version and guard.</strong> Finds the latest <code>v*</code> tag, computes the next version, and exits quietly (no release) if
    nothing changed on <code>main</code> since that tag. Validates the version and refuses to reuse an existing tag unless
-   <code>force_recreate</code> is set.</li>
+   <code>force_recreate</code> is set. For a final release, refuses to go on unless <code>docs/whats-new.md</code> has a non-empty
+   <code>## Unreleased</code> section.</li>
 <li><strong>Bump.</strong> Writes the version into <code>Cargo.toml</code>, <code>Cargo.lock</code> (via <code>cargo update --workspace</code>) and <code>pixi.toml</code>.</li>
 <li><strong>Gate.</strong> Runs <code>pixi run ci</code> on the bumped tree; a red gate stops the release before anything is pushed.</li>
-<li><strong>Changelog.</strong> Regenerates <code>CHANGELOG.md</code> with <code>git-cliff --tag vX.Y.Z</code> (<code>cliff.toml</code>), commits the bump and
-   changelog as <code>chore(release): vX.Y.Z</code>, tags that commit, and pushes both to <code>main</code>. It then waits until
+<li><strong>Changelog.</strong> Regenerates <code>CHANGELOG.md</code> with <code>git-cliff --tag vX.Y.Z</code> (<code>cliff.toml</code>), renames What's new's
+   <code>## Unreleased</code> to <code>## X.Y.Z</code> (final releases only), commits the bump, changelog and page as
+   <code>chore(release): vX.Y.Z</code>, tags that commit, and pushes both to <code>main</code>. It then waits until
    <code>release-artifacts.yml</code> is visibly running for that tag before going green: a tag that pushed but started
    nothing would otherwise look like a successful release with no binaries behind it.</li>
 </ol>
