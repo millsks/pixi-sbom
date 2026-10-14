@@ -2,10 +2,16 @@
 
 > [!IMPORTANT]
 > **pixi-sbom has moved to [aesir-oss/pixi-sbom](https://github.com/aesir-oss/pixi-sbom)**, with its documentation at
-> [aesir-oss.github.io/pixi-sbom](https://aesir-oss.github.io/pixi-sbom/). This repository keeps its history but gets no new
-> releases. The GitHub Action is now [aesir-oss/pixi-sbom-action](https://github.com/aesir-oss/pixi-sbom-action):
-> replace `uses: millsks/pixi-sbom@v1` with `uses: aesir-oss/pixi-sbom-action@v1`. The inputs and outputs are the same,
-> and until you switch, `millsks/pixi-sbom@v1` forwards to it and warns on every run.
+> [aesir-oss.github.io/pixi-sbom](https://aesir-oss.github.io/pixi-sbom/). This repository is archived: it is read-only,
+> gets no new releases, and keeps its issues and pull requests (up to 1.11.0) as history. Open new issues and pull
+> requests in [aesir-oss/pixi-sbom](https://github.com/aesir-oss/pixi-sbom/issues).
+>
+> - **Releases:** every release, this repository's included, is on
+>   [aesir-oss/pixi-sbom's releases page](https://github.com/aesir-oss/pixi-sbom/releases). Install it with
+>   `pixi global install pixi-sbom` (conda-forge) or `uv tool install pixi-sbom` (PyPI).
+> - **GitHub Action:** it is now [aesir-oss/pixi-sbom-action](https://github.com/aesir-oss/pixi-sbom-action). Replace
+>   `uses: millsks/pixi-sbom@v1` with `uses: aesir-oss/pixi-sbom-action@v1`; the inputs and outputs are the same. Until
+>   you switch, `millsks/pixi-sbom@v1` forwards to it and warns on every run.
 
 Generates a Software Bill of Materials (SBOM) from a lockfile — `pixi.lock`, `uv.lock`, `pylock.toml`, `poetry.lock`,
 `pdm.lock`, `conda-lock.yml` or an explicit conda spec — or from an installed conda environment or venv, as
@@ -16,9 +22,9 @@ extension (`pixi sbom`) that needs no pixi: the same binary runs as `pixi-sbom`,
 [![conda-forge](https://img.shields.io/conda/vn/conda-forge/pixi-sbom?logo=conda-forge&color=brightgreen)](https://anaconda.org/conda-forge/pixi-sbom)
 [![crates.io](https://img.shields.io/crates/v/pixi-sbom?logo=rust&color=orange)](https://crates.io/crates/pixi-sbom)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Docs](https://img.shields.io/badge/docs-millsks.github.io%2Fpixi--sbom-teal.svg)](https://millsks.github.io/pixi-sbom/)
+[![Docs](https://img.shields.io/badge/docs-aesir--oss.github.io%2Fpixi--sbom-teal.svg)](https://aesir-oss.github.io/pixi-sbom/)
 
-Full documentation: **https://millsks.github.io/pixi-sbom/**
+Full documentation: **https://aesir-oss.github.io/pixi-sbom/**
 What 1.0 freezes, and what it does not: **[stability.md](docs/stability.md)**
 Found a vulnerability? [SECURITY.md](SECURITY.md) says where to send it privately and what is in scope.
 
