@@ -254,45 +254,19 @@ jobs:
           upload-artifact: "false"
 
   # The action on a uv project and a venv, on a runner with no pixi: what a uv user's workflow
-  # looks like. Until a release reads uv.lock, the action cannot download a binary that does,
-  # so this builds the head binary here and puts it where the action keeps an install it has
-  # already made (the reuse path it takes when it runs twice in one job), under a version no
-  # release has. Everything after the download is the action exactly as a user runs it.
-  action-head-binary:
-    name: Build the binary for the action tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: prefix-dev/setup-pixi@v0.8.1
-        with:
-          environments: default
-          cache: true
-      - run: pixi run build
-      - uses: actions/upload-artifact@v4
-        with:
-          name: action-head-binary
-          path: target/release/pixi-sbom
-
+  # looks like. The action forwards to aesir-oss/pixi-sbom-action@v1, which downloads a released binary.
   action-uv:
     name: Action on a uv project, without pixi
-    needs: action-head-binary
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: No pixi on this runner
         run: "! command -v pixi"
-      - name: Install the head binary where the action reuses an install
-        uses: actions/download-artifact@v4
-        with:
-          name: action-head-binary
-          path: ${{ runner.temp }}/pixi-sbom-install/pixi-sbom-v0.0.0-head-linux-64/bin
-      - run: chmod +x "$RUNNER_TEMP/pixi-sbom-install/pixi-sbom-v0.0.0-head-linux-64/bin/pixi-sbom"
 
       - name: SBOM of a uv.lock
         id: uv
         uses: ./
         with:
-          version: 0.0.0-head
           lockfile: examples/projects/uv/01-django/uv.lock
           platform: linux-64
           output: sbom-uv
@@ -315,7 +289,6 @@ jobs:
         id: venv
         uses: ./
         with:
-          version: 0.0.0-head
           prefix: venv
           output: sbom-venv
           upload-artifact: "false"
@@ -336,7 +309,6 @@ jobs:
         continue-on-error: true
         uses: ./
         with:
-          version: 0.0.0-head
           lockfile: examples/projects/uv/01-django/uv.lock
           prefix: venv
           upload-artifact: "false"

@@ -1,5 +1,12 @@
 # pixi-sbom
 
+> [!IMPORTANT]
+> **pixi-sbom has moved to [aesir-oss/pixi-sbom](https://github.com/aesir-oss/pixi-sbom)**, with its documentation at
+> [aesir-oss.github.io/pixi-sbom](https://aesir-oss.github.io/pixi-sbom/). This repository keeps its history but gets no new
+> releases. The GitHub Action is now [aesir-oss/pixi-sbom-action](https://github.com/aesir-oss/pixi-sbom-action):
+> replace `uses: millsks/pixi-sbom@v1` with `uses: aesir-oss/pixi-sbom-action@v1`. The inputs and outputs are the same,
+> and until you switch, `millsks/pixi-sbom@v1` forwards to it and warns on every run.
+
 Generates a Software Bill of Materials (SBOM) from a lockfile — `pixi.lock`, `uv.lock`, `pylock.toml`, `poetry.lock`,
 `pdm.lock`, `conda-lock.yml` or an explicit conda spec — or from an installed conda environment or venv, as
 [CycloneDX](https://cyclonedx.org) 1.6 / 1.7 or [SPDX](https://spdx.dev) 2.3 / 3.0.1 JSON. A [pixi](https://pixi.sh)
