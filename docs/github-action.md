@@ -2,7 +2,7 @@
 
 Published as [millsks/pixi-sbom-action](https://github.com/millsks/pixi-sbom-action), from
 [`actions/pixi-sbom`](https://github.com/millsks/pixi-sbom/tree/main/actions/pixi-sbom) in this repository.
-`uses: millsks/pixi-sbom@v1`, the action's original home, keeps working.
+The action's original `uses: millsks/pixi-sbom@v1` no longer works; use `millsks/pixi-sbom-action@v1`.
 
 The action downloads the pinned release binary for the runner (verifying the
 checksum), runs it, and uploads the documents as a workflow artifact; pixi itself is not needed, and neither is
