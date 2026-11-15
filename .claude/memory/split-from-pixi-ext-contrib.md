@@ -15,9 +15,9 @@ repositories' issues and PRs by number.
   name the repository that built them, so verify old archives offline with `gh attestation verify --bundle`.
 - aesir-oss/pixi-ext-contrib was deleted after the split; its issues were moved here and to aesir-oss/pixi-policy
   (workspace-only ones in the closed `pixi-ext-contrib` and `pixi-ext-common` milestones), its PRs were lost.
-- millsks/pixi-sbom stays, archived, because it still serves `uses: millsks/pixi-sbom@v1` (a deprecated wrapper
-  forwarding to aesir-oss/pixi-sbom-action@v1); never delete or rename it. Its issues stay there: GitHub cannot
-  transfer issues from a user repository to an organization's.
+- The original millsks/pixi-sbom kept its issues and served `uses: millsks/pixi-sbom@v1` (a deprecated wrapper
+  forwarding to millsks/pixi-sbom-action@v1). In November 2026 it was renamed millsks/pixi-sbom.org, and this
+  repository (then aesir-oss/pixi-sbom), the action and the pre-commit mirror were transferred to millsks.
 - The code once shared with pixi-policy is this crate's own again (see [[architecture-decisions]]); pixi-policy keeps
   its own copy, and nothing keeps the two in step.
 - The docs for 1.12.0 to 1.13.1 went with pixi-ext-contrib's site; this repository's site starts with 1.13.2.

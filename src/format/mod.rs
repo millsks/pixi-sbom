@@ -103,7 +103,7 @@ pub enum WriteError {
         code(pixi_sbom::format::serialize),
         help(
             "the document this build assembled cannot be encoded, which is a fault in pixi-sbom rather than \
-             in your workspace: please report it at https://github.com/aesir-oss/pixi-sbom/issues"
+             in your workspace: please report it at https://github.com/millsks/pixi-sbom/issues"
         )
     )]
     Serialize(#[from] serde_json::Error),

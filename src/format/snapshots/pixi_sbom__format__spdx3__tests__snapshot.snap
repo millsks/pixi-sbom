@@ -32,7 +32,7 @@ expression: json()
       "spdxId": "https://spdx.org/spdxdocs/pixi-sbom/demo-default-linux-64/11111111-2222-4333-8444-555555555555#tool-pixi-sbom",
       "creationInfo": "_:creationinfo",
       "name": "pixi-sbom",
-      "description": "pixi-sbom 0.0.0-test (https://github.com/aesir-oss/pixi-sbom)"
+      "description": "pixi-sbom 0.0.0-test (https://github.com/millsks/pixi-sbom)"
     },
     {
       "type": "Person",

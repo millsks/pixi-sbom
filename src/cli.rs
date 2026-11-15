@@ -472,7 +472,7 @@ impl FailOnSeverity {
     version,
     about,
     long_about = None,
-    after_help = "Documentation: https://aesir-oss.github.io/pixi-sbom/",
+    after_help = "Documentation: https://millsks.github.io/pixi-sbom/",
     styles = help_styles(),
     // --report-format renders whichever of the two prints to the terminal, so it requires the
     // group rather than either flag on its own.

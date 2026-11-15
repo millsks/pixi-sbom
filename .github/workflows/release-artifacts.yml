@@ -434,7 +434,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # Trusted publishing: no token, PyPI checks this workflow's OIDC identity against the
-  # publisher registered for the project (repository aesir-oss/pixi-sbom, workflow
+  # publisher registered for the project (repository millsks/pixi-sbom, workflow
   # release-artifacts.yml, and the environment named here), on PyPI and on TestPyPI. A release candidate goes to
   # TestPyPI, a final release to PyPI, and either only once the GitHub Release is out.
   testpypi:
@@ -483,8 +483,8 @@ jobs:
           attestations: true
           skip-existing: true
 
-  # The action is published from its own repository, aesir-oss/pixi-sbom-action, so it can be listed on the
-  # Marketplace and `uses: aesir-oss/pixi-sbom-action@v1` downloads a few files instead of this whole repository.
+  # The action is published from its own repository, millsks/pixi-sbom-action, so it can be listed on the
+  # Marketplace and `uses: millsks/pixi-sbom-action@v1` downloads a few files instead of this whole repository.
   # Its source is actions/pixi-sbom here, tested by CI on every pull request; each release copies it over,
   # tags it vX.Y.Z and, for the newest final release of its major, moves vX. Runs after the GitHub Release
   # exists, so the binaries a new tag resolves to are already published.
@@ -574,7 +574,7 @@ jobs:
             exit 0
           fi
           version="${TAG#v}"
-          docs="https://aesir-oss.github.io/pixi-sbom/latest"
+          docs="https://millsks.github.io/pixi-sbom/latest"
           latest="--latest=false"
           [ "$MOVED" != "no" ] && latest="--latest"
           cat > notes.md <<EOF
@@ -595,7 +595,7 @@ jobs:
           gh release create "$TAG" --repo "$REPO" --verify-tag --title "$TAG" --notes-file notes.md "$latest"
           echo "Released \`${REPO}\` ${TAG} (${latest#--})." >> "$GITHUB_STEP_SUMMARY"
 
-  # The pre-commit hooks live in a mirror repository, aesir-oss/pixi-sbom-pre-commit, the way ruff's
+  # The pre-commit hooks live in a mirror repository, millsks/pixi-sbom-pre-commit, the way ruff's
   # do: pre-commit installs a `language: python` hook by `pip install .` of the hook repository,
   # which here would compile pixi-sbom from Rust. The mirror holds only the hooks and a
   # pyproject.toml pinning the wheel of the same version, rendered from pre-commit-mirror/ and

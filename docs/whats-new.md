@@ -25,6 +25,13 @@ Since 1.0, pixi-sbom has:
 
 ## Unreleased
 
+**pixi-sbom is back under millsks.** The repository is now [millsks/pixi-sbom](https://github.com/millsks/pixi-sbom),
+the action `uses: millsks/pixi-sbom-action@v1`, the pre-commit hooks `https://github.com/millsks/pixi-sbom-pre-commit`,
+and the docs [millsks.github.io/pixi-sbom](https://millsks.github.io/pixi-sbom/). GitHub redirects the old
+`aesir-oss/` names, so existing workflows and hook configs keep working, but update them when convenient. Releases
+from 1.13.2 to 1.15.1-rc.1 were signed as `aesir-oss/pixi-sbom`;
+[Installation](installation.md#checking-where-a-binary-came-from) shows how to verify them.
+
 **A CA bundle from before the eMudhra distrust is called out.** On 2026-10-20 browsers and certifi stopped trusting
 emSign ECC Root CA - G3, whose intermediates had trivially weak keys
 ([Mozilla bug 2083449](https://bugzilla.mozilla.org/show_bug.cgi?id=2083449)). A bundle given by `--ca-bundle`,

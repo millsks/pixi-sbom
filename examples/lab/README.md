@@ -1,6 +1,6 @@
 # Lab inputs
 
-Files the [training lab](https://aesir-oss.github.io/pixi-ext-contrib/latest/lab/) uses besides the projects themselves.
+Files the [training lab](https://millsks.github.io/pixi-sbom/latest/lab/) uses besides the projects themselves.
 
 | File | What it is |
 |---|---|

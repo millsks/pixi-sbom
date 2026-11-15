@@ -8,12 +8,11 @@ metadata:
 The "standard guardrail" / "harness" (branch, CI, PR, monitor to green, merge, sync main, clean branches, then the
 next queued issue) is defined in global CLAUDE.md §6 "Issue delivery loop". Follow that.
 
-aesir-oss/pixi-sbom specifics on top of it:
+millsks/pixi-sbom specifics on top of it:
 
-- work from the fork millsks/aesir-pixi-sbom (`origin`; Actions off there) and open PRs against aesir-oss/pixi-sbom
-  (`upstream`), where CI runs; sync `main` from `upstream/main`
+- work on branches in millsks/pixi-sbom (`origin`) and open PRs against its `main`; sync `main` from `origin/main`
 
-- merge with `gh pr merge <n> --repo aesir-oss/pixi-sbom --squash --admin --delete-branch` (squash is the
+- merge with `gh pr merge <n> --repo millsks/pixi-sbom --squash --admin --delete-branch` (squash is the
   convention; `--admin` because `main`'s ruleset wants an approving review)
 - PR bodies state what was measured, not just what changed
 - gate the merge on the checks' result, counted after the watch ends: merge only when no check is non-passing. Never

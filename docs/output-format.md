@@ -391,7 +391,7 @@ A name matches when it is the stem followed by nothing, a `.`, a `-` or a `_`: `
 that is the library itself (`libwebp-base`, `libzlib`): its files are the library, not a bundled copy.
 
 Each library found is a component with `pixi:kind=embedded`, a `pkg:generic/<library>@<version>` purl, the CPE the
-[CPE table](https://aesir-oss.github.io/pixi-sbom/latest/development/#the-cpe-table) gives that library, `pixi:embedded-sbom=bundled:<file>` (several, separated
+[CPE table](https://millsks.github.io/pixi-sbom/latest/development/#the-cpe-table) gives that library, `pixi:embedded-sbom=bundled:<file>` (several, separated
 by `;`, when more than one file holds the same version), the files as `evidence.occurrences`, and an edge from each
 package that ships it. **This is an inventory of the libraries above, not of everything a binary contains**: a
 library linked in statically, or one not in the table, is not found, and a scanner's binary analysis still has a

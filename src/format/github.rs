@@ -20,7 +20,7 @@ use crate::scope::Scope;
 use super::WriteContext;
 
 /// Where the detector links to.
-const DETECTOR_URL: &str = "https://github.com/aesir-oss/pixi-sbom";
+const DETECTOR_URL: &str = "https://github.com/millsks/pixi-sbom";
 
 #[derive(Debug, Serialize)]
 pub struct Snapshot {

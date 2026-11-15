@@ -10,7 +10,7 @@ Nothing needs installing beyond pixi-sbom itself ([Installation](installation.md
 with a clone:
 
 ```sh
-git clone https://github.com/aesir-oss/pixi-sbom
+git clone https://github.com/millsks/pixi-sbom
 cd pixi-sbom
 ```
 

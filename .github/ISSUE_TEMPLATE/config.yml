@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: Documentation
-    url: https://aesir-oss.github.io/pixi-sbom/
+    url: https://millsks.github.io/pixi-sbom/
     about: "Each extension's documentation: guides, command-line and output references, and troubleshooting"

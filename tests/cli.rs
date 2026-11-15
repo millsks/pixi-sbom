@@ -111,7 +111,7 @@ fn help_lists_all_options() {
         .stdout(predicate::str::contains("--platform"))
         .stdout(predicate::str::contains("--all-environments"))
         .stdout(predicate::str::contains("--all-platforms"))
-        .stdout(predicate::str::contains("https://aesir-oss.github.io/pixi-sbom/"));
+        .stdout(predicate::str::contains("https://millsks.github.io/pixi-sbom/"));
 }
 
 #[test]
@@ -10834,7 +10834,7 @@ fn help_sections_are_rules_set_apart_by_blank_lines() {
             );
         }
         assert!(!help.contains("\nOptions:") && !help.contains("\nInput:"), "{flag}");
-        assert!(help.contains("Documentation: https://aesir-oss.github.io/pixi-sbom/"));
+        assert!(help.contains("Documentation: https://millsks.github.io/pixi-sbom/"));
     }
 }
 

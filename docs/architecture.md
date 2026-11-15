@@ -213,7 +213,7 @@ on; with `default-features = false` and the read features for those three format
 crate list itself is a four-field JSON schema, so `auditable-serde` is not needed on top of it.
 
 **pixi as the only task runner.** Cargo is never invoked directly in docs, hooks, or CI; every command goes through
-a `pixi run` task so the toolchain is the pinned one from `pixi.lock`. See [development.md](https://aesir-oss.github.io/pixi-sbom/latest/development/).
+a `pixi run` task so the toolchain is the pinned one from `pixi.lock`. See [development.md](https://millsks.github.io/pixi-sbom/latest/development/).
 
 ## Adding a format
 

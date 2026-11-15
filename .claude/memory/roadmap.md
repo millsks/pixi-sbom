@@ -318,8 +318,8 @@ repositories from PyPI project_urls for poetry.lock / pdm.lock.
 2026-10-11: moved to `aesir-oss/pixi-ext-contrib`, a Cargo workspace for pixi extensions (pixi-sbom first, pixi-policy
 next). The move shipped as its own release, 1.12.0, with no behaviour change but the tool URL in SBOMs, cut before any
 feature work so a release candidate could only find migration problems; rc.1's archives failed to sign (an archive
-name still prefixed `pixi-sbom-` to the new tag), fixed in #33. The action is published from `aesir-oss/pixi-sbom-action`,
-the hooks from `aesir-oss/pixi-sbom-pre-commit`, both synced on release. The 1.12.0 and 1.13.0 milestones keep their
+name still prefixed `pixi-sbom-` to the new tag), fixed in #33. The action is published from `millsks/pixi-sbom-action`,
+the hooks from `millsks/pixi-sbom-pre-commit`, both synced on release. The 1.12.0 and 1.13.0 milestones keep their
 features (#23, #24, #29, #30; #25, #31) for after the move is validated. pixi-policy will take over the license gate:
 deprecate `--deny-license` in 1.13, remove it in 2.0.
 
@@ -351,6 +351,10 @@ aesir-oss/pixi-policy), then pixi-sbom to aesir-oss/pixi-sbom, with its full his
 the crate back at the root and the shared code folded back in. Releases are tagged `vX.Y.Z` again, the first from the
 new repository being 1.13.2. Every earlier release was copied here, and aesir-oss/pixi-ext-contrib was deleted
 (2026-10-14). Issue numbers in this file from 2026-10-11 to the split refer to aesir-oss/pixi-ext-contrib.
+
+2026-11: aesir-oss/pixi-sbom, pixi-sbom-action and pixi-sbom-pre-commit were transferred to millsks; the original
+millsks/pixi-sbom was renamed millsks/pixi-sbom.org to free the name. Releases 1.13.2 to 1.15.1-rc.1 are signed as
+aesir-oss/pixi-sbom.
 
 1.14.0 (2026-10-14): YAML read with serde-saphyr instead of serde_yaml, MSRV 1.89 (#23; rattler's own serde_yaml
 keeps #21 open), and the action installs every version from this repository's releases alone (#25).

@@ -26,7 +26,7 @@ expression: json()
           "externalReferences": [
             {
               "type": "vcs",
-              "url": "https://github.com/aesir-oss/pixi-sbom"
+              "url": "https://github.com/millsks/pixi-sbom"
             }
           ]
         }

@@ -110,7 +110,7 @@ the comparison in the job summary:
 ```yaml
 - uses: actions/download-artifact@v4   # the sboms artifact the main branch uploaded
   with: { name: sboms, path: previous }
-- uses: aesir-oss/pixi-sbom-action@v1
+- uses: millsks/pixi-sbom-action@v1
   with:
     diff-against: previous/sbom-default.cdx.json
     fail-on-diff: removed version    # adding a package is fine; losing or bumping one is not
@@ -162,13 +162,13 @@ See [reproducibility](output-format.md#reproducibility) for what the guarantee c
 
 ## pre-commit
 
-Two hooks, from the mirror repository [`aesir-oss/pixi-sbom-pre-commit`](https://github.com/aesir-oss/pixi-sbom-pre-commit):
+Two hooks, from the mirror repository [`millsks/pixi-sbom-pre-commit`](https://github.com/millsks/pixi-sbom-pre-commit):
 each of its tags installs the pixi-sbom wheel of the same version from PyPI, so nothing is compiled.
 
 ```yaml
 # .pre-commit-config.yaml
 repos:
-  - repo: https://github.com/aesir-oss/pixi-sbom-pre-commit
+  - repo: https://github.com/millsks/pixi-sbom-pre-commit
     rev: v1.7.0
     hooks:
       # Write sbom.cdx.json next to the lockfile whenever a lockfile changes.
