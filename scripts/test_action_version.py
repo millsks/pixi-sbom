@@ -73,8 +73,8 @@ class ActionVersionTest(unittest.TestCase):
         self.assertEqual(self.version(ACTION_REF="pixi-sbom-v0"), "0.12.0")
 
     def test_every_release_is_read_from_one_repository(self) -> None:
-        # aesir-oss/pixi-sbom holds every release as vX.Y.Z, those first made in millsks/pixi-sbom and
-        # aesir-oss/pixi-ext-contrib included, so one list answers for every era.
+        # millsks/pixi-sbom holds every release as vX.Y.Z, those first made in the original repository (now
+        # millsks/pixi-sbom.org) and aesir-oss/pixi-ext-contrib included, so one list answers for every era.
         root = Path(self.api.removeprefix("file://")).parent
         (root / "all").write_text(
             json.dumps([{"tag_name": t} for t in ["v1.14.0-rc.1", "v1.13.2", "v1.13.1", "v1.12.0", "v1.11.0", "v0.12.0"]])
@@ -86,13 +86,14 @@ class ActionVersionTest(unittest.TestCase):
         self.assertEqual(self.version(RELEASES_API=one, INPUT_VERSION="pixi-sbom-v1.13.1"), "1.13.1")
         self.assertEqual(self.version(RELEASES_API=one, ACTION_REF="v0"), "0.12.0")
 
-    def test_the_default_list_is_aesir_oss_pixi_sbom_only(self) -> None:
+    def test_the_default_list_is_millsks_pixi_sbom_only(self) -> None:
         text = SCRIPT.read_text()
-        self.assertIn('RELEASES_API:-https://api.github.com/repos/aesir-oss/pixi-sbom/releases}"', text)
-        self.assertNotIn("api.github.com/repos/millsks", text)
-        self.assertNotIn("api.github.com/repos/aesir-oss/pixi-ext-contrib", text)
+        self.assertIn('RELEASES_API:-https://api.github.com/repos/millsks/pixi-sbom/releases}"', text)
+        self.assertEqual(text.count("api.github.com/repos/"), 1)
+        self.assertNotIn("api.github.com/repos/aesir-oss", text)
+        self.assertNotIn("api.github.com/repos/millsks/pixi-sbom.org", text)
         action = (SCRIPT.parent / "action.yml").read_text()
-        self.assertIn('base="https://github.com/aesir-oss/pixi-sbom/releases/download/v${VERSION}"', action)
+        self.assertIn('base="https://github.com/millsks/pixi-sbom/releases/download/v${VERSION}"', action)
         self.assertNotIn("releases/download/pixi-sbom-v", action)
 
     def test_branch_takes_latest(self) -> None:

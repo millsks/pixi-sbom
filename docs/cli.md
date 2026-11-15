@@ -1030,7 +1030,7 @@ A list is a response only when every word in it is one, so `ID:exploitable:updat
 The assessment dates, `analysis.firstIssued` and `analysis.lastUpdated`, are not written. pixi-sbom keeps no
 history of your assessments, so the only date it could put there is the run's, which says when the claim was
 re-asserted, not when it was made or changed. They need a source that records them, such as an assessments file
-kept beside the lockfile ([#21](https://github.com/aesir-oss/pixi-sbom/issues/21)); until one exists, a VEX consumer should treat the document's own timestamp as the date
+kept beside the lockfile ([#21](https://github.com/millsks/pixi-sbom/issues/21)); until one exists, a VEX consumer should treat the document's own timestamp as the date
 of every assessment in it.
 
 An id that matches nothing is logged at debug level and

@@ -48,7 +48,7 @@ pixi sbom --fetch-licenses --deny-license GPL-3.0-only --require-license   # a l
 
 -   **[GitHub Action](github-action.md)**
 
-    `uses: aesir-oss/pixi-sbom-action@v1`: inputs, outputs, the policy gate, a worked example.
+    `uses: millsks/pixi-sbom-action@v1`: inputs, outputs, the policy gate, a worked example.
 
 -   **[CI recipes](ci-recipes.md)**
 
@@ -71,5 +71,5 @@ environment scans as clean no matter what it contains. `pixi sbom` gives conda-f
 identity from the same mapping pixi uses, fetches licenses for every package kind from the package cache, the channel
 archive or the wheel, and produces byte-identical documents under `SOURCE_DATE_EPOCH` so CI can diff them.
 
-Contributors: the [architecture](architecture.md) and [development](https://aesir-oss.github.io/pixi-sbom/latest/development/) pages describe the pipeline, the
+Contributors: the [architecture](architecture.md) and [development](https://millsks.github.io/pixi-sbom/latest/development/) pages describe the pipeline, the
 modules and the change harness. Releases are listed in the [changelog](changelog.md).

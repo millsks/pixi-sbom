@@ -1,8 +1,8 @@
 # GitHub Action
 
-Published as [aesir-oss/pixi-sbom-action](https://github.com/aesir-oss/pixi-sbom-action), from
-[`actions/pixi-sbom`](https://github.com/aesir-oss/pixi-sbom/tree/main/actions/pixi-sbom) in this repository.
-`uses: millsks/pixi-sbom@v1`, the action's original home, keeps working.
+Published as [millsks/pixi-sbom-action](https://github.com/millsks/pixi-sbom-action), from
+[`actions/pixi-sbom`](https://github.com/millsks/pixi-sbom/tree/main/actions/pixi-sbom) in this repository.
+The action's original `uses: millsks/pixi-sbom@v1` no longer works; use `millsks/pixi-sbom-action@v1`.
 
 The action downloads the pinned release binary for the runner (verifying the
 checksum), runs it, and uploads the documents as a workflow artifact; pixi itself is not needed, and neither is
@@ -10,7 +10,7 @@ checksum), runs it, and uploads the documents as a workflow artifact; pixi itsel
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: aesir-oss/pixi-sbom-action@v1
+- uses: millsks/pixi-sbom-action@v1
   with:
     all-environments: "true"
     fetch-licenses: "true"
@@ -35,14 +35,14 @@ Nothing about the action needs pixi, so a project that does not use it needs not
 ```yaml
 - uses: actions/checkout@v4
 # A uv project: the lockfile is found by the upward search, or named.
-- uses: aesir-oss/pixi-sbom-action@v1
+- uses: millsks/pixi-sbom-action@v1
   with:
     lockfile: uv.lock
     fetch-licenses: "true"
     vulnerabilities: osv
 # What is actually installed: the venv this job built, checked against the lock.
 - run: uv sync --frozen
-- uses: aesir-oss/pixi-sbom-action@v1
+- uses: millsks/pixi-sbom-action@v1
   with:
     prefix: .venv
     output: sbom-installed
@@ -97,7 +97,7 @@ warning like the others), and `--min-quality` fails the step with exit code 10. 
 contain spaces, because the value is split on whitespace.
 
 ```yaml
-- uses: aesir-oss/pixi-sbom-action@v1
+- uses: millsks/pixi-sbom-action@v1
   with:
     from-sbom: vendor/sbom.cdx.json
     vulnerabilities: osv
@@ -114,7 +114,7 @@ The `from-sbom` input takes one file; to merge several documents into one, give 
 ## Without the action
 
 The binary has no runtime dependencies, so any job can download it from the
-[releases page](https://github.com/aesir-oss/pixi-sbom/releases) and run it, or install it with pixi:
+[releases page](https://github.com/millsks/pixi-sbom/releases) and run it, or install it with pixi:
 
 ```yaml
 - uses: prefix-dev/setup-pixi@v0.8.1
@@ -144,7 +144,7 @@ permissions:
   security-events: write
 steps:
   - uses: actions/checkout@v4
-  - uses: aesir-oss/pixi-sbom-action@v1
+  - uses: millsks/pixi-sbom-action@v1
     with:
       pypi-mapping: prefix
       vulnerabilities: osv
@@ -175,7 +175,7 @@ permissions:
   contents: write
 steps:
   - uses: actions/checkout@v4
-  - uses: aesir-oss/pixi-sbom-action@v1
+  - uses: millsks/pixi-sbom-action@v1
     with:
       pypi-mapping: prefix
       dependency-submission: "true"
@@ -184,7 +184,7 @@ steps:
 Each environment and platform is submitted under its own correlator, so a run with `all-environments` keeps every
 environment in the graph. This repository submits its own environments this way, on every push to `main` that
 changes the lockfile or the action:
-[`dependency-graph.yml`](https://github.com/aesir-oss/pixi-sbom/blob/main/.github/workflows/dependency-graph.yml). The submission is a second run of the same inputs with `--format github`; the document,
+[`dependency-graph.yml`](https://github.com/millsks/pixi-sbom/blob/main/.github/workflows/dependency-graph.yml). The submission is a second run of the same inputs with `--format github`; the document,
 gates and artifact of the first are unchanged.
 
 ## Signed SBOMs
@@ -206,7 +206,7 @@ permissions:
   attestations: write
 steps:
   - uses: actions/checkout@v4
-  - uses: aesir-oss/pixi-sbom-action@v1
+  - uses: millsks/pixi-sbom-action@v1
     with:
       attest: "true"
 ```
@@ -228,7 +228,7 @@ list that is known to trip (`Python-2.0`) proves the `policy-violated` output wi
 second step with a satisfiable policy proves exit 0:
 
 ```yaml
-- uses: aesir-oss/pixi-sbom-action@v1
+- uses: millsks/pixi-sbom-action@v1
   id: sbom
   with:
     all-environments: "true"

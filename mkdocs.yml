@@ -1,8 +1,8 @@
 site_name: pixi-sbom
 site_description: CycloneDX and SPDX Software Bills of Materials from pixi.lock
-site_url: https://aesir-oss.github.io/pixi-sbom/
-repo_url: https://github.com/aesir-oss/pixi-sbom
-repo_name: aesir-oss/pixi-sbom
+site_url: https://millsks.github.io/pixi-sbom/
+repo_url: https://github.com/millsks/pixi-sbom
+repo_name: millsks/pixi-sbom
 edit_uri: edit/main/docs/
 copyright: Apache-2.0 licensed · Aesir Open Source Solutions
 
@@ -130,7 +130,7 @@ extra:
     default: latest
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/aesir-oss/pixi-sbom
+      link: https://github.com/millsks/pixi-sbom
 
 extra_javascript:
   - javascripts/lab-progress.js

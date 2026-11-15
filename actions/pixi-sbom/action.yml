@@ -295,9 +295,9 @@ runs:
       run: |
         set -euo pipefail
         name="pixi-sbom-v${VERSION}-${PLATFORM}"
-        # Every release, including those first made in millsks/pixi-sbom and aesir-oss/pixi-ext-contrib, is in
-        # aesir-oss/pixi-sbom, tagged vX.Y.Z.
-        base="https://github.com/aesir-oss/pixi-sbom/releases/download/v${VERSION}"
+        # Every release, including those first made in the original millsks/pixi-sbom (now millsks/pixi-sbom.org) and
+        # aesir-oss/pixi-ext-contrib, is in millsks/pixi-sbom, tagged vX.Y.Z.
+        base="https://github.com/millsks/pixi-sbom/releases/download/v${VERSION}"
         dir="${RUNNER_TEMP}/pixi-sbom-install/${name}"
         # The action may run several times in one job; reuse an install of the same version.
         if ls "$dir/bin"/pixi-sbom* >/dev/null 2>&1; then

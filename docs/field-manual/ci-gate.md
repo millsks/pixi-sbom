@@ -60,7 +60,7 @@ permissions:
   security-events: write   # for upload-sarif
 steps:
   - uses: actions/checkout@v4
-  - uses: aesir-oss/pixi-sbom-action@v1
+  - uses: millsks/pixi-sbom-action@v1
     with:
       platform: linux-64
       pypi-mapping: prefix

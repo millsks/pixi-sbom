@@ -9,7 +9,7 @@ Everything runs through [pixi](https://pixi.sh). `pixi.toml` pins the Rust toolc
 every task; `Cargo.toml` describes the crate. You do not need rustup or a system Rust.
 
 ```sh
-git clone https://github.com/aesir-oss/pixi-sbom
+git clone https://github.com/millsks/pixi-sbom
 cd pixi-sbom
 pixi install          # rust, cargo-llvm-cov, pre-commit, taplo, typos, git-cliff, ...
 pixi run bootstrap    # installs the git pre-commit and commit-msg hooks
@@ -302,7 +302,7 @@ script.
 ## The GitHub Action
 
 `actions/pixi-sbom/action.yml` is a composite action, published on each release to
-[aesir-oss/pixi-sbom-action](https://github.com/aesir-oss/pixi-sbom-action) (see the release steps): it resolves the version (the action's own tag, an
+[millsks/pixi-sbom-action](https://github.com/millsks/pixi-sbom-action) (see the release steps): it resolves the version (the action's own tag, an
 explicit `version` input, or the latest release), downloads the matching release archive and its `.sha256`,
 verifies it, puts the binary on `PATH`, maps the inputs to CLI flags and runs it, then uploads the output with
 `actions/upload-artifact`. The `sbom` job in `ci.yml` dogfoods it on **all five release platforms** with the
@@ -352,7 +352,7 @@ A newer push to a pull request cancels its running CI; on `main` every commit's 
 The per-pull-request run cannot see an advisory published after a merge, and the weekly one is what catches it:
 nothing about the repository changes and one day the answer is different.
 
-`.github/workflows/docs.yml` publishes the site to GitHub Pages (https://aesir-oss.github.io/pixi-sbom/) every time
+`.github/workflows/docs.yml` publishes the site to GitHub Pages (https://millsks.github.io/pixi-sbom/) every time
 a release is published, building from the release tag so the site matches the released binary. The site is versioned
 with [mike](https://github.com/jimporter/mike) the way pixi's own docs are: each release deploys under its tag
 (`/v1.13.2/`), `latest` is an alias of the newest final release and the root opens it, so links should use
@@ -433,10 +433,10 @@ final, the action repository (tagged `vX.Y.Z`, `v1` moved, and a release there t
 and the pre-commit mirror. One operator action, two runs. A final release is this
 repository's *Latest*; a release candidate never is.
 
-Releases are tagged `vX.Y.Z`. Those up to 1.11.x were made in millsks/pixi-sbom and those from 1.12.0 to 1.13.1 in
-aesir-oss/pixi-ext-contrib (tagged `pixi-sbom-vX.Y.Z` there); their tags are carried here as `vX.Y.Z`, and their
-GitHub releases were copied here with every asset, the signed `.sigstore.json` bundles included, so this repository
-is the only release source the action and the install docs use. Their attestations still name the repository that
+Releases are tagged `vX.Y.Z`. Those up to 1.11.x were made in the original millsks/pixi-sbom (now
+millsks/pixi-sbom.org) and those from 1.12.0 to 1.13.1 in aesir-oss/pixi-ext-contrib (tagged `pixi-sbom-vX.Y.Z`
+there); their tags are carried here as `vX.Y.Z`, and their GitHub releases were copied here with every asset, the
+signed `.sigstore.json` bundles included, so this repository is the only release source the action and the install docs use. Their attestations still name the repository that
 built them; [Installation](installation.md) shows the offline check against the bundle.
 
 `release.yml` inputs:

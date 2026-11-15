@@ -17,7 +17,7 @@ pixi-sbom is a Rust pixi extension (`pixi-sbom` binary -> `pixi sbom`). Decision
 From 2026-10-11 to the split (aesir-oss/pixi-ext-contrib#131, October 2026) the crate lived in the
 `aesir-oss/pixi-ext-contrib` Cargo workspace beside pixi-policy, sharing license normalization, the license verdict,
 the lockfile facts, purl builders, terminal styling and pipe handling through a `pixi-ext-common` crate. It is a
-single crate again, in `aesir-oss/pixi-sbom`: `license.rs`, `style.rs` and `pipe.rs` are back in `src/`, and the
+single crate again, in `aesir-oss/pixi-sbom` (now `millsks/pixi-sbom`): `license.rs`, `style.rs` and `pipe.rs` are back in `src/`, and the
 purl builders, the verdict and the lockfile facts are the `core`, `verdict` and `facts` modules of `purl.rs`,
 `policy.rs` and `lock.rs`. pixi-policy keeps its own copy; nothing keeps the two in step. Nothing is published to
 crates.io (#106, decided 2026-10-11): conda-forge, PyPI and the release archives all build from this repository, and

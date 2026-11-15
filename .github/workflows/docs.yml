@@ -142,7 +142,7 @@ jobs:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
         run: |
           set -euo pipefail
-          base="${PAGE_URL:-https://aesir-oss.github.io/pixi-sbom/}"
+          base="${PAGE_URL:-https://millsks.github.io/pixi-sbom/}"
           url="${base%/}/versions.json"
           attempts=10
           for attempt in $(seq 1 "$attempts"); do

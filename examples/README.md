@@ -106,7 +106,7 @@ tree keeps only what an installed environment is read from: `conda-meta/` record
 
 ## Trying them
 
-The documentation site has a guided tour of these: [Try it on the examples](https://aesir-oss.github.io/pixi-ext-contrib/latest/try-the-examples/),
+The documentation site has a guided tour of these: [Try it on the examples](https://millsks.github.io/pixi-sbom/latest/try-the-examples/),
 one feature at a time, every command tested. A few to start with:
 
 ```sh

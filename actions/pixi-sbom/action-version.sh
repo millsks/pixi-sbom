@@ -8,11 +8,11 @@
 #   GH_TOKEN       optional, for the GitHub API rate limit
 #   RELEASES_API   space-separated release-list URLs, overridable so the test can use fixtures
 #
-# Every release is in aesir-oss/pixi-sbom, tagged vX.Y.Z: those first made in millsks/pixi-sbom (up to 1.11.x) and
-# aesir-oss/pixi-ext-contrib (1.12.0 to 1.13.1) were copied there, assets and all.
+# Every release is in millsks/pixi-sbom, tagged vX.Y.Z: those first made in the original millsks/pixi-sbom (up to
+# 1.11.x, now millsks/pixi-sbom.org) and aesir-oss/pixi-ext-contrib (1.12.0 to 1.13.1) were copied there, assets and all.
 set -euo pipefail
 
-apis="${RELEASES_API:-https://api.github.com/repos/aesir-oss/pixi-sbom/releases}"
+apis="${RELEASES_API:-https://api.github.com/repos/millsks/pixi-sbom/releases}"
 
 fetch() {
   if [ -n "${GH_TOKEN:-}" ]; then

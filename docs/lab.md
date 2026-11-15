@@ -13,7 +13,7 @@ results as everyone else, and so do you. Every expected output below is checked 
 You need pixi-sbom ([Installation](installation.md)) and a copy of the repository:
 
 ```sh
-git clone https://github.com/aesir-oss/pixi-sbom
+git clone https://github.com/millsks/pixi-sbom
 cd pixi-sbom
 export PIXI_SBOM_OFFLINE=1 PIXI_SBOM_CACHE_DIR="$PWD/examples/lab-cache"
 ```
